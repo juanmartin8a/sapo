@@ -7,12 +7,12 @@ import {
   Keyboard,
   Platform,
   ScrollView,
+  Text,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function Home() {
   const [text, setText] = useState("");
-  // const [inputHeight, setInputHeight] = useState(56);
   const insets = useSafeAreaInsets();
 
   const dismissKeyboard = () => {
@@ -24,7 +24,11 @@ export default function Home() {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-        <View style={[styles.header, {height: 60 + insets.top}]}></View>
+        <View style={[styles.header, {height: 60 + insets.top, paddingTop: insets.top}]}>
+            <Text style={styles.titleText}>
+                {"Sapo"}
+            </Text>
+        </View>
         <View style={styles.innerContainer}>
           <TextInput
             style={styles.textInput}
@@ -32,6 +36,7 @@ export default function Home() {
             value={text}
             // onChangeText={handleTextChange}
             onChangeText={setText}
+            scrollEnabled={true}
             
             // scrollEnabled={false}
             placeholder="Type something..."
@@ -51,14 +56,20 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
   },
+  titleText: {
+    fontSize: 20,
+    // backgroundColor: "blue",
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
   scrollContent: {
     flexGrow: 1, // Ensures scrolling even with small content
   },
   header: {
     width: '100%',
-    backgroundColor: "red",
+    // backgroundColor: "red",
     // paddingVertical: 30,
-    // alignItems: "flex-end", // Align to the right
+    justifyContent: 'center'
   },
   innerContainer: {
     flex: 1,
