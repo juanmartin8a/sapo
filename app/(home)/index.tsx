@@ -9,7 +9,7 @@ import {
     Animated,
     Dimensions,
 } from "react-native";
-import { GestureHandlerRootView, PanGestureHandler, PanGestureHandlerGestureEvent, TextInput } from "react-native-gesture-handler";
+import { GestureHandlerRootView, HandlerStateChangeEvent, PanGestureHandler, PanGestureHandlerGestureEvent, TextInput } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -19,7 +19,8 @@ export default function Home() {
     const [text, setText] = useState("");
     const insets = useSafeAreaInsets();
     const textInputRef = useRef(null);
-    const [isSliding, setIsSliding] = useState(false);
+    const [isMoving, setIsMoving] = useState(false);
+    const [slideSideBar, setSlideSideBar] = useState<boolean | null>(null);
     const sideBarTranslationX = useRef(new Animated.Value(0)).current;
 
     const dismissKeyboard = () => {
@@ -27,16 +28,61 @@ export default function Home() {
     };
 
     const handleGestureEvent = (event: PanGestureHandlerGestureEvent) => {
-        const { translationY, translationX } = event.nativeEvent;
-        setIsSliding(translationX > 0 || translationY > 0)
-        console.log(translationX)
-        if (translationX > 5) {
-            sideBarTranslationX.setValue(translationX - 5) 
+        const { translationY, translationX, velocityX } = event.nativeEvent;
+        setIsMoving(translationX > 0 || translationY > 0)
+
+        if (translationX > 10 && sideBarTranslationX._value <= SIDEBAR_WIDTH) {
+            sideBarTranslationX.setValue(translationX - 10) 
+        } else if (translationX < -10 && sideBarTranslationX._value > 0) {
+            sideBarTranslationX.setValue(SIDEBAR_WIDTH + (translationX + 10))
+        }
+
+        if (velocityX > 10) {
+            setSlideSideBar(true);
+        } else if (velocityX < -10) {
+            setSlideSideBar(false)
         }
     };
 
     const handleGestureEnd = () => {
-        setIsSliding(false);
+        setIsMoving(false);
+
+        if (slideSideBar === true) {
+            Animated.timing(sideBarTranslationX, {
+                toValue: SIDEBAR_WIDTH,
+                duration: 100,
+                useNativeDriver: true,
+            }).start()
+            setSlideSideBar(null)
+            return
+        } else if (slideSideBar === false) {  
+            Animated.timing(sideBarTranslationX, {
+                toValue: 0,
+                duration: 100,
+                useNativeDriver: true,
+            }).start()
+            setSlideSideBar(null)
+            return
+        }
+        
+        if (sideBarTranslationX._value !== 0 && sideBarTranslationX._value !== SIDEBAR_WIDTH) {
+            if (sideBarTranslationX._value > SIDEBAR_WIDTH * 0.25) {
+                Animated.timing(sideBarTranslationX, {
+                    toValue: SIDEBAR_WIDTH,
+                    duration: 100,
+                    useNativeDriver: true,
+                }).start()
+                // .start(() => {
+                //     setIsSidebarOpen(shouldOpen);
+                // });
+            } else {
+                Animated.timing(sideBarTranslationX, {
+                    toValue: 0,
+                    duration: 100,
+                    useNativeDriver: true,
+                }).start()
+            }
+        }
     };
 
     return (
@@ -86,7 +132,7 @@ export default function Home() {
                                 returnKeyType="done"
                                 submitBehavior="blurAndSubmit" 
                                 onSubmitEditing={dismissKeyboard}
-                                editable={!isSliding}
+                                editable={!isMoving}
                             />
                         </View>
                     </Animated.View>
