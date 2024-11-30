@@ -19,8 +19,8 @@ export default function Home() {
     const [text, setText] = useState("");
     const insets = useSafeAreaInsets();
     const textInputRef = useRef(null);
-    const isMoving = useRef(false);
-    const [slideSideBar, setSlideSideBar] = useState<boolean | null>(null);
+    const [isMoving, setIsMoving] = useState(false);
+    const slideSideBar = useRef<boolean | null>(null);
     const sideBarTranslationX = useRef(new Animated.Value(0)).current;
     let currentEndSideBarPos = useRef(0);
 
@@ -30,7 +30,7 @@ export default function Home() {
 
     const handleGestureEvent = (event: PanGestureHandlerGestureEvent) => {
         const { translationX, velocityX, velocityY } = event.nativeEvent;
-        isMoving.current = velocityX > 10 || velocityX < -10 || velocityY > 10 || velocityY < -10
+        setIsMoving(velocityX > 10 || velocityX < -10 || velocityY > 10 || velocityY < -10)
 
         let stillnessThreshold: number
         if (currentEndSideBarPos.current === 0) {
@@ -45,33 +45,35 @@ export default function Home() {
         sideBarTranslationX.setValue(newPosition);
 
         if (velocityX > 10) {
-            setSlideSideBar(true);
+            slideSideBar.current = true;
         } else if (velocityX < -10) {
-            setSlideSideBar(false)
+            slideSideBar.current = false;
         }
     };
 
     const handleGestureEnd = () => {
-        isMoving.current = false;
-
-        if (slideSideBar === true) {
+        if (slideSideBar.current === true) {
             Animated.timing(sideBarTranslationX, {
                 toValue: SIDEBAR_WIDTH,
                 duration: 100,
                 useNativeDriver: true,
-            }).start()
-            setSlideSideBar(null)
-            currentEndSideBarPos.current = SIDEBAR_WIDTH
+            }).start(() => {
+                slideSideBar.current = null
+                currentEndSideBarPos.current = SIDEBAR_WIDTH
+                setIsMoving(false)
+            })
             console.log("toromax: ",currentEndSideBarPos)
             return
-        } else if (slideSideBar === false) {  
+        } else if (slideSideBar.current=== false) {  
             Animated.timing(sideBarTranslationX, {
                 toValue: 0,
                 duration: 100,
                 useNativeDriver: true,
-            }).start()
-            setSlideSideBar(null)
-            currentEndSideBarPos.current = 0 
+            }).start(() => {
+                slideSideBar.current = null
+                currentEndSideBarPos.current = 0 
+                setIsMoving(false)
+            })
             return
         }
         
@@ -81,15 +83,19 @@ export default function Home() {
                     toValue: SIDEBAR_WIDTH,
                     duration: 100,
                     useNativeDriver: true,
-                }).start()
-                currentEndSideBarPos.current = SIDEBAR_WIDTH 
+                }).start(() => {
+                    currentEndSideBarPos.current = SIDEBAR_WIDTH 
+                    setIsMoving(false)
+                })
             } else {
                 Animated.timing(sideBarTranslationX, {
                     toValue: 0,
                     duration: 100,
                     useNativeDriver: true,
-                }).start()
-                currentEndSideBarPos.current = 0 
+                }).start(() => {
+                    currentEndSideBarPos.current = 0 
+                    setIsMoving(false)
+                })
             }
         }
     };
@@ -122,6 +128,7 @@ export default function Home() {
                                 transform: [{ translateX: sideBarTranslationX }],
                             }
                         ]}
+                        pointerEvents={isMoving ? "none" : undefined}
                     >
                         <View style={[styles.header, {height: 60 + insets.top, paddingTop: insets.top}]}>
                             <Text style={styles.titleText}>
@@ -141,7 +148,7 @@ export default function Home() {
                                 returnKeyType="done"
                                 submitBehavior="blurAndSubmit" 
                                 onSubmitEditing={dismissKeyboard}
-                                editable={!isMoving.current}
+                                editable={!isMoving}
                             />
                         </View>
                     </Animated.View>
