@@ -22,6 +22,7 @@ export default function Home() {
     const [isMoving, setIsMoving] = useState(false);
     const [slideSideBar, setSlideSideBar] = useState<boolean | null>(null);
     const sideBarTranslationX = useRef(new Animated.Value(0)).current;
+    let currentEndSideBarPos = useRef(0);
 
     const dismissKeyboard = () => {
         Keyboard.dismiss();
@@ -31,11 +32,9 @@ export default function Home() {
         const { translationY, translationX, velocityX } = event.nativeEvent;
         setIsMoving(translationX > 0 || translationY > 0)
 
-        if (translationX > 10 && sideBarTranslationX._value <= SIDEBAR_WIDTH) {
-            sideBarTranslationX.setValue(translationX - 10) 
-        } else if (translationX < -10 && sideBarTranslationX._value > 0) {
-            sideBarTranslationX.setValue(SIDEBAR_WIDTH + (translationX + 10))
-        }
+        const newPosition = Math.max(0, Math.min(SIDEBAR_WIDTH, currentEndSideBarPos.current + translationX));
+
+        sideBarTranslationX.setValue(newPosition);
 
         if (velocityX > 10) {
             setSlideSideBar(true);
@@ -54,6 +53,8 @@ export default function Home() {
                 useNativeDriver: true,
             }).start()
             setSlideSideBar(null)
+            currentEndSideBarPos.current = SIDEBAR_WIDTH
+            console.log("toromax: ",currentEndSideBarPos)
             return
         } else if (slideSideBar === false) {  
             Animated.timing(sideBarTranslationX, {
@@ -62,6 +63,7 @@ export default function Home() {
                 useNativeDriver: true,
             }).start()
             setSlideSideBar(null)
+            currentEndSideBarPos.current = 0 
             return
         }
         
@@ -72,6 +74,7 @@ export default function Home() {
                     duration: 100,
                     useNativeDriver: true,
                 }).start()
+                currentEndSideBarPos.current = SIDEBAR_WIDTH 
                 // .start(() => {
                 //     setIsSidebarOpen(shouldOpen);
                 // });
@@ -81,6 +84,7 @@ export default function Home() {
                     duration: 100,
                     useNativeDriver: true,
                 }).start()
+                currentEndSideBarPos.current = 0 
             }
         }
     };
