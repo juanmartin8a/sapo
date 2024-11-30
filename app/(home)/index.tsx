@@ -19,7 +19,7 @@ export default function Home() {
     const [text, setText] = useState("");
     const insets = useSafeAreaInsets();
     const textInputRef = useRef(null);
-    const [isMoving, setIsMoving] = useState(false);
+    const isMoving = useRef(false);
     const [slideSideBar, setSlideSideBar] = useState<boolean | null>(null);
     const sideBarTranslationX = useRef(new Animated.Value(0)).current;
     let currentEndSideBarPos = useRef(0);
@@ -29,10 +29,18 @@ export default function Home() {
     };
 
     const handleGestureEvent = (event: PanGestureHandlerGestureEvent) => {
-        const { translationY, translationX, velocityX } = event.nativeEvent;
-        setIsMoving(translationX > 0 || translationY > 0)
+        const { translationX, velocityX, velocityY } = event.nativeEvent;
+        isMoving.current = velocityX > 10 || velocityX < -10 || velocityY > 10 || velocityY < -10
 
-        const newPosition = Math.max(0, Math.min(SIDEBAR_WIDTH, currentEndSideBarPos.current + translationX));
+        let stillnessThreshold: number
+        if (currentEndSideBarPos.current === 0) {
+            stillnessThreshold = -10
+
+        } else if (currentEndSideBarPos.current === SIDEBAR_WIDTH) {
+            stillnessThreshold = 10
+        }
+
+        const newPosition = Math.max(0, Math.min(SIDEBAR_WIDTH, currentEndSideBarPos.current + (translationX + stillnessThreshold!)));
 
         sideBarTranslationX.setValue(newPosition);
 
@@ -44,7 +52,7 @@ export default function Home() {
     };
 
     const handleGestureEnd = () => {
-        setIsMoving(false);
+        isMoving.current = false;
 
         if (slideSideBar === true) {
             Animated.timing(sideBarTranslationX, {
@@ -75,9 +83,6 @@ export default function Home() {
                     useNativeDriver: true,
                 }).start()
                 currentEndSideBarPos.current = SIDEBAR_WIDTH 
-                // .start(() => {
-                //     setIsSidebarOpen(shouldOpen);
-                // });
             } else {
                 Animated.timing(sideBarTranslationX, {
                     toValue: 0,
@@ -136,7 +141,7 @@ export default function Home() {
                                 returnKeyType="done"
                                 submitBehavior="blurAndSubmit" 
                                 onSubmitEditing={dismissKeyboard}
-                                editable={!isMoving}
+                                editable={!isMoving.current}
                             />
                         </View>
                     </Animated.View>
