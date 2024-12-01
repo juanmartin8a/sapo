@@ -85,28 +85,6 @@ export default function Home() {
             })
             return
         }
-        
-        // if (sideBarTranslationX._value !== 0 && sideBarTranslationX._value !== SIDEBAR_WIDTH) {
-        //     if (sideBarTranslationX._value > SIDEBAR_WIDTH * 0.25) {
-        //         Animated.timing(sideBarTranslationX, {
-        //             toValue: SIDEBAR_WIDTH,
-        //             duration: 100,
-        //             useNativeDriver: true,
-        //         }).start(() => {
-        //             currentEndSideBarPos.current = SIDEBAR_WIDTH 
-        //             setIsMoving(false)
-        //         })
-        //     } else {
-        //         Animated.timing(sideBarTranslationX, {
-        //             toValue: 0,
-        //             duration: 100,
-        //             useNativeDriver: true,
-        //         }).start(() => {
-        //             currentEndSideBarPos.current = 0 
-        //             setIsMoving(false)
-        //         })
-        //     }
-        // }
     };
 
     return (
