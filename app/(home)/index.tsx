@@ -34,12 +34,11 @@ export default function Home() {
         setIsMoving(velocityX > 10 || velocityX < -10 || velocityY > 10 || velocityY < -10) // Used to disable TextInput editing
 
         let stillnessThreshold: number
-        if (!isSideBarPosAtEnd) {
+        if (!isSideBarPosAtEnd) { 
             stillnessThreshold = -10
         } else if (isSideBarPosAtEnd) {
             stillnessThreshold = 10
         }
-
 
         const newPosition = Math.max(0, Math.min(SIDEBAR_WIDTH, (isSideBarPosAtEnd ? SIDEBAR_WIDTH : 0) + (translationX + stillnessThreshold!)));
 
@@ -136,7 +135,7 @@ export default function Home() {
                                 returnKeyType="done"
                                 submitBehavior="blurAndSubmit" 
                                 onSubmitEditing={dismissKeyboard}
-                                editable={!isMoving}
+                                editable={!isMoving && sideBarTranslationX._value === 0}
                             />
                         </View>
                     </Animated.View>
