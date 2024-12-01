@@ -34,11 +34,12 @@ export default function Home() {
         setIsMoving(velocityX > 10 || velocityX < -10 || velocityY > 10 || velocityY < -10) // Used to disable TextInput editing
 
         let stillnessThreshold: number
-        if (isSideBarPosAtEnd) {
+        if (!isSideBarPosAtEnd) {
             stillnessThreshold = -10
-        } else if (!isSideBarPosAtEnd) {
+        } else if (isSideBarPosAtEnd) {
             stillnessThreshold = 10
         }
+
 
         const newPosition = Math.max(0, Math.min(SIDEBAR_WIDTH, (isSideBarPosAtEnd ? SIDEBAR_WIDTH : 0) + (translationX + stillnessThreshold!)));
 
