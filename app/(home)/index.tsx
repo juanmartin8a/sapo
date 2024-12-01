@@ -9,7 +9,7 @@ import {
     Animated,
     Dimensions,
 } from "react-native";
-import { GestureHandlerRootView, HandlerStateChangeEvent, PanGestureHandler, PanGestureHandlerGestureEvent, TextInput } from "react-native-gesture-handler";
+import { GestureHandlerRootView, PanGestureHandler, PanGestureHandlerGestureEvent, TextInput } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -20,9 +20,10 @@ export default function Home() {
     const insets = useSafeAreaInsets();
     const textInputRef = useRef(null);
     const [isMoving, setIsMoving] = useState(false);
+    const [isSideBarMoving, setIsSideBarMoving] = useState(false);
     const slideSideBar = useRef<boolean | null>(null);
     const sideBarTranslationX = useRef(new Animated.Value(0)).current;
-    let currentEndSideBarPos = useRef(0);
+    let [isSideBarPosAtEnd, setIsSideBarPosAtEnd] = useState(false);
 
     const dismissKeyboard = () => {
         Keyboard.dismiss();
@@ -30,23 +31,32 @@ export default function Home() {
 
     const handleGestureEvent = (event: PanGestureHandlerGestureEvent) => {
         const { translationX, velocityX, velocityY } = event.nativeEvent;
-        setIsMoving(velocityX > 10 || velocityX < -10 || velocityY > 10 || velocityY < -10)
+        setIsMoving(velocityX > 10 || velocityX < -10 || velocityY > 10 || velocityY < -10) // Used to disable TextInput editing
 
         let stillnessThreshold: number
-        if (currentEndSideBarPos.current === 0) {
+        if (isSideBarPosAtEnd) {
             stillnessThreshold = -10
-
-        } else if (currentEndSideBarPos.current === SIDEBAR_WIDTH) {
+        } else if (!isSideBarPosAtEnd) {
             stillnessThreshold = 10
         }
 
-        const newPosition = Math.max(0, Math.min(SIDEBAR_WIDTH, currentEndSideBarPos.current + (translationX + stillnessThreshold!)));
+        const newPosition = Math.max(0, Math.min(SIDEBAR_WIDTH, (isSideBarPosAtEnd ? SIDEBAR_WIDTH : 0) + (translationX + stillnessThreshold!)));
 
-        sideBarTranslationX.setValue(newPosition);
+        if (newPosition === 0 || newPosition === SIDEBAR_WIDTH) {
+            setIsSideBarPosAtEnd(newPosition === SIDEBAR_WIDTH)
+            setIsSideBarMoving(false);
+        } else {
+            setIsSideBarMoving(true);
+        }
 
-        if (velocityX > 10) {
+        if (newPosition !== sideBarTranslationX._value) {
+            sideBarTranslationX.setValue(newPosition);
+        }
+
+
+        if (velocityX >= 0 && slideSideBar.current !== true) {
             slideSideBar.current = true;
-        } else if (velocityX < -10) {
+        } else if (velocityX < 0 && slideSideBar.current !== false) {
             slideSideBar.current = false;
         }
     };
@@ -59,10 +69,9 @@ export default function Home() {
                 useNativeDriver: true,
             }).start(() => {
                 slideSideBar.current = null
-                currentEndSideBarPos.current = SIDEBAR_WIDTH
+                setIsSideBarPosAtEnd(true)
                 setIsMoving(false)
             })
-            console.log("toromax: ",currentEndSideBarPos)
             return
         } else if (slideSideBar.current=== false) {  
             Animated.timing(sideBarTranslationX, {
@@ -71,33 +80,33 @@ export default function Home() {
                 useNativeDriver: true,
             }).start(() => {
                 slideSideBar.current = null
-                currentEndSideBarPos.current = 0 
+                setIsSideBarPosAtEnd(false)
                 setIsMoving(false)
             })
             return
         }
         
-        if (sideBarTranslationX._value !== 0 && sideBarTranslationX._value !== SIDEBAR_WIDTH) {
-            if (sideBarTranslationX._value > SIDEBAR_WIDTH * 0.25) {
-                Animated.timing(sideBarTranslationX, {
-                    toValue: SIDEBAR_WIDTH,
-                    duration: 100,
-                    useNativeDriver: true,
-                }).start(() => {
-                    currentEndSideBarPos.current = SIDEBAR_WIDTH 
-                    setIsMoving(false)
-                })
-            } else {
-                Animated.timing(sideBarTranslationX, {
-                    toValue: 0,
-                    duration: 100,
-                    useNativeDriver: true,
-                }).start(() => {
-                    currentEndSideBarPos.current = 0 
-                    setIsMoving(false)
-                })
-            }
-        }
+        // if (sideBarTranslationX._value !== 0 && sideBarTranslationX._value !== SIDEBAR_WIDTH) {
+        //     if (sideBarTranslationX._value > SIDEBAR_WIDTH * 0.25) {
+        //         Animated.timing(sideBarTranslationX, {
+        //             toValue: SIDEBAR_WIDTH,
+        //             duration: 100,
+        //             useNativeDriver: true,
+        //         }).start(() => {
+        //             currentEndSideBarPos.current = SIDEBAR_WIDTH 
+        //             setIsMoving(false)
+        //         })
+        //     } else {
+        //         Animated.timing(sideBarTranslationX, {
+        //             toValue: 0,
+        //             duration: 100,
+        //             useNativeDriver: true,
+        //         }).start(() => {
+        //             currentEndSideBarPos.current = 0 
+        //             setIsMoving(false)
+        //         })
+        //     }
+        // }
     };
 
     return (
@@ -128,7 +137,7 @@ export default function Home() {
                                 transform: [{ translateX: sideBarTranslationX }],
                             }
                         ]}
-                        pointerEvents={isMoving ? "none" : undefined}
+                        pointerEvents={isSideBarMoving || isSideBarPosAtEnd ? "none" : undefined}
                     >
                         <View style={[styles.header, {height: 60 + insets.top, paddingTop: insets.top}]}>
                             <Text style={styles.titleText}>
