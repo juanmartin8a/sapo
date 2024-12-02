@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
     StyleSheet,
     View,
@@ -19,73 +19,77 @@ export default function Home() {
     const [text, setText] = useState("");
     const insets = useSafeAreaInsets();
     const textInputRef = useRef(null);
-    const [isMoving, setIsMoving] = useState(false);
-    const [isSideBarMoving, setIsSideBarMoving] = useState(false);
+    const [isTextInputScrolling, setIsTextInputScrolling] = useState(false);
+    // const [isMoving, setIsMoving] = useState(false);
     const slideSideBar = useRef<boolean | null>(null);
     const sideBarTranslationX = useRef(new Animated.Value(0)).current;
-    let [isSideBarPosAtEnd, setIsSideBarPosAtEnd] = useState(false);
+    let sideBarTranslationXValue = useRef(0)
+    const [isSideBarPosAtStart, setIsSideBarPosAtStart] = useState(true);
+    const isSideBarLastPosAtStart = useRef(true);
+    // const keyboardIsOpening = useRef()
 
     const dismissKeyboard = () => {
         Keyboard.dismiss();
     };
 
     const handleGestureEvent = (event: PanGestureHandlerGestureEvent) => {
-        const { translationX, velocityX, velocityY } = event.nativeEvent;
-        setIsMoving(velocityX > 10 || velocityX < -10 || velocityY > 10 || velocityY < -10) // Used to disable TextInput editing
+        const { translationX, velocityX } = event.nativeEvent;
 
-        let stillnessThreshold: number
-        if (!isSideBarPosAtEnd) { 
-            stillnessThreshold = -10
-        } else if (isSideBarPosAtEnd) {
-            stillnessThreshold = 10
-        }
+        if (!isTextInputScrolling) {
 
-        const newPosition = Math.max(0, Math.min(SIDEBAR_WIDTH, (isSideBarPosAtEnd ? SIDEBAR_WIDTH : 0) + (translationX + stillnessThreshold!)));
+            let stillnessThreshold: number
+            if (isSideBarLastPosAtStart.current) { 
+                stillnessThreshold = -12
+            } else if (!isSideBarLastPosAtStart.current) {
+                stillnessThreshold = 12
+            }
 
-        if (newPosition === 0 || newPosition === SIDEBAR_WIDTH) {
-            setIsSideBarPosAtEnd(newPosition === SIDEBAR_WIDTH)
-            setIsSideBarMoving(false);
-        } else {
-            setIsSideBarMoving(true);
-        }
+            const newPosition = Math.max(0, Math.min(SIDEBAR_WIDTH, (isSideBarLastPosAtStart.current ? 0 : SIDEBAR_WIDTH) + (translationX + stillnessThreshold!)));
 
-        if (newPosition !== sideBarTranslationX._value) {
             sideBarTranslationX.setValue(newPosition);
-        }
 
-
-        if (velocityX >= 0 && slideSideBar.current !== true) {
-            slideSideBar.current = true;
-        } else if (velocityX < 0 && slideSideBar.current !== false) {
-            slideSideBar.current = false;
+            if (velocityX >= 0 && slideSideBar.current !== true) {
+                slideSideBar.current = true;
+            } else if (velocityX < 0 && slideSideBar.current !== false) {
+                slideSideBar.current = false;
+            }
         }
     };
 
     const handleGestureEnd = () => {
-        if (slideSideBar.current === true) {
-            Animated.timing(sideBarTranslationX, {
+        if (sideBarTranslationXValue.current > 0 || sideBarTranslationXValue.current < SIDEBAR_WIDTH) {
+            if (slideSideBar.current === true) {
+                console.log("heyy")
+                Animated.timing(sideBarTranslationX, {
                 toValue: SIDEBAR_WIDTH,
                 duration: 100,
                 useNativeDriver: true,
-            }).start(() => {
-                slideSideBar.current = null
-                setIsSideBarPosAtEnd(true)
-                setIsMoving(false)
-            })
-            return
-        } else if (slideSideBar.current=== false) {  
-            Animated.timing(sideBarTranslationX, {
+                }).start()
+                return
+            } else if (slideSideBar.current === false) {  
+                Animated.timing(sideBarTranslationX, {
                 toValue: 0,
                 duration: 100,
                 useNativeDriver: true,
-            }).start(() => {
-                slideSideBar.current = null
-                setIsSideBarPosAtEnd(false)
-                setIsMoving(false)
-            })
-            return
+                }).start()
+                return
+            }
         }
     };
+
+    useEffect(() => {
+        const listenerId = sideBarTranslationX.addListener(({ value }) => {
+            console.log(value)
+            sideBarTranslationXValue.current = value;
+            setIsSideBarPosAtStart(value === 0)
+            if (value === 0 || value === SIDEBAR_WIDTH) {
+                isSideBarLastPosAtStart.current = value === 0
+                slideSideBar.current = null;
+            }
+        });
+
+        return () => sideBarTranslationX.removeListener(listenerId); // Cleanup
+    });
 
     return (
         <KeyboardAvoidingView
@@ -115,7 +119,6 @@ export default function Home() {
                                 transform: [{ translateX: sideBarTranslationX }],
                             }
                         ]}
-                        pointerEvents={isSideBarMoving || isSideBarPosAtEnd ? "none" : undefined}
                     >
                         <View style={[styles.header, {height: 60 + insets.top, paddingTop: insets.top}]}>
                             <Text style={styles.titleText}>
@@ -127,16 +130,25 @@ export default function Home() {
                                 ref={textInputRef}
                                 style={[styles.textInput, {height: '100%'}]}
                                 multiline
-                                value={text}
+                                // value={text}
+                                value="saposaposapos aposaposaposapos aposaposaps paspaosapsapos paosoaospoa pspasopaospaospas oapospasopaospao spaospaospao sapospaospaos paospaosp aospaos wilfnvskjdhfv skhfvbskfjhv svcsufhkbsfb vshbvsef vsfhv sf bcvsf cvuhksgfebcvhwe cshbvshjkvs dvhsdfvbsdfbvshjbvshjdfkv sdvhsdfbvjhsdfbvjhsdfvbsfd vjhksb vhjbvkhsjfbvkjsf dvksdfh vjsfd vjhsbvsjdkf vbsdfvhksdfbvsdfbvsdfbvs efvkjsdbvhsbvjhksdfv bsfdvhbkjsdfbvkj vhkjsdfbvksv uhsdfbvkjsdf vjskfbhvsdfbv jksdf vhjsfdbvsdfj vj"
                                 onChangeText={setText}
                                 scrollEnabled={true}
+                                // onScroll={() => {setIsTextInputScrolling(true)}}
+                                // onTouchEnd={() => {
+                                //     setIsTextInputScrolling(false); console.log("hello there")
+                                // }}
                                 placeholder="Type something..."
                                 placeholderTextColor="#aaa"
                                 returnKeyType="done"
                                 submitBehavior="blurAndSubmit" 
                                 onSubmitEditing={dismissKeyboard}
-                                editable={!isMoving && sideBarTranslationX._value === 0}
+                                editable={(!isTextInputScrolling || Keyboard.isVisible()) && isSideBarPosAtStart}
                             />
+                            {
+                                !isSideBarPosAtStart &&
+                                <View style={styles.mainContentOverlay} pointerEvents="auto"/>
+                            }
                         </View>
                     </Animated.View>
                 </View>
@@ -155,6 +167,12 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: "#fff",
         zIndex: 2,
+    },
+    mainContentOverlay: {
+        position: "absolute",
+        width: "100%",
+        height: "100%",
+        // backgroundColor: "red",
     },
     titleText: {
         fontSize: 20,
