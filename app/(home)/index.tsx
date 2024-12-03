@@ -100,7 +100,7 @@ export default function Home() {
             <PanGestureHandler 
                 onGestureEvent={handleGestureEvent}
                 onEnded={handleGestureEnd}
-                simultaneousHandlers={textInputRef}
+                simultaneousHandlers={isSideBarPosAtStart ? textInputRef : undefined}
             >
                 <View style={{ flex: 1 }}>
                     <Animated.View
@@ -130,36 +130,32 @@ export default function Home() {
                                 ref={textInputRef}
                                 style={[styles.textInput, {height: '100%'}]}
                                 multiline
-                                // value={text}
                                 value="saposaposapos aposaposaposapos aposaposaps paspaosapsapos paosoaospoa pspasopaospaospas oapospasopaospao spaospaospao sapospaospaos paospaosp aospaos wilfnvskjdhfv skhfvbskfjhv svcsufhkbsfb vshbvsef vsfhv sf bcvsf cvuhksgfebcvhwe cshbvshjkvs dvhsdfvbsdfbvshjbvshjdfkv sdvhsdfbvjhsdfbvjhsdfvbsfd vjhksb vhjbvkhsjfbvkjsf dvksdfh vjsfd vjhsbvsjdkf vbsdfvhksdfbvsdfbvsdfbvs efvkjsdbvhsbvjhksdfv bsfdvhbkjsdfbvkj vhkjsdfbvksv uhsdfbvkjsdf vjskfbhvsdfbv jksdf vhjsfdbvsdfj vj"
                                 onChangeText={setText}
                                 scrollEnabled={true}
-                                // FIX THIS
-                                // onScroll={() => {setIsTextInputScrolling(true)}}
-                                // onTouchEnd={() => {
-                                //     setIsTextInputScrolling(false); console.log("hello there")
-                                // }}
                                 placeholder="Type something..."
                                 placeholderTextColor="#aaa"
+                                onScroll={() => {setIsTextInputScrolling(true)}}
+                                onTouchEnd={() => {setIsTextInputScrolling(false)}}
                                 returnKeyType="done"
                                 submitBehavior="blurAndSubmit" 
                                 onSubmitEditing={dismissKeyboard}
                                 editable={(!isTextInputScrolling || Keyboard.isVisible()) && isSideBarPosAtStart}
                             />
-                            {
-                                !isSideBarPosAtStart &&
-                                <TapGestureHandler maxDurationMs={2000} onEnded={() => {
-                                    Animated.timing(sideBarTranslationX, {
-                                        toValue: 0,
-                                        duration: 100,
-                                        useNativeDriver: true,
-                                    }).start()
-                                    return
-                                }}>
-                                    <View style={styles.mainContentOverlay}/>
-                                </TapGestureHandler>
-                            }
                         </View>
+                        {
+                            !isSideBarPosAtStart &&
+                            <TapGestureHandler maxDurationMs={2000} shouldCancelWhenOutside={false} onEnded={() => {
+                                Animated.timing(sideBarTranslationX, {
+                                    toValue: 0,
+                                    duration: 100,
+                                    useNativeDriver: true,
+                                }).start()
+                                return
+                            }}>
+                            <View style={styles.mainContentOverlay}/>
+                            </TapGestureHandler>
+                        }
                     </Animated.View>
                 </View>
             </PanGestureHandler>
