@@ -9,7 +9,7 @@ import {
     Animated,
     Dimensions,
 } from "react-native";
-import { GestureHandlerRootView, PanGestureHandler, PanGestureHandlerGestureEvent, TextInput } from "react-native-gesture-handler";
+import { GestureHandlerRootView, PanGestureHandler, PanGestureHandlerGestureEvent, TapGestureHandler, TextInput } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -134,6 +134,7 @@ export default function Home() {
                                 value="saposaposapos aposaposaposapos aposaposaps paspaosapsapos paosoaospoa pspasopaospaospas oapospasopaospao spaospaospao sapospaospaos paospaosp aospaos wilfnvskjdhfv skhfvbskfjhv svcsufhkbsfb vshbvsef vsfhv sf bcvsf cvuhksgfebcvhwe cshbvshjkvs dvhsdfvbsdfbvshjbvshjdfkv sdvhsdfbvjhsdfbvjhsdfvbsfd vjhksb vhjbvkhsjfbvkjsf dvksdfh vjsfd vjhsbvsjdkf vbsdfvhksdfbvsdfbvsdfbvs efvkjsdbvhsbvjhksdfv bsfdvhbkjsdfbvkj vhkjsdfbvksv uhsdfbvkjsdf vjskfbhvsdfbv jksdf vhjsfdbvsdfj vj"
                                 onChangeText={setText}
                                 scrollEnabled={true}
+                                // FIX THIS
                                 // onScroll={() => {setIsTextInputScrolling(true)}}
                                 // onTouchEnd={() => {
                                 //     setIsTextInputScrolling(false); console.log("hello there")
@@ -147,7 +148,16 @@ export default function Home() {
                             />
                             {
                                 !isSideBarPosAtStart &&
-                                <View style={styles.mainContentOverlay} pointerEvents="auto"/>
+                                <TapGestureHandler maxDurationMs={2000} onEnded={() => {
+                                    Animated.timing(sideBarTranslationX, {
+                                        toValue: 0,
+                                        duration: 100,
+                                        useNativeDriver: true,
+                                    }).start()
+                                    return
+                                }}>
+                                    <View style={styles.mainContentOverlay}/>
+                                </TapGestureHandler>
                             }
                         </View>
                     </Animated.View>
