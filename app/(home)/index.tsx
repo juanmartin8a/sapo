@@ -9,7 +9,7 @@ import {
     Animated,
     Dimensions,
 } from "react-native";
-import { GestureHandlerRootView, PanGestureHandler, PanGestureHandlerGestureEvent, TapGestureHandler, TextInput } from "react-native-gesture-handler";
+import { Gesture, GestureDetector, GestureHandlerRootView, PanGestureHandler, PanGestureHandlerGestureEvent, ScrollView, TapGestureHandler, TextInput } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -19,13 +19,14 @@ export default function Home() {
     const [text, setText] = useState("");
     const insets = useSafeAreaInsets();
     const textInputRef = useRef(null);
-    const [isTextInputScrolling, setIsTextInputScrolling] = useState(false);
-    // const [isMoving, setIsMoving] = useState(false);
+    const tapRef = useRef(null);
+    const [isTextInputScrolling, setIsTextInputScrolling] = useState<boolean>(false);
     const slideSideBar = useRef<boolean | null>(null);
     const sideBarTranslationX = useRef(new Animated.Value(0)).current;
     let sideBarTranslationXValue = useRef(0)
     const [isSideBarPosAtStart, setIsSideBarPosAtStart] = useState(true);
     const isSideBarLastPosAtStart = useRef(true);
+    const [isTouching, setIsTouching] = useState(false);
     // const keyboardIsOpening = useRef()
 
     const dismissKeyboard = () => {
@@ -34,6 +35,8 @@ export default function Home() {
 
     const handleGestureEvent = (event: PanGestureHandlerGestureEvent) => {
         const { translationX, velocityX } = event.nativeEvent;
+
+        // setIsTextInputScrolling(false)
 
         if (!isTextInputScrolling) {
 
@@ -57,6 +60,7 @@ export default function Home() {
     };
 
     const handleGestureEnd = () => {
+        // setIsTextInputScrolling(null)
         if (sideBarTranslationXValue.current > 0 || sideBarTranslationXValue.current < SIDEBAR_WIDTH) {
             if (slideSideBar.current === true) {
                 console.log("heyy")
@@ -79,7 +83,6 @@ export default function Home() {
 
     useEffect(() => {
         const listenerId = sideBarTranslationX.addListener(({ value }) => {
-            console.log(value)
             sideBarTranslationXValue.current = value;
             setIsSideBarPosAtStart(value === 0)
             if (value === 0 || value === SIDEBAR_WIDTH) {
@@ -100,7 +103,6 @@ export default function Home() {
             <PanGestureHandler 
                 onGestureEvent={handleGestureEvent}
                 onEnded={handleGestureEnd}
-                simultaneousHandlers={isSideBarPosAtStart ? textInputRef : undefined}
             >
                 <View style={{ flex: 1 }}>
                     <Animated.View
@@ -132,15 +134,16 @@ export default function Home() {
                                 multiline
                                 value="saposaposapos aposaposaposapos aposaposaps paspaosapsapos paosoaospoa pspasopaospaospas oapospasopaospao spaospaospao sapospaospaos paospaosp aospaos wilfnvskjdhfv skhfvbskfjhv svcsufhkbsfb vshbvsef vsfhv sf bcvsf cvuhksgfebcvhwe cshbvshjkvs dvhsdfvbsdfbvshjbvshjdfkv sdvhsdfbvjhsdfbvjhsdfvbsfd vjhksb vhjbvkhsjfbvkjsf dvksdfh vjsfd vjhsbvsjdkf vbsdfvhksdfbvsdfbvsdfbvs efvkjsdbvhsbvjhksdfv bsfdvhbkjsdfbvkj vhkjsdfbvksv uhsdfbvkjsdf vjskfbhvsdfbv jksdf vhjsfdbvsdfj vj"
                                 onChangeText={setText}
-                                scrollEnabled={true}
                                 placeholder="Type something..."
                                 placeholderTextColor="#aaa"
-                                onScroll={() => {setIsTextInputScrolling(true)}}
-                                onTouchEnd={() => {setIsTextInputScrolling(false)}}
+                                onResponderTerminate={() => {console.log("hello there")}}
+                                onResponderTerminationRequest={() => {console.log("hello there 2"); return true}}
                                 returnKeyType="done"
+                                onScroll={() => {setIsTextInputScrolling(true)}}
+                                onTouchEnd={() => setIsTextInputScrolling(false)}
                                 submitBehavior="blurAndSubmit" 
                                 onSubmitEditing={dismissKeyboard}
-                                editable={(!isTextInputScrolling || Keyboard.isVisible()) && isSideBarPosAtStart}
+                                editable={isSideBarPosAtStart && !isTextInputScrolling}
                             />
                         </View>
                         {
