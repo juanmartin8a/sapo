@@ -123,7 +123,7 @@ export default function Home() {
                                 ref={textInputRef}
                                 style={[styles.textInput, {height: '100%'}]}
                                 multiline
-                                value="saposaposapos aposaposaposapos aposaposaps paspaosapsapos paosoaospoa pspasopaospaospas oapospasopaospao spaospaospao sapospaospaos paospaosp aospaos wilfnvskjdhfv skhfvbskfjhv svcsufhkbsfb vshbvsef vsfhv sf bcvsf cvuhksgfebcvhwe cshbvshjkvs dvhsdfvbsdfbvshjbvshjdfkv sdvhsdfbvjhsdfbvjhsdfvbsfd vjhksb vhjbvkhsjfbvkjsf dvksdfh vjsfd vjhsbvsjdkf vbsdfvhksdfbvsdfbvsdfbvs efvkjsdbvhsbvjhksdfv bsfdvhbkjsdfbvkj vhkjsdfbvksv uhsdfbvkjsdf vjskfbhvsdfbv jksdf vhjsfdbvsdfj vj"
+                                value={text}
                                 onChangeText={setText}
                                 placeholder="Type something..."
                                 placeholderTextColor="#aaa"
