@@ -19,15 +19,12 @@ export default function Home() {
     const [text, setText] = useState("");
     const insets = useSafeAreaInsets();
     const textInputRef = useRef(null);
-    const tapRef = useRef(null);
-    const [isTextInputScrolling, setIsTextInputScrolling] = useState<boolean>(false);
+    const [isTextInputScrolling, setIsTextInputScrolling] = useState(false);
     const slideSideBar = useRef<boolean | null>(null);
     const sideBarTranslationX = useRef(new Animated.Value(0)).current;
     let sideBarTranslationXValue = useRef(0)
     const [isSideBarPosAtStart, setIsSideBarPosAtStart] = useState(true);
     const isSideBarLastPosAtStart = useRef(true);
-    const [isTouching, setIsTouching] = useState(false);
-    // const keyboardIsOpening = useRef()
 
     const dismissKeyboard = () => {
         Keyboard.dismiss();
@@ -35,8 +32,6 @@ export default function Home() {
 
     const handleGestureEvent = (event: PanGestureHandlerGestureEvent) => {
         const { translationX, velocityX } = event.nativeEvent;
-
-        // setIsTextInputScrolling(false)
 
         if (!isTextInputScrolling) {
 
@@ -60,10 +55,8 @@ export default function Home() {
     };
 
     const handleGestureEnd = () => {
-        // setIsTextInputScrolling(null)
         if (sideBarTranslationXValue.current > 0 || sideBarTranslationXValue.current < SIDEBAR_WIDTH) {
             if (slideSideBar.current === true) {
-                console.log("heyy")
                 Animated.timing(sideBarTranslationX, {
                 toValue: SIDEBAR_WIDTH,
                 duration: 100,
@@ -143,7 +136,7 @@ export default function Home() {
                                 onTouchEnd={() => setIsTextInputScrolling(false)}
                                 submitBehavior="blurAndSubmit" 
                                 onSubmitEditing={dismissKeyboard}
-                                editable={isSideBarPosAtStart && !isTextInputScrolling}
+                                editable={(!isTextInputScrolling || Keyboard.isVisible()) && isSideBarPosAtStart}
                             />
                         </View>
                         {
