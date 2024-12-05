@@ -19,7 +19,7 @@ export default function Home() {
     const [text, setText] = useState("");
     const insets = useSafeAreaInsets();
     const textInputRef = useRef(null);
-    const [isTextInputScrolling, setIsTextInputScrolling] = useState(false);
+    const [isTextInputScrolling, setIsTextInputScrolling] = useState<boolean | null>(null);
     const slideSideBar = useRef<boolean | null>(null);
     const sideBarTranslationX = useRef(new Animated.Value(0)).current;
     let sideBarTranslationXValue = useRef(0)
@@ -33,24 +33,22 @@ export default function Home() {
     const handleGestureEvent = (event: PanGestureHandlerGestureEvent) => {
         const { translationX, velocityX } = event.nativeEvent;
 
-        if (!isTextInputScrolling) {
 
-            let stillnessThreshold: number
-            if (isSideBarLastPosAtStart.current) { 
-                stillnessThreshold = -12
-            } else if (!isSideBarLastPosAtStart.current) {
-                stillnessThreshold = 12
-            }
+        let stillnessThreshold: number
+        if (isSideBarLastPosAtStart.current) { 
+            stillnessThreshold = -12
+        } else if (!isSideBarLastPosAtStart.current) {
+            stillnessThreshold = 12
+        }
 
-            const newPosition = Math.max(0, Math.min(SIDEBAR_WIDTH, (isSideBarLastPosAtStart.current ? 0 : SIDEBAR_WIDTH) + (translationX + stillnessThreshold!)));
+        const newPosition = Math.max(0, Math.min(SIDEBAR_WIDTH, (isSideBarLastPosAtStart.current ? 0 : SIDEBAR_WIDTH) + (translationX + stillnessThreshold!)));
 
-            sideBarTranslationX.setValue(newPosition);
+        sideBarTranslationX.setValue(newPosition);
 
-            if (velocityX >= 0 && slideSideBar.current !== true) {
-                slideSideBar.current = true;
-            } else if (velocityX < 0 && slideSideBar.current !== false) {
-                slideSideBar.current = false;
-            }
+        if (velocityX >= 0 && slideSideBar.current !== true) {
+            slideSideBar.current = true;
+        } else if (velocityX < 0 && slideSideBar.current !== false) {
+            slideSideBar.current = false;
         }
     };
 
@@ -132,8 +130,13 @@ export default function Home() {
                                 onResponderTerminate={() => {console.log("hello there")}}
                                 onResponderTerminationRequest={() => {console.log("hello there 2"); return true}}
                                 returnKeyType="done"
-                                onScroll={() => {setIsTextInputScrolling(true)}}
-                                onTouchEnd={() => setIsTextInputScrolling(false)}
+                                onScroll={() => {
+                                    if (isTextInputScrolling === false) {
+                                        setIsTextInputScrolling(true)
+                                    }
+                                }}
+                                onTouchStart={() => setIsTextInputScrolling(false)}
+                                onTouchEnd={() => setIsTextInputScrolling(null)}
                                 submitBehavior="blurAndSubmit" 
                                 onSubmitEditing={dismissKeyboard}
                                 editable={(!isTextInputScrolling || Keyboard.isVisible()) && isSideBarPosAtStart}
