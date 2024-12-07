@@ -2,18 +2,17 @@ import React, { useEffect, useRef, useState } from "react";
 import {
     StyleSheet,
     View,
-    KeyboardAvoidingView,
     Keyboard,
-    Platform,
     Text,
     Animated,
-    Dimensions,
 } from "react-native";
-import { Gesture, GestureDetector, GestureHandlerRootView, PanGestureHandler, PanGestureHandlerGestureEvent, ScrollView, TapGestureHandler, TextInput } from "react-native-gesture-handler";
+import { GestureHandlerRootView, PanGestureHandler, PanGestureHandlerGestureEvent, TapGestureHandler, TextInput } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-const SCREEN_WIDTH = Dimensions.get("window").width;
-const SIDEBAR_WIDTH = SCREEN_WIDTH * 0.7;
+import Reanimated, {
+  useAnimatedKeyboard,
+  useAnimatedStyle,
+} from 'react-native-reanimated';
+import SideBar, { SIDEBAR_WIDTH } from "@/components/SideBar/SideBar";
 
 export default function Home() {
     const [text, setText] = useState("");
@@ -82,13 +81,18 @@ export default function Home() {
             }
         });
 
-        return () => sideBarTranslationX.removeListener(listenerId); // Cleanup
+        return () => sideBarTranslationX.removeListener(listenerId); 
     });
 
+  const keyboard = useAnimatedKeyboard();
+
+  const animatedStyles = useAnimatedStyle(() => ({
+    marginBottom: keyboard.height.value,
+  }));
+
     return (
-        <KeyboardAvoidingView
+        <View
             style={styles.container}
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
         <GestureHandlerRootView style={{ flex: 1 }}>
             <PanGestureHandler 
@@ -96,15 +100,7 @@ export default function Home() {
                 onEnded={handleGestureEnd}
             >
                 <View style={{ flex: 1 }}>
-                    <Animated.View
-                        style={[
-                            styles.sideBar,
-                            {
-                                transform: [{ translateX: Animated.add(-SIDEBAR_WIDTH, sideBarTranslationX) }],
-                            },
-                        ]}
-                    >
-                    </Animated.View>
+                    <SideBar translationX={sideBarTranslationX}/>
                     <Animated.View
                         style={[
                             styles.mainContent,
@@ -118,17 +114,15 @@ export default function Home() {
                                 {"S.A.P.O"}
                             </Text>
                         </View>
-                        <View style={styles.innerContainer}>
+                        <Reanimated.View style={[styles.innerContainer, animatedStyles]}>
                             <TextInput
                                 ref={textInputRef}
-                                style={[styles.textInput, {height: '100%'}]}
+                                style={[styles.textInput]}
                                 multiline
                                 value={text}
                                 onChangeText={setText}
                                 placeholder="Type something..."
                                 placeholderTextColor="#aaa"
-                                onResponderTerminate={() => {console.log("hello there")}}
-                                onResponderTerminationRequest={() => {console.log("hello there 2"); return true}}
                                 returnKeyType="done"
                                 onScroll={() => {
                                     if (isTextInputScrolling === false) {
@@ -141,7 +135,6 @@ export default function Home() {
                                 onSubmitEditing={dismissKeyboard}
                                 editable={(!isTextInputScrolling || Keyboard.isVisible()) && isSideBarPosAtStart}
                             />
-                        </View>
                         {
                             !isSideBarPosAtStart &&
                             <TapGestureHandler maxDurationMs={2000} shouldCancelWhenOutside={false} onEnded={() => {
@@ -152,14 +145,15 @@ export default function Home() {
                                 }).start()
                                 return
                             }}>
-                            <View style={styles.mainContentOverlay}/>
+                                <View style={styles.mainContentOverlay}/>
                             </TapGestureHandler>
                         }
+                            </Reanimated.View>
                     </Animated.View>
                 </View>
             </PanGestureHandler>
         </GestureHandlerRootView>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -172,12 +166,12 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: "#fff",
         zIndex: 2,
+        flexDirection: "column"
     },
     mainContentOverlay: {
         position: "absolute",
         width: "100%",
         height: "100%",
-        // backgroundColor: "red",
     },
     titleText: {
         fontSize: 20,
@@ -187,17 +181,6 @@ const styles = StyleSheet.create({
     header: {
         width: '100%',
         justifyContent: 'center'
-    },
-    sideBar: {
-        position: "absolute",
-        height: "100%",
-        width: SIDEBAR_WIDTH,
-        backgroundColor: "#f8f8f8",
-        zIndex: 1,
-        padding: 20,
-        transform: [
-            { translateX: -SIDEBAR_WIDTH }
-        ]
     },
     innerContainer: {
         flex: 1,
@@ -211,6 +194,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 25,
         paddingVertical: 10,
         width: "100%",
+        height: "100%",
         backgroundColor: "#fff",
     },
 });
