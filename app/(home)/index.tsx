@@ -5,25 +5,30 @@ import {
     Keyboard,
     Text,
     Animated,
+    TextInput,
 } from "react-native";
-import { GestureHandlerRootView, PanGestureHandler, PanGestureHandlerGestureEvent, TapGestureHandler, TextInput } from "react-native-gesture-handler";
+import { GestureHandlerRootView, PanGestureHandler, PanGestureHandlerGestureEvent, TapGestureHandler} from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Reanimated, {
   useAnimatedKeyboard,
   useAnimatedStyle,
 } from 'react-native-reanimated';
 import SideBar, { SIDEBAR_WIDTH } from "@/components/SideBar/SideBar";
+// salty_nohand
 
 export default function Home() {
     const [text, setText] = useState("");
     const insets = useSafeAreaInsets();
-    const textInputRef = useRef(null);
+    const textInputRef = useRef<TextInput>(null);
     const [isTextInputScrolling, setIsTextInputScrolling] = useState<boolean | null>(null);
     const slideSideBar = useRef<boolean | null>(null);
     const sideBarTranslationX = useRef(new Animated.Value(0)).current;
     let sideBarTranslationXValue = useRef(0)
     const [isSideBarPosAtStart, setIsSideBarPosAtStart] = useState(true);
     const isSideBarLastPosAtStart = useRef(true);
+    const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
+    const [tapStoppedScroll, setTapStoppedScroll] = useState(false)
+
 
     const dismissKeyboard = () => {
         Keyboard.dismiss();
@@ -31,7 +36,6 @@ export default function Home() {
 
     const handleGestureEvent = (event: PanGestureHandlerGestureEvent) => {
         const { translationX, velocityX } = event.nativeEvent;
-
 
         let stillnessThreshold: number
         if (isSideBarLastPosAtStart.current) { 
@@ -84,11 +88,26 @@ export default function Home() {
         return () => sideBarTranslationX.removeListener(listenerId); 
     });
 
-  const keyboard = useAnimatedKeyboard();
+    const handleScroll = () => {
+        if (textInputRef.current?.isFocused() === false) {
+            setIsTextInputScrolling(true);
 
-  const animatedStyles = useAnimatedStyle(() => ({
-    marginBottom: keyboard.height.value,
-  }));
+            if (scrollTimeout.current) {
+                clearTimeout(scrollTimeout.current);
+            }
+
+            scrollTimeout.current = setTimeout(() => {
+                setIsTextInputScrolling(false);
+            }, 100);
+        }
+    };
+
+    const keyboard = useAnimatedKeyboard();
+
+    const animatedStyles = useAnimatedStyle(() => ({
+        marginBottom: keyboard.height.value,
+    }));
+  
 
     return (
         <View
@@ -117,25 +136,32 @@ export default function Home() {
                         <Reanimated.View style={[styles.innerContainer, animatedStyles]}>
                             <TextInput
                                 ref={textInputRef}
-                                style={[styles.textInput]}
+                                style={[styles.textInput ]}//, {height: SCREEN_HEIGTH - (60 + insets.top) - (keyboard.height)}]}
                                 multiline
                                 value={text}
+                                // defaultValue="jshbvjv sjfkdvbshv ksfvsfdbvskjhfvhbsfd vshkbvkhsfdbvhsfbvdfs vhksfdjbvshfdbvhsjdfbvhjksdfbvsdf vsfdh vhfjsdvbsfhdbvhjsfbvhjsfd vsdfv bshfkdbvhkjfdsbvhkjsbvsf dvsfjdhbvshfjbvkhsjbvkjhsdfhbvsfd vjhsbvhsfbvjhksvfds vhjsbvsfd vhjfds vkfsdh vjsfd vfjhdsb vsfd vjshfdbvjf vskjhvbhfdsj vdfsjvjhsbvfds vsdfvbhdsfbvjsfd vsjdfhbvsf d dhdhdhdhdhdhdh dhdhdhdhd hdhdhdhd dhdhhdd dhdhdhdhdhd dhdhdhdhdhdh"
                                 onChangeText={setText}
                                 placeholder="Type something..."
                                 placeholderTextColor="#aaa"
                                 returnKeyType="done"
                                 onScroll={() => {
-                                    if (isTextInputScrolling === false) {
-                                        setIsTextInputScrolling(true)
+                                    if (textInputRef.current?.isFocused() === false) {
+                                        handleScroll()
                                     }
                                 }}
-                                onTouchStart={() => setIsTextInputScrolling(false)}
-                                onTouchEnd={() => setIsTextInputScrolling(null)}
+                                onTouchStart={() => {
+                                    if (isTextInputScrolling === true) {
+                                        setTapStoppedScroll(true)
+                                    }
+                                }}
+                                onTouchEnd={() => {
+                                    setTapStoppedScroll(false)
+                                }}
                                 submitBehavior="blurAndSubmit" 
                                 onSubmitEditing={dismissKeyboard}
-                                editable={(!isTextInputScrolling || Keyboard.isVisible()) && isSideBarPosAtStart}
+                                editable={((!isTextInputScrolling && !tapStoppedScroll) || Keyboard.isVisible()) && isSideBarPosAtStart}
                             />
-                        {
+                            {
                             !isSideBarPosAtStart &&
                             <TapGestureHandler maxDurationMs={2000} shouldCancelWhenOutside={false} onEnded={() => {
                                 Animated.timing(sideBarTranslationX, {
@@ -188,7 +214,6 @@ const styles = StyleSheet.create({
     },
     textInput: {
         fontSize: 36,
-        lineHeight: 36,
         textAlign: "left",
         textAlignVertical: "top",
         paddingHorizontal: 25,
