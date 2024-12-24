@@ -151,10 +151,9 @@ export default function Home() {
                         <Reanimated.View style={[styles.innerContainer, animatedStyles]}>
                             <TextInput
                                 ref={textInputRef}
-                                style={[styles.textInput ]}//, {height: SCREEN_HEIGTH - (60 + insets.top) - (keyboard.height)}]}
+                                style={[styles.textInput ]}
                                 multiline
                                 value={text}
-                                // defaultValue="jshbvjv sjfkdvbshv ksfvsfdbvskjhfvhbsfd vshkbvkhsfdbvhsfbvdfs vhksfdjbvshfdbvhsjdfbvhjksdfbvsdf vsfdh vhfjsdvbsfhdbvhjsfbvhjsfd vsdfv bshfkdbvhkjfdsbvhkjsbvsf dvsfjdhbvshfjbvkhsjbvkjhsdfhbvsfd vjhsbvhsfbvjhksvfds vhjsbvsfd vhjfds vkfsdh vjsfd vfjhdsb vsfd vjshfdbvjf vskjhvbhfdsj vdfsjvjhsbvfds vsdfvbhdsfbvjsfd vsjdfhbvsf d dhdhdhdhdhdhdh dhdhdhdhd hdhdhdhd dhdhhdd dhdhdhdhdhd dhdhdhdhdhdh"
                                 onChangeText={setText}
                                 placeholder="Type something..."
                                 placeholderTextColor="#aaa"
