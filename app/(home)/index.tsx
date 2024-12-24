@@ -6,6 +6,7 @@ import {
     Text,
     Animated,
     TextInput,
+    TouchableWithoutFeedback,
 } from "react-native";
 import { GestureHandlerRootView, PanGestureHandler, PanGestureHandlerGestureEvent, TapGestureHandler} from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -14,6 +15,7 @@ import Reanimated, {
   useAnimatedStyle,
 } from 'react-native-reanimated';
 import SideBar, { SIDEBAR_WIDTH } from "@/components/SideBar/SideBar";
+import Icon from "../../assets/icons/sidebar.svg"
 // salty_nohand
 
 export default function Home() {
@@ -107,7 +109,6 @@ export default function Home() {
     const animatedStyles = useAnimatedStyle(() => ({
         marginBottom: keyboard.height.value,
     }));
-  
 
     return (
         <View
@@ -129,6 +130,20 @@ export default function Home() {
                         ]}
                     >
                         <View style={[styles.header, {height: 60 + insets.top, paddingTop: insets.top}]}>
+                            <View style={{position: "absolute", height: "100%", backgroundColor: "transparent", left: 18, top: insets.top, justifyContent:"center"}}>
+                            <TouchableWithoutFeedback onPress={() => {
+                                    Animated.timing(sideBarTranslationX, {
+                                        toValue: SIDEBAR_WIDTH,
+                                        duration: 100,
+                                        useNativeDriver: true,
+                                    }).start()
+                                    return
+                                }}>
+                                    <View style={{padding: 6, zIndex: 1}}>
+                                        <Icon width={32} height={32} stroke="black"/>
+                                    </View>
+                                </TouchableWithoutFeedback>
+                            </View>
                             <Text style={styles.titleText}>
                                 {"S.A.P.O"}
                             </Text>
@@ -161,7 +176,8 @@ export default function Home() {
                                 onSubmitEditing={dismissKeyboard}
                                 editable={((!isTextInputScrolling && !tapStoppedScroll) || Keyboard.isVisible()) && isSideBarPosAtStart}
                             />
-                            {
+                        </Reanimated.View>
+                        {
                             !isSideBarPosAtStart &&
                             <TapGestureHandler maxDurationMs={2000} shouldCancelWhenOutside={false} onEnded={() => {
                                 Animated.timing(sideBarTranslationX, {
@@ -174,7 +190,6 @@ export default function Home() {
                                 <View style={styles.mainContentOverlay}/>
                             </TapGestureHandler>
                         }
-                            </Reanimated.View>
                     </Animated.View>
                 </View>
             </PanGestureHandler>
@@ -191,11 +206,11 @@ const styles = StyleSheet.create({
     mainContent: {
         flex: 1,
         backgroundColor: "#fff",
-        zIndex: 2,
         flexDirection: "column"
     },
     mainContentOverlay: {
         position: "absolute",
+        zIndex: 2,
         width: "100%",
         height: "100%",
     },
@@ -216,7 +231,7 @@ const styles = StyleSheet.create({
         fontSize: 36,
         textAlign: "left",
         textAlignVertical: "top",
-        paddingHorizontal: 25,
+        paddingHorizontal: 24,
         paddingVertical: 10,
         width: "100%",
         height: "100%",
