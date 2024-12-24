@@ -130,8 +130,8 @@ export default function Home() {
                         ]}
                     >
                         <View style={[styles.header, {height: 60 + insets.top, paddingTop: insets.top}]}>
-                            <View style={{position: "absolute", height: "100%", backgroundColor: "transparent", left: 18, top: insets.top, justifyContent:"center"}}>
-                            <TouchableWithoutFeedback onPress={() => {
+                            <View style={{position: "absolute", height: "100%", left: 18, top: insets.top, justifyContent:"center"}}>
+                                <TouchableWithoutFeedback onPress={() => {
                                     Animated.timing(sideBarTranslationX, {
                                         toValue: SIDEBAR_WIDTH,
                                         duration: 100,
@@ -139,7 +139,7 @@ export default function Home() {
                                     }).start()
                                     return
                                 }}>
-                                    <View style={{padding: 6, zIndex: 1}}>
+                                    <View style={{padding: 6}}>
                                         <Icon width={32} height={32} stroke="black"/>
                                     </View>
                                 </TouchableWithoutFeedback>
@@ -215,12 +215,12 @@ const styles = StyleSheet.create({
     },
     titleText: {
         fontSize: 20,
-        textAlign: 'center',
         fontWeight: 'bold',
     },
     header: {
         width: '100%',
-        justifyContent: 'center'
+        justifyContent: 'center',
+        alignItems: 'center'
     },
     innerContainer: {
         flex: 1,
