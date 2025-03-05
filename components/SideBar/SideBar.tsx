@@ -1,5 +1,6 @@
-import React from 'react';
-import { StyleSheet, Animated, Dimensions } from 'react-native';
+import React, {useState} from 'react';
+import { StyleSheet, Animated, Dimensions, Text } from 'react-native';
+import DropDownPicker from 'react-native-dropdown-picker'
 
 export const SIDEBAR_WIDTH = Dimensions.get("window").width * 0.7;
 
@@ -7,7 +8,20 @@ type SideBarProps = {
     translationX: Animated.Value 
 }
 
-const SideBar: React.FC<SideBarProps> = ({translationX}) => {
+const SideBar: React.FC<SideBarProps> = ({ translationX }) => {
+    const [open, setOpen] = useState(false)
+    const [selectedLanguage, setSelectedLanguage] = useState<string>("en");
+    const [items, setItems] = useState([
+        { label: "English", value: "en" },
+        { label: "Spanish", value: "es" },
+        { label: "French", value: "fr" },
+        { label: "German", value: "de" },
+        { label: "Mandarin (Standard Chinese)", value: "zh" },
+        { label: "Russian", value: "ru" },
+        { label: "Portuguese", value: "pt" },
+        { label: "Arabic", value: "ar" },
+    ]);
+
     return (
         <Animated.View
             style={[
@@ -17,7 +31,16 @@ const SideBar: React.FC<SideBarProps> = ({translationX}) => {
                 },
             ]}
         >
-
+            <Text>Target Language:</Text>
+            <DropDownPicker
+                open={open}
+                setOpen={setOpen}
+                value={selectedLanguage}
+                setValue={setSelectedLanguage}
+                items={items}
+                setItems={setItems}
+                style={{ marginTop: 10 }}
+            />
         </Animated.View>
     );
 };

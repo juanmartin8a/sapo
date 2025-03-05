@@ -6,13 +6,13 @@ import {
     Text,
     Animated,
     TextInput,
-    TouchableWithoutFeedback,
+    TouchableWithoutFeedback, TouchableOpacity, ActivityIndicator,
 } from "react-native";
 import { GestureHandlerRootView, PanGestureHandler, PanGestureHandlerGestureEvent, TapGestureHandler} from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Reanimated, {
-  useAnimatedKeyboard,
-  useAnimatedStyle,
+    useAnimatedKeyboard,
+    useAnimatedStyle, useDerivedValue, useSharedValue, withTiming,
 } from 'react-native-reanimated';
 import SideBar, { SIDEBAR_WIDTH } from "@/components/SideBar/SideBar";
 import Icon from "../../assets/icons/sidebar.svg"
@@ -30,6 +30,63 @@ export default function Home() {
     const isSideBarLastPosAtStart = useRef(true);
     const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
     const [tapStoppedScroll, setTapStoppedScroll] = useState(false)
+    const [translatedText, setTranslatedText] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
+    const [showTypingEffect, setShowTypingEffect] = useState(false);
+    const [displayedText, setDisplayedText] = useState("");
+    const translateButtonOpacity = useSharedValue(0);
+
+    useEffect(() => {
+        translateButtonOpacity.value = withTiming(text.length > 0 ? 1 : 0, {
+            duration: 300,
+        });
+    }, [text]);
+
+    const animatedButtonStyle = useAnimatedStyle(() => ({
+        opacity: translateButtonOpacity.value,
+        transform: [{ scale: translateButtonOpacity.value }],
+    }));
+
+    // Dummy function que consume el backend
+    const handleTranslate = async () => {
+        if (!text) return;
+        setIsLoading(true);
+        setTranslatedText("");
+        setDisplayedText("");
+        setShowTypingEffect(false);
+
+        try {
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+
+            const responseText = "Este es el texto traducido.";
+
+            setTranslatedText(responseText);
+            setShowTypingEffect(true);
+        } catch (error) {
+            console.error("Translation failed:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Typing Effect Logic
+    useEffect(() => {
+        if (showTypingEffect && translatedText) {
+            let i = 0;
+            setDisplayedText("");
+
+            const interval = setInterval(() => {
+                if (i < translatedText.length) {
+                    setDisplayedText((prev) => prev + translatedText[i]);
+                    i++;
+                } else {
+                    clearInterval(interval);
+                }
+            }, 50); // Adjust typing speed
+
+            return () => clearInterval(interval);
+        }
+    }, [showTypingEffect, translatedText]);
 
 
     const dismissKeyboard = () => {
@@ -189,6 +246,32 @@ export default function Home() {
                                 <View style={styles.mainContentOverlay}/>
                             </TapGestureHandler>
                         }
+                        <TouchableWithoutFeedback disabled={text.length === 0} onPress={() => {/* Action */}}>
+                            <Reanimated.View
+                                style={[
+                                    styles.translateButton,
+                                    animatedButtonStyle,
+                                    { pointerEvents: text.length > 0 ? "auto" : "none" } // Disable touch when hidden
+                                ]}
+                            >
+
+                                {isLoading ? (
+                                    <ActivityIndicator size="small" color="black" />
+                                ) : (
+                                    <TouchableOpacity
+                                        style={styles.translateButtonTouchable}
+                                        onPress={handleTranslate}
+                                    >
+                                        <Text style={styles.translateButtonText}>Translate</Text>
+                                    </TouchableOpacity>
+                                )}
+                            </Reanimated.View>
+                        </TouchableWithoutFeedback>
+
+                        {displayedText.length > 0 && (
+                            <Text style={styles.translatedText}>{displayedText}</Text>
+                        )}
+
                     </Animated.View>
                 </View>
             </PanGestureHandler>
@@ -236,5 +319,46 @@ const styles = StyleSheet.create({
         height: "100%",
         backgroundColor: "#fff",
     },
+    translateButton: {
+        position: "absolute",
+        bottom: 35,
+        alignSelf: "center",
+        width: 200,
+        height: 50,
+        borderRadius: 25,
+    },
+
+    translateButtonTouchable: {
+        width: "100%",
+        height: "100%",
+        backgroundColor: "black",
+        borderRadius: 25,
+        justifyContent: "center",
+        alignItems: "center",
+        elevation: 5,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+    },
+
+    translateButtonText: {
+        color: "white",
+        fontSize: 16,
+        fontWeight: "bold",
+    },
+
+    translatedText: {
+        fontSize: 36,
+        textAlign: "left",
+        textAlignVertical: "top",
+        paddingHorizontal: 24,
+        paddingVertical: 10,
+        width: "100%",
+        height: "100%",
+        backgroundColor: "#fff",
+    },
+
+
 });
 
