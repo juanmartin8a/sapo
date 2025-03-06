@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
+    ScrollView,
     StyleSheet,
     View,
     Keyboard,
@@ -50,15 +51,16 @@ export default function Home() {
     // Dummy function que consume el backend
     const handleTranslate = async () => {
         if (!text) return;
+
         setIsLoading(true);
         setTranslatedText("");
         setDisplayedText("");
         setShowTypingEffect(false);
 
         try {
-            await new Promise((resolve) => setTimeout(resolve, 2000));
+            await new Promise((resolve) => setTimeout(resolve, 5000));
 
-            const responseText = "Este es el texto traducido.";
+            const responseText = "Este es el texto traducido. Este es el texto traducido. Este es el texto traducido. Este es el texto traducido. Este es el texto traducido. Este es el texto traducido. Este es el texto traducido. Este es el texto traducido. Este es el texto traducido." || "";
 
             setTranslatedText(responseText);
             setShowTypingEffect(true);
@@ -69,7 +71,6 @@ export default function Home() {
         }
     };
 
-    // Typing Effect Logic
     useEffect(() => {
         if (showTypingEffect && translatedText) {
             let i = 0;
@@ -82,7 +83,7 @@ export default function Home() {
                 } else {
                     clearInterval(interval);
                 }
-            }, 50); // Adjust typing speed
+            }, 50);
 
             return () => clearInterval(interval);
         }
@@ -211,10 +212,19 @@ export default function Home() {
                                 style={[styles.textInput ]}
                                 multiline
                                 value={text}
-                                onChangeText={setText}
+                                onChangeText={(newText) => {
+                                    setText(newText);
+
+                                    if (translatedText.length > 0) {
+                                        setTranslatedText("");
+                                        setDisplayedText("");
+                                        setShowTypingEffect(false);
+                                    }
+                                }}
                                 placeholder="Type something..."
                                 placeholderTextColor="#aaa"
                                 returnKeyType="done"
+
                                 onScroll={() => {
                                     if (textInputRef.current?.isFocused() === false) {
                                         handleScroll()
@@ -228,6 +238,7 @@ export default function Home() {
                                 onTouchEnd={() => {
                                     setTapStoppedScroll(false)
                                 }}
+
                                 submitBehavior="blurAndSubmit" 
                                 onSubmitEditing={dismissKeyboard}
                                 editable={((!isTextInputScrolling && !tapStoppedScroll) || Keyboard.isVisible()) && isSideBarPosAtStart}
@@ -251,27 +262,35 @@ export default function Home() {
                                 style={[
                                     styles.translateButton,
                                     animatedButtonStyle,
-                                    { pointerEvents: text.length > 0 ? "auto" : "none" } // Disable touch when hidden
+                                    { pointerEvents: text.length > 0 ? "auto" : "none" }
                                 ]}
                             >
 
-                                {isLoading ? (
-                                    <ActivityIndicator size="small" color="black" />
-                                ) : (
-                                    <TouchableOpacity
-                                        style={styles.translateButtonTouchable}
-                                        onPress={handleTranslate}
-                                    >
-                                        <Text style={styles.translateButtonText}>Translate</Text>
-                                    </TouchableOpacity>
+                                {!showTypingEffect && text.length > 0 && (
+                                    <TouchableWithoutFeedback>
+                                        <Reanimated.View style={[styles.translateButton, animatedButtonStyle]}>
+                                            {isLoading ? (
+                                                <ActivityIndicator size="small" color="black" />
+                                            ) : (
+                                                <TouchableOpacity
+                                                    style={styles.translateButtonTouchable}
+                                                    onPress={handleTranslate}
+                                                >
+                                                    <Text style={styles.translateButtonText}>Translate</Text>
+                                                </TouchableOpacity>
+                                            )}
+                                        </Reanimated.View>
+                                    </TouchableWithoutFeedback>
                                 )}
                             </Reanimated.View>
                         </TouchableWithoutFeedback>
-
                         {displayedText.length > 0 && (
-                            <Text style={styles.translatedText}>{displayedText}</Text>
+                            <View style={styles.translationContainer}>
+                                <ScrollView>
+                                    <Text style={styles.translatedText}>{displayedText}</Text>
+                                </ScrollView>
+                            </View>
                         )}
-
                     </Animated.View>
                 </View>
             </PanGestureHandler>
@@ -359,6 +378,15 @@ const styles = StyleSheet.create({
         backgroundColor: "#fff",
     },
 
-
+    translationContainer: {
+        marginTop: 20,
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        backgroundColor: "#f3f3f3",
+        borderRadius: 10,
+        maxHeight: "40%",
+        width: "100%",
+        overflow: "hidden",
+    },
 });
 
