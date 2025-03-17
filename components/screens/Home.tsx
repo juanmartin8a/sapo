@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import {
     StyleSheet,
     View,
@@ -15,6 +15,7 @@ import Reanimated, {
   useAnimatedKeyboard,
   useAnimatedStyle,
 } from 'react-native-reanimated';
+import PagerView from 'react-native-pager-view';
 import SideBar, { SIDEBAR_WIDTH } from "@/components/sidebar/Sidebar";
 import SidebarIcon from "../../assets/icons/sidebar.svg"
 
@@ -23,6 +24,7 @@ export default function Home() {
     const insets = useSafeAreaInsets();
     const textInputRef = useRef<TextInput>(null);
     const [isTextInputScrolling, setIsTextInputScrolling] = useState<boolean | null>(null);
+    const pagerRef = useRef<PagerView>(null);
     const slideSideBar = useRef<boolean | null>(null);
     const sideBarTranslationX = useRef(new Animated.Value(0)).current;
     let sideBarTranslationXValue = useRef(0)
@@ -32,12 +34,7 @@ export default function Home() {
     const [tapStoppedScroll, setTapStoppedScroll] = useState(false)
     
     const SCREEN_WIDTH = Dimensions.get('window').width;
-    const slideRightPanel = useRef<boolean | null>(null);
-    const rightPanelTranslationX = useRef(new Animated.Value(0)).current;
-    let rightPanelTranslationXValue = useRef(0);
-    const [isRightPanelVisible, setIsRightPanelVisible] = useState(false);
-    const isRightPanelLastPosAtStart = useRef(true);
-
+    const [currentPage, setCurrentPage] = useState(0);
 
     const dismissKeyboard = () => {
         Keyboard.dismiss();
@@ -85,60 +82,21 @@ export default function Home() {
     };
     
     const handleContentGesture = (event: PanGestureHandlerGestureEvent) => {
+        // If the sidebar is open or we're trying to open it, handle that gesture
         const { translationX, velocityX } = event.nativeEvent;
         
         if ((velocityX > 0 && translationX > 0) || !isSideBarPosAtStart) {
             handleGestureEvent(event);
-            return;
-        }
-        
-        let stillnessThreshold: number = 0;
-        if (isRightPanelLastPosAtStart.current) { 
-            stillnessThreshold = 12;
-        } else if (!isRightPanelLastPosAtStart.current) {
-            stillnessThreshold = -12;
-        }
-        
-        const newPosition = Math.max(-SCREEN_WIDTH, Math.min(0, 
-            (isRightPanelLastPosAtStart.current ? 0 : -SCREEN_WIDTH) + 
-            (translationX - stillnessThreshold)
-        ));
-        
-        rightPanelTranslationX.setValue(newPosition);
-        
-        if (velocityX <= 0 && slideRightPanel.current !== true) {
-            slideRightPanel.current = true;
-        } else if (velocityX > 0 && slideRightPanel.current !== false) {
-            slideRightPanel.current = false;
         }
     };
     
-    const handleContentGestureEnd = (event: PanGestureHandlerGestureEvent) => {
-        const { velocityX } = event.nativeEvent;
-        
-        if (!isSideBarPosAtStart || velocityX > 0) {
-            handleGestureEnd();
-            return;
-        }
-        
-        if (rightPanelTranslationXValue.current > -SCREEN_WIDTH && rightPanelTranslationXValue.current < 0) {
-            if (slideRightPanel.current === true) {
-                Animated.timing(rightPanelTranslationX, {
-                    toValue: -SCREEN_WIDTH,
-                    duration: 200,
-                    useNativeDriver: true,
-                }).start();
-            } else if (slideRightPanel.current === false) {
-                Animated.timing(rightPanelTranslationX, {
-                    toValue: 0,
-                    duration: 200,
-                    useNativeDriver: true,
-                }).start();
-            }
-        }
+    const handleContentGestureEnd = () => {
+        handleGestureEnd();
     };
 
-    useEffect(() => {
+    // Track sidebar position
+    React.useEffect(() => {
+        // requestAnimationFrame(() => pagerRef.current?.setPage(0));
         const listenerId = sideBarTranslationX.addListener(({ value }) => {
             sideBarTranslationXValue.current = value;
             setIsSideBarPosAtStart(value === 0)
@@ -148,20 +106,10 @@ export default function Home() {
             }
         });
 
-        const rightPanelListenerId = rightPanelTranslationX.addListener(({ value }) => {
-            rightPanelTranslationXValue.current = value;
-            setIsRightPanelVisible(value !== 0);
-            if (value === 0 || value === -SCREEN_WIDTH) {
-                isRightPanelLastPosAtStart.current = value === 0;
-                slideRightPanel.current = null;
-            }
-        });
-
         return () => {
             sideBarTranslationX.removeListener(listenerId);
-            rightPanelTranslationX.removeListener(rightPanelListenerId);
         }; 
-    });
+    }, []);
 
     const handleScroll = () => {
         if (textInputRef.current?.isFocused() === false) {
@@ -183,6 +131,16 @@ export default function Home() {
         marginBottom: keyboard.height.value,
     }));
 
+    const goToRightPanel = () => {
+        pagerRef.current?.setPage(1);
+        setCurrentPage(1);
+    };
+
+    const goToMainPanel = () => {
+        pagerRef.current?.setPage(0);
+        setCurrentPage(0);
+    };
+
     return (
         <View
             style={styles.container}
@@ -191,6 +149,8 @@ export default function Home() {
             <PanGestureHandler 
                 onGestureEvent={handleContentGesture}
                 onEnded={handleContentGestureEnd}
+                simultaneousHandlers={pagerRef}
+                waitFor={pagerRef}
             >
                 <View style={{ flex: 1 }}>
                     <SideBar translationX={sideBarTranslationX}/>
@@ -225,14 +185,7 @@ export default function Home() {
                             </Text>
                             
                             <View style={{position: "absolute", height: "100%", right: 18, top: insets.top, justifyContent:"center"}}>
-                                <TouchableWithoutFeedback onPress={() => {
-                                    Animated.timing(rightPanelTranslationX, {
-                                        toValue: -SCREEN_WIDTH,
-                                        duration: 200,
-                                        useNativeDriver: true,
-                                    }).start()
-                                    return
-                                }}>
+                                <TouchableWithoutFeedback onPress={goToRightPanel}>
                                     <View style={{padding: 6}}>
                                         <Text style={styles.rightPanelButton}>→</Text>
                                     </View>
@@ -241,69 +194,53 @@ export default function Home() {
                         </View>
                         
                         <View style={styles.textInputContainer}>
-                            {/* Text Input with sliding */}
-                            <Animated.View
-                                style={[
-                                    styles.textInputWrapper,
-                                    {
-                                        transform: [
-                                            { translateX: rightPanelTranslationX }
-                                        ],
-                                        width: SCREEN_WIDTH * 2,
-                                        flexDirection: "row"
-                                    }
-                                ]}
+                            <PagerView
+                                ref={pagerRef}
+                                style={[styles.pagerView, {flex: 1}]}
+                                initialPage={0}
+                                scrollEnabled={true}
+                                overScrollMode="never"
+                                orientation="horizontal"
+                                onPageSelected={(e) => setCurrentPage(e.nativeEvent.position)}
                             >
-                                <Reanimated.View style={[styles.innerContainer, animatedStyles, {width: SCREEN_WIDTH}]}>
-                                <TextInput
-                                    ref={textInputRef}
-                                    style={[styles.textInput]}
-                                    multiline
-                                    value={text}
-                                    onChangeText={setText}
-                                    placeholder="Type something..."
-                                    placeholderTextColor="#aaa"
-                                    returnKeyType="done"
-                                    onScroll={() => {
-                                        if (textInputRef.current?.isFocused() === false) {
-                                            handleScroll()
-                                        }
-                                    }}
-                                    onTouchStart={() => {
-                                        if (isTextInputScrolling === true) {
-                                            setTapStoppedScroll(true)
-                                        }
-                                    }}
-                                    onTouchEnd={() => {
-                                        setTapStoppedScroll(false)
-                                    }}
-                                    submitBehavior="blurAndSubmit" 
-                                    onSubmitEditing={dismissKeyboard}
-                                    editable={((!isTextInputScrolling && !tapStoppedScroll) || Keyboard.isVisible()) && isSideBarPosAtStart}
-                                />
-                                </Reanimated.View>
+                                {/* Main Page */}
+                                <View key="1" style={[, {width: "100%", height: "100%"}]}>
+                                    <Reanimated.View style={[styles.innerContainer, animatedStyles]}>
+                                        <TextInput
+                                            ref={textInputRef}
+                                            style={[styles.textInput]}
+                                            multiline
+                                            value={text}
+                                            onChangeText={setText}
+                                            placeholder="Type something..."
+                                            placeholderTextColor="#aaa"
+                                            returnKeyType="done"
+                                            onScroll={() => {
+                                                if (textInputRef.current?.isFocused() === false) {
+                                                    handleScroll()
+                                                }
+                                            }}
+                                            onTouchStart={() => {
+                                                if (isTextInputScrolling === true) {
+                                                    setTapStoppedScroll(true)
+                                                }
+                                            }}
+                                            onTouchEnd={() => {
+                                                setTapStoppedScroll(false)
+                                            }}
+                                            submitBehavior="blurAndSubmit" 
+                                            onSubmitEditing={dismissKeyboard}
+                                            editable={((!isTextInputScrolling && !tapStoppedScroll) || Keyboard.isVisible()) && isSideBarPosAtStart}
+                                        />
+                                    </Reanimated.View>
+                                </View>
 
-                                <View style={[
-                                    styles.rightPanel,
-                                        { left: SCREEN_WIDTH, backgroundColor: "red", width: SCREEN_WIDTH }
-                                ]}>
+                                <View key="2" style={[, { width: "100%", height:"100%"}]}>
                                     <View style={styles.rightPanelContent}>
-                                        <Text style={styles.rightPanelTitle}>Additional Panel</Text>
-                                        <TouchableWithoutFeedback onPress={() => {
-                                            Animated.timing(rightPanelTranslationX, {
-                                                toValue: 0,
-                                                duration: 200,
-                                                useNativeDriver: true,
-                                            }).start()
-                                        }}>
-                                            <View style={styles.closeButton}>
-                                                <Text style={styles.closeButtonText}>Close</Text>
-                                            </View>
-                                        </TouchableWithoutFeedback>
+                                        <Text style={styles.rightPanelTitle}>Sapo: </Text>
                                     </View>
                                 </View>
-                            </Animated.View>
-                            
+                            </PagerView>
                         </View>
                         
                         {
@@ -355,12 +292,21 @@ const styles = StyleSheet.create({
     contentContainer: {
         flex: 1,
         position: 'relative',
-        overflow: 'hidden',
+        // overflow: 'hidden',
     },
     textInputContainer: {
         flex: 1,
-        position: 'relative',
-        overflow: 'hidden',
+        // position: 'relative',
+        // overflow: 'hidden',
+    },
+    pagerView: {
+        flex: 1,
+        // width: '100%',
+    },
+    pageContainer: {
+        // flex: 1,
+        // width: '100%',
+        // height: "100%",
     },
     textInputWrapper: {
         flex: 1,
@@ -380,12 +326,8 @@ const styles = StyleSheet.create({
         backgroundColor: "#fff",
     },
     rightPanel: {
-        position: 'absolute',
-        // top: 0,
-        // height: '100%',
-        flex:1,
+        flex: 1,
         backgroundColor: '#f0f0f0',
-        zIndex: 1,
     },
     rightPanelContent: {
         flex: 1,
