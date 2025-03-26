@@ -17,7 +17,8 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import PagerView from 'react-native-pager-view';
 import SideBar, { SIDEBAR_WIDTH } from "@/components/sidebar/Sidebar";
-import SidebarIcon from "../../assets/icons/sidebar.svg"
+import SidebarIcon from "../../assets/icons/sidebar.svg";
+import Translate from "@/components/home/Translate";
 
 export default function Home() {
     const [text, setText] = useState("");
@@ -237,7 +238,7 @@ export default function Home() {
 
                                 <View key="2" style={[, { width: "100%", height:"100%"}]}>
                                     <View style={styles.rightPanelContent}>
-                                        <Text style={styles.rightPanelTitle}>Sapo: </Text>
+                                        <Translate />
                                     </View>
                                 </View>
                             </PagerView>
@@ -327,12 +328,9 @@ const styles = StyleSheet.create({
     },
     rightPanel: {
         flex: 1,
-        backgroundColor: '#f0f0f0',
     },
     rightPanelContent: {
         flex: 1,
-        padding: 20,
-        alignItems: 'center',
     },
     rightPanelTitle: {
         fontSize: 24,
