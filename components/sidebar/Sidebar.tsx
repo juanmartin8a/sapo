@@ -1,6 +1,8 @@
 import React, {useState} from 'react';
-import { StyleSheet, Animated, Dimensions, Text } from 'react-native';
+import { StyleSheet, Animated, Dimensions, Text, View } from 'react-native';
 import DropDownPicker from 'react-native-dropdown-picker'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import ChevronRightIcon from "../../assets/icons/chevron-right.svg";
 
 export const SIDEBAR_WIDTH = Dimensions.get("window").width * 0.7;
 
@@ -10,6 +12,7 @@ type SideBarProps = {
 
 const SideBar: React.FC<SideBarProps> = ({ translationX }) => {
     const [open, setOpen] = useState(false)
+    const insets = useSafeAreaInsets();
     const [selectedLanguage, setSelectedLanguage] = useState<string>("en");
     const [items, setItems] = useState([
         { label: "English", value: "en" },
@@ -28,24 +31,53 @@ const SideBar: React.FC<SideBarProps> = ({ translationX }) => {
                 styles.sideBar,
                 {
                     transform: [{ translateX: Animated.add(-SIDEBAR_WIDTH, translationX) }],
+                    paddingTop: insets.top
                 },
             ]}
         >
-            <Text>Target Language:</Text>
-            <DropDownPicker
-                open={open}
-                setOpen={setOpen}
-                value={selectedLanguage}
-                setValue={setSelectedLanguage}
-                items={items}
-                setItems={setItems}
-                style={{ marginTop: 10 }}
-            />
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Input Language:</Text>
+              <View style={styles.field}>
+                <Text style={styles.textInField}>Auto Detect</Text>
+                <ChevronRightIcon stroke="#aaa"/>
+              </View>
+            </View>
+            <View style={styles.inputContainer}>
+
+              <Text style={styles.label}>Target Language:</Text>
+              <View style={styles.field}>
+                <Text style={styles.textInField}>Mandarin</Text>
+                <ChevronRightIcon height={24} stroke="#aaa"/>
+              </View>
+            </View>
         </Animated.View>
     );
 };
 
 const styles = StyleSheet.create({
+    inputContainer: {
+        paddingVertical: 12
+    },
+    label: {
+        fontSize: 16,
+        fontWeight: "500",
+    },
+    field: {
+        width: "100%",
+        height: 42,
+        alignContent: 'space-around',
+        justifyContent: 'center',
+        alignItems: "center",
+        flexDirection: "row",
+        fontWeight: "bold",
+    },
+    textInField: {
+        flex: 1,
+        fontSize: 18,
+        lineHeight: 18,
+        color: "#aaa",
+        fontWeight: "500",
+    },
     sideBar: {
         position: "absolute",
         height: "100%",
