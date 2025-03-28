@@ -11,6 +11,6 @@ export const languages = {
 
 
 export const languagesPlusAutoDetect = {
-    ...languages,
-    9: "Auto-detect"
+    0: "Auto-detect",
+    ...languages
 } 
