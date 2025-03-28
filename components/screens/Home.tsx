@@ -9,7 +9,7 @@ import {
     TouchableWithoutFeedback,
     Dimensions,
 } from "react-native";
-import { GestureHandlerRootView, PanGestureHandler, PanGestureHandlerGestureEvent, TapGestureHandler} from "react-native-gesture-handler";
+import { FlatList, GestureHandlerRootView, PanGestureHandler, PanGestureHandlerGestureEvent, TapGestureHandler} from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Reanimated, {
   useAnimatedKeyboard,
@@ -21,9 +21,8 @@ import SidebarIcon from "../../assets/icons/sidebar.svg";
 import MinusIcon from "../../assets/icons/minus.svg";
 import Translate from "@/components/home/Translate";
 import useBottomSheetNotifier from "@/stores/bottomSheetNotifierStore";
-import BottomSheet, { BottomSheetFlatList, BottomSheetView } from "@gorhom/bottom-sheet";
+import BottomSheet, { BottomSheetFlatList, BottomSheetView, SCREEN_HEIGHT } from "@gorhom/bottom-sheet";
 import { languages } from "@/constants/languages";
-import { FlatList } from "react-native";
 
 export default function Home() {
     const [text, setText] = useState("");
@@ -273,12 +272,15 @@ export default function Home() {
             </PanGestureHandler>
             <BottomSheet
         ref={sheetRef}
-        snapPoints={['25%', '50%', '75%']}
+        snapPoints={["45%", "65%"]}
+        enableDynamicSizing={false}
+        enablePanDownToClose={true}
         handleIndicatorStyle={styles.handleIndicator}
+
         style={styles.bottomSheet}
         backgroundStyle={styles.bottomSheetBackground}
       >
-        <BottomSheetFlatList
+      <BottomSheetFlatList
               data={Object.entries(languages)}
               keyExtractor={(_, index) => index.toString()}
               ItemSeparatorComponent={() => <View style={{height: 12}}></View>}
@@ -287,10 +289,11 @@ export default function Home() {
                   <Text style={styles.listItemText}>{value}</Text>
                 </View>
               )}
-              contentContainerStyle={styles.contentContainer}
+              contentContainerStyle={[styles.contentContainer, {paddingBottom: insets.bottom, paddingTop: 12}]}
         >
 
         </BottomSheetFlatList>
+
       </BottomSheet>
         </GestureHandlerRootView>
     </View>
@@ -323,7 +326,6 @@ const styles = StyleSheet.create({
         alignItems: 'center'
     },
     contentContainer: {
-        flex: 1,
         paddingHorizontal: 24,
     },
     bottomSheet: {
