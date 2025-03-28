@@ -18,9 +18,12 @@ import Reanimated, {
 import PagerView from 'react-native-pager-view';
 import SideBar, { SIDEBAR_WIDTH } from "@/components/sidebar/Sidebar";
 import SidebarIcon from "../../assets/icons/sidebar.svg";
+import MinusIcon from "../../assets/icons/minus.svg";
 import Translate from "@/components/home/Translate";
 import useBottomSheetNotifier from "@/stores/bottomSheetNotifierStore";
-import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
+import BottomSheet, { BottomSheetFlatList, BottomSheetView } from "@gorhom/bottom-sheet";
+import { languages } from "@/constants/languages";
+import { FlatList } from "react-native";
 
 export default function Home() {
     const [text, setText] = useState("");
@@ -272,35 +275,22 @@ export default function Home() {
         ref={sheetRef}
         snapPoints={['25%', '50%', '75%']}
         handleIndicatorStyle={styles.handleIndicator}
+        style={styles.bottomSheet}
+        backgroundStyle={styles.bottomSheetBackground}
       >
-        <BottomSheetView style={styles.contentContainer}>
-          <View style={styles.listContainer}>
-            <View style={styles.listItem}>
-              <Text style={styles.listItemText}>Item 1</Text>
-            </View>
-            <View style={styles.listItem}>
-              <Text style={styles.listItemText}>Item 2</Text>
-            </View>
-            <View style={styles.listItem}>
-              <Text style={styles.listItemText}>Item 3</Text>
-            </View>
-            <View style={styles.listItem}>
-              <Text style={styles.listItemText}>Item 4</Text>
-            </View>
-            <View style={styles.listItem}>
-              <Text style={styles.listItemText}>Item 5</Text>
-            </View>
-            <View style={styles.listItem}>
-              <Text style={styles.listItemText}>Item 6</Text>
-            </View>
-            <View style={styles.listItem}>
-              <Text style={styles.listItemText}>Item 7</Text>
-            </View>
-            <View style={styles.listItem}>
-              <Text style={styles.listItemText}>Item 8</Text>
-            </View>
-          </View>
-        </BottomSheetView>
+        <BottomSheetFlatList
+              data={Object.entries(languages)}
+              keyExtractor={(_, index) => index.toString()}
+              ItemSeparatorComponent={() => <View style={{height: 12}}></View>}
+              renderItem={({ item: [_, value] }) => (
+                <View style={styles.listItem}>
+                  <Text style={styles.listItemText}>{value}</Text>
+                </View>
+              )}
+              contentContainerStyle={styles.contentContainer}
+        >
+
+        </BottomSheetFlatList>
       </BottomSheet>
         </GestureHandlerRootView>
     </View>
@@ -334,8 +324,13 @@ const styles = StyleSheet.create({
     },
     contentContainer: {
         flex: 1,
-        position: 'relative',
-        padding: 16,
+        paddingHorizontal: 24,
+    },
+    bottomSheet: {
+        shadowColor: "#aaa",
+        shadowOffset: { width: 0, height: -4},
+        shadowOpacity: 0.25,
+        shadowRadius: 10,
     },
     textInputContainer: {
         flex: 1,
@@ -394,22 +389,24 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
     handleIndicator: {
-        backgroundColor: '#DDDDDD',
-        width: 50,
+        backgroundColor: '#aaa',
+        width: 25,
         height: 5,
-        borderRadius: 5,
+        borderRadius: 20,
     },
-    listContainer: {
-        width: '100%',
+    bottomSheetBackground: {
+        backgroundColor: "black",
+        borderTopLeftRadius: 15,
+        borderTopRightRadius: 15,
     },
     listItem: {
-        paddingVertical: 16,
-        paddingHorizontal: 8,
-        borderBottomWidth: 1,
-        borderBottomColor: '#EEEEEE',
+        paddingVertical: 18,
+        paddingHorizontal: 12,
+        borderWidth: 1,
+        borderColor: '#EEEEEE',
     },
     listItemText: {
         fontSize: 16,
-        color: '#333333',
+        color: 'white',
     },
 });
