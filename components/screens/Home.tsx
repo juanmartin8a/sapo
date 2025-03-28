@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
     StyleSheet,
     View,
@@ -19,6 +19,8 @@ import PagerView from 'react-native-pager-view';
 import SideBar, { SIDEBAR_WIDTH } from "@/components/sidebar/Sidebar";
 import SidebarIcon from "../../assets/icons/sidebar.svg";
 import Translate from "@/components/home/Translate";
+import useBottomSheetNotifier from "@/stores/bottomSheetNotifierStore";
+import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
 
 export default function Home() {
     const [text, setText] = useState("");
@@ -34,8 +36,11 @@ export default function Home() {
     const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
     const [tapStoppedScroll, setTapStoppedScroll] = useState(false)
     
-    const SCREEN_WIDTH = Dimensions.get('window').width;
     const [currentPage, setCurrentPage] = useState(0);
+
+    const bottomModalSheet = () => useBottomSheetNotifier.subscribe((state) => {
+        // console.log("show bottom sheet :)")
+    })
 
     const dismissKeyboard = () => {
         Keyboard.dismiss();
@@ -97,6 +102,7 @@ export default function Home() {
 
     // Track sidebar position
     React.useEffect(() => {
+        bottomModalSheet()
         // requestAnimationFrame(() => pagerRef.current?.setPage(0));
         const listenerId = sideBarTranslationX.addListener(({ value }) => {
             sideBarTranslationXValue.current = value;
@@ -142,11 +148,13 @@ export default function Home() {
         setCurrentPage(0);
     };
 
+    const sheetRef = useRef<BottomSheet>(null);
+
     return (
         <View
             style={styles.container}
         >
-        <GestureHandlerRootView style={{ flex: 1 }}>
+          <GestureHandlerRootView style={{flex:1}}>
             <PanGestureHandler 
                 onGestureEvent={handleContentGesture}
                 onEnded={handleContentGestureEnd}
@@ -260,6 +268,40 @@ export default function Home() {
                     </Animated.View>
                 </View>
             </PanGestureHandler>
+            <BottomSheet
+        ref={sheetRef}
+        snapPoints={['25%', '50%', '75%']}
+        handleIndicatorStyle={styles.handleIndicator}
+      >
+        <BottomSheetView style={styles.contentContainer}>
+          <View style={styles.listContainer}>
+            <View style={styles.listItem}>
+              <Text style={styles.listItemText}>Item 1</Text>
+            </View>
+            <View style={styles.listItem}>
+              <Text style={styles.listItemText}>Item 2</Text>
+            </View>
+            <View style={styles.listItem}>
+              <Text style={styles.listItemText}>Item 3</Text>
+            </View>
+            <View style={styles.listItem}>
+              <Text style={styles.listItemText}>Item 4</Text>
+            </View>
+            <View style={styles.listItem}>
+              <Text style={styles.listItemText}>Item 5</Text>
+            </View>
+            <View style={styles.listItem}>
+              <Text style={styles.listItemText}>Item 6</Text>
+            </View>
+            <View style={styles.listItem}>
+              <Text style={styles.listItemText}>Item 7</Text>
+            </View>
+            <View style={styles.listItem}>
+              <Text style={styles.listItemText}>Item 8</Text>
+            </View>
+          </View>
+        </BottomSheetView>
+      </BottomSheet>
         </GestureHandlerRootView>
     </View>
   );
@@ -293,7 +335,7 @@ const styles = StyleSheet.create({
     contentContainer: {
         flex: 1,
         position: 'relative',
-        // overflow: 'hidden',
+        padding: 16,
     },
     textInputContainer: {
         flex: 1,
@@ -351,5 +393,23 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
     },
+    handleIndicator: {
+        backgroundColor: '#DDDDDD',
+        width: 50,
+        height: 5,
+        borderRadius: 5,
+    },
+    listContainer: {
+        width: '100%',
+    },
+    listItem: {
+        paddingVertical: 16,
+        paddingHorizontal: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: '#EEEEEE',
+    },
+    listItemText: {
+        fontSize: 16,
+        color: '#333333',
+    },
 });
-

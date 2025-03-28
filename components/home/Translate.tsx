@@ -13,21 +13,21 @@ export default function Translate() {
 
   useEffect(() => {
     // Connect to WebSocket when component mounts
-    connectWebSocket();
-    
-    // Send a test message
-
-    sendMessage(
-      "Spanish", 
-      "German", 
-      "Hola! como estas? Me puedes ayudar diciéndome donde esta la estación de metro mas cercana porfavor?"
-    );
-    console.log("hi")
-    
-    // Clean up the WebSocket connection when component unmounts
-    return () => {
-      disconnectWebSocket();
-    };
+    // connectWebSocket();
+    // 
+    // // Send a test message
+    //
+    // sendMessage(
+    //   "Spanish", 
+    //   "German", 
+    //   "Hola! como estas? Me puedes ayudar diciéndome donde esta la estación de metro mas cercana porfavor?"
+    // );
+    // console.log("hi")
+    // 
+    // // Clean up the WebSocket connection when component unmounts
+    // return () => {
+    //   disconnectWebSocket();
+    // };
   }, []);
 
   return (

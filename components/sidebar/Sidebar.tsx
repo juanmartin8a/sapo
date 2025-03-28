@@ -3,6 +3,10 @@ import { StyleSheet, Animated, Dimensions, Text, View } from 'react-native';
 import DropDownPicker from 'react-native-dropdown-picker'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import ChevronRightIcon from "../../assets/icons/chevron-right.svg";
+import { GestureHandlerRootView, TouchableWithoutFeedback } from 'react-native-gesture-handler';
+import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
+import { Pressable } from 'react-native';
+import useBottomSheetNotifier from '@/stores/bottomSheetNotifierStore';
 
 export const SIDEBAR_WIDTH = Dimensions.get("window").width * 0.7;
 
@@ -24,6 +28,7 @@ const SideBar: React.FC<SideBarProps> = ({ translationX }) => {
         { label: "Portuguese", value: "pt" },
         { label: "Arabic", value: "ar" },
     ]);
+    const showBottomSheet = useBottomSheetNotifier((state) => state.showBottomSheet)
 
     return (
         <Animated.View
@@ -37,10 +42,12 @@ const SideBar: React.FC<SideBarProps> = ({ translationX }) => {
         >
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Input Language:</Text>
+              <TouchableWithoutFeedback onPress={() => showBottomSheet()}>
               <View style={styles.field}>
-                <Text style={styles.textInField}>Auto Detect</Text>
-                <ChevronRightIcon stroke="#aaa"/>
+              <Text style={styles.textInField}>Auto Detect</Text>
+              <ChevronRightIcon stroke="#aaa"/>
               </View>
+              </TouchableWithoutFeedback>
             </View>
             <View style={styles.inputContainer}>
 
@@ -50,6 +57,14 @@ const SideBar: React.FC<SideBarProps> = ({ translationX }) => {
                 <ChevronRightIcon height={24} stroke="#aaa"/>
               </View>
             </View>
+            <BottomSheet
+        // ref={bottomSheetRef}
+        // onChange={handleSheetChanges}
+      >
+        <BottomSheetView style={{}}>
+          <Text>Awesome 🎉</Text>
+        </BottomSheetView>
+      </BottomSheet>
         </Animated.View>
     );
 };
