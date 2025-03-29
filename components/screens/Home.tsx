@@ -18,11 +18,9 @@ import Reanimated, {
 import PagerView from 'react-native-pager-view';
 import SideBar, { SIDEBAR_WIDTH } from "@/components/sidebar/Sidebar";
 import SidebarIcon from "../../assets/icons/sidebar.svg";
-import MinusIcon from "../../assets/icons/minus.svg";
 import Translate from "@/components/home/Translate";
 import useBottomSheetNotifier from "@/stores/bottomSheetNotifierStore";
-import BottomSheet, { BottomSheetFlatList, BottomSheetView, SCREEN_HEIGHT } from "@gorhom/bottom-sheet";
-import { languages } from "@/constants/languages";
+import LanguageSelectorBottomSheet from "../home/LanguageSelectorBottomSheet";
 
 export default function Home() {
     const [text, setText] = useState("");
@@ -150,8 +148,6 @@ export default function Home() {
         setCurrentPage(0);
     };
 
-    const sheetRef = useRef<BottomSheet>(null);
-
     return (
         <View
             style={styles.container}
@@ -270,31 +266,7 @@ export default function Home() {
                     </Animated.View>
                 </View>
             </PanGestureHandler>
-            <BottomSheet
-        ref={sheetRef}
-        snapPoints={["45%", "65%"]}
-        enableDynamicSizing={false}
-        enablePanDownToClose={true}
-        handleIndicatorStyle={styles.handleIndicator}
-
-        style={styles.bottomSheet}
-        backgroundStyle={styles.bottomSheetBackground}
-      >
-      <BottomSheetFlatList
-              data={Object.entries(languages)}
-              keyExtractor={(_, index) => index.toString()}
-              ItemSeparatorComponent={() => <View style={{height: 12}}></View>}
-              renderItem={({ item: [_, value] }) => (
-                <View style={styles.listItem}>
-                  <Text style={styles.listItemText}>{value}</Text>
-                </View>
-              )}
-              contentContainerStyle={[styles.contentContainer, {paddingBottom: insets.bottom, paddingTop: 12}]}
-        >
-
-        </BottomSheetFlatList>
-
-      </BottomSheet>
+            <LanguageSelectorBottomSheet/>
         </GestureHandlerRootView>
     </View>
   );
@@ -324,15 +296,6 @@ const styles = StyleSheet.create({
         width: '100%',
         justifyContent: 'center',
         alignItems: 'center'
-    },
-    contentContainer: {
-        paddingHorizontal: 24,
-    },
-    bottomSheet: {
-        shadowColor: "#aaa",
-        shadowOffset: { width: 0, height: -4},
-        shadowOpacity: 0.25,
-        shadowRadius: 10,
     },
     textInputContainer: {
         flex: 1,
@@ -389,26 +352,5 @@ const styles = StyleSheet.create({
     closeButtonText: {
         fontSize: 16,
         fontWeight: 'bold',
-    },
-    handleIndicator: {
-        backgroundColor: '#aaa',
-        width: 25,
-        height: 5,
-        borderRadius: 20,
-    },
-    bottomSheetBackground: {
-        backgroundColor: "black",
-        borderTopLeftRadius: 15,
-        borderTopRightRadius: 15,
-    },
-    listItem: {
-        paddingVertical: 18,
-        paddingHorizontal: 12,
-        borderWidth: 1,
-        borderColor: '#EEEEEE',
-    },
-    listItemText: {
-        fontSize: 16,
-        color: 'white',
     },
 });
