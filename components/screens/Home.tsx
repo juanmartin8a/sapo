@@ -9,7 +9,7 @@ import {
     TouchableWithoutFeedback,
     Dimensions,
 } from "react-native";
-import { FlatList, GestureHandlerRootView, PanGestureHandler, PanGestureHandlerGestureEvent, TapGestureHandler} from "react-native-gesture-handler";
+import { GestureHandlerRootView, PanGestureHandler, PanGestureHandlerGestureEvent, TapGestureHandler} from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Reanimated, {
   useAnimatedKeyboard,
@@ -19,7 +19,6 @@ import PagerView from 'react-native-pager-view';
 import SideBar, { SIDEBAR_WIDTH } from "@/components/sidebar/Sidebar";
 import SidebarIcon from "../../assets/icons/sidebar.svg";
 import Translate from "@/components/home/Translate";
-import useBottomSheetNotifier from "@/stores/bottomSheetNotifierStore";
 import LanguageSelectorBottomSheet from "../home/LanguageSelectorBottomSheet";
 
 export default function Home() {
@@ -37,10 +36,6 @@ export default function Home() {
     const [tapStoppedScroll, setTapStoppedScroll] = useState(false)
     
     const [currentPage, setCurrentPage] = useState(0);
-
-    const bottomModalSheet = () => useBottomSheetNotifier.subscribe((state) => {
-        // console.log("show bottom sheet :)")
-    })
 
     const dismissKeyboard = () => {
         Keyboard.dismiss();
@@ -102,7 +97,6 @@ export default function Home() {
 
     // Track sidebar position
     React.useEffect(() => {
-        bottomModalSheet()
         // requestAnimationFrame(() => pagerRef.current?.setPage(0));
         const listenerId = sideBarTranslationX.addListener(({ value }) => {
             sideBarTranslationXValue.current = value;

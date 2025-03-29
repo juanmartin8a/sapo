@@ -1,6 +1,7 @@
 import { languages } from "@/constants/languages";
+import useBottomSheetNotifier from "@/stores/bottomSheetNotifierStore";
 import BottomSheet, { BottomSheetFlatList } from "@gorhom/bottom-sheet";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Text } from "react-native";
 import { View } from "react-native";
 import { StyleSheet } from "react-native";
@@ -11,10 +12,20 @@ export default function LanguageSelectorBottomSheet() {
     const insets = useSafeAreaInsets();
     const sheetRef = useRef<BottomSheet>(null);
 
+    const bottomModalSheet = () => useBottomSheetNotifier.subscribe((state) => {
+        sheetRef!.current!.snapToIndex(0)
+    })
+
+    
+    useEffect(() => {
+        bottomModalSheet()
+    })
+
     return (
       <BottomSheet
         ref={sheetRef}
         snapPoints={["45%", "65%"]}
+        index={-1}
         enableDynamicSizing={false}
         enablePanDownToClose={true}
         handleIndicatorStyle={styles.handleIndicator}
