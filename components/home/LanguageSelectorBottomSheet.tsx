@@ -1,7 +1,7 @@
-import { languages } from "@/constants/languages";
+import { languages, languagesPlusAutoDetect } from "@/constants/languages";
 import useBottomSheetNotifier from "@/stores/bottomSheetNotifierStore";
 import BottomSheet, { BottomSheetFlatList } from "@gorhom/bottom-sheet";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Text } from "react-native";
 import { View } from "react-native";
 import { StyleSheet } from "react-native";
@@ -11,12 +11,38 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 export default function LanguageSelectorBottomSheet() {
     const insets = useSafeAreaInsets();
     const sheetRef = useRef<BottomSheet>(null);
+    const [ withAutoDetect, setWithAutoDetect ] = useState<boolean>(false);
+    const isClosed = useRef<boolean>(true)
+
+    // boolean represents whether it should use open with auto-detect or without
+    // null means that it should not reopen
+    const shouldReopen = useRef<boolean | null>(null) 
 
     const bottomModalSheet = () => useBottomSheetNotifier.subscribe((state) => {
-        sheetRef!.current!.snapToIndex(0)
+        if (isClosed.current) {
+            setWithAutoDetect(state.withAutoDetect) 
+            sheetRef.current?.snapToIndex(0)
+        } else {
+            shouldReopen.current = state.withAutoDetect 
+            sheetRef.current?.close()
+        }
     })
 
-    
+    const handleClose = () => {
+        if (shouldReopen.current !== null) {
+            setWithAutoDetect(shouldReopen.current) 
+            sheetRef.current?.snapToIndex(0)
+            shouldReopen.current = null 
+        }
+        isClosed.current = true;
+    }
+
+    const handleChange = (index: number) => {
+        if (index > -1) {
+            isClosed.current = false;
+        }    
+    }
+
     useEffect(() => {
         bottomModalSheet()
     })
@@ -29,11 +55,13 @@ export default function LanguageSelectorBottomSheet() {
         enableDynamicSizing={false}
         enablePanDownToClose={true}
         handleIndicatorStyle={styles.handleIndicator}
+        onClose={handleClose}
+        onChange={handleChange}
         style={styles.bottomSheet}
         backgroundStyle={styles.bottomSheetBackground}
       >
         <BottomSheetFlatList
-          data={Object.entries(languages)}
+          data={Object.entries(withAutoDetect ? languagesPlusAutoDetect : languages)}
           keyExtractor={(_, index) => index.toString()}
           ItemSeparatorComponent={() => <View style={{height: 12}}></View>}
           renderItem={({ item: [_, value] }) => (
@@ -73,7 +101,7 @@ const styles = StyleSheet.create({
         paddingVertical: 18,
         paddingHorizontal: 12,
         borderWidth: 1,
-        borderColor: '#EEEEEE',
+        borderColor: 'white',
     },
     listItemText: {
         fontSize: 16,

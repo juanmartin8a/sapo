@@ -1,14 +1,10 @@
 import { create } from 'zustand';
 
 const useBottomSheetNotifier = create((set) => ({
-    show: false,
-    showBottomSheet: () => {
-        console.log("sapo")
-        return set({show: true})
+    withAutoDetect: false,
+    showBottomSheet: (withAutoDetect: boolean) => {
+        return set({withAutoDetect: withAutoDetect})
     },
-    hideBottomSheet: () => {
-        set({show: false})
-    }
 }))
 
 export default useBottomSheetNotifier;

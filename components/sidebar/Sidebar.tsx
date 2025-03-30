@@ -17,17 +17,7 @@ type SideBarProps = {
 const SideBar: React.FC<SideBarProps> = ({ translationX }) => {
     const [open, setOpen] = useState(false)
     const insets = useSafeAreaInsets();
-    const [selectedLanguage, setSelectedLanguage] = useState<string>("en");
-    const [items, setItems] = useState([
-        { label: "English", value: "en" },
-        { label: "Spanish", value: "es" },
-        { label: "French", value: "fr" },
-        { label: "German", value: "de" },
-        { label: "Mandarin (Standard Chinese)", value: "zh" },
-        { label: "Russian", value: "ru" },
-        { label: "Portuguese", value: "pt" },
-        { label: "Arabic", value: "ar" },
-    ]);
+    const [selectedLanguage, setSelectedLanguage] = useState<string>();
     const showBottomSheet = useBottomSheetNotifier((state) => state.showBottomSheet)
 
     return (
@@ -42,20 +32,21 @@ const SideBar: React.FC<SideBarProps> = ({ translationX }) => {
         >
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Input Language:</Text>
-              <TouchableWithoutFeedback onPress={() => showBottomSheet()}>
-              <View style={styles.field}>
-              <Text style={styles.textInField}>Auto Detect</Text>
-              <ChevronRightIcon stroke="#aaa"/>
-              </View>
+              <TouchableWithoutFeedback onPress={() => showBottomSheet(true)}>
+                <View style={styles.field}>
+                    <Text style={styles.textInField}>Auto Detect</Text>
+                    <ChevronRightIcon stroke="#aaa"/>
+                </View>
               </TouchableWithoutFeedback>
             </View>
             <View style={styles.inputContainer}>
-
               <Text style={styles.label}>Target Language:</Text>
-              <View style={styles.field}>
-                <Text style={styles.textInField}>Mandarin</Text>
-                <ChevronRightIcon height={24} stroke="#aaa"/>
-              </View>
+              <TouchableWithoutFeedback onPress={() => showBottomSheet(false)}>
+                <View style={styles.field}>
+                    <Text style={styles.textInField}>Mandarin</Text>
+                    <ChevronRightIcon height={24} stroke="#aaa"/>
+                </View>
+              </TouchableWithoutFeedback>
             </View>
             <BottomSheet
         // ref={bottomSheetRef}
