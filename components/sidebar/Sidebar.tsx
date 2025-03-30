@@ -1,11 +1,8 @@
 import React, {useState} from 'react';
 import { StyleSheet, Animated, Dimensions, Text, View } from 'react-native';
-import DropDownPicker from 'react-native-dropdown-picker'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import ChevronRightIcon from "../../assets/icons/chevron-right.svg";
 import { GestureHandlerRootView, TouchableWithoutFeedback } from 'react-native-gesture-handler';
-import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
-import { Pressable } from 'react-native';
 import useBottomSheetNotifier from '@/stores/bottomSheetNotifierStore';
 
 export const SIDEBAR_WIDTH = Dimensions.get("window").width * 0.7;
@@ -48,14 +45,6 @@ const SideBar: React.FC<SideBarProps> = ({ translationX }) => {
                 </View>
               </TouchableWithoutFeedback>
             </View>
-            <BottomSheet
-        // ref={bottomSheetRef}
-        // onChange={handleSheetChanges}
-      >
-        <BottomSheetView style={{}}>
-          <Text>Awesome 🎉</Text>
-        </BottomSheetView>
-      </BottomSheet>
         </Animated.View>
     );
 };
