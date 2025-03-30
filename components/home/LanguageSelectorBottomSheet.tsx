@@ -12,19 +12,27 @@ export default function LanguageSelectorBottomSheet() {
     const insets = useSafeAreaInsets();
     const sheetRef = useRef<BottomSheet>(null);
     const [ withAutoDetect, setWithAutoDetect ] = useState<boolean>(false);
+    const withAutoDetectRef = useRef<boolean>(false); // ref to track current state
     const isClosed = useRef<boolean>(true)
 
     // boolean represents whether it should use open with auto-detect or without
     // null means that it should not reopen
     const shouldReopen = useRef<boolean | null>(null) 
 
+    // Update ref whenever state changes
+    useEffect(() => {
+        withAutoDetectRef.current = withAutoDetect;
+    }, [withAutoDetect]);
+
     const bottomModalSheet = () => useBottomSheetNotifier.subscribe((state) => {
         if (isClosed.current) {
             setWithAutoDetect(state.withAutoDetect) 
             sheetRef.current?.snapToIndex(0)
         } else {
-            shouldReopen.current = state.withAutoDetect 
-            sheetRef.current?.close()
+            if (withAutoDetectRef.current !== state.withAutoDetect) {
+                shouldReopen.current = state.withAutoDetect 
+                sheetRef.current?.close()
+            }
         }
     })
 
@@ -45,7 +53,7 @@ export default function LanguageSelectorBottomSheet() {
 
     useEffect(() => {
         bottomModalSheet()
-    })
+    }, [])
 
     return (
       <BottomSheet
