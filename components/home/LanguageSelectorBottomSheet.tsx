@@ -6,6 +6,7 @@ import { Text, TouchableOpacity } from "react-native";
 import { View } from "react-native";
 import { StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import CheckIcon from "@/assets/icons/check.svg";
 
 
 export default function LanguageSelectorBottomSheet() {
@@ -82,9 +83,10 @@ export default function LanguageSelectorBottomSheet() {
           keyExtractor={([key]) => key}
           ItemSeparatorComponent={() => <View style={{height: 12}}></View>}
           renderItem={({ item: [key, value] }) => (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.listItem}
               onPress={() => handleLanguageSelect(key)}
+              activeOpacity={0.65}
             >
               <Text style={styles.listItemText}>{value}</Text>
             </TouchableOpacity>
@@ -118,6 +120,10 @@ const styles = StyleSheet.create({
         borderTopRightRadius: 15,
     },
     listItem: {
+        flex: 1,
+        justifyContent: "space-between",
+        alignItems: "center",
+        flexDirection: 'row',
         paddingVertical: 18,
         paddingHorizontal: 12,
         borderWidth: 1,
