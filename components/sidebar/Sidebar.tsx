@@ -1,9 +1,10 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect, useCallback} from 'react';
 import { StyleSheet, Animated, Dimensions, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import ChevronRightIcon from "../../assets/icons/chevron-right.svg";
 import { GestureHandlerRootView, TouchableWithoutFeedback } from 'react-native-gesture-handler';
-import useBottomSheetNotifier from '@/stores/bottomSheetNotifierStore';
+import useLanguageSelectorBottomSheetNotifier from '@/stores/languageSelectorBottomSheetNotifierStore';
+import { languages, languagesPlusAutoDetect } from '@/constants/languages';
 
 export const SIDEBAR_WIDTH = Dimensions.get("window").width * 0.7;
 
@@ -14,8 +15,24 @@ type SideBarProps = {
 const SideBar: React.FC<SideBarProps> = ({ translationX }) => {
     const [open, setOpen] = useState(false)
     const insets = useSafeAreaInsets();
-    const [selectedLanguage, setSelectedLanguage] = useState<string>();
-    const showBottomSheet = useBottomSheetNotifier((state) => state.showBottomSheet)
+    const [inputLanguage, setInputLanguage] = useState<string>(languagesPlusAutoDetect[0]);
+    const [targetLanguage, setTargetLanguage] = useState<string>(languages[1]);
+    
+    // Get individual values from the store to avoid unnecessary re-renders
+    const showBottomSheet = useLanguageSelectorBottomSheetNotifier(state => state.showBottomSheet);
+    const selectedIndex0 = useLanguageSelectorBottomSheetNotifier(state => state.selectedIndex0);
+    const selectedIndex1 = useLanguageSelectorBottomSheetNotifier(state => state.selectedIndex1);
+    
+    // Update the displayed languages when indices change in the store
+    useEffect(() => {
+        const newInputLang = languagesPlusAutoDetect[selectedIndex0] || languagesPlusAutoDetect[0];
+        setInputLanguage(newInputLang);
+    }, [selectedIndex0]);
+    
+    useEffect(() => {
+        const newTargetLang = languages[selectedIndex1] || languages[1];
+        setTargetLanguage(newTargetLang);
+    }, [selectedIndex1]);
 
     return (
         <Animated.View
@@ -31,7 +48,7 @@ const SideBar: React.FC<SideBarProps> = ({ translationX }) => {
               <Text style={styles.label}>Input Language:</Text>
               <TouchableWithoutFeedback onPress={() => showBottomSheet(true)}>
                 <View style={styles.field}>
-                    <Text style={styles.textInField}>Auto Detect</Text>
+                    <Text style={styles.textInField}>{inputLanguage}</Text>
                     <ChevronRightIcon stroke="#aaa"/>
                 </View>
               </TouchableWithoutFeedback>
@@ -40,7 +57,7 @@ const SideBar: React.FC<SideBarProps> = ({ translationX }) => {
               <Text style={styles.label}>Target Language:</Text>
               <TouchableWithoutFeedback onPress={() => showBottomSheet(false)}>
                 <View style={styles.field}>
-                    <Text style={styles.textInField}>Mandarin</Text>
+                    <Text style={styles.textInField}>{targetLanguage}</Text>
                     <ChevronRightIcon height={24} stroke="#aaa"/>
                 </View>
               </TouchableWithoutFeedback>

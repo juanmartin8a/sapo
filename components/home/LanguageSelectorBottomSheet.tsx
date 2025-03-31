@@ -1,8 +1,8 @@
 import { languages, languagesPlusAutoDetect } from "@/constants/languages";
-import useBottomSheetNotifier from "@/stores/bottomSheetNotifierStore";
+import useLanguageSelectorBottomSheetNotifier from '@/stores/languageSelectorBottomSheetNotifierStore';
 import BottomSheet, { BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import { useEffect, useRef, useState } from "react";
-import { Text } from "react-native";
+import { Text, TouchableOpacity } from "react-native";
 import { View } from "react-native";
 import { StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -14,23 +14,29 @@ export default function LanguageSelectorBottomSheet() {
     const [ withAutoDetect, setWithAutoDetect ] = useState<boolean>(false);
     const withAutoDetectRef = useRef<boolean>(false); // ref to track current state
     const isClosed = useRef<boolean>(true)
+    const forInputRef = useRef<boolean>(true); // Track if selection is for input or target language
 
     // boolean represents whether it should use open with auto-detect or without
     // null means that it should not reopen
     const shouldReopen = useRef<boolean | null>(null) 
+
+    // Get the selectLanguage function from the store
+    const selectLanguage = useLanguageSelectorBottomSheetNotifier(state => state.selectLanguage);
 
     // Update ref whenever state changes
     useEffect(() => {
         withAutoDetectRef.current = withAutoDetect;
     }, [withAutoDetect]);
 
-    const bottomModalSheet = () => useBottomSheetNotifier.subscribe((state) => {
+    const bottomModalSheet = () => useLanguageSelectorBottomSheetNotifier.subscribe((state) => {
         if (isClosed.current) {
-            setWithAutoDetect(state.withAutoDetect) 
+            setWithAutoDetect(state.withAutoDetect)
+            forInputRef.current = state.withAutoDetect // If withAutoDetect is true, we're selecting input language
             sheetRef.current?.snapToIndex(0)
         } else {
             if (withAutoDetectRef.current !== state.withAutoDetect) {
-                shouldReopen.current = state.withAutoDetect 
+                shouldReopen.current = state.withAutoDetect
+                forInputRef.current = state.withAutoDetect
                 sheetRef.current?.close()
             }
         }
@@ -49,6 +55,13 @@ export default function LanguageSelectorBottomSheet() {
         if (index > -1) {
             isClosed.current = false;
         }    
+    }
+
+    // Handle language selection
+    const handleLanguageSelect = (key: string) => {
+        const index = parseInt(key);
+        selectLanguage(forInputRef.current, index);
+        sheetRef.current?.close();
     }
 
     useEffect(() => {
@@ -70,12 +83,15 @@ export default function LanguageSelectorBottomSheet() {
       >
         <BottomSheetFlatList
           data={Object.entries(withAutoDetect ? languagesPlusAutoDetect : languages)}
-          keyExtractor={(_, index) => index.toString()}
+          keyExtractor={([key]) => key}
           ItemSeparatorComponent={() => <View style={{height: 12}}></View>}
-          renderItem={({ item: [_, value] }) => (
-            <View style={styles.listItem}>
+          renderItem={({ item: [key, value] }) => (
+            <TouchableOpacity 
+              style={styles.listItem}
+              onPress={() => handleLanguageSelect(key)}
+            >
               <Text style={styles.listItemText}>{value}</Text>
-            </View>
+            </TouchableOpacity>
           )}
           contentContainerStyle={[styles.contentContainer, {paddingBottom: insets.bottom, paddingTop: 12}]}
         />
