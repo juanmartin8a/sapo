@@ -14,7 +14,6 @@ export default function LanguageSelectorBottomSheet() {
     const [ withAutoDetect, setWithAutoDetect ] = useState<boolean>(false);
     const withAutoDetectRef = useRef<boolean>(false); // ref to track current state
     const isClosed = useRef<boolean>(true)
-    const forInputRef = useRef<boolean>(true); // Track if selection is for input or target language
 
     // boolean represents whether it should use open with auto-detect or without
     // null means that it should not reopen
@@ -31,12 +30,10 @@ export default function LanguageSelectorBottomSheet() {
     const bottomModalSheet = () => useLanguageSelectorBottomSheetNotifier.subscribe((state) => {
         if (isClosed.current) {
             setWithAutoDetect(state.withAutoDetect)
-            forInputRef.current = state.withAutoDetect // If withAutoDetect is true, we're selecting input language
             sheetRef.current?.snapToIndex(0)
         } else {
             if (withAutoDetectRef.current !== state.withAutoDetect) {
                 shouldReopen.current = state.withAutoDetect
-                forInputRef.current = state.withAutoDetect
                 sheetRef.current?.close()
             }
         }
@@ -57,10 +54,9 @@ export default function LanguageSelectorBottomSheet() {
         }    
     }
 
-    // Handle language selection
     const handleLanguageSelect = (key: string) => {
         const index = parseInt(key);
-        selectLanguage(forInputRef.current, index);
+        selectLanguage(withAutoDetectRef.current, index);
         sheetRef.current?.close();
     }
 
