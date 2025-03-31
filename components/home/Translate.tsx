@@ -18,9 +18,9 @@ export default function Translate() {
     // // Send a test message
     //
     // sendMessage(
+    //   "English", 
     //   "Spanish", 
-    //   "German", 
-    //   "Hola! como estas? Me puedes ayudar diciéndome donde esta la estación de metro mas cercana porfavor?"
+    //   "Turn your magic on. To me she'd say. Everything you want is a dream away."
     // );
     // console.log("hi")
     // 

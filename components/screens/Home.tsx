@@ -20,6 +20,7 @@ import SideBar, { SIDEBAR_WIDTH } from "@/components/sidebar/Sidebar";
 import SidebarIcon from "../../assets/icons/sidebar.svg";
 import Translate from "@/components/home/Translate";
 import LanguageSelectorBottomSheet from "../home/LanguageSelectorBottomSheet";
+import { useSidebarIsOpenNotifier } from "@/stores";
 
 export default function Home() {
     const [text, setText] = useState("");
@@ -36,6 +37,9 @@ export default function Home() {
     const [tapStoppedScroll, setTapStoppedScroll] = useState(false)
     
     const [currentPage, setCurrentPage] = useState(0);
+
+    // Get the sidebar state update function
+    const isSidebarOpenOrClosed = useSidebarIsOpenNotifier(state => state.isSidebarOpenOrClosed);
 
     const dismissKeyboard = () => {
         Keyboard.dismiss();
@@ -100,17 +104,22 @@ export default function Home() {
         // requestAnimationFrame(() => pagerRef.current?.setPage(0));
         const listenerId = sideBarTranslationX.addListener(({ value }) => {
             sideBarTranslationXValue.current = value;
-            setIsSideBarPosAtStart(value === 0)
+            const isSidebarClosed = value === 0;
+            setIsSideBarPosAtStart(isSidebarClosed);
+            
             if (value === 0 || value === SIDEBAR_WIDTH) {
-                isSideBarLastPosAtStart.current = value === 0
+                isSideBarLastPosAtStart.current = isSidebarClosed;
                 slideSideBar.current = null;
+                
+                // Update the sidebar state in the store
+                isSidebarOpenOrClosed(!isSidebarClosed);
             }
         });
 
         return () => {
             sideBarTranslationX.removeListener(listenerId);
         }; 
-    }, []);
+    }, [isSidebarOpenOrClosed]);
 
     const handleScroll = () => {
         if (textInputRef.current?.isFocused() === false) {
@@ -174,6 +183,7 @@ export default function Home() {
                                         duration: 100,
                                         useNativeDriver: true,
                                     }).start()
+                                    isSidebarOpenOrClosed(true)
                                     return
                                 }}>
                                     <View style={{padding: 6}}>
@@ -252,6 +262,7 @@ export default function Home() {
                                     duration: 100,
                                     useNativeDriver: true,
                                 }).start()
+                                isSidebarOpenOrClosed(false)
                                 return
                             }}>
                                 <View style={styles.mainContentOverlay}/>

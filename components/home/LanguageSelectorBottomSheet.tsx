@@ -1,5 +1,6 @@
 import { languages, languagesPlusAutoDetect } from "@/constants/languages";
 import useLanguageSelectorBottomSheetNotifier from '@/stores/languageSelectorBottomSheetNotifierStore';
+import useSidebarIsOpenNotifier from '@/stores/sidebarIsOpenNotifierStore';
 import BottomSheet, { BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import { useEffect, useRef, useState } from "react";
 import { Text, TouchableOpacity } from "react-native";
@@ -23,17 +24,28 @@ export default function LanguageSelectorBottomSheet() {
     const selectLanguage = useLanguageSelectorBottomSheetNotifier(state => state.selectLanguage);
     const selectedIndex0 = useLanguageSelectorBottomSheetNotifier(state => state.selectedIndex0);
     const selectedIndex1 = useLanguageSelectorBottomSheetNotifier(state => state.selectedIndex1);
+    const sidebarIsOpen = useSidebarIsOpenNotifier(state => state.isOpen);
 
     useEffect(() => {
         withAutoDetectRef.current = withAutoDetect;
     }, [withAutoDetect]);
 
+    // Close the bottom sheet when sidebar is closed
+    useEffect(() => {
+        if (!sidebarIsOpen && !isClosed.current) {
+            sheetRef.current?.close();
+        }
+    }, [sidebarIsOpen]);
+
     const bottomModalSheet = () => useLanguageSelectorBottomSheetNotifier.subscribe((state) => {
-        if (isClosed.current) {
+        // Get the latest sidebar state each time the notification is triggered
+        const currentSidebarIsOpen = useSidebarIsOpenNotifier.getState().isOpen;
+        
+        if (isClosed.current && currentSidebarIsOpen) {
             setWithAutoDetect(state.withAutoDetect)
             sheetRef.current?.snapToIndex(0)
         } else {
-            if (withAutoDetectRef.current !== state.withAutoDetect) {
+            if (withAutoDetectRef.current !== state.withAutoDetect && currentSidebarIsOpen) {
                 shouldReopen.current = state.withAutoDetect
                 sheetRef.current?.close()
             }
