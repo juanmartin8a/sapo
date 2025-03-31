@@ -21,6 +21,8 @@ export default function LanguageSelectorBottomSheet() {
     const shouldReopen = useRef<boolean | null>(null) 
 
     const selectLanguage = useLanguageSelectorBottomSheetNotifier(state => state.selectLanguage);
+    const selectedIndex0 = useLanguageSelectorBottomSheetNotifier(state => state.selectedIndex0);
+    const selectedIndex1 = useLanguageSelectorBottomSheetNotifier(state => state.selectedIndex1);
 
     useEffect(() => {
         withAutoDetectRef.current = withAutoDetect;
@@ -56,7 +58,6 @@ export default function LanguageSelectorBottomSheet() {
     const handleLanguageSelect = (key: string) => {
         const index = parseInt(key);
         selectLanguage(withAutoDetectRef.current, index);
-        sheetRef.current?.close();
     }
 
     useEffect(() => {
@@ -80,21 +81,27 @@ export default function LanguageSelectorBottomSheet() {
           data={Object.entries(withAutoDetect ? languagesPlusAutoDetect : languages)}
           keyExtractor={([key]) => key}
           ItemSeparatorComponent={() => <View style={{height: 12}}></View>}
-          renderItem={({ item: [key, value] }) => (
-            <TouchableOpacity
-              style={styles.listItem}
-              onPress={() => handleLanguageSelect(key)}
-              activeOpacity={0.65}
-            >
-              <Text style={styles.listItemText}>{value}</Text>
-              <CheckIcon height={16 * 1.2} stroke="pink"/>
-            </TouchableOpacity>
-          )}
+          renderItem={({ item: [key, value] }) => {
+            const index = parseInt(key);
+            const selectedIndex = withAutoDetect ? selectedIndex0 : selectedIndex1;
+            const isSelected = index === selectedIndex;
+            
+            return (
+              <TouchableOpacity
+                style={styles.listItem}
+                onPress={() => handleLanguageSelect(key)}
+                activeOpacity={0.65}
+              >
+                <Text style={styles.listItemText}>{value}</Text>
+                {isSelected && <CheckIcon height={16 * 1.2} stroke="pink"/>}
+              </TouchableOpacity>
+            );
+          }}
           contentContainerStyle={[styles.contentContainer, {paddingBottom: insets.bottom, paddingTop: 12}]}
         />
 
         </BottomSheet>
-    );
+   );
 }
 
 const styles = StyleSheet.create({
