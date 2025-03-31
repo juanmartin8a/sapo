@@ -1,8 +1,7 @@
-import React, {useState, useEffect, useCallback} from 'react';
-import { StyleSheet, Animated, Dimensions, Text, View } from 'react-native';
+import React, {useState, useEffect} from 'react';
+import { StyleSheet, Animated, Dimensions, Text, View, TouchableOpacity } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import ChevronRightIcon from "../../assets/icons/chevron-right.svg";
-import { GestureHandlerRootView, TouchableWithoutFeedback } from 'react-native-gesture-handler';
 import useLanguageSelectorBottomSheetNotifier from '@/stores/languageSelectorBottomSheetNotifierStore';
 import { languages, languagesPlusAutoDetect } from '@/constants/languages';
 
@@ -46,21 +45,27 @@ const SideBar: React.FC<SideBarProps> = ({ translationX }) => {
         >
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Input Language:</Text>
-              <TouchableWithoutFeedback onPress={() => showBottomSheet(true)}>
+              <TouchableOpacity 
+                onPress={() => showBottomSheet(true)}
+                activeOpacity={0.35}
+              >
                 <View style={styles.field}>
                     <Text style={styles.textInField}>{inputLanguage}</Text>
                     <ChevronRightIcon stroke="#aaa"/>
                 </View>
-              </TouchableWithoutFeedback>
+              </TouchableOpacity>
             </View>
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Target Language:</Text>
-              <TouchableWithoutFeedback onPress={() => showBottomSheet(false)}>
+              <TouchableOpacity
+                onPress={() => showBottomSheet(false)}
+                activeOpacity={0.35}
+              >
                 <View style={styles.field}>
                     <Text style={styles.textInField}>{targetLanguage}</Text>
                     <ChevronRightIcon height={24} stroke="#aaa"/>
                 </View>
-              </TouchableWithoutFeedback>
+              </TouchableOpacity>
             </View>
         </Animated.View>
     );
