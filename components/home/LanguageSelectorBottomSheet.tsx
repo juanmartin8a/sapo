@@ -20,10 +20,8 @@ export default function LanguageSelectorBottomSheet() {
     // null means that it should not reopen
     const shouldReopen = useRef<boolean | null>(null) 
 
-    // Get the selectLanguage function from the store
     const selectLanguage = useLanguageSelectorBottomSheetNotifier(state => state.selectLanguage);
 
-    // Update ref whenever state changes
     useEffect(() => {
         withAutoDetectRef.current = withAutoDetect;
     }, [withAutoDetect]);
@@ -89,6 +87,7 @@ export default function LanguageSelectorBottomSheet() {
               activeOpacity={0.65}
             >
               <Text style={styles.listItemText}>{value}</Text>
+              <CheckIcon height={16 * 1.2} stroke="pink"/>
             </TouchableOpacity>
           )}
           contentContainerStyle={[styles.contentContainer, {paddingBottom: insets.bottom, paddingTop: 12}]}
