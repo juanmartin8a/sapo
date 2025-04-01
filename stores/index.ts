@@ -1,1 +1,3 @@
-export { default as useWebSocketStore } from './websocketStore';
+export { 
+    default as useSidebarIsOpenNotifier 
+} from './sidebarIsOpenNotifierStore';
