@@ -1,6 +1,12 @@
 import { create } from 'zustand';
 
-const useLanguageSelectorBottomSheetNotifier = create((set) => ({
+interface LanguageSelectorBottomSheetNotifierProps {
+    withAutoDetect: boolean,
+    selectedIndex0: number,
+    selectedIndex1: number,
+}
+
+const useLanguageSelectorBottomSheetNotifier = create<LanguageSelectorBottomSheetNotifierProps>((set) => ({
     withAutoDetect: false,
     selectedIndex0: 0, // for input languages
     selectedIndex1: 1, // for target languages
