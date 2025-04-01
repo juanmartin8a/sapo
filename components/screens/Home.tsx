@@ -21,6 +21,9 @@ import SidebarIcon from "../../assets/icons/sidebar.svg";
 import Translate from "@/components/home/Translate";
 import LanguageSelectorBottomSheet from "../home/LanguageSelectorBottomSheet";
 import { useSidebarIsOpenNotifier } from "@/stores";
+import useWebSocketStore from "@/stores/websocketStore";
+import { languages, languagesPlusAutoDetect } from "@/constants/languages";
+import useLanguageSelectorBottomSheetNotifier from "@/stores/languageSelectorBottomSheetNotifierStore";
 
 export default function Home() {
     const [text, setText] = useState("");
@@ -40,6 +43,8 @@ export default function Home() {
 
     // Get the sidebar state update function
     const isSidebarOpenOrClosed = useSidebarIsOpenNotifier(state => state.isSidebarOpenOrClosed);
+
+    const sendMessage = useWebSocketStore((state) => state.sendMessage)
 
     const dismissKeyboard = () => {
         Keyboard.dismiss();
@@ -142,6 +147,11 @@ export default function Home() {
     }));
 
     const goToRightPanel = () => {
+        sendMessage(
+           languagesPlusAutoDetect[useLanguageSelectorBottomSheetNotifier.getState().selectedIndex0.toString()],
+           languages[useLanguageSelectorBottomSheetNotifier.getState().selectedIndex1.toString()], 
+           text
+        )
         pagerRef.current?.setPage(1);
         setCurrentPage(1);
     };

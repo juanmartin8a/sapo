@@ -13,7 +13,7 @@ export default function Translate() {
 
   useEffect(() => {
     // Connect to WebSocket when component mounts
-    // connectWebSocket();
+    connectWebSocket();
     // 
     // // Send a test message
     //
@@ -25,9 +25,9 @@ export default function Translate() {
     // console.log("hi")
     // 
     // // Clean up the WebSocket connection when component unmounts
-    // return () => {
-    //   disconnectWebSocket();
-    // };
+    return () => {
+      disconnectWebSocket();
+    };
   }, []);
 
   return (
