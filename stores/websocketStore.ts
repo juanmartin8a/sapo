@@ -28,7 +28,6 @@ const useWebSocketStore = create<WebSocketState>((set, get) => ({
   isConnected: false,
   
   connectWebSocket: () => {
-    // Close existing connection if any
     if (get().socket !== null) {
       get().socket!.close();
     }

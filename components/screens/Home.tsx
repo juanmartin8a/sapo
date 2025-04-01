@@ -197,7 +197,7 @@ export default function Home() {
                             
                             <View style={{position: "absolute", height: "100%", right: 18, top: insets.top, justifyContent:"center"}}>
                                 <TouchableWithoutFeedback onPress={goToRightPanel}>
-                                    <View style={{padding: 6}}>
+                                    <View style={{padding: 6, opacity: text !== "" ? 1.0 : 0.35}}>
                                         <Text style={styles.rightPanelButton}>→</Text>
                                     </View>
                                 </TouchableWithoutFeedback>
