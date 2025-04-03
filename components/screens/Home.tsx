@@ -2,7 +2,6 @@ import { useRef, useState, useEffect } from "react";
 import {
     StyleSheet,
     View,
-    Keyboard,
     Animated,
 } from "react-native";
 import { GestureHandlerRootView, PanGestureHandler, PanGestureHandlerGestureEvent, TapGestureHandler} from "react-native-gesture-handler";
@@ -29,14 +28,9 @@ export default function Home() {
     
     const [currentPage, setCurrentPage] = useState(0);
 
-    // Get the sidebar state update function
     const isSidebarOpenOrClosed = useSidebarIsOpenNotifier(state => state.isSidebarOpenOrClosed);
 
     const sendMessage = useWebSocketStore((state) => state.sendMessage)
-
-    const dismissKeyboard = () => {
-        Keyboard.dismiss();
-    };
 
     const handleGestureEvent = (event: PanGestureHandlerGestureEvent) => {
         const { translationX, velocityX } = event.nativeEvent;
@@ -80,7 +74,6 @@ export default function Home() {
     };
     
     const handleContentGesture = (event: PanGestureHandlerGestureEvent) => {
-        // If the sidebar is open or we're trying to open it, handle that gesture
         const { translationX, velocityX } = event.nativeEvent;
         
         if ((velocityX > 0 && translationX > 0) || !isSideBarPosAtStart) {
@@ -94,7 +87,6 @@ export default function Home() {
 
     // Track sidebar position
     useEffect(() => {
-        // requestAnimationFrame(() => pagerRef.current?.setPage(0));
         const listenerId = sideBarTranslationX.addListener(({ value }) => {
             sideBarTranslationXValue.current = value;
             const isSidebarClosed = value === 0;
@@ -104,7 +96,6 @@ export default function Home() {
                 isSideBarLastPosAtStart.current = isSidebarClosed;
                 slideSideBar.current = null;
                 
-                // Update the sidebar state in the store
                 isSidebarOpenOrClosed(!isSidebarClosed);
             }
         });
@@ -179,9 +170,7 @@ export default function Home() {
                                 </View>
 
                                 <View key="2" style={[, { width: "100%", height:"100%"}]}>
-                                    <View style={styles.translate}>
-                                        <Translate />
-                                    </View>
+                                    <Translate />
                                 </View>
                             </PagerView>
                         
@@ -226,9 +215,5 @@ const styles = StyleSheet.create({
     },
     pagerView: {
         flex: 1,
-    },
-    translate: {
-        flex: 1,
-        backgroundColor: "red"
     },
 });
