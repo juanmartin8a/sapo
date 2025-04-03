@@ -1,7 +1,5 @@
 import { create } from 'zustand';
 
-export type translateButtonState = "next" | "loading" | "stop"
-
 interface useTextStoreProps {
     text: string;
   
