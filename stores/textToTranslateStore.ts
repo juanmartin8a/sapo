@@ -1,16 +1,16 @@
 import { create } from 'zustand';
 
-interface useTextStoreProps {
+interface useTextToTranslateProps {
     text: string;
   
     setText: (text: string) => void;
 }
 
-const useTextStore = create<useTextStoreProps>((set) => ({
+const useTextToTranslate = create<useTextToTranslateProps>((set) => ({
     text: "", 
     setText: (text: string) => {
         set({text: text}) 
     },
 }))
 
-export default useTextStore
+export default useTextToTranslate

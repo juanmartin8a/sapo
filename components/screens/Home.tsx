@@ -1,48 +1,31 @@
-import { useMemo, useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect } from "react";
 import {
     StyleSheet,
     View,
     Keyboard,
-    Text,
     Animated,
-    TextInput,
-    TouchableWithoutFeedback,
-    Dimensions,
 } from "react-native";
 import { GestureHandlerRootView, PanGestureHandler, PanGestureHandlerGestureEvent, TapGestureHandler} from "react-native-gesture-handler";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Reanimated, {
-  useAnimatedKeyboard,
-  useAnimatedStyle,
-} from 'react-native-reanimated';
 import PagerView from 'react-native-pager-view';
 import SideBar, { SIDEBAR_WIDTH } from "@/components/sidebar/Sidebar";
-import SidebarIcon from "../../assets/icons/sidebar.svg";
 import Translate from "@/components/home/Translate";
 import LanguageSelectorBottomSheet from "../home/LanguageSelectorBottomSheet";
 import { useSidebarIsOpenNotifier } from "@/stores";
 import useWebSocketStore from "@/stores/websocketStore";
 import { languages, languagesPlusAutoDetect } from "@/constants/languages";
 import useLanguageSelectorBottomSheetNotifier from "@/stores/languageSelectorBottomSheetNotifierStore";
-import useTranslateButtonStateNotifier from "@/stores/translateButtonStateNotifier";
-import TranslateButton from "../header/TranslateButton";
-import ArrowRightIcon  from "../../assets/icons/arrow-right.svg";
-import SquareIcon from "../../assets/icons/square.svg";
-import MoreHorizontalIcon from "../../assets/icons/more-horizontal.svg";
+import useTextToTranslateStore from "@/stores/textToTranslateStore";
+import Header from "../header/Header";
+import TextToTranslateInput from "../home/TextToTranslateInput";
 
 export default function Home() {
-    const [text, setText] = useState("");
-    const insets = useSafeAreaInsets();
-    const textInputRef = useRef<TextInput>(null);
-    const [isTextInputScrolling, setIsTextInputScrolling] = useState<boolean | null>(null);
+    const text = useTextToTranslateStore((state) => state.text)
     const pagerRef = useRef<PagerView>(null);
     const slideSideBar = useRef<boolean | null>(null);
     const sideBarTranslationX = useRef(new Animated.Value(0)).current;
     let sideBarTranslationXValue = useRef(0)
     const [isSideBarPosAtStart, setIsSideBarPosAtStart] = useState(true);
     const isSideBarLastPosAtStart = useRef(true);
-    const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
-    const [tapStoppedScroll, setTapStoppedScroll] = useState(false)
     
     const [currentPage, setCurrentPage] = useState(0);
 
@@ -50,7 +33,6 @@ export default function Home() {
     const isSidebarOpenOrClosed = useSidebarIsOpenNotifier(state => state.isSidebarOpenOrClosed);
 
     const sendMessage = useWebSocketStore((state) => state.sendMessage)
-    const translateButtonState = useTranslateButtonStateNotifier((state) => state.state)
 
     const dismissKeyboard = () => {
         Keyboard.dismiss();
@@ -132,27 +114,7 @@ export default function Home() {
         }; 
     }, [isSidebarOpenOrClosed]);
 
-    const handleScroll = () => {
-        if (textInputRef.current?.isFocused() === false) {
-            setIsTextInputScrolling(true);
-
-            if (scrollTimeout.current) {
-                clearTimeout(scrollTimeout.current);
-            }
-
-            scrollTimeout.current = setTimeout(() => {
-                setIsTextInputScrolling(false);
-            }, 100);
-        }
-    };
-
-    const keyboard = useAnimatedKeyboard();
-
-    const animatedStyles = useAnimatedStyle(() => ({
-        marginBottom: keyboard.height.value,
-    }));
-
-    const goToRightPanel = () => {
+    const next = () => {
         sendMessage(
            languagesPlusAutoDetect[useLanguageSelectorBottomSheetNotifier.getState().selectedIndex0.toString()],
            languages[useLanguageSelectorBottomSheetNotifier.getState().selectedIndex1.toString()], 
@@ -191,38 +153,18 @@ export default function Home() {
                             }
                         ]}
                     >
-                        <View style={[styles.header, {height: 60 + insets.top, paddingTop: insets.top}]}>
-                            <View style={{position: "absolute", height: "100%", left: 18, top: insets.top, justifyContent:"center"}}>
-                                <TouchableWithoutFeedback onPress={() => {
-                                    Animated.timing(sideBarTranslationX, {
+                        <Header onSidebarPress={
+                            () => {Animated.timing(sideBarTranslationX, {
                                         toValue: SIDEBAR_WIDTH,
                                         duration: 100,
                                         useNativeDriver: true,
                                     }).start()
                                     isSidebarOpenOrClosed(true)
-                                    return
-                                }}>
-                                    <View style={{padding: 6}}>
-                                        <SidebarIcon width={40} height={32} stroke="black"/>
-                                    </View>
-                                </TouchableWithoutFeedback>
-                            </View>
-                            <Text style={styles.titleText}>
-                                {"S.A.P.O"}
-                            </Text>
-                            
-                            <View style={{position: "absolute", height: "100%", right: 18, top: insets.top, justifyContent:"center"}}>
-                                <TouchableWithoutFeedback onPress={goToRightPanel}>
-                                    <View style={{padding: 6, opacity: text !== "" ? 1.0 : 0.35}}>
-                                      {translateButtonState === 'next' && <ArrowRightIcon width={32} height={32} stroke="black" />}
-                                      {translateButtonState === 'loading' && <MoreHorizontalIcon width={24} height={24} stroke="black" />}
-                                      {translateButtonState === 'stop' && <SquareIcon width={18} height={18} stroke="black" fill="black" />}
-                                    </View>
-                                </TouchableWithoutFeedback>
-                            </View>
-                        </View>
+                        }}
+                        onNextPress={next}
+                        /> 
                         
-                        <View style={styles.textInputContainer}>
+                        <View style={styles.pagerContainer}>
                             <PagerView
                                 ref={pagerRef}
                                 style={[styles.pagerView, {flex: 1}]}
@@ -234,34 +176,7 @@ export default function Home() {
                             >
                                 {/* Main Page */}
                                 <View key="1" style={[, {width: "100%", height: "100%"}]}>
-                                    <Reanimated.View style={[styles.innerContainer, animatedStyles]}>
-                                        <TextInput
-                                            ref={textInputRef}
-                                            style={[styles.textInput]}
-                                            multiline
-                                            value={text}
-                                            onChangeText={setText}
-                                            placeholder="Type something..."
-                                            placeholderTextColor="#aaa"
-                                            returnKeyType="done"
-                                            onScroll={() => {
-                                                if (textInputRef.current?.isFocused() === false) {
-                                                    handleScroll()
-                                                }
-                                            }}
-                                            onTouchStart={() => {
-                                                if (isTextInputScrolling === true) {
-                                                    setTapStoppedScroll(true)
-                                                }
-                                            }}
-                                            onTouchEnd={() => {
-                                                setTapStoppedScroll(false)
-                                            }}
-                                            submitBehavior="blurAndSubmit" 
-                                            onSubmitEditing={dismissKeyboard}
-                                            editable={((!isTextInputScrolling && !tapStoppedScroll) || Keyboard.isVisible()) && isSideBarPosAtStart}
-                                        />
-                                    </Reanimated.View>
+                                    <TextToTranslateInput />
                                 </View>
 
                                 <View key="2" style={[, { width: "100%", height:"100%"}]}>
@@ -311,45 +226,14 @@ const styles = StyleSheet.create({
         width: "100%",
         height: "100%",
     },
-    titleText: {
-        fontSize: 20,
-        fontWeight: 'bold',
-    },
-    header: {
-        width: '100%',
-        justifyContent: 'center',
-        alignItems: 'center'
-    },
-    textInputContainer: {
+    pagerContainer: {
         flex: 1,
-        // position: 'relative',
-        // overflow: 'hidden',
     },
     pagerView: {
         flex: 1,
-        // width: '100%',
-    },
-    pageContainer: {
-        // flex: 1,
-        // width: '100%',
-        // height: "100%",
     },
     textInputWrapper: {
         flex: 1,
-    },
-    innerContainer: {
-        flex: 1,
-        justifyContent: "flex-start",
-    },
-    textInput: {
-        fontSize: 36,
-        textAlign: "left",
-        textAlignVertical: "top",
-        paddingHorizontal: 24,
-        paddingVertical: 10,
-        width: "100%",
-        height: "100%",
-        backgroundColor: "#fff",
     },
     rightPanel: {
         flex: 1,
