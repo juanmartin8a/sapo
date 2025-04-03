@@ -1,6 +1,6 @@
 import React, {useState, useEffect} from 'react';
 import { StyleSheet, Animated, Dimensions, Text, View, TouchableOpacity } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ChevronRightIcon from "../../assets/icons/chevron-right.svg";
 import useLanguageSelectorBottomSheetNotifier from '@/stores/languageSelectorBottomSheetNotifierStore';
 import { languages, languagesPlusAutoDetect } from '@/constants/languages';
@@ -12,7 +12,6 @@ type SideBarProps = {
 }
 
 const SideBar: React.FC<SideBarProps> = ({ translationX }) => {
-    const [open, setOpen] = useState(false)
     const insets = useSafeAreaInsets();
     const [inputLanguage, setInputLanguage] = useState<string>(languagesPlusAutoDetect[0]);
     const [targetLanguage, setTargetLanguage] = useState<string>(languages[1]);
