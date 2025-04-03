@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import {
     StyleSheet,
     View,
@@ -24,6 +24,11 @@ import { useSidebarIsOpenNotifier } from "@/stores";
 import useWebSocketStore from "@/stores/websocketStore";
 import { languages, languagesPlusAutoDetect } from "@/constants/languages";
 import useLanguageSelectorBottomSheetNotifier from "@/stores/languageSelectorBottomSheetNotifierStore";
+import useTranslateButtonStateNotifier from "@/stores/translateButtonStateNotifier";
+import TranslateButton from "../header/TranslateButton";
+import ArrowRightIcon  from "../../assets/icons/arrow-right.svg";
+import SquareIcon from "../../assets/icons/square.svg";
+import MoreHorizontalIcon from "../../assets/icons/more-horizontal.svg";
 
 export default function Home() {
     const [text, setText] = useState("");
@@ -45,6 +50,7 @@ export default function Home() {
     const isSidebarOpenOrClosed = useSidebarIsOpenNotifier(state => state.isSidebarOpenOrClosed);
 
     const sendMessage = useWebSocketStore((state) => state.sendMessage)
+    const translateButtonState = useTranslateButtonStateNotifier((state) => state.state)
 
     const dismissKeyboard = () => {
         Keyboard.dismiss();
@@ -105,7 +111,7 @@ export default function Home() {
     };
 
     // Track sidebar position
-    React.useEffect(() => {
+    useEffect(() => {
         // requestAnimationFrame(() => pagerRef.current?.setPage(0));
         const listenerId = sideBarTranslationX.addListener(({ value }) => {
             sideBarTranslationXValue.current = value;
@@ -208,7 +214,9 @@ export default function Home() {
                             <View style={{position: "absolute", height: "100%", right: 18, top: insets.top, justifyContent:"center"}}>
                                 <TouchableWithoutFeedback onPress={goToRightPanel}>
                                     <View style={{padding: 6, opacity: text !== "" ? 1.0 : 0.35}}>
-                                        <Text style={styles.rightPanelButton}>→</Text>
+                                      {translateButtonState === 'next' && <ArrowRightIcon width={32} height={32} stroke="black" />}
+                                      {translateButtonState === 'loading' && <MoreHorizontalIcon width={24} height={24} stroke="black" />}
+                                      {translateButtonState === 'stop' && <SquareIcon width={18} height={18} stroke="black" fill="black" />}
                                     </View>
                                 </TouchableWithoutFeedback>
                             </View>
@@ -353,10 +361,6 @@ const styles = StyleSheet.create({
         fontSize: 24,
         fontWeight: 'bold',
         marginBottom: 20,
-    },
-    rightPanelButton: {
-        fontSize: 24,
-        fontWeight: 'bold',
     },
     closeButton: {
         backgroundColor: '#e0e0e0',

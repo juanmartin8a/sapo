@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import useTranslateButtonStateNotifier from './translateButtonStateNotifier';
 
 interface Token {
   type: string;
@@ -28,10 +29,12 @@ const useWebSocketStore = create<WebSocketState>((set, get) => ({
   isConnected: false,
   
   connectWebSocket: () => {
+    const switchTranslateButtonState = useTranslateButtonStateNotifier.getState().switchState    
+
     if (get().socket !== null) {
       get().socket!.close();
     }
-    
+
     const socket = new WebSocket('wss://gy2rem2fsd.execute-api.us-east-2.amazonaws.com/prod/');
     
     socket.onopen = () => {
@@ -43,13 +46,25 @@ const useWebSocketStore = create<WebSocketState>((set, get) => ({
       console.log('Message received:', event.data);
       
       if (event.data.includes('<end:)>')) {
+        const translateButtonState = useTranslateButtonStateNotifier.getState().state    
+        if (translateButtonState !== "next") {
+          switchTranslateButtonState("next");
+        }
         socket.close();
         set({ isConnected: false });
       } else if (event.data.includes('<error:/>')) {
+        const translateButtonState = useTranslateButtonStateNotifier.getState().state    
+        if (translateButtonState !== "next") {
+          switchTranslateButtonState("next");
+        }
         set({ wsError: true, isConnected: false });
         socket.close();
       } else {
         try {
+          const translateButtonState = useTranslateButtonStateNotifier.getState().state    
+          if (translateButtonState !== "stop") {
+            switchTranslateButtonState("stop");
+          }
           const token: Token = JSON.parse(event.data);
           
           set((state) => {
@@ -60,7 +75,12 @@ const useWebSocketStore = create<WebSocketState>((set, get) => ({
             );
             return { tokens: newTokens };
           });
+
         } catch (error) {
+          const translateButtonState = useTranslateButtonStateNotifier.getState().state    
+          if (translateButtonState !== "next") {
+            switchTranslateButtonState("next");
+          }
           set({ wsError: true, isConnected: false });
           socket.close();
           console.error('Error parsing response:', error);
@@ -69,12 +89,20 @@ const useWebSocketStore = create<WebSocketState>((set, get) => ({
     };
     
     socket.onerror = (error) => {
+      const translateButtonState = useTranslateButtonStateNotifier.getState().state    
+      if (translateButtonState !== "next") {
+        switchTranslateButtonState("next");
+      }
       console.error('WebSocket error:', error);
       set({ wsError: true, isConnected: false });
       socket.close();
     };
     
     socket.onclose = (event) => {
+      const translateButtonState = useTranslateButtonStateNotifier.getState().state    
+      if (translateButtonState !== "next") {
+        switchTranslateButtonState("next");
+      }
       console.log('WebSocket connection closed:', event.code, event.reason);
       set({ isConnected: false });
     };
@@ -92,6 +120,11 @@ const useWebSocketStore = create<WebSocketState>((set, get) => ({
   
   sendMessage: (inputLanguage, targetLanguage, input) => {
     const { socket, isConnected } = get();
+    const switchTranslateButtonState = useTranslateButtonStateNotifier.getState().switchState    
+    const translateButtonState = useTranslateButtonStateNotifier.getState().state    
+    if (translateButtonState !== "loading") {
+        switchTranslateButtonState("loading");
+    }
     
     if (!socket || !isConnected) {
       get().connectWebSocket();
