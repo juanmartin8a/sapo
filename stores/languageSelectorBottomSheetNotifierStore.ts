@@ -4,6 +4,9 @@ interface LanguageSelectorBottomSheetNotifierProps {
     withAutoDetect: boolean,
     selectedIndex0: number,
     selectedIndex1: number,
+
+    showBottomSheet: (withAutoDetect: boolean) => void,
+    selectLanguage: (forInput: boolean, index: number) => void,
 }
 
 const useLanguageSelectorBottomSheetNotifier = create<LanguageSelectorBottomSheetNotifierProps>((set) => ({

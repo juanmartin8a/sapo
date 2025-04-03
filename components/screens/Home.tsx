@@ -164,7 +164,6 @@ export default function Home() {
                         onNextPress={next}
                         /> 
                         
-                        <View style={styles.pagerContainer}>
                             <PagerView
                                 ref={pagerRef}
                                 style={[styles.pagerView, {flex: 1}]}
@@ -180,12 +179,11 @@ export default function Home() {
                                 </View>
 
                                 <View key="2" style={[, { width: "100%", height:"100%"}]}>
-                                    <View style={styles.rightPanelContent}>
+                                    <View style={styles.translate}>
                                         <Translate />
                                     </View>
                                 </View>
                             </PagerView>
-                        </View>
                         
                         {
                             !isSideBarPosAtStart &&
@@ -226,34 +224,11 @@ const styles = StyleSheet.create({
         width: "100%",
         height: "100%",
     },
-    pagerContainer: {
-        flex: 1,
-    },
     pagerView: {
         flex: 1,
     },
-    textInputWrapper: {
+    translate: {
         flex: 1,
-    },
-    rightPanel: {
-        flex: 1,
-    },
-    rightPanelContent: {
-        flex: 1,
-    },
-    rightPanelTitle: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 20,
-    },
-    closeButton: {
-        backgroundColor: '#e0e0e0',
-        padding: 10,
-        borderRadius: 8,
-        marginTop: 20,
-    },
-    closeButtonText: {
-        fontSize: 16,
-        fontWeight: 'bold',
+        backgroundColor: "red"
     },
 });
