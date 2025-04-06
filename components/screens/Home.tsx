@@ -16,6 +16,7 @@ import useLanguageSelectorBottomSheetNotifier from "@/stores/languageSelectorBot
 import useTextToTranslateStore from "@/stores/textToTranslateStore";
 import Header from "../header/Header";
 import TextToTranslateInput from "../home/TextToTranslateInput";
+import usePagerPos from "@/stores/pagerPosStore";
 
 export default function Home() {
     const text = useTextToTranslateStore((state) => state.text)
@@ -29,6 +30,8 @@ export default function Home() {
     const [currentPage, setCurrentPage] = useState(0);
 
     const isSidebarOpenOrClosed = useSidebarIsOpenNotifier(state => state.isSidebarOpenOrClosed);
+
+    const setPos = usePagerPos(state => state.setPos);
 
     const sendMessage = useWebSocketStore((state) => state.sendMessage)
 
@@ -162,7 +165,13 @@ export default function Home() {
                                 scrollEnabled={true}
                                 overScrollMode="never"
                                 orientation="horizontal"
-                                onPageSelected={(e) => setCurrentPage(e.nativeEvent.position)}
+                                onPageScroll = {(e) => {
+                                    console.log("offset => ", e.nativeEvent.offset)
+                                    console.log("position => ", e.nativeEvent.position)
+                                    setPos(e.nativeEvent.offset)
+                                }}
+                                onPageSelected={(e) => {
+                                    setCurrentPage(e.nativeEvent.position)}}
                             >
                                 {/* Main Page */}
                                 <View key="1" style={[, {width: "100%", height: "100%"}]}>
