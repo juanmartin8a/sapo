@@ -11,7 +11,7 @@ type SideBarProps = {
     translationX: Animated.Value 
 }
 
-const SideBar: React.FC<SideBarProps> = ({ translationX }) => {
+const SideBar = ({ translationX }: SideBarProps) => {
     const insets = useSafeAreaInsets();
     const [inputLanguage, setInputLanguage] = useState<string>(languagesPlusAutoDetect[0]);
     const [targetLanguage, setTargetLanguage] = useState<string>(languages[1]);
