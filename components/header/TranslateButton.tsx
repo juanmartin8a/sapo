@@ -10,17 +10,17 @@ import usePagerPos from "@/stores/pagerPosStore";
 const TranslateButton = () => {
     const translateButtonState = useTranslateButtonStateNotifier((state) => state.state)
     const text = useTextToTranslate((state) => state.text)
-    const pos = usePagerPos((state) => state.pos)
+    const offset = usePagerPos((state) => state.offset)
 
-    const arrowOpacity = 1 - pos;
-    const loadingOpacity = pos;
+    const arrowOpacity = 1 - offset;
+    const loadingOpacity = offset;
 
     return (
         <View style={{padding: 6}}>
             {translateButtonState === 'next' && 
                 <View style={{position: 'relative', width: 32, height: 32}}>
                     <View style={{position: 'absolute', opacity: arrowOpacity}}>
-                        <ArrowRightIcon width={32} height={32} stroke="black" />
+                        <ArrowRightIcon style={{opacity: text !== "" ? 1.0 : 0.35 }} width={32} height={32} stroke="black" />
                     </View>
                     <View style={{position: 'absolute', opacity: loadingOpacity}}>
                         <RepeatIcon width={32} height={32} stroke="black" />

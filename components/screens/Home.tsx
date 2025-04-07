@@ -31,6 +31,7 @@ export default function Home() {
 
     const isSidebarOpenOrClosed = useSidebarIsOpenNotifier(state => state.isSidebarOpenOrClosed);
 
+    const setOffset = usePagerPos(state => state.setOffset);
     const setPos = usePagerPos(state => state.setPos);
 
     const sendMessage = useWebSocketStore((state) => state.sendMessage)
@@ -157,7 +158,6 @@ export default function Home() {
                         }}
                         onNextPress={next}
                         /> 
-                        
                             <PagerView
                                 ref={pagerRef}
                                 style={[styles.pagerView, {flex: 1}]}
@@ -167,11 +167,17 @@ export default function Home() {
                                 orientation="horizontal"
                                 onPageScroll = {(e) => {
                                     console.log("offset => ", e.nativeEvent.offset)
-                                    console.log("position => ", e.nativeEvent.position)
-                                    setPos(e.nativeEvent.offset)
+                                    setOffset(e.nativeEvent.offset)
+                                    // setOffset(e.nativeEvent.position)
+                                }}
+                                onPageScrollStateChanged={(e) => {
+                                    console.log(e.nativeEvent.pageScrollState)
                                 }}
                                 onPageSelected={(e) => {
-                                    setCurrentPage(e.nativeEvent.position)}}
+                                    console.log("position => ", e.nativeEvent.position)
+                                    setPos(e.nativeEvent.position)
+                                    setCurrentPage(e.nativeEvent.position)}
+                                }
                             >
                                 {/* Main Page */}
                                 <View key="1" style={[, {width: "100%", height: "100%"}]}>
@@ -182,7 +188,6 @@ export default function Home() {
                                     <Translate />
                                 </View>
                             </PagerView>
-                        
                         {
                             !isSideBarPosAtStart &&
                             <TapGestureHandler maxDurationMs={2000} shouldCancelWhenOutside={false} onEnded={() => {
