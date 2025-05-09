@@ -1,8 +1,8 @@
 import useTextToTranslate from "@/stores/textToTranslateStore"
 import useTranslateButtonStateNotifier from "@/stores/translateButtonStateNotifier"
 import { View } from "react-native"
-import ArrowRightIcon  from "@/assets/icons/arrow-right.svg";
-import RepeatIcon  from "@/assets/icons/repeat.svg";
+import ArrowRightIcon from "@/assets/icons/arrow-right.svg";
+import RepeatIcon from "@/assets/icons/repeat.svg";
 import SquareIcon from "@/assets/icons/square.svg";
 import MoreHorizontalIcon from "@/assets/icons/more-horizontal.svg";
 import usePagerPos from "@/stores/pagerPosStore";
@@ -16,13 +16,13 @@ const TranslateButton = () => {
     const loadingOpacity = offset;
 
     return (
-        <View style={{padding: 6}}>
-            {translateButtonState === 'next' && 
-                <View style={{position: 'relative', width: 32, height: 32}}>
-                    <View style={{position: 'absolute', opacity: arrowOpacity}}>
-                        <ArrowRightIcon style={{opacity: text !== "" ? 1.0 : 0.35 }} width={32} height={32} stroke="black" />
+        <View style={{ padding: 6 }}>
+            {translateButtonState === 'next' &&
+                <View style={{ position: 'relative', width: 32, height: 32 }}>
+                    <View style={{ position: 'absolute', opacity: arrowOpacity }}>
+                        <ArrowRightIcon style={{ opacity: text !== "" ? 1.0 : 0.35 }} width={32} height={32} stroke="black" />
                     </View>
-                    <View style={{position: 'absolute', opacity: loadingOpacity}}>
+                    <View style={{ position: 'absolute', opacity: loadingOpacity }}>
                         <RepeatIcon width={32} height={32} stroke="black" />
                     </View>
                 </View>

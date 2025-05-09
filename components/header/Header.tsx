@@ -1,4 +1,4 @@
-import { StyleSheet, TouchableWithoutFeedback } from "react-native"
+import { Pressable, StyleSheet, TouchableWithoutFeedback } from "react-native"
 import { View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import TranslateButton from "../header/TranslateButton";
@@ -6,30 +6,30 @@ import SidebarIcon from "../../assets/icons/sidebar.svg";
 import { Text } from "react-native";
 
 interface HeaderProps {
-  onSidebarPress: () => void
-  onNextPress: () => void
+    onSidebarPress: () => void;
+    onNextPress: () => void;
 }
 
 const Header = ({ onSidebarPress, onNextPress }: HeaderProps) => {
     const insets = useSafeAreaInsets();
 
     return (
-        <View style={[styles.header, {height: 60 + insets.top, paddingTop: insets.top}]}>
-            <View style={{position: "absolute", height: "100%", left: 18, top: insets.top, justifyContent:"center"}}>
+        <View style={[styles.header, { height: 60 + insets.top, paddingTop: insets.top }]}>
+            <View style={{ position: "absolute", height: "100%", left: 18, top: insets.top, justifyContent: "center" }}>
                 <TouchableWithoutFeedback onPress={onSidebarPress}>
-                    <View style={{padding: 6}}>
-                        <SidebarIcon width={40} height={32} stroke="black"/>
+                    <View style={{ padding: 6 }}>
+                        <SidebarIcon width={40} height={32} stroke="black" />
                     </View>
                 </TouchableWithoutFeedback>
             </View>
             <Text style={styles.titleText}>
                 {"S.A.P.O"}
             </Text>
-            
-            <View style={{position: "absolute", height: "100%", right: 18, top: insets.top, justifyContent:"center"}}>
-                <TouchableWithoutFeedback onPress={onNextPress}>
+
+            <View style={{ zIndex: 100, position: "absolute", height: "100%", right: 18, top: insets.top, justifyContent: "center" }}>
+                <Pressable onPress={onNextPress}>
                     <TranslateButton />
-                </TouchableWithoutFeedback>
+                </Pressable>
             </View>
         </View>
     )
