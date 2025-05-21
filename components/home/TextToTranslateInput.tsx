@@ -1,8 +1,8 @@
 import { useRef, useState } from "react";
 import { Keyboard, StyleSheet, TextInput } from "react-native"
 import Reanimated, {
-  useAnimatedKeyboard,
-  useAnimatedStyle,
+    useAnimatedKeyboard,
+    useAnimatedStyle,
 } from 'react-native-reanimated';
 import useTextToTranslateStore from "@/stores/textToTranslateStore";
 
@@ -58,9 +58,9 @@ const TextToTranslateInput = () => {
                 onTouchEnd={() => {
                     setTapStoppedScroll(false)
                 }}
-                submitBehavior="blurAndSubmit" 
+                submitBehavior="blurAndSubmit"
                 onSubmitEditing={() => Keyboard.dismiss()}
-                editable={((!isTextInputScrolling && !tapStoppedScroll) || Keyboard.isVisible()) }// && isSideBarPosAtStart}
+                editable={((!isTextInputScrolling && !tapStoppedScroll) || Keyboard.isVisible())}// && isSideBarPosAtStart}
             />
         </Reanimated.View>
     )
