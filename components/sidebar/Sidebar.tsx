@@ -98,11 +98,13 @@ const styles = StyleSheet.create({
         position: "absolute",
         height: "100%",
         width: SIDEBAR_WIDTH,
-        backgroundColor: "yellow",
+        backgroundColor: "#fff",
+        borderRightWidth: 1,
+        borderRightColor: 'black',
         zIndex: 1,
         padding: 20,
-        borderBottomRightRadius: 20,
-        borderTopRightRadius: 20,
+        // borderBottomRightRadius: 20,
+        // borderTopRightRadius: 20,
         transform: [
             { translateX: -SIDEBAR_WIDTH }
         ]
