@@ -39,10 +39,8 @@ export default function Translate() {
                 setSapoMouthOpen(false);
             }
 
-            // Set the new height immediately
             setSapoMouthOpen(true);
 
-            // Create new timeout and store its ID
             timeoutRef.current = setTimeout(() => {
                 setSapoMouthOpen(false);
                 timeoutRef.current = null;

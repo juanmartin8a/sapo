@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type translateButtonState = "next" | "loading" | "stop"
+export type translateButtonState = "next" | "loading" | "stop" | "repeat"
 
 interface TranslateButtonStateNotifierProps {
     state: translateButtonState;

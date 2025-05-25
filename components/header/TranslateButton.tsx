@@ -29,6 +29,7 @@ const TranslateButton = () => {
             }
             {translateButtonState === 'loading' && <MoreHorizontalIcon width={24} height={24} stroke="black" />}
             {translateButtonState === 'stop' && <SquareIcon width={18} height={18} stroke="black" fill="black" />}
+            {translateButtonState === 'repeat' && <RepeatIcon width={32} height={32} stroke="black" />}
         </View>
     )
 }

@@ -14,6 +14,7 @@ import useWebSocketStore from "@/stores/websocketStore";
 import { languages, languagesPlusAutoDetect } from "@/constants/languages";
 import useLanguageSelectorBottomSheetNotifier from "@/stores/languageSelectorBottomSheetNotifierStore";
 import useTextToTranslateStore from "@/stores/textToTranslateStore";
+import useTranslateButtonStateNotifier from "@/stores/translateButtonStateNotifier";
 import Header from "../header/Header";
 import TextToTranslateInput from "../home/TextToTranslateInput";
 import usePagerPos from "@/stores/pagerPosStore";
@@ -35,6 +36,8 @@ export default function Home() {
     const setPos = usePagerPos(state => state.setPos);
 
     const sendMessage = useWebSocketStore((state) => state.sendMessage)
+    const repeatLastTranslation = useWebSocketStore((state) => state.repeatLastTranslation)
+    const translateButtonState = useTranslateButtonStateNotifier((state) => state.state)
 
     const handleGestureEvent = (event: PanGestureHandlerGestureEvent) => {
         const { translationX, velocityX } = event.nativeEvent;
@@ -110,14 +113,20 @@ export default function Home() {
     }, [isSidebarOpenOrClosed]);
 
     const next = () => {
-        console.log("hello there");
-        console.log(languagesPlusAutoDetect[useLanguageSelectorBottomSheetNotifier.getState().selectedIndex0.toString()]);
-        console.log(languages[useLanguageSelectorBottomSheetNotifier.getState().selectedIndex1.toString()]);
-        sendMessage(
-            languagesPlusAutoDetect[useLanguageSelectorBottomSheetNotifier.getState().selectedIndex0.toString()],
-            languages[useLanguageSelectorBottomSheetNotifier.getState().selectedIndex1.toString()],
-            text
-        )
+        if (translateButtonState === 'repeat') {
+            // Repeat the last translation
+            repeatLastTranslation();
+        } else {
+            // New translation
+            console.log("hello there");
+            console.log(languagesPlusAutoDetect[useLanguageSelectorBottomSheetNotifier.getState().selectedIndex0.toString()]);
+            console.log(languages[useLanguageSelectorBottomSheetNotifier.getState().selectedIndex1.toString()]);
+            sendMessage(
+                languagesPlusAutoDetect[useLanguageSelectorBottomSheetNotifier.getState().selectedIndex0.toString()],
+                languages[useLanguageSelectorBottomSheetNotifier.getState().selectedIndex1.toString()],
+                text
+            )
+        }
         pagerRef.current?.setPage(1);
         setCurrentPage(1);
     };
