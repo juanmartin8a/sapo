@@ -84,9 +84,13 @@ export default function Translate() {
                         <Text
                             onTextLayout={onTextLayout}
                             style={styles.translatedText}>
-                            {Array.from(tokens.entries()).map(([key, value]) => {
-                                return <Text key={key}>{value.type === 'word' ? value.output : value.value}</Text>
-                            })}
+                            {
+                                tokens.size > 0
+                                    ? Array.from(tokens.entries()).map(([key, value]) => {
+                                        return <Text key={key}>{value.type === 'word' ? value.output : value.value}</Text>
+                                    })
+                                    : "\u200B"
+                            }
                         </Text>
                     )}
                 </View>
