@@ -17,7 +17,7 @@ const TranslateButton = () => {
 
     return (
         <View style={{ padding: 6 }}>
-            {translateButtonState === 'next' &&
+            {(translateButtonState === 'next' || translateButtonState === 'repeat') &&
                 <View style={{ position: 'relative', width: 32, height: 32 }}>
                     <View style={{ position: 'absolute', opacity: arrowOpacity }}>
                         <ArrowRightIcon style={{ opacity: text !== "" ? 1.0 : 0.35 }} width={32} height={32} stroke="black" />
@@ -29,7 +29,6 @@ const TranslateButton = () => {
             }
             {translateButtonState === 'loading' && <MoreHorizontalIcon width={24} height={24} stroke="black" />}
             {translateButtonState === 'stop' && <SquareIcon width={18} height={18} stroke="black" fill="black" />}
-            {translateButtonState === 'repeat' && <RepeatIcon width={32} height={32} stroke="black" />}
         </View>
     )
 }

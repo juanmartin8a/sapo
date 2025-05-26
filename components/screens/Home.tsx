@@ -92,7 +92,6 @@ export default function Home() {
         handleGestureEnd();
     };
 
-    // Track sidebar position
     useEffect(() => {
         const listenerId = sideBarTranslationX.addListener(({ value }) => {
             sideBarTranslationXValue.current = value;
@@ -114,13 +113,8 @@ export default function Home() {
 
     const next = () => {
         if (translateButtonState === 'repeat') {
-            // Repeat the last translation
             repeatLastTranslation();
         } else {
-            // New translation
-            console.log("hello there");
-            console.log(languagesPlusAutoDetect[useLanguageSelectorBottomSheetNotifier.getState().selectedIndex0.toString()]);
-            console.log(languages[useLanguageSelectorBottomSheetNotifier.getState().selectedIndex1.toString()]);
             sendMessage(
                 languagesPlusAutoDetect[useLanguageSelectorBottomSheetNotifier.getState().selectedIndex0.toString()],
                 languages[useLanguageSelectorBottomSheetNotifier.getState().selectedIndex1.toString()],
@@ -179,21 +173,14 @@ export default function Home() {
                                 overScrollMode="never"
                                 orientation="horizontal"
                                 onPageScroll={(e) => {
-                                    console.log("offset => ", e.nativeEvent.offset)
                                     setOffset(e.nativeEvent.offset)
-                                    // setOffset(e.nativeEvent.position)
-                                }}
-                                onPageScrollStateChanged={(e) => {
-                                    console.log(e.nativeEvent.pageScrollState)
                                 }}
                                 onPageSelected={(e) => {
                                     console.log("position => ", e.nativeEvent.position)
                                     setPos(e.nativeEvent.position)
                                     setCurrentPage(e.nativeEvent.position)
-                                }
-                                }
+                                }}
                             >
-                                {/* Main Page */}
                                 <View key="1" style={[, { width: "100%", height: "100%" }]}>
                                     <TextToTranslateInput />
                                 </View>

@@ -25,7 +25,6 @@ export default function Translate() {
     const [sapoMouthOpen, setSapoMouthOpen] = useState<boolean>(false)
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-
     useEffect(() => {
         if (!tokens) return;
 
@@ -46,7 +45,6 @@ export default function Translate() {
                 timeoutRef.current = null;
             }, 100);
         }
-        console.log(tokenArray[tokenArray.length - 1])
     }, [tokens]);
 
     useEffect(() => {
