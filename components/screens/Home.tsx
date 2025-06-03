@@ -12,8 +12,6 @@ import Translate from "@/components/home/Translate";
 import LanguageSelectorBottomSheet from "../home/LanguageSelectorBottomSheet";
 import { useSidebarIsOpenNotifier } from "@/stores";
 import useWebSocketStore from "@/stores/websocketStore";
-import { languages, languagesPlusAutoDetect } from "@/constants/languages";
-import useLanguageSelectorBottomSheetNotifier from "@/stores/languageSelectorBottomSheetNotifierStore";
 import useTextToTranslateStore from "@/stores/textToTranslateStore";
 import useTranslateButtonStateNotifier from "@/stores/translateButtonStateNotifier";
 import Header from "../header/Header";
@@ -28,8 +26,6 @@ export default function Home() {
     let sideBarTranslationXValue = useRef(0)
     const [isSideBarPosAtStart, setIsSideBarPosAtStart] = useState(true);
     const isSideBarLastPosAtStart = useRef(true);
-
-    const [currentPage, setCurrentPage] = useState(0);
 
     const isSidebarOpenOrClosed = useSidebarIsOpenNotifier(state => state.isSidebarOpenOrClosed);
 
@@ -122,12 +118,10 @@ export default function Home() {
             )
         }
         pagerRef.current?.setPage(1);
-        setCurrentPage(1);
     };
 
     const goToMainPanel = () => {
         pagerRef.current?.setPage(0);
-        setCurrentPage(0);
     };
 
     return (
@@ -178,7 +172,6 @@ export default function Home() {
                                 }}
                                 onPageSelected={(e) => {
                                     setPos(e.nativeEvent.position)
-                                    setCurrentPage(e.nativeEvent.position)
                                 }}
                             >
                                 <View key="1" style={[, { width: "100%", height: "100%" }]}>
