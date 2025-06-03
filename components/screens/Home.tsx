@@ -3,6 +3,7 @@ import {
     StyleSheet,
     View,
     Animated,
+    Keyboard,
 } from "react-native";
 import { GestureHandlerRootView, PanGestureHandler, PanGestureHandlerGestureEvent, TapGestureHandler } from "react-native-gesture-handler";
 import PagerView from 'react-native-pager-view';
@@ -63,6 +64,7 @@ export default function Home() {
     const handleGestureEnd = () => {
         if (sideBarTranslationXValue.current > 0 || sideBarTranslationXValue.current < SIDEBAR_WIDTH) {
             if (slideSideBar.current === true) {
+                Keyboard.dismiss();
                 Animated.timing(sideBarTranslationX, {
                     toValue: SIDEBAR_WIDTH,
                     duration: 100,
@@ -116,8 +118,6 @@ export default function Home() {
             repeatLastTranslation();
         } else {
             sendMessage(
-                languagesPlusAutoDetect[useLanguageSelectorBottomSheetNotifier.getState().selectedIndex0.toString()],
-                languages[useLanguageSelectorBottomSheetNotifier.getState().selectedIndex1.toString()],
                 text
             )
         }
@@ -156,6 +156,7 @@ export default function Home() {
                         >
                             <Header onSidebarPress={
                                 () => {
+                                    Keyboard.dismiss();
                                     Animated.timing(sideBarTranslationX, {
                                         toValue: SIDEBAR_WIDTH,
                                         duration: 100,
@@ -176,7 +177,6 @@ export default function Home() {
                                     setOffset(e.nativeEvent.offset)
                                 }}
                                 onPageSelected={(e) => {
-                                    console.log("position => ", e.nativeEvent.position)
                                     setPos(e.nativeEvent.position)
                                     setCurrentPage(e.nativeEvent.position)
                                 }}

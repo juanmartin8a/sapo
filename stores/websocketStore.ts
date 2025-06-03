@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import useTranslateButtonStateNotifier from './translateButtonStateNotifier';
 import usePagerPos from './pagerPosStore';
+import { languages, languagesPlusAutoDetect } from '@/constants/languages';
+import useLanguageSelectorBottomSheetNotifier from './languageSelectorBottomSheetNotifierStore';
 
 interface Token {
     type: string;
@@ -24,7 +26,7 @@ interface WebSocketState {
     // Actions
     connectWebSocket: () => Promise<void>;
     disconnectWebSocket: () => void;
-    sendMessage: (inputLanguage: string, targetLanguage: string, input: string) => Promise<void>;
+    sendMessage: (input: string) => Promise<void>;
     repeatLastTranslation: () => void;
     reset: () => void;
 }
@@ -52,57 +54,26 @@ const useWebSocketStore = create<WebSocketState>((set, get) => ({
                 resolve();
             };
 
-        socket.onmessage = (event) => {
-            console.log('Message received:', event.data);
+            socket.onmessage = (event) => {
+                console.log('Message received:', event.data);
 
-            if (event.data.includes('<end:)>')) {
-                const translateButtonState = useTranslateButtonStateNotifier.getState().state
-
-                const pagerPos = usePagerPos.getState().pos // put this block in a function
-                if (pagerPos === 1) {
-                    if (translateButtonState !== "repeat") {
-                        switchTranslateButtonState("repeat");
-                    }
-                } else {
-                    if (translateButtonState !== "next") {
-                        switchTranslateButtonState("next");
-                    }
-                }
-
-                socket.close();
-                set({ isConnected: false });
-            } else if (event.data.includes('<error:/>')) {
-                const translateButtonState = useTranslateButtonStateNotifier.getState().state
-                const pagerPos = usePagerPos.getState().pos
-                if (pagerPos === 1) {
-                    if (translateButtonState !== "repeat") {
-                        switchTranslateButtonState("repeat");
-                    }
-                } else {
-                    if (translateButtonState !== "next") {
-                        switchTranslateButtonState("next");
-                    }
-                }
-                set({ wsError: true, isConnected: false });
-                socket.close();
-            } else {
-                try {
+                if (event.data.includes('<end:)>')) {
                     const translateButtonState = useTranslateButtonStateNotifier.getState().state
-                    if (translateButtonState !== "stop") {
-                        switchTranslateButtonState("stop");
+
+                    const pagerPos = usePagerPos.getState().pos // put this block in a function
+                    if (pagerPos === 1) {
+                        if (translateButtonState !== "repeat") {
+                            switchTranslateButtonState("repeat");
+                        }
+                    } else {
+                        if (translateButtonState !== "next") {
+                            switchTranslateButtonState("next");
+                        }
                     }
-                    const token: Token = JSON.parse(event.data);
 
-                    set((state) => {
-                        const newTokens = new Map(state.tokens);
-                        newTokens.set(
-                            state.tokens.size === 0 ? 0 : Math.max(...Array.from(state.tokens.keys())) + 1,
-                            token
-                        );
-                        return { tokens: newTokens };
-                    });
-
-                } catch (error) {
+                    socket.close();
+                    set({ isConnected: false });
+                } else if (event.data.includes('<error:/>')) {
                     const translateButtonState = useTranslateButtonStateNotifier.getState().state
                     const pagerPos = usePagerPos.getState().pos
                     if (pagerPos === 1) {
@@ -116,44 +87,75 @@ const useWebSocketStore = create<WebSocketState>((set, get) => ({
                     }
                     set({ wsError: true, isConnected: false });
                     socket.close();
-                    console.error('Error parsing response:', error);
-                }
-            }
-        };
+                } else {
+                    try {
+                        const translateButtonState = useTranslateButtonStateNotifier.getState().state
+                        if (translateButtonState !== "stop") {
+                            switchTranslateButtonState("stop");
+                        }
+                        const token: Token = JSON.parse(event.data);
 
-        socket.onerror = (error) => {
-            const translateButtonState = useTranslateButtonStateNotifier.getState().state
-            const pagerPos = usePagerPos.getState().pos
-            if (pagerPos === 1) {
-                if (translateButtonState !== "repeat") {
-                    switchTranslateButtonState("repeat");
-                }
-            } else {
-                if (translateButtonState !== "next") {
-                    switchTranslateButtonState("next");
-                }
-            }
-            console.error('WebSocket error:', error);
-            set({ wsError: true, isConnected: false });
-            socket.close();
-            reject(error);
-        };
+                        set((state) => {
+                            const newTokens = new Map(state.tokens);
+                            newTokens.set(
+                                state.tokens.size === 0 ? 0 : Math.max(...Array.from(state.tokens.keys())) + 1,
+                                token
+                            );
+                            return { tokens: newTokens };
+                        });
 
-        socket.onclose = (event) => {
-            const translateButtonState = useTranslateButtonStateNotifier.getState().state
-            const pagerPos = usePagerPos.getState().pos
-            if (pagerPos === 1) {
-                if (translateButtonState !== "repeat") {
-                    switchTranslateButtonState("repeat");
+                    } catch (error) {
+                        const translateButtonState = useTranslateButtonStateNotifier.getState().state
+                        const pagerPos = usePagerPos.getState().pos
+                        if (pagerPos === 1) {
+                            if (translateButtonState !== "repeat") {
+                                switchTranslateButtonState("repeat");
+                            }
+                        } else {
+                            if (translateButtonState !== "next") {
+                                switchTranslateButtonState("next");
+                            }
+                        }
+                        set({ wsError: true, isConnected: false });
+                        socket.close();
+                        console.error('Error parsing response:', error);
+                    }
                 }
-            } else {
-                if (translateButtonState !== "next") {
-                    switchTranslateButtonState("next");
+            };
+
+            socket.onerror = (error) => {
+                const translateButtonState = useTranslateButtonStateNotifier.getState().state
+                const pagerPos = usePagerPos.getState().pos
+                if (pagerPos === 1) {
+                    if (translateButtonState !== "repeat") {
+                        switchTranslateButtonState("repeat");
+                    }
+                } else {
+                    if (translateButtonState !== "next") {
+                        switchTranslateButtonState("next");
+                    }
                 }
-            }
-            console.log('WebSocket connection closed:', event.code, event.reason);
-            set({ isConnected: false });
-        };
+                console.error('WebSocket error:', error);
+                set({ wsError: true, isConnected: false });
+                socket.close();
+                reject(error);
+            };
+
+            socket.onclose = (event) => {
+                const translateButtonState = useTranslateButtonStateNotifier.getState().state
+                const pagerPos = usePagerPos.getState().pos
+                if (pagerPos === 1) {
+                    if (translateButtonState !== "repeat") {
+                        switchTranslateButtonState("repeat");
+                    }
+                } else {
+                    if (translateButtonState !== "next") {
+                        switchTranslateButtonState("next");
+                    }
+                }
+                console.log('WebSocket connection closed:', event.code, event.reason);
+                set({ isConnected: false });
+            };
 
             set({ socket });
         });
@@ -167,7 +169,11 @@ const useWebSocketStore = create<WebSocketState>((set, get) => ({
         }
     },
 
-    sendMessage: async (inputLanguage, targetLanguage, input) => {
+    sendMessage: async (input) => {
+
+        const inputLanguage = languagesPlusAutoDetect[useLanguageSelectorBottomSheetNotifier.getState().selectedIndex0.toString()];
+        const targetLanguage = languages[useLanguageSelectorBottomSheetNotifier.getState().selectedIndex1.toString()];
+
         const { socket, isConnected } = get();
         const switchTranslateButtonState = useTranslateButtonStateNotifier.getState().switchState
         const translateButtonState = useTranslateButtonStateNotifier.getState().state
@@ -182,7 +188,7 @@ const useWebSocketStore = create<WebSocketState>((set, get) => ({
         });
 
         let currentSocket = socket;
-        
+
         if (!currentSocket || !isConnected) {
             try {
                 await get().connectWebSocket();
@@ -209,7 +215,7 @@ const useWebSocketStore = create<WebSocketState>((set, get) => ({
     repeatLastTranslation: () => {
         const { lastTranslation } = get();
         if (lastTranslation) {
-            get().sendMessage(lastTranslation.inputLanguage, lastTranslation.targetLanguage, lastTranslation.input);
+            get().sendMessage(lastTranslation.input);
         }
     },
 
