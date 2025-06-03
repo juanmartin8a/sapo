@@ -22,9 +22,9 @@ interface WebSocketState {
     } | null;
 
     // Actions
-    connectWebSocket: () => void;
+    connectWebSocket: () => Promise<void>;
     disconnectWebSocket: () => void;
-    sendMessage: (inputLanguage: string, targetLanguage: string, input: string) => void;
+    sendMessage: (inputLanguage: string, targetLanguage: string, input: string) => Promise<void>;
     repeatLastTranslation: () => void;
     reset: () => void;
 }
@@ -37,18 +37,20 @@ const useWebSocketStore = create<WebSocketState>((set, get) => ({
     lastTranslation: null,
 
     connectWebSocket: () => {
-        const switchTranslateButtonState = useTranslateButtonStateNotifier.getState().switchState
+        return new Promise<void>((resolve, reject) => {
+            const switchTranslateButtonState = useTranslateButtonStateNotifier.getState().switchState
 
-        if (get().socket !== null) {
-            get().socket!.close();
-        }
+            if (get().socket !== null) {
+                get().socket!.close();
+            }
 
-        const socket = new WebSocket('wss://gy2rem2fsd.execute-api.us-east-2.amazonaws.com/prod/');
+            const socket = new WebSocket('wss://gy2rem2fsd.execute-api.us-east-2.amazonaws.com/prod/');
 
-        socket.onopen = () => {
-            console.log('WebSocket connection established');
-            set({ socket, isConnected: true });
-        };
+            socket.onopen = () => {
+                console.log('WebSocket connection established');
+                set({ socket, isConnected: true });
+                resolve();
+            };
 
         socket.onmessage = (event) => {
             console.log('Message received:', event.data);
@@ -134,6 +136,7 @@ const useWebSocketStore = create<WebSocketState>((set, get) => ({
             console.error('WebSocket error:', error);
             set({ wsError: true, isConnected: false });
             socket.close();
+            reject(error);
         };
 
         socket.onclose = (event) => {
@@ -152,7 +155,8 @@ const useWebSocketStore = create<WebSocketState>((set, get) => ({
             set({ isConnected: false });
         };
 
-        set({ socket });
+            set({ socket });
+        });
     },
 
     disconnectWebSocket: () => {
@@ -163,7 +167,7 @@ const useWebSocketStore = create<WebSocketState>((set, get) => ({
         }
     },
 
-    sendMessage: (inputLanguage, targetLanguage, input) => {
+    sendMessage: async (inputLanguage, targetLanguage, input) => {
         const { socket, isConnected } = get();
         const switchTranslateButtonState = useTranslateButtonStateNotifier.getState().switchState
         const translateButtonState = useTranslateButtonStateNotifier.getState().state
@@ -177,23 +181,19 @@ const useWebSocketStore = create<WebSocketState>((set, get) => ({
             wsError: false
         });
 
-        if (!socket || !isConnected) {
-            get().connectWebSocket();
-            setTimeout(() => {
-                const newSocket = get().socket;
-                if (newSocket && get().isConnected) {
-                    const message = {
-                        action: "translate",
-                        message: JSON.stringify({
-                            input_language: inputLanguage,
-                            target_language: targetLanguage,
-                            input: input
-                        })
-                    };
-                    newSocket.send(JSON.stringify(message));
-                }
-            }, 10000);
-        } else {
+        let currentSocket = socket;
+        
+        if (!currentSocket || !isConnected) {
+            try {
+                await get().connectWebSocket();
+                currentSocket = get().socket;
+            } catch (error) {
+                console.error('Failed to connect WebSocket:', error);
+                return;
+            }
+        }
+
+        if (currentSocket && get().isConnected) {
             const message = {
                 action: "translate",
                 message: JSON.stringify({
@@ -202,7 +202,7 @@ const useWebSocketStore = create<WebSocketState>((set, get) => ({
                     input: input
                 })
             };
-            socket.send(JSON.stringify(message));
+            currentSocket.send(JSON.stringify(message));
         }
     },
 

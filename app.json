@@ -35,7 +35,12 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "expo-font",
+      [
+          "expo-font",
+          {
+              "fonts": ["node_modules/@expo-google-fonts/tangerine/Tangerine_400Regular.ttf", "node_modules/@expo-google-fonts/tangerine/Tangerine_700Bold.ttf"]
+          }
+      ],
       "expo-web-browser"
     ],
     "experiments": {
