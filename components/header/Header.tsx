@@ -23,7 +23,7 @@ const Header = ({ onSidebarPress, onNextPress }: HeaderProps) => {
                 </TouchableWithoutFeedback>
             </View>
             <Text style={styles.titleText}>
-                {"S.A.P.O"}
+                {"S A P O"}
             </Text>
 
             <View style={{ zIndex: 100, position: "absolute", height: "100%", right: 18, top: insets.top, justifyContent: "center" }}>

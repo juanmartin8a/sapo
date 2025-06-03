@@ -23,7 +23,6 @@ interface WebSocketState {
         input: string;
     } | null;
 
-    // Actions
     connectWebSocket: () => Promise<void>;
     disconnectWebSocket: () => void;
     sendMessage: (input: string) => Promise<void>;
