@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import {
     StyleSheet,
     View,
@@ -11,15 +11,11 @@ import SideBar, { SIDEBAR_WIDTH } from "@/components/sidebar/Sidebar";
 import Translate from "@/components/home/Translate";
 import LanguageSelectorBottomSheet from "../home/LanguageSelectorBottomSheet";
 import { useSidebarIsOpenNotifier } from "@/stores";
-import useWebSocketStore from "@/stores/websocketStore";
-import useTextToTranslateStore from "@/stores/textToTranslateStore";
-import useTranslateButtonStateNotifier from "@/stores/translateButtonStateNotifier";
 import Header from "../header/Header";
 import TextToTranslateInput from "../home/TextToTranslateInput";
 import usePagerPos from "@/stores/pagerPosStore";
 
 export default function Home() {
-    const text = useTextToTranslateStore((state) => state.text)
     const pagerRef = useRef<PagerView>(null);
     const slideSideBar = useRef<boolean | null>(null);
     const sideBarTranslationX = useRef(new Animated.Value(0)).current;
@@ -32,11 +28,7 @@ export default function Home() {
     const setOffset = usePagerPos(state => state.setOffset);
     const setPos = usePagerPos(state => state.setPos);
 
-    const sendMessage = useWebSocketStore((state) => state.sendMessage)
-    const repeatLastTranslation = useWebSocketStore((state) => state.repeatLastTranslation)
-    const translateButtonState = useTranslateButtonStateNotifier((state) => state.state)
-
-    const handleGestureEvent = (event: PanGestureHandlerGestureEvent) => {
+    const handleGestureEvent = useCallback((event: PanGestureHandlerGestureEvent) => {
         const { translationX, velocityX } = event.nativeEvent;
 
         let stillnessThreshold: number
@@ -55,9 +47,9 @@ export default function Home() {
         } else if (velocityX < 0 && slideSideBar.current !== false) {
             slideSideBar.current = false;
         }
-    };
+    }, []);
 
-    const handleGestureEnd = () => {
+    const handleGestureEnd = useCallback(() => {
         if (sideBarTranslationXValue.current > 0 || sideBarTranslationXValue.current < SIDEBAR_WIDTH) {
             if (slideSideBar.current === true) {
                 Keyboard.dismiss();
@@ -76,15 +68,15 @@ export default function Home() {
                 return
             }
         }
-    };
+    }, []);
 
-    const handleContentGesture = (event: PanGestureHandlerGestureEvent) => {
+    const handleContentGesture = useCallback((event: PanGestureHandlerGestureEvent) => {
         const { translationX, velocityX } = event.nativeEvent;
 
         if ((velocityX > 0 && translationX > 0) || !isSideBarPosAtStart) {
             handleGestureEvent(event);
         }
-    };
+    }, [handleGestureEvent, isSideBarPosAtStart]);
 
     const handleContentGestureEnd = () => {
         handleGestureEnd();
@@ -109,20 +101,17 @@ export default function Home() {
         };
     }, [isSidebarOpenOrClosed]);
 
-    const next = () => {
-        if (translateButtonState === 'repeat') {
-            repeatLastTranslation();
-        } else {
-            sendMessage(
-                text
-            )
-        }
-        pagerRef.current?.setPage(1);
-    };
+    useEffect(() => {
+        const unsubscribe = usePagerPos.subscribe(
+            ({ newPos }, { newPos: prevNewPos }) => {
+                if (newPos !== prevNewPos) {
+                    pagerRef.current?.setPage(newPos);
+                }
+            }
+        )
 
-    const goToMainPanel = () => {
-        pagerRef.current?.setPage(0);
-    };
+        return () => unsubscribe()
+    }, [])
 
     return (
         <View
@@ -158,7 +147,6 @@ export default function Home() {
                                     }).start()
                                     isSidebarOpenOrClosed(true)
                                 }}
-                                onNextPress={next}
                             />
                             <PagerView
                                 ref={pagerRef}

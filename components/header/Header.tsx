@@ -7,10 +7,9 @@ import { Text } from "react-native";
 
 interface HeaderProps {
     onSidebarPress: () => void;
-    onNextPress: () => void;
 }
 
-const Header = ({ onSidebarPress, onNextPress }: HeaderProps) => {
+const Header = ({ onSidebarPress }: HeaderProps) => {
     const insets = useSafeAreaInsets();
 
     return (
@@ -27,9 +26,7 @@ const Header = ({ onSidebarPress, onNextPress }: HeaderProps) => {
             </Text>
 
             <View style={{ zIndex: 100, position: "absolute", height: "100%", right: 18, top: insets.top, justifyContent: "center" }}>
-                <Pressable onPress={onNextPress}>
-                    <TranslateButton />
-                </Pressable>
+                <TranslateButton />
             </View>
         </View>
     )

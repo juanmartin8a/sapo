@@ -4,14 +4,17 @@ import useTranslateButtonStateNotifier from "@/stores/translateButtonStateNotifi
 interface PagerPosProps {
     pos: number
     offset: number
+    newPos: number  // We don't care about this value, we just need it to change the pos
 
     setPos: (pos: number) => void
     setOffset: (offset: number) => void
+    goToPage: (pos: number) => void
 }
 
 const usePagerPos = create<PagerPosProps>((set, get) => ({
     pos: 0,
     offset: 0,
+    newPos: 0,
     setPos: (pos: number) => {
         if (get().pos !== pos) {
             if (pos === 1) {
@@ -34,6 +37,11 @@ const usePagerPos = create<PagerPosProps>((set, get) => ({
             set({ offset: offset })
         }
     },
+    goToPage: (pos: number) => {
+        if (get().pos !== pos) {
+            set({ newPos: pos })
+        }
+    }
 }))
 
 export default usePagerPos;

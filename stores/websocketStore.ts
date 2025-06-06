@@ -27,6 +27,7 @@ interface WebSocketState {
     disconnectWebSocket: () => void;
     sendMessage: (input: string) => Promise<void>;
     repeatLastTranslation: () => void;
+    stopStream: () => void;
     reset: () => void;
 }
 
@@ -216,6 +217,18 @@ const useWebSocketStore = create<WebSocketState>((set, get) => ({
         if (lastTranslation) {
             get().sendMessage(lastTranslation.input);
         }
+    },
+
+    stopStream: () => {
+        const { socket } = get();
+        if (socket) {
+            socket.close();
+        }
+        set({
+            wsError: false,
+            socket: null,
+            isConnected: false,
+        });
     },
 
     reset: () => {
