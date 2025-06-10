@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Animated, Dimensions, Text, View, TouchableOpacity } from 'react-native';
+import { StyleSheet, Dimensions, Text, View, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import ChevronRightIcon from "../../assets/icons/chevron-right.svg";
 import useLanguageSelectorBottomSheetNotifier from '@/stores/languageSelectorBottomSheetNotifierStore';
 import { languages, languagesPlusAutoDetect } from '@/constants/languages';
@@ -8,7 +9,7 @@ import { languages, languagesPlusAutoDetect } from '@/constants/languages';
 export const SIDEBAR_WIDTH = Dimensions.get("window").width * 0.7;
 
 type SideBarProps = {
-    translationX: Animated.Value
+    translationX: Animated.SharedValue<number>
 }
 
 const SideBar = ({ translationX }: SideBarProps) => {
@@ -32,12 +33,18 @@ const SideBar = ({ translationX }: SideBarProps) => {
         setTargetLanguage(newTargetLang);
     }, [selectedIndex1]);
 
+    const animatedStyle = useAnimatedStyle(() => {
+        return {
+            transform: [{ translateX: translationX.value - SIDEBAR_WIDTH }],
+        };
+    });
+
     return (
         <Animated.View
             style={[
                 styles.sideBar,
+                animatedStyle,
                 {
-                    transform: [{ translateX: Animated.add(-SIDEBAR_WIDTH, translationX) }],
                     paddingTop: insets.top
                 },
             ]}

@@ -25,7 +25,7 @@ const Header = ({ onSidebarPress }: HeaderProps) => {
                 {"S A P O"}
             </Text>
 
-            <View style={{ zIndex: 100, position: "absolute", height: "100%", right: 18, top: insets.top, justifyContent: "center" }}>
+            <View style={{ zIndex: 1, position: "absolute", height: "100%", right: 18, top: insets.top, justifyContent: "center" }}>
                 <TranslateButton />
             </View>
         </View>
