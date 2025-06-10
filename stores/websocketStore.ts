@@ -224,6 +224,18 @@ const useWebSocketStore = create<WebSocketState>((set, get) => ({
         if (socket) {
             socket.close();
         }
+        const switchTranslateButtonState = useTranslateButtonStateNotifier.getState().switchState
+        const translateButtonState = useTranslateButtonStateNotifier.getState().state
+        const pagerPos = usePagerPos.getState().pos
+        if (pagerPos === 1) {
+            if (translateButtonState !== "repeat") {
+                switchTranslateButtonState("repeat");
+            }
+        } else {
+            if (translateButtonState !== "next") {
+                switchTranslateButtonState("next");
+            }
+        }
         set({
             wsError: false,
             socket: null,
