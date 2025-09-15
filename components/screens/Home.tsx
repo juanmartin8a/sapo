@@ -131,9 +131,6 @@ export default function Home() {
     useEffect(() => {
         const unsubscribe = usePagerPos.subscribe(
             ({ newPos }, { newPos: prevNewPos }) => {
-                // console.log("hello there")
-                // console.log("new pos: ", newPos)
-                // console.log("prev new pos: ", prevNewPos)
                 if (newPos !== prevNewPos) {
                     pagerRef.current?.setPage(newPos);
                 }
