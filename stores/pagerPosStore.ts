@@ -29,7 +29,7 @@ const usePagerPos = create<PagerPosProps>((set, get) => ({
                 }
 
             }
-            set({ pos: pos, offset: pos })
+            set({ pos: pos, offset: pos, newPos: pos })
         }
     },
     setOffset: (offset: number) => {
