@@ -4,7 +4,7 @@
     "slug": "SAPO",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/sapo_logo.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -29,22 +29,35 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/sapo_logo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
       ],
       [
-          "expo-font",
-          {
-              "fonts": ["node_modules/@expo-google-fonts/tangerine/Tangerine_400Regular.ttf", "node_modules/@expo-google-fonts/tangerine/Tangerine_700Bold.ttf"]
-          }
+        "expo-font",
+        {
+          "fonts": [
+          ]
+        }
+      ],
+      [
+        "expo-dev-client",
+        {
+          "launchMode": "most-recent"
+        }
       ],
       "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "7d68ee8d-26e4-4d0d-a312-cd885a8b21dc"
+      }
     }
   }
 }
