@@ -38,6 +38,8 @@ const usePagerPos = create<PagerPosProps>((set, get) => ({
         }
     },
     goToPage: (pos: number) => {
+        console.log("pos: ", get().pos)
+        console.log("new pos: ", pos)
         if (get().pos !== pos) {
             set({ newPos: pos })
         }

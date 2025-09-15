@@ -131,6 +131,9 @@ export default function Home() {
     useEffect(() => {
         const unsubscribe = usePagerPos.subscribe(
             ({ newPos }, { newPos: prevNewPos }) => {
+                // console.log("hello there")
+                // console.log("new pos: ", newPos)
+                // console.log("prev new pos: ", prevNewPos)
                 if (newPos !== prevNewPos) {
                     pagerRef.current?.setPage(newPos);
                 }
@@ -167,7 +170,10 @@ export default function Home() {
                                 overScrollMode="never"
                                 orientation="horizontal"
                                 onPageScroll={(e) => setOffset(e.nativeEvent.offset)}
-                                onPageSelected={(e) => setPos(e.nativeEvent.position)}
+                                onPageSelected={(e) => {
+                                    console.log(e.nativeEvent.position)
+                                    setPos(e.nativeEvent.position)
+                                }}
                             >
                                 <View key="1" style={{ width: "100%", height: "100%" }}>
                                     <TextToTranslateInput />
