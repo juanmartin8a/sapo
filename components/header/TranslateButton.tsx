@@ -37,8 +37,6 @@ const TranslateButton = () => {
                 )
             }
 
-            console.log("hi")
-
             goToPage(1);
         }
     }, [translateButtonState, text]);
