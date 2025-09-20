@@ -167,10 +167,7 @@ export default function Home() {
                                 overScrollMode="never"
                                 orientation="horizontal"
                                 onPageScroll={(e) => setOffset(e.nativeEvent.offset)}
-                                onPageSelected={(e) => {
-                                    console.log(e.nativeEvent.position)
-                                    setPos(e.nativeEvent.position)
-                                }}
+                                onPageSelected={(e) => setPos(e.nativeEvent.position)}
                             >
                                 <View key="1" style={{ width: "100%", height: "100%" }}>
                                     <TextToTranslateInput />
