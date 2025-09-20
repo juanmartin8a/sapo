@@ -1,4 +1,4 @@
-# SAPO Privacy Policy (v1 — No Accounts, No Billing)
+# SAPO Privacy Policy
 
 **Effective Date:** 2025-09-19
 
