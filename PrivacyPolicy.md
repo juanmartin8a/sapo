@@ -30,7 +30,16 @@ Those third parties process data under their own terms and privacy notices.
 - **No ads, no resale.** We do **not** sell or “share” your information for cross-context behavioral advertising, and we do **not** use it for marketing.  
 - **No impactful automated decisions.** We do **not** make decisions that have legal or similarly significant effects about you; we only transform text you submit.
 
-**Our compliance approach (legal basis).** We process only what is necessary to deliver the service you request, to protect the service and our users, and to meet legal obligations. Where consent is required by applicable law, we will obtain it. Only the laws of your country/region apply to you.
+**Our compliance approach (legal basis).**  
+We rely on **legitimate interest** under applicable data protection laws (such as the GDPR) for processing user-submitted text (which may include personal data) to provide the transliteration service.
+
+- **What is our legitimate interest.** Our interest is enabling you to submit text, process it transiently, and return a transliterated output. This is essential to deliver the service you request.  
+- **Necessity.** We process only what is necessary to provide the service—no extra data, no profiling, no ads.  
+- **Balancing test.** We have considered the potential impact on your rights, freedoms, and privacy. Because we do *not* store input/output permanently, do not use data for marketing, do not build profiles, and minimize metadata, we believe our interests do not override your rights.  
+- **Expectations.** Users reasonably expect that text they submit for transliteration will be temporarily processed to generate the output.  
+- **Right to object.** You have the right to object to our processing based on legitimate interest. If you do, we will assess whether there are overriding compelling grounds to continue; if not, we will stop processing for you.
+
+Where consent is required by applicable law in specific jurisdictions, we will obtain it. Only the laws of your country/region apply to you.
 
 ---
 
@@ -72,9 +81,11 @@ You also have the right to lodge a complaint with your local data protection aut
 
 ---
 
-## 7) International Data Transfers
+## 7) Data Transfers
 
-We may process data in countries different from yours (e.g., the United States). Where required, we rely on appropriate safeguards (such as standardized contractual protections and confidentiality/security commitments) and vendor compliance frameworks. We periodically review vendors to ensure suitable transfer mechanisms remain in place.
+We operate globally. To provide our service, your submitted text and related technical metadata may be transmitted to and processed on servers hosted by Amazon Web Services (AWS). AWS is certified under the EU-US Data Privacy Framework (DPF), which is an adequacy mechanism recognized under EU law for transfers of personal data from the EU to the U.S.
+
+Because we do not retain permanent records of your submitted text or outputs, and minimize metadata and logs, we believe the risk of harm from transfers is low. Where required by applicable law, we rely on AWS’s DPF certification and other lawful transfer mechanisms or safeguards for any third-party processors.
 
 ---
 
