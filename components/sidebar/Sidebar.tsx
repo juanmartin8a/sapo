@@ -49,6 +49,28 @@ const SideBar = ({ translationX }: SideBarProps) => {
                 },
             ]}
         >
+            <View style={{
+                flexDirection: 'row',
+                marginBottom: 24,
+                alignItems: 'center',
+                paddingVertical: 12,
+            }}>
+                <Text style={{ fontSize: 16, fontWeight: '500', color: '#aaa' }}>Mode: </Text>
+                <TouchableOpacity
+                    onPress={() => showBottomSheet(true)}
+                    activeOpacity={0.35}
+                    style={{ flex: 1 }}
+                >
+                    <View style={{
+                        alignContent: 'space-around',
+                        alignItems: "center",
+                        flexDirection: 'row',
+                    }}>
+                        <Text style={{ flex: 1, fontSize: 16, fontWeight: '500' }}>Transliterate</Text>
+                        <ChevronRightIcon stroke="black" />
+                    </View>
+                </TouchableOpacity>
+            </View>
             <View style={styles.inputContainer}>
                 <Text style={styles.label}>Input Language:</Text>
                 <TouchableOpacity

@@ -21,9 +21,21 @@ const Header = ({ onSidebarPress }: HeaderProps) => {
                     </View>
                 </TouchableWithoutFeedback>
             </View>
-            <Text style={styles.titleText}>
-                {"S A P O"}
-            </Text>
+            <View style={{ position: 'relative', alignItems: 'center' }}>
+                <Text style={styles.titleText}>
+                    {"S A P O"}
+                </Text>
+                <Text style={{
+                    top: '110%',
+                    lineHeight: 14,
+                    fontWeight: '500',
+                    fontSize: 14,
+                    color: '#bbb',
+                    position: 'absolute'
+                }}>
+                    transliterate
+                </Text>
+            </View>
 
             <View style={{ zIndex: 1, position: "absolute", height: "100%", right: 18, top: insets.top, justifyContent: "center" }}>
                 <TranslateButton />

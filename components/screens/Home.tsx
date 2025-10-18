@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from "react";
-import { StyleSheet, View, Keyboard } from "react-native";
+import { StyleSheet, View, Keyboard, Text } from "react-native";
 import { GestureHandlerRootView, PanGestureHandler, PanGestureHandlerGestureEvent, TapGestureHandler } from "react-native-gesture-handler";
 import PagerView from 'react-native-pager-view';
 import Animated, {
