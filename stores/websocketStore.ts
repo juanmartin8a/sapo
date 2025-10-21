@@ -3,6 +3,7 @@ import useTranslateButtonStateNotifier from './translateButtonStateNotifier';
 import usePagerPos from './pagerPosStore';
 import { languages, languagesPlusAutoDetect } from '@/constants/languages';
 import useLanguageSelectorBottomSheetNotifier from './languageSelectorBottomSheetNotifierStore';
+import useTranslateModeStore from './translateModeStore';
 
 interface Token {
     type: string;
@@ -41,6 +42,7 @@ const useWebSocketStore = create<WebSocketState>((set, get) => ({
     connectWebSocket: () => {
         return new Promise<void>((resolve, reject) => {
             const switchTranslateButtonState = useTranslateButtonStateNotifier.getState().switchState
+            const translateModeState = useTranslateModeStore.getState().mode
 
             if (get().socket !== null) {
                 get().socket!.close();
@@ -93,7 +95,17 @@ const useWebSocketStore = create<WebSocketState>((set, get) => ({
                         if (translateButtonState !== "stop") {
                             switchTranslateButtonState("stop");
                         }
-                        const token: Token = JSON.parse(event.data);
+
+                        let token: Token
+
+                        if (translateModeState === 'translate') {
+                            token = {
+                                type: 'translate',
+                                value: event.data
+                            }
+                        } else {
+                            token = JSON.parse(event.data);
+                        }
 
                         set((state) => {
                             const newTokens = new Map(state.tokens);
@@ -169,7 +181,7 @@ const useWebSocketStore = create<WebSocketState>((set, get) => ({
         }
     },
 
-    sendMessage: async (input) => {
+    sendMessage: async (input: string) => {
 
         const inputLanguage = languagesPlusAutoDetect[useLanguageSelectorBottomSheetNotifier.getState().selectedIndex0.toString()];
         const targetLanguage = languages[useLanguageSelectorBottomSheetNotifier.getState().selectedIndex1.toString()];
@@ -200,10 +212,11 @@ const useWebSocketStore = create<WebSocketState>((set, get) => ({
         }
 
         if (currentSocket && get().isConnected) {
+            const translateModeState = useTranslateModeStore.getState().mode
             const message = {
-                action: "translate",
+                action: translateModeState === "translate" ? "sapopinguino-translate" : "sapopinguino",
                 message: JSON.stringify({
-                    input_language: inputLanguage,
+                    source_language: inputLanguage,
                     target_language: targetLanguage,
                     input: input
                 })
