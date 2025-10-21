@@ -13,7 +13,7 @@ import Animated, {
 import SideBar, { SIDEBAR_WIDTH } from "@/components/sidebar/Sidebar";
 import Translate from "@/components/home/Translate";
 import LanguageSelectorBottomSheet from "../home/LanguageSelectorBottomSheet";
-import { useSidebarIsOpenNotifier, useTranslateModeStore } from "@/stores";
+import { useSidebarIsOpenNotifier, useTranslModeStore } from "@/stores";
 import Header from "../header/Header";
 import TextToTranslateInput from "../home/TextToTranslateInput";
 import usePagerPos from "@/stores/pagerPosStore";
@@ -31,7 +31,7 @@ export default function Home() {
     const setOffset = usePagerPos(state => state.setOffset);
     const setPos = usePagerPos(state => state.setPos);
 
-    const mode = useTranslateModeStore((state) => state.mode);
+    const mode = useTranslModeStore((state) => state.mode);
     const modeText = mode.charAt(0).toUpperCase() + mode.slice(1);
 
     const openSidebar = useCallback(() => {

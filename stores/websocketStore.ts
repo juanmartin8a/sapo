@@ -3,7 +3,7 @@ import useTranslateButtonStateNotifier from './translateButtonStateNotifier';
 import usePagerPos from './pagerPosStore';
 import { languages, languagesPlusAutoDetect } from '@/constants/languages';
 import useLanguageSelectorBottomSheetNotifier from './languageSelectorBottomSheetNotifierStore';
-import useTranslateModeStore from './translateModeStore';
+import useTranslModeStore from './translModeStore';
 
 interface Token {
     type: string;
@@ -42,7 +42,7 @@ const useWebSocketStore = create<WebSocketState>((set, get) => ({
     connectWebSocket: () => {
         return new Promise<void>((resolve, reject) => {
             const switchTranslateButtonState = useTranslateButtonStateNotifier.getState().switchState
-            const translateModeState = useTranslateModeStore.getState().mode
+            const translModeState = useTranslModeStore.getState().mode
 
             if (get().socket !== null) {
                 get().socket!.close();
@@ -98,7 +98,7 @@ const useWebSocketStore = create<WebSocketState>((set, get) => ({
 
                         let token: Token
 
-                        if (translateModeState === 'translate') {
+                        if (translModeState === 'translate') {
                             token = {
                                 type: 'translate',
                                 value: event.data
@@ -212,9 +212,9 @@ const useWebSocketStore = create<WebSocketState>((set, get) => ({
         }
 
         if (currentSocket && get().isConnected) {
-            const translateModeState = useTranslateModeStore.getState().mode
+            const translModeState = useTranslModeStore.getState().mode
             const message = {
-                action: translateModeState === "translate" ? "sapopinguino-translate" : "sapopinguino",
+                action: translModeState === "translate" ? "sapopinguino-translate" : "sapopinguino",
                 message: JSON.stringify({
                     source_language: inputLanguage,
                     target_language: targetLanguage,
