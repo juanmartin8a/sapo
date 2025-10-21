@@ -5,7 +5,7 @@ import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import ChevronRightIcon from "../../assets/icons/chevron-right.svg";
 import useLanguageSelectorBottomSheetNotifier from '@/stores/languageSelectorBottomSheetNotifierStore';
 import { languages, languagesPlusAutoDetect } from '@/constants/languages';
-import useTranslateModeStore from '@/stores/translateModeStore';
+import useTranslModeStore from '@/stores/translModeStore';
 
 export const SIDEBAR_WIDTH = Dimensions.get("window").width * 0.7;
 
@@ -17,8 +17,8 @@ const SideBar = ({ translationX }: SideBarProps) => {
     const insets = useSafeAreaInsets();
     const [inputLanguage, setInputLanguage] = useState<string>(languagesPlusAutoDetect[0]);
     const [targetLanguage, setTargetLanguage] = useState<string>(languages[1]);
-    const mode = useTranslateModeStore((state) => state.mode);
-    const setMode = useTranslateModeStore((state) => state.setMode);
+    const mode = useTranslModeStore((state) => state.mode);
+    const setMode = useTranslModeStore((state) => state.setMode);
 
     // Get individual values from the store to avoid unnecessary re-renders
     const showBottomSheet = useLanguageSelectorBottomSheetNotifier(state => state.showBottomSheet);

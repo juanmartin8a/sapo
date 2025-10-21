@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import TranslateButton from "../header/TranslateButton";
 import SidebarIcon from "../../assets/icons/sidebar.svg";
 import { Text } from "react-native";
-import useTranslateModeStore from "@/stores/translateModeStore";
+import useTranslModeStore from "@/stores/translModeStore";
 
 interface HeaderProps {
     onSidebarPress: () => void;
@@ -12,7 +12,7 @@ interface HeaderProps {
 
 const Header = ({ onSidebarPress }: HeaderProps) => {
     const insets = useSafeAreaInsets();
-    const mode = useTranslateModeStore((state) => state.mode);
+    const mode = useTranslModeStore((state) => state.mode);
     const subtitle = mode.charAt(0).toUpperCase() + mode.slice(1);
 
     return (
