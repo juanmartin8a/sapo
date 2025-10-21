@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from "react";
-import { StyleSheet, View, Keyboard } from "react-native";
+import { StyleSheet, View, Keyboard, Text } from "react-native";
 import { GestureHandlerRootView, PanGestureHandler, PanGestureHandlerGestureEvent, TapGestureHandler } from "react-native-gesture-handler";
 import PagerView from 'react-native-pager-view';
 import Animated, {
@@ -13,7 +13,7 @@ import Animated, {
 import SideBar, { SIDEBAR_WIDTH } from "@/components/sidebar/Sidebar";
 import Translate from "@/components/home/Translate";
 import LanguageSelectorBottomSheet from "../home/LanguageSelectorBottomSheet";
-import { useSidebarIsOpenNotifier } from "@/stores";
+import { useSidebarIsOpenNotifier, useTranslateModeStore } from "@/stores";
 import Header from "../header/Header";
 import TextToTranslateInput from "../home/TextToTranslateInput";
 import usePagerPos from "@/stores/pagerPosStore";
@@ -30,6 +30,9 @@ export default function Home() {
     const isSidebarOpenOrClosed = useSidebarIsOpenNotifier(state => state.isSidebarOpenOrClosed);
     const setOffset = usePagerPos(state => state.setOffset);
     const setPos = usePagerPos(state => state.setPos);
+
+    const mode = useTranslateModeStore((state) => state.mode);
+    const modeText = mode.charAt(0).toUpperCase() + mode.slice(1);
 
     const openSidebar = useCallback(() => {
         if (isAnimating.value) return;
@@ -159,6 +162,9 @@ export default function Home() {
 
                         <Animated.View style={[styles.mainContent, mainContentAnimatedStyle]}>
                             <Header onSidebarPress={openSidebar} />
+                            <View style={{ backgroundColor: 'transparent', paddingHorizontal: 24, paddingTop: 0, paddingBottom: 3 }}>
+                                <Text style={styles.modeText}>{modeText + " " + (mode === 'translate' ? ':)' : '(:')}</Text>
+                            </View>
                             <PagerView
                                 ref={pagerRef}
                                 style={styles.pagerView}
@@ -210,4 +216,11 @@ const styles = StyleSheet.create({
     pagerView: {
         flex: 1,
     },
+    modeText: {
+        fontSize: 13,
+        lineHeight: 13,
+        color: "#aaa",
+        fontWeight: "500",
+        // textDecorationLine: 'underline'
+    }
 });

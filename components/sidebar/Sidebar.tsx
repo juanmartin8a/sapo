@@ -5,6 +5,7 @@ import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import ChevronRightIcon from "../../assets/icons/chevron-right.svg";
 import useLanguageSelectorBottomSheetNotifier from '@/stores/languageSelectorBottomSheetNotifierStore';
 import { languages, languagesPlusAutoDetect } from '@/constants/languages';
+import useTranslateModeStore from '@/stores/translateModeStore';
 
 export const SIDEBAR_WIDTH = Dimensions.get("window").width * 0.7;
 
@@ -16,6 +17,8 @@ const SideBar = ({ translationX }: SideBarProps) => {
     const insets = useSafeAreaInsets();
     const [inputLanguage, setInputLanguage] = useState<string>(languagesPlusAutoDetect[0]);
     const [targetLanguage, setTargetLanguage] = useState<string>(languages[1]);
+    const mode = useTranslateModeStore((state) => state.mode);
+    const setMode = useTranslateModeStore((state) => state.setMode);
 
     // Get individual values from the store to avoid unnecessary re-renders
     const showBottomSheet = useLanguageSelectorBottomSheetNotifier(state => state.showBottomSheet);
@@ -49,6 +52,44 @@ const SideBar = ({ translationX }: SideBarProps) => {
                 },
             ]}
         >
+            <View style={styles.modeSection}>
+                <View style={styles.modeToggleContainer}>
+                    <TouchableOpacity
+                        onPress={() => setMode('translate')}
+                        activeOpacity={0.7}
+                        style={[
+                            styles.modeOption,
+                            mode === 'translate' && styles.modeOptionActive,
+                        ]}
+                    >
+                        <Text
+                            style={[
+                                styles.modeOptionText,
+                                mode === 'translate' && styles.modeOptionTextActive,
+                            ]}
+                        >
+                            Translate
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        onPress={() => setMode('transliterate')}
+                        activeOpacity={0.7}
+                        style={[
+                            styles.modeOption,
+                            mode === 'transliterate' && styles.modeOptionActive,
+                        ]}
+                    >
+                        <Text
+                            style={[
+                                styles.modeOptionText,
+                                mode === 'transliterate' && styles.modeOptionTextActive,
+                            ]}
+                        >
+                            Transliterate
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
             <View style={styles.inputContainer}>
                 <Text style={styles.label}>Input Language:</Text>
                 <TouchableOpacity
@@ -100,6 +141,41 @@ const styles = StyleSheet.create({
         lineHeight: 18,
         color: "black",
         fontWeight: "500",
+    },
+    modeSection: {
+        width: '100%',
+        alignItems: 'stretch',
+        marginBottom: 32,
+        marginTop: 8,
+        // backgroundColor: 'red'
+    },
+    modeLabelText: {
+        fontSize: 16,
+        fontWeight: '500',
+        color: '#aaa',
+        marginBottom: 10,
+        textAlign: 'left',
+    },
+    modeToggleContainer: {
+        width: '100%',
+        gap: 8,
+    },
+    modeOption: {
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        backgroundColor: 'transparent',
+        borderRadius: 12,
+    },
+    modeOptionActive: {
+        backgroundColor: '#000',
+    },
+    modeOptionText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#000',
+    },
+    modeOptionTextActive: {
+        color: '#fff',
     },
     sideBar: {
         position: "absolute",

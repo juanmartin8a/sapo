@@ -4,7 +4,6 @@ import useWebSocketStore from '../../stores/websocketStore';
 import SapoIcon from "../../assets/icons/sapo.svg"
 import SapoBocaAbiertaIcon from "../../assets/icons/sapo_boca_abierta.svg"
 import { SCREEN_WIDTH } from '@gorhom/bottom-sheet';
-import { Tangerine_400Regular, useFonts } from '@expo-google-fonts/tangerine';
 
 interface CursorPos {
     x: number;
@@ -15,13 +14,8 @@ export default function Translate() {
     const {
         tokens,
         wsError,
-        connectWebSocket,
         disconnectWebSocket,
     } = useWebSocketStore();
-
-    const [loaded, error] = useFonts({
-        Tangerine_400Regular,
-    });
 
     const [cursorPos, setCursorPos] = useState<CursorPos>({ x: 0, y: 0 });
     const sapoWidth = SCREEN_WIDTH * 0.4;
@@ -37,7 +31,7 @@ export default function Translate() {
 
         const lastToken = tokenArray[tokenArray.length - 1]?.[1]
 
-        if (lastToken?.type === 'word') {
+        if (lastToken?.type === 'word' || lastToken?.type === "translate") {
             if (sapoMouthOpen) {
                 clearTimeout(timeoutRef.current);
                 setSapoMouthOpen(false);
@@ -53,8 +47,6 @@ export default function Translate() {
     }, [tokens]);
 
     useEffect(() => {
-        connectWebSocket();
-
         return () => {
             disconnectWebSocket();
         };

@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import TranslateButton from "../header/TranslateButton";
 import SidebarIcon from "../../assets/icons/sidebar.svg";
 import { Text } from "react-native";
+import useTranslateModeStore from "@/stores/translateModeStore";
 
 interface HeaderProps {
     onSidebarPress: () => void;
@@ -11,6 +12,8 @@ interface HeaderProps {
 
 const Header = ({ onSidebarPress }: HeaderProps) => {
     const insets = useSafeAreaInsets();
+    const mode = useTranslateModeStore((state) => state.mode);
+    const subtitle = mode.charAt(0).toUpperCase() + mode.slice(1);
 
     return (
         <View style={[styles.header, { height: 60 + insets.top, paddingTop: insets.top }]}>
@@ -21,9 +24,11 @@ const Header = ({ onSidebarPress }: HeaderProps) => {
                     </View>
                 </TouchableWithoutFeedback>
             </View>
-            <Text style={styles.titleText}>
-                {"S A P O"}
-            </Text>
+            <View style={{ position: 'relative', alignItems: 'center' }}>
+                <Text style={styles.titleText}>
+                    {"S A P O"}
+                </Text>
+            </View>
 
             <View style={{ zIndex: 1, position: "absolute", height: "100%", right: 18, top: insets.top, justifyContent: "center" }}>
                 <TranslateButton />
