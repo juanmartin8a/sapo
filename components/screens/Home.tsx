@@ -221,6 +221,5 @@ const styles = StyleSheet.create({
         lineHeight: 13,
         color: "#aaa",
         fontWeight: "500",
-        // textDecorationLine: 'underline'
     }
 });
