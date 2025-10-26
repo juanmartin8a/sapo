@@ -1,16 +1,17 @@
 {
   "expo": {
-    "name": "SAPO",
+    "name": "S A P O",
     "slug": "SAPO",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/sapo_logo.png",
     "scheme": "sapo",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.juanmartin8a.SAPO"
+      "supportsTablet": false,
+      "bundleIdentifier": "com.juanmartin8a.SAPO",
+      "usesNonExceptEncryption": false
     },
     "android": {
       "adaptiveIcon": {
@@ -38,8 +39,7 @@
       [
         "expo-font",
         {
-          "fonts": [
-          ]
+          "fonts": []
         }
       ],
       [
