@@ -216,7 +216,7 @@ const useWebSocketStore = create<WebSocketState>((set, get) => ({
             const message = {
                 action: translModeState === "translate" ? "sapopinguino-translate" : "sapopinguino",
                 message: JSON.stringify({
-                    source_language: inputLanguage,
+                    input_language: inputLanguage,
                     target_language: targetLanguage,
                     input: input
                 })
