@@ -8,7 +8,7 @@ interface HomeBottomSheetNotifierProps {
     loading: boolean
 
     showBottomSheet: (bottomSheet: HomeBottomSheetKey, loading: boolean) => void,
-    bottomSheetClosed: () => void,
+    bottomSheetClosed: (byError?: boolean) => void,
     bottomSheetOpened: () => void,
 }
 
@@ -19,8 +19,12 @@ const useHomeBottomSheetNotifier = create<HomeBottomSheetNotifierProps>((set, ge
     showBottomSheet: (bottomSheet: HomeBottomSheetKey, loading: boolean) => {
         return set({ bottomSheetToOpen: bottomSheet, loading: loading })
     },
-    bottomSheetClosed: () => {
+    bottomSheetClosed: (byError: boolean = false) => {
         const { bottomSheetToOpen } = get();
+
+        if (byError) {
+            return set({ bottomSheet: undefined, bottomSheetToOpen: undefined, loading: false })
+        }
         return set({ bottomSheet: bottomSheetToOpen })
     },
     bottomSheetOpened: () => {

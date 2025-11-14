@@ -19,7 +19,9 @@ export default function LanguageSelectorBottomSheet() {
     const [bottomSheetKey, setBottomSheetKey] = useState<LanguageSelectorBottomSheetKey>('input_lang_selector');
     const bottomSheetKeyRef = useRef<LanguageSelectorBottomSheetKey>('input_lang_selector'); // ref to track current state
     const withAutoDetect = bottomSheetKey === 'input_lang_selector';
-    const isClosed = useRef<boolean>(true)
+    const isClosed = useRef<boolean>(true);
+
+    const initSnapSuccess = useRef<boolean>(false); // if it never reaches true then it was probably cancelled
 
     const selectLanguage = useLanguageSelectorBottomSheetNotifier(state => state.selectLanguage);
     const selectedIndex0 = useLanguageSelectorBottomSheetNotifier(state => state.selectedIndex0);
@@ -38,6 +40,7 @@ export default function LanguageSelectorBottomSheet() {
                     state.bottomSheetToOpen === bottomSheetKeyRef.current &&
                     state.loading === true
                 ) {
+                    setBottomSheetKey(bottomSheetKeyRef.current)
                     sheetRef.current?.snapToIndex(0);
                 }
             } else {
@@ -68,20 +71,24 @@ export default function LanguageSelectorBottomSheet() {
     const handleSheetClose = useCallback(() => {
         isClosed.current = true;
 
-        const { bottomSheet, bottomSheetToOpen, loading } = useHomeBottomSheetNotifier.getState();
+        if (!initSnapSuccess.current) {
+            console.log("canceled")
+            useHomeBottomSheetNotifier.getState().bottomSheetClosed(true)
+            return;
+        }
+
+        initSnapSuccess.current = false;
+
+        const { bottomSheet, bottomSheetToOpen } = useHomeBottomSheetNotifier.getState();
 
         if (
             bottomSheet === bottomSheetKeyRef.current &&
-            bottomSheetToOpen !== bottomSheetKeyRef.current &&
-            loading === true
+            bottomSheetToOpen !== bottomSheetKeyRef.current
         ) {
-            if (bottomSheetToOpen === undefined) {
-                return;
-            }
 
-            if (isLanguageSelectorBottomSheetKey(bottomSheetToOpen)) {
-                setBottomSheetKey(bottomSheetToOpen)
-            }
+            // if (isLanguageSelectorBottomSheetKey(bottomSheetToOpen)) {
+            //     setBottomSheetKey(bottomSheetToOpen)
+            // }
 
             useHomeBottomSheetNotifier.getState().bottomSheetClosed()
         }
@@ -89,6 +96,9 @@ export default function LanguageSelectorBottomSheet() {
 
     const handleSheetChange = useCallback((index: number) => {
         if (index > -1) {
+            console.log("hi")
+            initSnapSuccess.current = true;
+
             isClosed.current = false;
 
             const { bottomSheet, bottomSheetToOpen, loading } = useHomeBottomSheetNotifier.getState();

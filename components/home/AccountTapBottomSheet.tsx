@@ -16,8 +16,8 @@ const AccountTapBottomSheet = () => {
     const { signOut, isLoaded: isAuthLoaded } = useAuth();
     const [isProcessing, setIsProcessing] = useState(false);
     const router = useRouter();
-    // const bottomSheet = useHomeBottomSheetNotifier((state) => state.bottomSheet);
-    // const isActive = bottomSheet === 'account_tap';
+
+    const initSnapSuccess = useRef<boolean>(false);
 
     useEffect(() => {
         const unsub = useHomeBottomSheetNotifier.subscribe((state) => {
@@ -41,15 +41,18 @@ const AccountTapBottomSheet = () => {
     }, []);
 
     const handleSheetClose = useCallback(() => {
-        const { bottomSheet, bottomSheetToOpen, loading } = useHomeBottomSheetNotifier.getState();
+        if (!initSnapSuccess.current) {
+            useHomeBottomSheetNotifier.getState().bottomSheetClosed(true);
+            return;
+        }
+
+        initSnapSuccess.current = false;
+
+        const { bottomSheet, bottomSheetToOpen } = useHomeBottomSheetNotifier.getState();
         if (
             bottomSheet === 'account_tap' &&
-            bottomSheetToOpen !== 'account_tap' &&
-            loading === true
+            bottomSheetToOpen !== 'account_tap'
         ) {
-            if (bottomSheetToOpen === undefined) {
-                return;
-            }
 
             useHomeBottomSheetNotifier.getState().bottomSheetClosed()
         }
@@ -57,6 +60,8 @@ const AccountTapBottomSheet = () => {
 
     const handleSheetChange = useCallback((index: number) => {
         if (index > -1) {
+            initSnapSuccess.current = true;
+
             const { bottomSheet, bottomSheetToOpen, loading } = useHomeBottomSheetNotifier.getState();
             if (
                 (bottomSheet === 'account_tap' || bottomSheet === undefined) &&
@@ -68,7 +73,6 @@ const AccountTapBottomSheet = () => {
             return;
         }
 
-        // handleSheetClose();
     }, []);
 
     const handleNavigateToSettings = useCallback(() => {
