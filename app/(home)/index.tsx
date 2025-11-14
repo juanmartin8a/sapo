@@ -1,40 +1,23 @@
 import Home from "@/components/screens/Home";
-import { SignedIn, SignedOut, useUser } from "@clerk/clerk-expo";
-import { Link } from "expo-router";
-import { StatusBar, View, Text } from "react-native";
+import AuthScreen from "@/components/screens/AuthScreen";
+import { SignedIn, SignedOut } from "@clerk/clerk-expo";
+import { StatusBar, View } from "react-native";
 
 export default function Index() {
-
-    const { user } = useUser()
-
     return (
-        <View>
+        <View style={{ flex: 1, backgroundColor: '#fff' }}>
+            <StatusBar barStyle="dark-content" />
             <SignedIn>
                 <View
                     style={{
                         flex: 1,
                     }}
                 >
-                    <StatusBar barStyle="dark-content" />
                     <Home />
                 </View>
             </SignedIn>
             <SignedOut>
-                <View
-                    style={{
-                        width: 200,
-                        height: 200,
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                    }}
-                >
-                    <Link href="/(auth)/sign-in">
-                        <Text>Sign in</Text>
-                    </Link>
-                    <Link href="/(auth)/sign-up">
-                        <Text>Sign up</Text>
-                    </Link>
-                </View>
+                <AuthScreen />
             </SignedOut>
         </View>
     )

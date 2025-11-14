@@ -1,0 +1,93 @@
+import React from 'react';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
+interface SocialSignInButtonProps {
+    label: string;
+    onPress: () => void;
+    icon?: React.ReactNode;
+    loading?: boolean;
+    variant?: 'light' | 'dark';
+}
+
+const SocialSignInButton = ({ label, onPress, icon, loading = false, variant = 'light' }: SocialSignInButtonProps) => {
+    const isDark = variant === 'dark';
+
+    return (
+        <TouchableOpacity
+            activeOpacity={0.9}
+            style={[
+                styles.container,
+                isDark ? styles.darkContainer : styles.lightContainer,
+                loading && styles.disabled,
+            ]}
+            onPress={onPress}
+            disabled={loading}
+        >
+            <View style={styles.content}>
+                {icon && (
+                    <View style={[styles.iconContainer, isDark ? styles.darkIconContainer : styles.lightIconContainer]}>
+                        {icon}
+                    </View>
+                )}
+                {loading ? (
+                    <ActivityIndicator color={isDark ? '#fff' : '#000'} />
+                ) : (
+                    <Text style={[styles.label, isDark ? styles.darkLabel : styles.lightLabel]}>
+                        {label}
+                    </Text>
+                )}
+            </View>
+        </TouchableOpacity>
+    );
+};
+
+const styles = StyleSheet.create({
+    container: {
+        borderRadius: 16,
+        borderWidth: 1.5,
+        paddingVertical: 16,
+        paddingHorizontal: 20,
+    },
+    lightContainer: {
+        backgroundColor: '#fff',
+        borderColor: '#000',
+    },
+    darkContainer: {
+        backgroundColor: '#000',
+        borderColor: '#000',
+    },
+    content: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 12,
+    },
+    iconContainer: {
+        width: 32,
+        height: 32,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    lightIconContainer: {
+        backgroundColor: '#fff',
+    },
+    darkIconContainer: {
+        backgroundColor: '#000',
+    },
+    label: {
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    lightLabel: {
+        color: '#000',
+    },
+    darkLabel: {
+        color: '#fff',
+    },
+    disabled: {
+        opacity: 0.6,
+    },
+});
+
+export default SocialSignInButton;

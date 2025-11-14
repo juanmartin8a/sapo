@@ -1,27 +1,22 @@
 import { create } from 'zustand';
 
-interface LanguageSelectorBottomSheetNotifierProps {
-    withAutoDetect: boolean,
+interface LanguageSelectionNotifierProps {
     selectedIndex0: number,
     selectedIndex1: number,
 
-    showBottomSheet: (withAutoDetect: boolean) => void,
     selectLanguage: (forInput: boolean, index: number) => void,
 }
 
-const useLanguageSelectorBottomSheetNotifier = create<LanguageSelectorBottomSheetNotifierProps>((set) => ({
-    withAutoDetect: false,
+const useLanguageSelectionNotifier = create<LanguageSelectionNotifierProps>((set, get) => ({
     selectedIndex0: 0, // for input languages
     selectedIndex1: 1, // for target languages
-    showBottomSheet: (withAutoDetect: boolean) => {
-        return set({withAutoDetect: withAutoDetect})
-    },
+
     selectLanguage: (forInput: boolean, index: number) => {
         if (forInput) {
-            return set({selectedIndex0: index})
+            return set({ selectedIndex0: index })
         }
-        return set({selectedIndex1: index})
+        return set({ selectedIndex1: index })
     },
 }))
 
-export default useLanguageSelectorBottomSheetNotifier;
+export default useLanguageSelectionNotifier;
