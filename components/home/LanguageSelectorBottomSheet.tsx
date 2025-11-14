@@ -21,7 +21,7 @@ export default function LanguageSelectorBottomSheet() {
     const withAutoDetect = bottomSheetKey === 'input_lang_selector';
     const isClosed = useRef<boolean>(true);
 
-    const initSnapSuccess = useRef<boolean>(false); // if it never reaches true then it was probably cancelled
+    const initSnapSuccess = useRef<boolean>(false); // helps track a possible cancel before the bottom sheet opens at at least snap index 0
 
     const selectLanguage = useLanguageSelectorBottomSheetNotifier(state => state.selectLanguage);
     const selectedIndex0 = useLanguageSelectorBottomSheetNotifier(state => state.selectedIndex0);
@@ -56,10 +56,6 @@ export default function LanguageSelectorBottomSheet() {
 
         return () => unsub();
     }, []);
-
-    // useEffect(() => {
-    //     bottomSheetKeyRef.current = bottomSheetKey;
-    // }, [bottomSheetKey]);
 
     // Close the bottom sheet when sidebar is closed
     useEffect(() => {

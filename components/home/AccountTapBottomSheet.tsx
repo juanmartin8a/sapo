@@ -19,7 +19,7 @@ const AccountTapBottomSheet = () => {
     const router = useRouter();
     const isClosed = useRef<boolean>(true);
 
-    const initSnapSuccess = useRef<boolean>(false);
+    const initSnapSuccess = useRef<boolean>(false); // helps track a possible cancel before the bottom sheet opens at at least snap index 0
 
     const sidebarIsOpen = useSidebarIsOpenNotifier(state => state.isOpen);
 

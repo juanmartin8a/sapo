@@ -8,7 +8,7 @@ import { languages, languagesPlusAutoDetect } from '@/constants/languages';
 import useTranslModeStore from '@/stores/translModeStore';
 import { useUser } from '@clerk/clerk-expo';
 import useHomeBottomSheetNotifier from '@/stores/homeBottomSheetNotifierStore';
-import { HomeBottomSheet } from '@/types/bottomSheets';
+import { HomeBottomSheetKey } from '@/types/bottomSheets';
 
 export const SIDEBAR_WIDTH = Dimensions.get("window").width * 0.7;
 
@@ -32,7 +32,7 @@ const SideBar = ({ translationX }: SideBarProps) => {
     const selectedIndex0 = useLanguageSelectorBottomSheetNotifier(state => state.selectedIndex0);
     const selectedIndex1 = useLanguageSelectorBottomSheetNotifier(state => state.selectedIndex1);
 
-    const requestBottomSheet = useCallback((sheet: HomeBottomSheet) => {
+    const requestBottomSheet = useCallback((sheet: HomeBottomSheetKey) => {
         const { bottomSheet, loading } = useHomeBottomSheetNotifier.getState();
 
         if (loading && bottomSheet !== sheet) {
