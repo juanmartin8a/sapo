@@ -72,7 +72,6 @@ export default function LanguageSelectorBottomSheet() {
         isClosed.current = true;
 
         if (!initSnapSuccess.current) {
-            console.log("canceled")
             useHomeBottomSheetNotifier.getState().bottomSheetClosed(true)
             return;
         }
@@ -86,17 +85,12 @@ export default function LanguageSelectorBottomSheet() {
             bottomSheetToOpen !== bottomSheetKeyRef.current
         ) {
 
-            // if (isLanguageSelectorBottomSheetKey(bottomSheetToOpen)) {
-            //     setBottomSheetKey(bottomSheetToOpen)
-            // }
-
             useHomeBottomSheetNotifier.getState().bottomSheetClosed()
         }
     }, [])
 
     const handleSheetChange = useCallback((index: number) => {
         if (index > -1) {
-            console.log("hi")
             initSnapSuccess.current = true;
 
             isClosed.current = false;
