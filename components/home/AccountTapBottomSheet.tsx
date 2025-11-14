@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import LogOutIcon from '@/assets/icons/log-out.svg';
 import SettingsIcon from '@/assets/icons/settings.svg';
 import useHomeBottomSheetNotifier from '@/stores/homeBottomSheetNotifierStore';
+import { useSidebarIsOpenNotifier } from '@/stores';
 
 const AccountTapBottomSheet = () => {
     const sheetRef = useRef<BottomSheet>(null);
@@ -16,8 +17,11 @@ const AccountTapBottomSheet = () => {
     const { signOut, isLoaded: isAuthLoaded } = useAuth();
     const [isProcessing, setIsProcessing] = useState(false);
     const router = useRouter();
+    const isClosed = useRef<boolean>(true);
 
     const initSnapSuccess = useRef<boolean>(false);
+
+    const sidebarIsOpen = useSidebarIsOpenNotifier(state => state.isOpen);
 
     useEffect(() => {
         const unsub = useHomeBottomSheetNotifier.subscribe((state) => {
@@ -40,7 +44,16 @@ const AccountTapBottomSheet = () => {
         return () => unsub();
     }, []);
 
+    // Close the bottom sheet when sidebar is closed
+    useEffect(() => {
+        if (!sidebarIsOpen && !isClosed.current) {
+            sheetRef.current?.close();
+        }
+    }, [sidebarIsOpen]);
+
     const handleSheetClose = useCallback(() => {
+        isClosed.current = true;
+
         if (!initSnapSuccess.current) {
             useHomeBottomSheetNotifier.getState().bottomSheetClosed(true);
             return;
@@ -60,6 +73,8 @@ const AccountTapBottomSheet = () => {
 
     const handleSheetChange = useCallback((index: number) => {
         if (index > -1) {
+            isClosed.current = false;
+
             initSnapSuccess.current = true;
 
             const { bottomSheet, bottomSheetToOpen, loading } = useHomeBottomSheetNotifier.getState();

@@ -43,8 +43,6 @@ const SideBar = ({ translationX }: SideBarProps) => {
             return;
         }
 
-        console.log("show the god damn show bottom sheet")
-
         useHomeBottomSheetNotifier.getState().showBottomSheet(sheet, true);
     }, []);
 
