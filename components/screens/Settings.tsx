@@ -4,9 +4,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 
-import LogOutIcon from '@/assets/icons/log-out.svg';
 import TrashIcon from '@/assets/icons/trash.svg';
-import MoveLeftIcon from '@/assets/icons/move-left.svg';
+import ArrowLeftIcon from '@/assets/icons/arrow-left.svg';
 import Header from '@/components/header/Header';
 
 const Settings = () => {
@@ -19,21 +18,6 @@ const Settings = () => {
     const handleGoBack = useCallback(() => {
         router.back();
     }, [router]);
-
-    const handleSignOut = useCallback(async () => {
-        if (!isAuthLoaded || isProcessing) {
-            return;
-        }
-
-        try {
-            setIsProcessing(true);
-            await signOut();
-        } catch (error) {
-            Alert.alert('Something went wrong', 'Unable to sign out. Please try again.');
-        } finally {
-            setIsProcessing(false);
-        }
-    }, [isAuthLoaded, isProcessing, signOut]);
 
     const handleDeleteAccount = useCallback(() => {
         if (!isUserLoaded || !user || isProcessing) {
@@ -70,26 +54,12 @@ const Settings = () => {
                 titleStyle={styles.headerTitle}
                 leftComponent={(
                     <TouchableOpacity onPress={handleGoBack} activeOpacity={0.7} style={styles.backButton}>
-                        <MoveLeftIcon width={24} height={24} stroke="#000" />
+                        <ArrowLeftIcon width={24} height={24} stroke="#000" />
                     </TouchableOpacity>
                 )}
                 rightComponent={<View style={{ width: 24 }} />}
             />
             <View style={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
-                <Pressable
-                    style={({ pressed }) => [
-                        styles.button,
-                        pressed && styles.buttonPressed,
-                        isProcessing && styles.buttonDisabled,
-                    ]}
-                    onPress={handleSignOut}
-                    disabled={isProcessing}
-                >
-                    <View style={styles.buttonContent}>
-                        <LogOutIcon width={20} height={20} stroke="#000" style={styles.buttonIcon} />
-                        <Text style={styles.buttonText}>Sign out</Text>
-                    </View>
-                </Pressable>
                 <View style={styles.deleteButtonWrapper}>
                     <TouchableOpacity
                         style={[styles.deleteButton, isProcessing && styles.buttonDisabled]}
@@ -118,45 +88,28 @@ const styles = StyleSheet.create({
     },
     content: {
         flex: 1,
-        paddingHorizontal: 24,
-        paddingTop: 24,
-    },
-    backButton: {
-        padding: 6,
-    },
-    button: {
-        backgroundColor: 'transparent',
-        paddingVertical: 16,
-        paddingHorizontal: 24,
-        borderRadius: 0,
-        alignItems: 'flex-start',
-        width: '100%',
     },
     deleteButtonWrapper: {
         backgroundColor: 'rgba(255, 77, 77, 0.12)',
-        // borderRadius: 12,
-        marginTop: 32,
-        // marginHorizontal: 24,
         padding: 24,
-        // width: '100%',
     },
     deleteButton: {
         backgroundColor: '#fff',
         paddingVertical: 16,
         paddingHorizontal: 24,
-        borderRadius: 8,
+        borderRadius: 12,
         alignItems: 'flex-start',
         width: '100%',
     },
     buttonText: {
         color: '#000',
-        fontWeight: '600',
-        fontSize: 16,
+        fontWeight: '500',
+        fontSize: 15,
     },
     deleteButtonText: {
         color: '#000',
-        fontWeight: '600',
-        fontSize: 16,
+        fontWeight: '500',
+        fontSize: 15,
     },
     buttonContent: {
         flexDirection: 'row',

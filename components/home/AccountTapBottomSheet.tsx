@@ -4,7 +4,6 @@ import BottomSheet from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
-
 import LogOutIcon from '@/assets/icons/log-out.svg';
 import SettingsIcon from '@/assets/icons/settings.svg';
 import useHomeBottomSheetNotifier from '@/stores/homeBottomSheetNotifierStore';
@@ -12,7 +11,7 @@ import { useSidebarIsOpenNotifier } from '@/stores';
 
 const AccountTapBottomSheet = () => {
     const sheetRef = useRef<BottomSheet>(null);
-    const snapPoints = useMemo(() => ['30%'], []);
+    const snapPoints = useMemo(() => ['25%'], []);
     const insets = useSafeAreaInsets();
     const { signOut, isLoaded: isAuthLoaded } = useAuth();
     const [isProcessing, setIsProcessing] = useState(false);
@@ -130,22 +129,22 @@ const AccountTapBottomSheet = () => {
                 <TouchableOpacity
                     style={styles.listItem}
                     onPress={handleNavigateToSettings}
-                    activeOpacity={0.65}
+                    activeOpacity={0.85}
                 >
                     <View style={styles.listItemContent}>
-                        <SettingsIcon width={20} height={20} stroke="#fff" style={styles.icon} />
+                        <SettingsIcon width={20} height={20} stroke="#000" style={styles.icon} />
                         <Text style={styles.listItemText}>Settings</Text>
                     </View>
                 </TouchableOpacity>
                 <TouchableOpacity
-                    style={[styles.listItem, (!isAuthLoaded || isProcessing) && styles.listItemDisabled]}
+                    style={[(!isAuthLoaded || isProcessing) && styles.listItemDisabled]}
                     onPress={handleSignOut}
-                    activeOpacity={0.65}
+                    activeOpacity={0.85}
                     disabled={!isAuthLoaded || isProcessing}
                 >
-                    <View style={styles.listItemContent}>
+                    <View style={styles.signOutContent}>
                         <LogOutIcon width={20} height={20} stroke="#fff" style={styles.icon} />
-                        <Text style={styles.listItemText}>Sign out</Text>
+                        <Text style={styles.signOutText}>Sign out</Text>
                     </View>
                     {isProcessing && <ActivityIndicator color="#fff" size="small" />}
                 </TouchableOpacity>
@@ -174,35 +173,45 @@ const styles = StyleSheet.create({
     },
     contentContainer: {
         paddingHorizontal: 24,
-        paddingTop: 16,
+        paddingTop: 12,
     },
     listItem: {
         width: '100%',
-        borderWidth: 1,
-        borderColor: 'white',
-        borderRadius: 8,
-        paddingVertical: 18,
-        paddingHorizontal: 16,
+        borderRadius: 12,
+        paddingVertical: 12,
+        paddingHorizontal: 12,
         flexDirection: 'row',
         alignItems: 'center',
+        backgroundColor: '#fff',
+        color: "black",
         justifyContent: 'space-between',
         marginBottom: 12,
     },
     listItemContent: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
     },
     listItemText: {
-        fontSize: 16,
-        color: 'white',
-        fontWeight: '600',
+        fontSize: 15,
+        color: '#000',
+        fontWeight: '500',
+    },
+    signOutContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 12
+    },
+    signOutText: {
+        fontSize: 15,
+        color: '#fff',
+        fontWeight: '500',
     },
     listItemDisabled: {
         opacity: 0.5,
     },
     icon: {
-        marginRight: 4,
+        marginRight: 12,
     },
 });
 
