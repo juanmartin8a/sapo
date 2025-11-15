@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
-import { StyleSheet, View, Keyboard, Text } from "react-native";
+import { StyleSheet, View, Keyboard, Text, TouchableWithoutFeedback } from "react-native";
 import { GestureHandlerRootView, GestureDetector, Gesture } from "react-native-gesture-handler";
 import PagerView from 'react-native-pager-view';
 import Animated, {
@@ -12,11 +12,14 @@ import Animated, {
 import { scheduleOnRN } from 'react-native-worklets';
 import SideBar, { SIDEBAR_WIDTH } from "@/components/sidebar/Sidebar";
 import Translate from "@/components/home/Translate";
-import LanguageSelectorBottomSheet from "../home/LanguageSelectorBottomSheet";
 import { useSidebarIsOpenNotifier, useTranslModeStore } from "@/stores";
 import Header from "../header/Header";
+import TranslateButton from "../header/TranslateButton";
+import SidebarIcon from "../../assets/icons/sidebar.svg";
 import TextToTranslateInput from "../home/TextToTranslateInput";
 import usePagerPos from "@/stores/pagerPosStore";
+import LanguageSelectorBottomSheet from "../home/LanguageSelectorBottomSheet";
+import AccountTapBottomSheet from "../home/AccountTapBottomSheet";
 
 export default function Home() {
     const pagerRef = useRef<PagerView>(null);
@@ -186,7 +189,17 @@ export default function Home() {
                         <SideBar translationX={sideBarTranslationX} />
 
                         <Animated.View style={[styles.mainContent, mainContentAnimatedStyle]}>
-                            <Header onSidebarPress={openSidebar} />
+                            <Header
+                                title={"S A P O"}
+                                leftComponent={(
+                                    <TouchableWithoutFeedback onPress={openSidebar}>
+                                        <View style={{ padding: 6 }}>
+                                            <SidebarIcon width={40} height={32} stroke="black" />
+                                        </View>
+                                    </TouchableWithoutFeedback>
+                                )}
+                                rightComponent={<TranslateButton />}
+                            />
                             <View style={{ backgroundColor: 'transparent', paddingHorizontal: 24, paddingTop: 0, paddingBottom: 3 }}>
                                 <Text style={styles.modeText}>{modeText + " " + (mode === 'translate' ? ':)' : '(:')}</Text>
                             </View>
@@ -218,6 +231,7 @@ export default function Home() {
                     </View>
                 </GestureDetector>
                 <LanguageSelectorBottomSheet />
+                <AccountTapBottomSheet />
             </GestureHandlerRootView>
         </View>
     );

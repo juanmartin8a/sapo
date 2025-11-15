@@ -11,7 +11,11 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.juanmartin8a.SAPO",
-      "usesNonExceptEncryption": false
+      "usesAppleSignIn": true,
+      "usesNonExceptEncryption": false,
+      "entitlements": {
+        "com.apple.developer.applesignin": [ "Default" ]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -27,6 +31,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-apple-authentication",
       [
         "expo-splash-screen",
         {
