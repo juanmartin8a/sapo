@@ -156,9 +156,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     googleButton: {
-        backgroundColor: '#fff',
-        borderWidth: 1.5,
-        borderColor: '#000',
+        backgroundColor: '#f2f2f2',
     },
     appleButton: {
         backgroundColor: '#000',

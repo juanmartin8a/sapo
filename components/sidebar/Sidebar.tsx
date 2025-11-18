@@ -9,6 +9,8 @@ import useTranslModeStore from '@/stores/translModeStore';
 import { useUser } from '@clerk/clerk-expo';
 import useHomeBottomSheetNotifier from '@/stores/homeBottomSheetNotifierStore';
 import { HomeBottomSheetKey } from '@/types/bottomSheets';
+import { useRouter } from 'expo-router';
+import LogInIcon from '@/assets/icons/log-in.svg';
 
 export const SIDEBAR_WIDTH = Dimensions.get("window").width * 0.7;
 
@@ -21,12 +23,14 @@ const SideBar = ({ translationX }: SideBarProps) => {
     const [inputLanguage, setInputLanguage] = useState<string>(languagesPlusAutoDetect[0]);
     const [targetLanguage, setTargetLanguage] = useState<string>(languages[1]);
     const { user } = useUser();
+    const router = useRouter();
     const emailAddress = user?.primaryEmailAddress?.emailAddress
         ?? user?.emailAddresses?.[0]?.emailAddress
         ?? "";
     const emailInitial = emailAddress ? emailAddress.charAt(0).toUpperCase() : "?";
     const mode = useTranslModeStore((state) => state.mode);
     const setMode = useTranslModeStore((state) => state.setMode);
+    const isSignedIn = Boolean(user);
 
     // Get individual values from the store to avoid unnecessary re-renders
     const selectedIndex0 = useLanguageSelectorBottomSheetNotifier(state => state.selectedIndex0);
@@ -45,6 +49,10 @@ const SideBar = ({ translationX }: SideBarProps) => {
 
         useHomeBottomSheetNotifier.getState().showBottomSheet(sheet, true);
     }, []);
+
+    const handleSignInPress = useCallback(() => {
+        router.push('/auth');
+    }, [router]);
 
     // Update the displayed languages when indices change in the store
     useEffect(() => {
@@ -117,7 +125,7 @@ const SideBar = ({ translationX }: SideBarProps) => {
                     <Text style={styles.label}>Input Language:</Text>
                     <TouchableOpacity
                         onPress={() => requestBottomSheet('input_lang_selector')}
-                        activeOpacity={0.35}
+                        activeOpacity={0.7}
                     >
                         <View style={styles.field}>
                             <Text style={styles.textInField}>{inputLanguage}</Text>
@@ -129,7 +137,7 @@ const SideBar = ({ translationX }: SideBarProps) => {
                     <Text style={styles.label}>Target Language:</Text>
                     <TouchableOpacity
                         onPress={() => requestBottomSheet('target_lang_selector')}
-                        activeOpacity={0.35}
+                        activeOpacity={0.7}
                     >
                         <View style={styles.field}>
                             <Text style={styles.textInField}>{targetLanguage}</Text>
@@ -139,23 +147,36 @@ const SideBar = ({ translationX }: SideBarProps) => {
                 </View>
             </View>
             <View style={styles.footer}>
-                <View style={styles.userActionsContainer}>
+                {isSignedIn ? (
+                    <View style={styles.userActionsContainer}>
+                        <TouchableOpacity
+                            onPress={() => requestBottomSheet('account_tap')}
+                            activeOpacity={0.7}
+                            style={styles.userContainer}
+                        >
+                            <View style={styles.avatar}>
+                                <Text style={styles.avatarText}>{emailInitial}</Text>
+                            </View>
+                            <View style={styles.userTextContainer}>
+                                <Text style={styles.emailText} numberOfLines={1}>
+                                    {emailAddress}
+                                </Text>
+                                <Text style={styles.planText}>Free</Text>
+                            </View>
+                        </TouchableOpacity>
+                    </View>
+                ) : (
                     <TouchableOpacity
-                        onPress={() => requestBottomSheet('account_tap')}
+                        onPress={handleSignInPress}
                         activeOpacity={0.7}
-                        style={styles.userContainer}
+                        style={styles.signInButton}
                     >
-                        <View style={styles.avatar}>
-                            <Text style={styles.avatarText}>{emailInitial}</Text>
-                        </View>
-                        <View style={styles.userTextContainer}>
-                            <Text style={styles.emailText} numberOfLines={1}>
-                                {emailAddress}
-                            </Text>
-                            <Text style={styles.planText}>Free</Text>
+                        <View style={styles.signInButtonContent}>
+                            <LogInIcon width={20} height={20} stroke="#000" style={styles.signInButtonIcon} />
+                            <Text style={styles.signInButtonText}>Sign in</Text>
                         </View>
                     </TouchableOpacity>
-                </View>
+                )}
             </View>
         </Animated.View>
     );
@@ -285,6 +306,31 @@ const styles = StyleSheet.create({
         color: '#888',
         fontSize: 12,
         marginTop: 4,
+    },
+    signInButton: {
+        width: '100%',
+        borderRadius: 12,
+        backgroundColor: '#f2f2f2',
+        alignItems: 'flex-start',
+        flexDirection: 'row'
+    },
+    signInButtonContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 12
+    },
+    signInButtonIcon: {
+        marginRight: 12,
+    },
+    signInButtonText: {
+        color: '#000',
+        fontWeight: '500',
+        fontSize: 15,
+    },
+    signInHint: {
+        color: '#555',
+        fontSize: 13,
     },
 });
 

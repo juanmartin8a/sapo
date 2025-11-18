@@ -1,13 +1,38 @@
-import React from 'react';
-import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect } from 'react';
+import { SafeAreaView, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import SocialSignInButton from '@/components/auth/SocialSignInButton';
 import SapoIcon from '@/assets/icons/sapo.svg';
 import GoogleGIcon from '@/assets/icons/google-g.svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import ArrowLeftIcon from '@/assets/icons/arrow-left.svg';
+import { useUser } from '@clerk/clerk-expo';
 
 const AuthScreen = () => {
+    const insets = useSafeAreaInsets();
+    const router = useRouter();
+    const { user, isLoaded } = useUser();
+
+    const handleGoBack = useCallback(() => {
+        router.back();
+    }, [router]);
+
+    useEffect(() => {
+        if (!isLoaded || !user) {
+            return;
+        }
+
+        router.back();
+    }, [isLoaded, user, router]);
+
     return (
-        <SafeAreaView style={styles.safeArea}>
-            <View style={styles.container}>
+        <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+            <View style={[styles.backButtonContainer, { top: insets.top }]}>
+                <TouchableOpacity onPress={handleGoBack} activeOpacity={0.7} style={styles.backButton}>
+                    <ArrowLeftIcon width={24} height={24} stroke="#000" />
+                </TouchableOpacity>
+            </View>
+            <View style={styles.content}>
                 <View style={styles.hero}>
                     <View style={styles.iconBadge}>
                         <SapoIcon width={112} height={112} />
@@ -31,16 +56,27 @@ const AuthScreen = () => {
                     <Text style={styles.footerText}>Sign in to sync your sessions across devices.</Text>
                 </View> */}
             </View>
-        </SafeAreaView>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
-    safeArea: {
+    container: {
         flex: 1,
         backgroundColor: '#fff',
     },
-    container: {
+    backButtonContainer: {
+        position: 'absolute',
+        left: 18,
+        zIndex: 1,
+    },
+    backButton: {
+        width: 44,
+        height: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    content: {
         flex: 1,
         paddingHorizontal: 28,
         paddingVertical: 32,
