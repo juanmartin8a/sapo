@@ -1,18 +1,31 @@
-import { useRef, useState } from "react";
-import { Keyboard, StyleSheet, TextInput } from "react-native"
+import { useEffect, useRef, useState } from "react";
+import { Alert, Keyboard, StyleSheet, TextInput } from "react-native"
 import Reanimated, {
     useAnimatedKeyboard,
     useAnimatedStyle,
 } from 'react-native-reanimated';
 import useTextToTranslateStore from "@/stores/textToTranslateStore";
+import useTranslModeStore from "@/stores/translModeStore";
 
 const TextToTranslateInput = () => {
     const textInputRef = useRef<TextInput>(null);
     const text = useTextToTranslateStore((state) => state.text)
     const setText = useTextToTranslateStore((state) => state.setText)
+    const inputLimit = useTranslModeStore((state) => state.inputLimit)
     const [isTextInputScrolling, setIsTextInputScrolling] = useState<boolean | null>(null);
     const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
     const [tapStoppedScroll, setTapStoppedScroll] = useState(false)
+    const hasAlertedRef = useRef(false)
+    const isLimitReached = text.length >= inputLimit
+
+    useEffect(() => {
+        if (isLimitReached && !hasAlertedRef.current) {
+            hasAlertedRef.current = true
+            Alert.alert('Input limit reached', 'This demo currently has a limit of 1000 characters for testing purposes')
+        } else if (!isLimitReached && hasAlertedRef.current) {
+            hasAlertedRef.current = false
+        }
+    }, [isLimitReached])
 
     const handleScroll = () => {
         if (textInputRef.current?.isFocused() === false) {
@@ -60,6 +73,7 @@ const TextToTranslateInput = () => {
                 }}
                 submitBehavior="blurAndSubmit"
                 onSubmitEditing={() => Keyboard.dismiss()}
+                maxLength={inputLimit}
                 editable={((!isTextInputScrolling && !tapStoppedScroll) || Keyboard.isVisible())}// && isSideBarPosAtStart}
             />
         </Reanimated.View>
