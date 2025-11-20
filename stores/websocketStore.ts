@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import useTranslateButtonStateNotifier from './translateButtonStateNotifier';
 import usePagerPos from './pagerPosStore';
 import { languages, languagesPlusAutoDetect } from '@/constants/languages';
-import useLanguageSelectorBottomSheetNotifier from './languageSelectorBottomSheetNotifierStore';
+import useLanguageSelectorBottomSheetNotifier from './languageSelectionNotifierStore';
 import useTranslModeStore from './translModeStore';
 
 interface Token {

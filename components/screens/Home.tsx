@@ -189,19 +189,21 @@ export default function Home() {
                         <SideBar translationX={sideBarTranslationX} />
 
                         <Animated.View style={[styles.mainContent, mainContentAnimatedStyle]}>
-                            <Header
-                                title={"S A P O"}
-                                leftComponent={(
-                                    <TouchableWithoutFeedback onPress={openSidebar}>
-                                        <View style={{ padding: 6 }}>
-                                            <SidebarIcon width={40} height={32} stroke="black" />
-                                        </View>
-                                    </TouchableWithoutFeedback>
-                                )}
-                                rightComponent={<TranslateButton />}
-                            />
-                            <View style={{ backgroundColor: 'transparent', paddingHorizontal: 24, paddingTop: 0, paddingBottom: 3 }}>
-                                <Text style={styles.modeText}>{modeText + " " + (mode === 'translate' ? ':)' : '(:')}</Text>
+                            <View>
+                                <Header
+                                    title={"S A P O"}
+                                    leftComponent={(
+                                        <TouchableWithoutFeedback onPress={openSidebar}>
+                                            <View style={{ padding: 6 }}>
+                                                <SidebarIcon width={40} height={32} stroke="black" />
+                                            </View>
+                                        </TouchableWithoutFeedback>
+                                    )}
+                                    rightComponent={<TranslateButton />}
+                                />
+                                <View style={{ backgroundColor: 'transparent', paddingHorizontal: 24, paddingTop: 0, paddingBottom: 3 }}>
+                                    <Text style={styles.modeText}>{modeText + " " + (mode === 'translate' ? ':)' : '(:')}</Text>
+                                </View>
                             </View>
                             <GestureDetector gesture={pagerNativeGesture}>
                                 <PagerView

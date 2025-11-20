@@ -1,38 +1,144 @@
-import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { cloneElement, isValidElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import { useOAuth, useSSO, useSignInWithApple } from '@clerk/clerk-expo';
+import AppleLogo from '@/assets/icons/apple_logo.svg';
+
+type SocialProvider = 'google' | 'apple';
 
 interface SocialSignInButtonProps {
+    provider: SocialProvider;
     label: string;
-    onPress: () => void;
-    icon?: React.ReactNode;
-    loading?: boolean;
-    variant?: 'light' | 'dark';
+    icon?: React.ReactElement;
 }
 
-const SocialSignInButton = ({ label, onPress, icon, loading = false, variant = 'light' }: SocialSignInButtonProps) => {
-    const isDark = variant === 'dark';
+const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) => {
+    const isApple = provider === 'apple';
+    const [loading, setLoading] = useState(false);
+    const [isNativeAppleAuthAvailable, setIsNativeAppleAuthAvailable] = useState(false);
+
+    const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
+    const { startSSOFlow } = useSSO();
+    const { startAppleAuthenticationFlow } = useSignInWithApple();
+
+    useEffect(() => {
+        if (!isApple) {
+            setIsNativeAppleAuthAvailable(false);
+            return;
+        }
+
+        if (Platform.OS !== 'ios') {
+            setIsNativeAppleAuthAvailable(false);
+            return;
+        }
+
+        let isMounted = true;
+
+        AppleAuthentication.isAvailableAsync()
+            .then((available) => {
+                if (isMounted) {
+                    setIsNativeAppleAuthAvailable(available);
+                }
+            })
+            .catch(() => {
+                if (isMounted) {
+                    setIsNativeAppleAuthAvailable(false);
+                }
+            });
+
+        return () => {
+            isMounted = false;
+        };
+    }, [isApple]);
+
+    const processedIcon = useMemo(() => {
+        if (icon) {
+            if (isValidElement(icon)) {
+                return cloneElement(icon, {
+                    width: 44,
+                    height: 44,
+                });
+            }
+
+            return icon;
+        }
+
+        if (isApple) {
+            return <AppleLogo width={44} height={44} />;
+        }
+
+        return null;
+    }, [icon, isApple]);
+
+    const shouldUseNativeAppleAuth = isApple && isNativeAppleAuthAvailable;
+    const indicatorColor = isApple ? '#fff' : '#000';
+
+    const handlePress = useCallback(async () => {
+        setLoading(true);
+
+        try {
+            if (provider === 'google') {
+                const { createdSessionId, setActive } = await startOAuthFlow();
+
+                if (createdSessionId && setActive) {
+                    await setActive({ session: createdSessionId });
+                }
+
+                return;
+            }
+
+            if (provider === 'apple' && shouldUseNativeAppleAuth) {
+                const { createdSessionId, setActive } = await startAppleAuthenticationFlow();
+
+                if (createdSessionId && setActive) {
+                    await setActive({ session: createdSessionId });
+                }
+
+                return;
+            }
+
+            if (provider === 'apple') {
+                const { createdSessionId, setActive } = await startSSOFlow({
+                    strategy: 'oauth_apple',
+                });
+
+                if (createdSessionId && setActive) {
+                    await setActive({ session: createdSessionId });
+                }
+            }
+        } catch (error) {
+            console.warn(`${provider} sign-in failed`, error);
+        } finally {
+            setLoading(false);
+        }
+    }, [provider, shouldUseNativeAppleAuth, startAppleAuthenticationFlow, startOAuthFlow, startSSOFlow]);
 
     return (
         <TouchableOpacity
             activeOpacity={0.9}
             style={[
-                styles.container,
-                isDark ? styles.darkContainer : styles.lightContainer,
+                styles.button,
+                provider === 'apple' ? styles.appleButton : styles.googleButton,
                 loading && styles.disabled,
             ]}
-            onPress={onPress}
+            onPress={handlePress}
             disabled={loading}
         >
-            <View style={styles.content}>
-                {icon && (
-                    <View style={[styles.iconContainer, isDark ? styles.darkIconContainer : styles.lightIconContainer]}>
-                        {icon}
-                    </View>
-                )}
+            <View
+                style={[
+                    styles.content,
+                ]}
+            >
+                {processedIcon}
                 {loading ? (
-                    <ActivityIndicator color={isDark ? '#fff' : '#000'} />
+                    <ActivityIndicator color={indicatorColor} />
                 ) : (
-                    <Text style={[styles.label, isDark ? styles.darkLabel : styles.lightLabel]}>
+                    <Text
+                        style={[
+                            styles.label,
+                            provider === 'apple' ? styles.appleLabel : styles.googleLabel,
+                        ]}
+                    >
                         {label}
                     </Text>
                 )}
@@ -42,47 +148,32 @@ const SocialSignInButton = ({ label, onPress, icon, loading = false, variant = '
 };
 
 const styles = StyleSheet.create({
-    container: {
-        borderRadius: 16,
-        borderWidth: 1.5,
-        paddingVertical: 16,
-        paddingHorizontal: 20,
+    button: {
+        width: '100%',
+        height: 44,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    lightContainer: {
-        backgroundColor: '#fff',
-        borderColor: '#000',
+    googleButton: {
+        backgroundColor: '#f2f2f2',
     },
-    darkContainer: {
+    appleButton: {
         backgroundColor: '#000',
-        borderColor: '#000',
     },
     content: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 12,
-    },
-    iconContainer: {
-        width: 32,
-        height: 32,
-        borderRadius: 10,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    lightIconContainer: {
-        backgroundColor: '#fff',
-    },
-    darkIconContainer: {
-        backgroundColor: '#000',
     },
     label: {
-        fontSize: 16,
-        fontWeight: '600',
+        fontSize: 17,
+        fontWeight: '500',
     },
-    lightLabel: {
+    googleLabel: {
         color: '#000',
     },
-    darkLabel: {
+    appleLabel: {
         color: '#fff',
     },
     disabled: {
