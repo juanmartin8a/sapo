@@ -1,5 +1,5 @@
 import { languages, languagesPlusAutoDetect } from "@/constants/languages";
-import useLanguageSelectorBottomSheetNotifier from '@/stores/languageSelectorBottomSheetNotifierStore';
+import useLanguageSelectorBottomSheetNotifier from '@/stores/languageSelectionNotifierStore';
 import useSidebarIsOpenNotifier from '@/stores/sidebarIsOpenNotifierStore';
 import BottomSheet, { BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import { useCallback, useEffect, useRef, useState } from "react";

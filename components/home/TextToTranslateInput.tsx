@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Alert, Keyboard, StyleSheet, TextInput } from "react-native"
-import Reanimated, {
-    useAnimatedKeyboard,
-    useAnimatedStyle,
-} from 'react-native-reanimated';
 import useTextToTranslateStore from "@/stores/textToTranslateStore";
 import useTranslModeStore from "@/stores/translModeStore";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const TextToTranslateInput = () => {
     const textInputRef = useRef<TextInput>(null);
@@ -17,6 +15,7 @@ const TextToTranslateInput = () => {
     const [tapStoppedScroll, setTapStoppedScroll] = useState(false)
     const hasAlertedRef = useRef(false)
     const isLimitReached = text.length >= inputLimit
+    const insets = useSafeAreaInsets()
 
     useEffect(() => {
         if (isLimitReached && !hasAlertedRef.current) {
@@ -41,14 +40,12 @@ const TextToTranslateInput = () => {
         }
     };
 
-    const keyboard = useAnimatedKeyboard();
-
-    const animatedStyles = useAnimatedStyle(() => ({
-        marginBottom: keyboard.height.value,
-    }));
-
     return (
-        <Reanimated.View style={[styles.innerContainer, animatedStyles]}>
+        <KeyboardAvoidingView
+            style={styles.innerContainer}
+            behavior="padding"
+            keyboardVerticalOffset={insets.top + 60 + 16}
+        >
             <TextInput
                 ref={textInputRef}
                 style={[styles.textInput]}
@@ -76,7 +73,7 @@ const TextToTranslateInput = () => {
                 maxLength={inputLimit}
                 editable={((!isTextInputScrolling && !tapStoppedScroll) || Keyboard.isVisible())}// && isSideBarPosAtStart}
             />
-        </Reanimated.View>
+        </KeyboardAvoidingView>
     )
 }
 

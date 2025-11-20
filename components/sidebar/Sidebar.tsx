@@ -3,7 +3,7 @@ import { StyleSheet, Dimensions, Text, View, TouchableOpacity } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import ChevronRightIcon from "../../assets/icons/chevron-right.svg";
-import useLanguageSelectorBottomSheetNotifier from '@/stores/languageSelectorBottomSheetNotifierStore';
+import useLanguageSelectorBottomSheetNotifier from '@/stores/languageSelectionNotifierStore';
 import { languages, languagesPlusAutoDetect } from '@/constants/languages';
 import useTranslModeStore from '@/stores/translModeStore';
 import { useUser } from '@clerk/clerk-expo';
