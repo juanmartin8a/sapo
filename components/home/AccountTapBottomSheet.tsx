@@ -30,8 +30,7 @@ const AccountTapBottomSheet = () => {
                 state.loading === true
             ) {
                 sheetRef.current?.close();
-            }
-            if (
+            } else if (
                 (state.bottomSheet === 'account_tap' || state.bottomSheet === undefined) &&
                 state.bottomSheetToOpen === 'account_tap' &&
                 state.loading === true

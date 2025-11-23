@@ -25,7 +25,6 @@
     "expo-crypto": "~15.0.7",
     "expo-dev-client": "~6.0.18",
     "expo-linking": "~8.0.9",
-    "expo-modules-core": "~3.0.26",
     "expo-router": "~6.0.15",
     "expo-secure-store": "^15.0.7",
     "expo-splash-screen": "~31.0.11",
