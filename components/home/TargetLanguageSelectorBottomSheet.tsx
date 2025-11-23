@@ -9,6 +9,7 @@ import { StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import CheckIcon from "@/assets/icons/check.svg";
 import useHomeBottomSheetNotifier from "@/stores/homeBottomSheetNotifierStore";
+import LangugeSelectorBottomSheetUI from "./LanguageSelectorBottomSheetUI";
 
 // Separated Component from SourceLanguageSelectorBottomSheet.tsx for simplicity
 // Single component would require more logic which would make the code harder to understand and debug.
@@ -21,7 +22,7 @@ export default function TargetLanguageSelectorBottomSheet() {
     const initSnapSuccess = useRef<boolean>(false); // helps track a possible cancel before the bottom sheet opens at at least snap index 0
 
     const selectLanguage = useLanguageSelectorBottomSheetNotifier(state => state.selectLanguage);
-    const selectedIndex1 = useLanguageSelectorBottomSheetNotifier(state => state.selectedIndex1);
+    const selectedIndex = useLanguageSelectorBottomSheetNotifier(state => state.selectedIndex1);
     const sidebarIsOpen = useSidebarIsOpenNotifier(state => state.isOpen);
 
     useEffect(() => {
@@ -101,78 +102,13 @@ export default function TargetLanguageSelectorBottomSheet() {
     }
 
     return (
-        <BottomSheet
+        <LangugeSelectorBottomSheetUI
+            selectedIndex={selectedIndex}
             ref={sheetRef}
-            snapPoints={["45%", "65%"]}
-            index={-1}
-            enableDynamicSizing={false}
-            enablePanDownToClose={true}
-            handleIndicatorStyle={styles.handleIndicator}
+            onLanguageSelected={handleLanguageSelect}
             onClose={handleSheetClose}
             onChange={handleSheetChange}
-            style={styles.bottomSheet}
-            backgroundStyle={styles.bottomSheetBackground}
-        >
-            <BottomSheetFlatList
-                data={Object.entries(languages)}
-                keyExtractor={([key]) => key}
-                ItemSeparatorComponent={() => <View style={{ height: 12 }}></View>}
-                renderItem={({ item: [key, value] }) => {
-                    const index = parseInt(key);
-                    const isSelected = index === selectedIndex1;
-
-                    return (
-                        <TouchableOpacity
-                            style={styles.listItem}
-                            onPress={() => handleLanguageSelect(key)}
-                            activeOpacity={0.65}
-                        >
-                            <Text style={styles.listItemText}>{value}</Text>
-                            {isSelected && <CheckIcon height={16 * 1.2} stroke="pink" />}
-                        </TouchableOpacity>
-                    );
-                }}
-                contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom, paddingTop: 12 }]}
-            />
-
-        </BottomSheet>
+            data={Object.entries(languages)}
+        />
     );
 }
-
-const styles = StyleSheet.create({
-    contentContainer: {
-        paddingHorizontal: 24,
-    },
-    bottomSheet: {
-        shadowColor: "#aaa",
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.25,
-        shadowRadius: 10,
-    },
-    handleIndicator: {
-        backgroundColor: 'white',
-        width: 25,
-        height: 5,
-        borderRadius: 20,
-    },
-    bottomSheetBackground: {
-        backgroundColor: "black",
-        borderTopLeftRadius: 15,
-        borderTopRightRadius: 15,
-    },
-    listItem: {
-        flex: 1,
-        justifyContent: "space-between",
-        alignItems: "center",
-        flexDirection: 'row',
-        paddingVertical: 18,
-        paddingHorizontal: 12,
-        borderWidth: 1,
-        borderColor: 'white',
-    },
-    listItemText: {
-        fontSize: 16,
-        color: 'white',
-    }
-})
-
