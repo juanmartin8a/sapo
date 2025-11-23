@@ -1,4 +1,4 @@
-import { languages, languagesPlusAutoDetect } from "@/constants/languages";
+import { languagesPlusAutoDetect } from "@/constants/languages";
 import useLanguageSelectorBottomSheetNotifier from '@/stores/languageSelectionNotifierStore';
 import useSidebarIsOpenNotifier from '@/stores/sidebarIsOpenNotifierStore';
 import BottomSheet, { BottomSheetFlatList } from "@gorhom/bottom-sheet";
@@ -9,48 +9,35 @@ import { StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import CheckIcon from "@/assets/icons/check.svg";
 import useHomeBottomSheetNotifier from "@/stores/homeBottomSheetNotifierStore";
-import { LanguageSelectorBottomSheetKey } from "@/types/bottomSheets";
-import { isLanguageSelectorBottomSheetKey } from "@/utils/bottomSheets";
 
+// Separated Component from TargetLanguageSelectorBottomSheet.tsx for simplicity
+// Single component would require more logic which would make the code harder to understand and debug.
 
-export default function LanguageSelectorBottomSheet() {
+export default function SourceLangugeSelectorBottomSheet() {
     const insets = useSafeAreaInsets();
     const sheetRef = useRef<BottomSheet>(null);
-    const [bottomSheetKey, setBottomSheetKey] = useState<LanguageSelectorBottomSheetKey>('input_lang_selector');
-    const bottomSheetKeyRef = useRef<LanguageSelectorBottomSheetKey>('input_lang_selector'); // ref to track current state
-    const withAutoDetect = bottomSheetKey === 'input_lang_selector';
     const isClosed = useRef<boolean>(true);
 
     const initSnapSuccess = useRef<boolean>(false); // helps track a possible cancel before the bottom sheet opens at at least snap index 0
 
     const selectLanguage = useLanguageSelectorBottomSheetNotifier(state => state.selectLanguage);
     const selectedIndex0 = useLanguageSelectorBottomSheetNotifier(state => state.selectedIndex0);
-    const selectedIndex1 = useLanguageSelectorBottomSheetNotifier(state => state.selectedIndex1);
     const sidebarIsOpen = useSidebarIsOpenNotifier(state => state.isOpen);
 
     useEffect(() => {
         const unsub = useHomeBottomSheetNotifier.subscribe((state) => {
             if (
-                isClosed.current && isLanguageSelectorBottomSheetKey(state.bottomSheetToOpen)
+                (state.bottomSheet === 'input_lang_selector' || state.bottomSheet === undefined) &&
+                state.bottomSheetToOpen === 'input_lang_selector' &&
+                state.loading === true
             ) {
-                bottomSheetKeyRef.current = state.bottomSheetToOpen
-
-                if (
-                    (state.bottomSheet === bottomSheetKeyRef.current || state.bottomSheet === undefined) &&
-                    state.bottomSheetToOpen === bottomSheetKeyRef.current &&
-                    state.loading === true
-                ) {
-                    setBottomSheetKey(bottomSheetKeyRef.current)
-                    sheetRef.current?.snapToIndex(0);
-                }
-            } else {
-                if (
-                    state.bottomSheet === bottomSheetKeyRef.current &&
-                    state.bottomSheetToOpen !== bottomSheetKeyRef.current &&
-                    state.loading === true
-                ) {
-                    sheetRef.current?.close();
-                }
+                sheetRef.current?.snapToIndex(0);
+            } else if (
+                state.bottomSheet === 'input_lang_selector' &&
+                state.bottomSheetToOpen !== 'input_lang_selector' &&
+                state.loading === true
+            ) {
+                sheetRef.current?.close();
             }
         })
 
@@ -77,8 +64,8 @@ export default function LanguageSelectorBottomSheet() {
         const { bottomSheet, bottomSheetToOpen } = useHomeBottomSheetNotifier.getState();
 
         if (
-            bottomSheet === bottomSheetKeyRef.current &&
-            bottomSheetToOpen !== bottomSheetKeyRef.current
+            bottomSheet === 'input_lang_selector' &&
+            bottomSheetToOpen !== 'input_lang_selector'
         ) {
 
             useHomeBottomSheetNotifier.getState().bottomSheetClosed()
@@ -94,8 +81,8 @@ export default function LanguageSelectorBottomSheet() {
             const { bottomSheet, bottomSheetToOpen, loading } = useHomeBottomSheetNotifier.getState();
 
             if (
-                (bottomSheet === bottomSheetKeyRef.current || bottomSheet === undefined) &&
-                bottomSheetToOpen === bottomSheetKeyRef.current &&
+                (bottomSheet === 'input_lang_selector' || bottomSheet === undefined) &&
+                bottomSheetToOpen === 'input_lang_selector' &&
                 loading === true
             ) {
                 useHomeBottomSheetNotifier.getState().bottomSheetOpened()
@@ -109,7 +96,7 @@ export default function LanguageSelectorBottomSheet() {
     const handleLanguageSelect = (key: string) => {
         const index = parseInt(key);
         selectLanguage(
-            withAutoDetect, // for input
+            true, // with auto detect (true) 
             index
         );
     }
@@ -128,13 +115,12 @@ export default function LanguageSelectorBottomSheet() {
             backgroundStyle={styles.bottomSheetBackground}
         >
             <BottomSheetFlatList
-                data={Object.entries(withAutoDetect ? languagesPlusAutoDetect : languages)}
+                data={Object.entries(languagesPlusAutoDetect)}
                 keyExtractor={([key]) => key}
                 ItemSeparatorComponent={() => <View style={{ height: 12 }}></View>}
                 renderItem={({ item: [key, value] }) => {
                     const index = parseInt(key);
-                    const selectedIndex = withAutoDetect ? selectedIndex0 : selectedIndex1;
-                    const isSelected = index === selectedIndex;
+                    const isSelected = index === selectedIndex0;
 
                     return (
                         <TouchableOpacity

@@ -18,8 +18,9 @@ import TranslateButton from "../header/TranslateButton";
 import SidebarIcon from "../../assets/icons/sidebar.svg";
 import TextToTranslateInput from "../home/TextToTranslateInput";
 import usePagerPos from "@/stores/pagerPosStore";
-import LanguageSelectorBottomSheet from "../home/LanguageSelectorBottomSheet";
 import AccountTapBottomSheet from "../home/AccountTapBottomSheet";
+import SourceLangugeSelectorBottomSheet from "../home/SourceLanguageSelectorBottomSheet";
+import TargetLanguageSelectorBottomSheet from "../home/TargetLanguageSelectorBottomSheet";
 
 export default function Home() {
     const pagerRef = useRef<PagerView>(null);
@@ -189,21 +190,19 @@ export default function Home() {
                         <SideBar translationX={sideBarTranslationX} />
 
                         <Animated.View style={[styles.mainContent, mainContentAnimatedStyle]}>
-                            <View>
-                                <Header
-                                    title={"S A P O"}
-                                    leftComponent={(
-                                        <TouchableWithoutFeedback onPress={openSidebar}>
-                                            <View style={{ padding: 6 }}>
-                                                <SidebarIcon width={40} height={32} stroke="black" />
-                                            </View>
-                                        </TouchableWithoutFeedback>
-                                    )}
-                                    rightComponent={<TranslateButton />}
-                                />
-                                <View style={{ backgroundColor: 'transparent', paddingHorizontal: 24, paddingTop: 0, paddingBottom: 3 }}>
-                                    <Text style={styles.modeText}>{modeText + " " + (mode === 'translate' ? ':)' : '(:')}</Text>
-                                </View>
+                            <Header
+                                title={"S A P O"}
+                                leftComponent={(
+                                    <TouchableWithoutFeedback onPress={openSidebar}>
+                                        <View style={{ padding: 6 }}>
+                                            <SidebarIcon width={40} height={32} stroke="black" />
+                                        </View>
+                                    </TouchableWithoutFeedback>
+                                )}
+                                rightComponent={<TranslateButton />}
+                            />
+                            <View style={{ backgroundColor: 'transparent', paddingHorizontal: 24, paddingTop: 0, paddingBottom: 3 }}>
+                                <Text style={styles.modeText}>{modeText + " " + (mode === 'translate' ? ':)' : '(:')}</Text>
                             </View>
                             <GestureDetector gesture={pagerNativeGesture}>
                                 <PagerView
@@ -232,7 +231,8 @@ export default function Home() {
                         </Animated.View>
                     </View>
                 </GestureDetector>
-                <LanguageSelectorBottomSheet />
+                <TargetLanguageSelectorBottomSheet />
+                <SourceLangugeSelectorBottomSheet />
                 <AccountTapBottomSheet />
             </GestureHandlerRootView>
         </View>

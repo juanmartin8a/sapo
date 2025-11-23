@@ -122,7 +122,7 @@ const SideBar = ({ translationX }: SideBarProps) => {
                     </View>
                 </View>
                 <View style={styles.inputContainer}>
-                    <Text style={styles.label}>Input Language:</Text>
+                    <Text style={styles.label}>Source Language:</Text>
                     <TouchableOpacity
                         onPress={() => requestBottomSheet('input_lang_selector')}
                         activeOpacity={0.7}
