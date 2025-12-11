@@ -1,5 +1,5 @@
 import React, { cloneElement, isValidElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useOAuth, useSSO, useSignInWithApple } from '@clerk/clerk-expo';
 import AppleLogo from '@/assets/icons/apple_logo.svg';
@@ -71,14 +71,15 @@ const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) 
     }, [icon, isApple]);
 
     const shouldUseNativeAppleAuth = isApple && isNativeAppleAuthAvailable;
-    const indicatorColor = isApple ? '#fff' : '#000';
 
     const handlePress = useCallback(async () => {
         setLoading(true);
 
         try {
             if (provider === 'google') {
-                const { createdSessionId, setActive } = await startOAuthFlow();
+                const { createdSessionId, setActive } = await startSSOFlow({
+                    strategy: "oauth_google"
+                });
 
                 if (createdSessionId && setActive) {
                     await setActive({ session: createdSessionId });
@@ -119,7 +120,7 @@ const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) 
             style={[
                 styles.button,
                 provider === 'apple' ? styles.appleButton : styles.googleButton,
-                loading && styles.disabled,
+                // loading && styles.disabled,
             ]}
             onPress={handlePress}
             disabled={loading}
@@ -130,18 +131,14 @@ const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) 
                 ]}
             >
                 {processedIcon}
-                {loading ? (
-                    <ActivityIndicator color={indicatorColor} />
-                ) : (
-                    <Text
-                        style={[
-                            styles.label,
-                            provider === 'apple' ? styles.appleLabel : styles.googleLabel,
-                        ]}
-                    >
-                        {label}
-                    </Text>
-                )}
+                <Text
+                    style={[
+                        styles.label,
+                        provider === 'apple' ? styles.appleLabel : styles.googleLabel,
+                    ]}
+                >
+                    {label}
+                </Text>
             </View>
         </TouchableOpacity>
     );

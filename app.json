@@ -2,7 +2,7 @@
   "expo": {
     "name": "S A P O",
     "slug": "SAPO",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/images/sapo_logo.png",
     "scheme": "sapo",
@@ -13,8 +13,11 @@
       "bundleIdentifier": "com.juanmartin8a.SAPO",
       "usesAppleSignIn": true,
       "entitlements": {
-        "com.apple.developer.applesignin": [ "Default" ]
-      }
+        "com.apple.developer.applesignin": [
+          "Default"
+        ]
+      },
+      "buildNumber": "3"
     },
     "android": {
       "adaptiveIcon": {

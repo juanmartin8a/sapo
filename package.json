@@ -15,7 +15,9 @@
     "preset": "jest-expo"
   },
   "dependencies": {
+    "@auth/core": "0.37.0",
     "@clerk/clerk-expo": "^2.18.2",
+    "@convex-dev/auth": "^0.0.90",
     "@expo/metro-runtime": "~6.1.2",
     "@gorhom/bottom-sheet": "^5.2.6",
     "expo": "^54.0.25",
