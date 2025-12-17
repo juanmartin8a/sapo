@@ -3,6 +3,9 @@ import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useOAuth, useSSO, useSignInWithApple } from '@clerk/clerk-expo';
 import AppleLogo from '@/assets/icons/apple_logo.svg';
+import { authClient } from '@/clients/auth-client';
+import { authComponent } from '@/convex/auth';
+import { createAuthClient } from 'better-auth/react';
 
 type SocialProvider = 'google' | 'apple';
 
@@ -77,35 +80,41 @@ const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) 
 
         try {
             if (provider === 'google') {
-                const { createdSessionId, setActive } = await startSSOFlow({
-                    strategy: "oauth_google"
-                });
+                const data = await authClient.signIn.social({
+                    provider: 'google',
+                })
 
-                if (createdSessionId && setActive) {
-                    await setActive({ session: createdSessionId });
-                }
+                console.log(data)
+
+                // const { createdSessionId, setActive } = await startSSOFlow({
+                //     strategy: "oauth_google"
+                // });
+                //
+                // if (createdSessionId && setActive) {
+                //     await setActive({ session: createdSessionId });
+                // }
 
                 return;
             }
 
             if (provider === 'apple' && shouldUseNativeAppleAuth) {
-                const { createdSessionId, setActive } = await startAppleAuthenticationFlow();
-
-                if (createdSessionId && setActive) {
-                    await setActive({ session: createdSessionId });
-                }
+                // const { createdSessionId, setActive } = await startAppleAuthenticationFlow();
+                //
+                // if (createdSessionId && setActive) {
+                //     await setActive({ session: createdSessionId });
+                // }
 
                 return;
             }
 
             if (provider === 'apple') {
-                const { createdSessionId, setActive } = await startSSOFlow({
-                    strategy: 'oauth_apple',
-                });
-
-                if (createdSessionId && setActive) {
-                    await setActive({ session: createdSessionId });
-                }
+                // const { createdSessionId, setActive } = await startSSOFlow({
+                //     strategy: 'oauth_apple',
+                // });
+                //
+                // if (createdSessionId && setActive) {
+                //     await setActive({ session: createdSessionId });
+                // }
             }
         } catch (error) {
             console.warn(`${provider} sign-in failed`, error);
