@@ -74,6 +74,7 @@ const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) 
     }, [icon, isApple]);
 
     const shouldUseNativeAppleAuth = isApple && isNativeAppleAuthAvailable;
+    console.log("use apple native auth: ", shouldUseNativeAppleAuth)
 
     const handlePress = useCallback(async () => {
         setLoading(true);
@@ -82,39 +83,40 @@ const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) 
             if (provider === 'google') {
                 const data = await authClient.signIn.social({
                     provider: 'google',
+                    callbackURL: '/'
                 })
 
                 console.log(data)
 
-                // const { createdSessionId, setActive } = await startSSOFlow({
-                //     strategy: "oauth_google"
-                // });
-                //
-                // if (createdSessionId && setActive) {
-                //     await setActive({ session: createdSessionId });
-                // }
 
                 return;
             }
 
             if (provider === 'apple' && shouldUseNativeAppleAuth) {
-                // const { createdSessionId, setActive } = await startAppleAuthenticationFlow();
-                //
-                // if (createdSessionId && setActive) {
-                //     await setActive({ session: createdSessionId });
-                // }
+                const credential = await AppleAuthentication.signInAsync({
+                    requestedScopes: [
+                        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+                        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+                    ],
+                });
+
+                const data = await authClient.signIn.social({
+                    provider: 'apple',
+                    idToken: {
+                        token: credential.identityToken!,
+                    }
+                })
+
+                console.log(data)
 
                 return;
             }
 
             if (provider === 'apple') {
-                // const { createdSessionId, setActive } = await startSSOFlow({
-                //     strategy: 'oauth_apple',
-                // });
-                //
-                // if (createdSessionId && setActive) {
-                //     await setActive({ session: createdSessionId });
-                // }
+                const data = await authClient.signIn.social({
+                    provider: 'apple',
+                    callbackURL: '/'
+                })
             }
         } catch (error) {
             console.warn(`${provider} sign-in failed`, error);

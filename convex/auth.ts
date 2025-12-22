@@ -30,17 +30,17 @@ export const createAuth = (
         },
         trustedOrigins: ["sapo://"],
         database: authComponent.adapter(ctx),
-        // Configure simple, non-verified email/password to get started
-        // emailAndPassword: {
-        //     enabled: true,
-        //     requireEmailVerification: false,
-        // },
         socialProviders: {
             google: {
                 prompt: "select_account",
                 clientId: process.env.GOOGLE_CLIENT_ID as string,
                 clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-            }
+            },
+            apple: {
+                clientId: process.env.APPLE_CLIENT_ID as string,
+                clientSecret: process.env.APPLE_CLIENT_SECRET as string,
+                appBundleIdentifier: process.env.APPLE_APP_BUNDLE_IDENTIFIER as string,
+            },
         },
         plugins: [
             // The Expo and Convex plugins are required

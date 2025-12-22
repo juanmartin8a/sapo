@@ -34,6 +34,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   createdAt: number;
                   email: string;
                   emailVerified: boolean;
+                  image?: null | string;
                   name: string;
                   updatedAt: number;
                   userId?: null | string;
@@ -106,6 +107,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "name"
                     | "email"
                     | "emailVerified"
+                    | "image"
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
@@ -288,6 +290,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "name"
                     | "email"
                     | "emailVerified"
+                    | "image"
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
@@ -536,6 +539,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   createdAt?: number;
                   email?: string;
                   emailVerified?: boolean;
+                  image?: null | string;
                   name?: string;
                   updatedAt?: number;
                   userId?: null | string;
@@ -546,6 +550,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "name"
                     | "email"
                     | "emailVerified"
+                    | "image"
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
@@ -761,6 +766,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   createdAt?: number;
                   email?: string;
                   emailVerified?: boolean;
+                  image?: null | string;
                   name?: string;
                   updatedAt?: number;
                   userId?: null | string;
@@ -771,6 +777,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "name"
                     | "email"
                     | "emailVerified"
+                    | "image"
                     | "createdAt"
                     | "updatedAt"
                     | "userId"

@@ -8,6 +8,7 @@ import LogOutIcon from '@/assets/icons/log-out.svg';
 import SettingsIcon from '@/assets/icons/settings.svg';
 import useHomeBottomSheetNotifier from '@/stores/homeBottomSheetNotifierStore';
 import { useSidebarIsOpenNotifier } from '@/stores';
+import { authClient } from '@/clients/auth-client';
 
 const AccountTapBottomSheet = () => {
     const sheetRef = useRef<BottomSheet>(null);
@@ -101,7 +102,7 @@ const AccountTapBottomSheet = () => {
 
         try {
             setIsProcessing(true);
-            await signOut();
+            await authClient.signOut();
             sheetRef.current?.close();
             handleSheetClose();
         } catch {

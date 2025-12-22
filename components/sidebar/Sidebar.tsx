@@ -1,36 +1,27 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, Dimensions, Text, View, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import Animated, { SharedValue, useAnimatedStyle } from 'react-native-reanimated';
 import ChevronRightIcon from "../../assets/icons/chevron-right.svg";
 import useLanguageSelectorBottomSheetNotifier from '@/stores/languageSelectionNotifierStore';
 import { languages, languagesPlusAutoDetect } from '@/constants/languages';
 import useTranslModeStore from '@/stores/translModeStore';
-import { useUser } from '@clerk/clerk-expo';
 import useHomeBottomSheetNotifier from '@/stores/homeBottomSheetNotifierStore';
 import { HomeBottomSheetKey } from '@/types/bottomSheets';
-import { useRouter } from 'expo-router';
-import LogInIcon from '@/assets/icons/log-in.svg';
+import SideBarFooter from './SidebarFooter';
 
 export const SIDEBAR_WIDTH = Dimensions.get("window").width * 0.7;
 
 type SideBarProps = {
-    translationX: Animated.SharedValue<number>
+    translationX: SharedValue<number>
 }
 
 const SideBar = ({ translationX }: SideBarProps) => {
     const insets = useSafeAreaInsets();
     const [inputLanguage, setInputLanguage] = useState<string>(languagesPlusAutoDetect[0]);
     const [targetLanguage, setTargetLanguage] = useState<string>(languages[1]);
-    const { user } = useUser();
-    const router = useRouter();
-    const emailAddress = user?.primaryEmailAddress?.emailAddress
-        ?? user?.emailAddresses?.[0]?.emailAddress
-        ?? "";
-    const emailInitial = emailAddress ? emailAddress.charAt(0).toUpperCase() : "?";
     const mode = useTranslModeStore((state) => state.mode);
     const setMode = useTranslModeStore((state) => state.setMode);
-    const isSignedIn = Boolean(user);
 
     // Get individual values from the store to avoid unnecessary re-renders
     const selectedIndex0 = useLanguageSelectorBottomSheetNotifier(state => state.selectedIndex0);
@@ -49,10 +40,6 @@ const SideBar = ({ translationX }: SideBarProps) => {
 
         useHomeBottomSheetNotifier.getState().showBottomSheet(sheet, true);
     }, []);
-
-    const handleSignInPress = useCallback(() => {
-        router.push('/auth');
-    }, [router]);
 
     // Update the displayed languages when indices change in the store
     useEffect(() => {
@@ -146,38 +133,7 @@ const SideBar = ({ translationX }: SideBarProps) => {
                     </TouchableOpacity>
                 </View>
             </View>
-            <View style={styles.footer}>
-                {isSignedIn ? (
-                    <View style={styles.userActionsContainer}>
-                        <TouchableOpacity
-                            onPress={() => requestBottomSheet('account_tap')}
-                            activeOpacity={0.7}
-                            style={styles.userContainer}
-                        >
-                            <View style={styles.avatar}>
-                                <Text style={styles.avatarText}>{emailInitial}</Text>
-                            </View>
-                            <View style={styles.userTextContainer}>
-                                <Text style={styles.emailText} numberOfLines={1}>
-                                    {emailAddress}
-                                </Text>
-                                <Text style={styles.planText}>Free</Text>
-                            </View>
-                        </TouchableOpacity>
-                    </View>
-                ) : (
-                    <TouchableOpacity
-                        onPress={handleSignInPress}
-                        activeOpacity={0.7}
-                        style={styles.signInButton}
-                    >
-                        <View style={styles.signInButtonContent}>
-                            <LogInIcon width={20} height={20} stroke="#000" style={styles.signInButtonIcon} />
-                            <Text style={styles.signInButtonText}>Sign in</Text>
-                        </View>
-                    </TouchableOpacity>
-                )}
-            </View>
+            <SideBarFooter requestBottomSheet={requestBottomSheet} />
         </Animated.View>
     );
 };
@@ -259,78 +215,6 @@ const styles = StyleSheet.create({
         transform: [
             { translateX: -SIDEBAR_WIDTH }
         ]
-    },
-    footer: {
-        borderTopWidth: 1,
-        borderTopColor: '#eee',
-        paddingTop: 16,
-    },
-    userActionsContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    userContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        flex: 1,
-    },
-    moreButton: {
-        padding: 8,
-        marginLeft: 12,
-        borderRadius: 999,
-    },
-    avatar: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#000',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    avatarText: {
-        color: '#fff',
-        fontWeight: '700',
-        fontSize: 16,
-    },
-    userTextContainer: {
-        flex: 1,
-    },
-    emailText: {
-        color: '#000',
-        fontWeight: '600',
-        fontSize: 14,
-    },
-    planText: {
-        color: '#888',
-        fontSize: 12,
-        marginTop: 4,
-    },
-    signInButton: {
-        width: '100%',
-        borderRadius: 12,
-        backgroundColor: '#f2f2f2',
-        alignItems: 'flex-start',
-        flexDirection: 'row'
-    },
-    signInButtonContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 12,
-        paddingVertical: 12
-    },
-    signInButtonIcon: {
-        marginRight: 12,
-    },
-    signInButtonText: {
-        color: '#000',
-        fontWeight: '500',
-        fontSize: 15,
-    },
-    signInHint: {
-        color: '#555',
-        fontSize: 13,
     },
 });
 
