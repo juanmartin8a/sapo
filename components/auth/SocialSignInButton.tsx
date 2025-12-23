@@ -1,11 +1,8 @@
 import React, { cloneElement, isValidElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { useOAuth, useSSO, useSignInWithApple } from '@clerk/clerk-expo';
 import AppleLogo from '@/assets/icons/apple_logo.svg';
 import { authClient } from '@/clients/auth-client';
-import { authComponent } from '@/convex/auth';
-import { createAuthClient } from 'better-auth/react';
 
 type SocialProvider = 'google' | 'apple';
 
@@ -19,10 +16,6 @@ const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) 
     const isApple = provider === 'apple';
     const [loading, setLoading] = useState(false);
     const [isNativeAppleAuthAvailable, setIsNativeAppleAuthAvailable] = useState(false);
-
-    const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
-    const { startSSOFlow } = useSSO();
-    const { startAppleAuthenticationFlow } = useSignInWithApple();
 
     useEffect(() => {
         if (!isApple) {
@@ -123,7 +116,7 @@ const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) 
         } finally {
             setLoading(false);
         }
-    }, [provider, shouldUseNativeAppleAuth, startAppleAuthenticationFlow, startOAuthFlow, startSSOFlow]);
+    }, [provider, shouldUseNativeAppleAuth]);
 
     return (
         <TouchableOpacity

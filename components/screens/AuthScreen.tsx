@@ -1,29 +1,29 @@
 import React, { useCallback, useEffect } from 'react';
-import { SafeAreaView, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import SocialSignInButton from '@/components/auth/SocialSignInButton';
 import SapoIcon from '@/assets/icons/sapo.svg';
 import GoogleGIcon from '@/assets/icons/google-g.svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import ArrowLeftIcon from '@/assets/icons/arrow-left.svg';
-import { useUser } from '@clerk/clerk-expo';
+import { authClient } from '@/clients/auth-client';
 
 const AuthScreen = () => {
     const insets = useSafeAreaInsets();
     const router = useRouter();
-    const { user, isLoaded } = useUser();
+    const { data: session, isPending } = authClient.useSession()
 
     const handleGoBack = useCallback(() => {
         router.back();
     }, [router]);
 
     useEffect(() => {
-        if (!isLoaded || !user) {
+        if (isPending || !session) {
             return;
         }
 
         router.back();
-    }, [isLoaded, user, router]);
+    }, [isPending, session, router]);
 
     return (
         <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
@@ -51,10 +51,6 @@ const AuthScreen = () => {
                         label="Sign in with Apple"
                     />
                 </View>
-
-                {/* <View style={styles.footer}>
-                    <Text style={styles.footerText}>Sign in to sync your sessions across devices.</Text>
-                </View> */}
             </View>
         </View>
     );
@@ -100,15 +96,6 @@ const styles = StyleSheet.create({
     },
     buttons: {
         gap: 14,
-    },
-    footer: {
-        alignItems: 'center',
-        gap: 8,
-    },
-    footerText: {
-        fontSize: 14,
-        color: '#888',
-        textAlign: 'center',
     },
 });
 

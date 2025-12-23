@@ -4,8 +4,9 @@ import { betterAuth } from "better-auth";
 import { expo } from '@better-auth/expo'
 import { components } from "./_generated/api";
 import { DataModel } from "./_generated/dataModel";
-import { query } from "./_generated/server";
+// import { query } from "./_generated/server";
 import authSchema from "./betterAuth/schema";
+import { sendEmail } from "./sendEmail";
 
 // The component client has methods needed for integrating Convex with Better Auth,
 // as well as helper methods for general use.
@@ -30,6 +31,30 @@ export const createAuth = (
         },
         trustedOrigins: ["sapo://"],
         database: authComponent.adapter(ctx),
+        user: {
+            deleteUser: {
+                enabled: true,
+                sendDeleteAccountVerification: async (
+                    {
+                        user,   // The user object
+                        url, // The auto-generated URL for deletion
+                    },
+                    request  // The original request object (optional)
+                ) => {
+                    await sendEmail(
+                        ctx,
+                        user.email,
+                        "Verify Account Deletion",
+                        {
+                            id: 'verify_account_deletion',
+                            variables: {
+                                URL: url
+                            }
+                        }
+                    )
+                },
+            }
+        },
         socialProviders: {
             google: {
                 prompt: "select_account",

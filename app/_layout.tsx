@@ -1,5 +1,4 @@
-import { ClerkProvider } from "@clerk/clerk-expo";
-import { ConvexProvider, ConvexReactClient } from "convex/react";
+import { ConvexReactClient } from "convex/react";
 import { Stack } from "expo-router";
 import * as WebBrowser from 'expo-web-browser';
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -14,15 +13,12 @@ const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL as strin
     unsavedChangesWarning: false,
 });
 
-
 export default function RootLayout() {
     return (
-        <ClerkProvider>
-            <ConvexBetterAuthProvider client={convex} authClient={authClient}>
-                <KeyboardProvider>
-                    <Stack screenOptions={{ headerShown: false }} />
-                </KeyboardProvider>
-            </ConvexBetterAuthProvider>
-        </ClerkProvider>
+        <ConvexBetterAuthProvider client={convex} authClient={authClient}>
+            <KeyboardProvider>
+                <Stack screenOptions={{ headerShown: false }} />
+            </KeyboardProvider>
+        </ConvexBetterAuthProvider>
     );
 }
