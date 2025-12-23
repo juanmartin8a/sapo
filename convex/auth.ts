@@ -34,13 +34,7 @@ export const createAuth = (
         user: {
             deleteUser: {
                 enabled: true,
-                sendDeleteAccountVerification: async (
-                    {
-                        user,   // The user object
-                        url, // The auto-generated URL for deletion
-                    },
-                    request  // The original request object (optional)
-                ) => {
+                sendDeleteAccountVerification: async ({ user, url }) => {
                     await sendEmail(
                         ctx,
                         user.email,
