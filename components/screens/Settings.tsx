@@ -1,17 +1,17 @@
 import React, { useCallback, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 
 import TrashIcon from '@/assets/icons/trash.svg';
 import ArrowLeftIcon from '@/assets/icons/arrow-left.svg';
 import Header from '@/components/header/Header';
+import { authClient } from '@/clients/auth-client';
 
 const Settings = () => {
     const insets = useSafeAreaInsets();
-    const { signOut, isLoaded: isAuthLoaded } = useAuth();
-    const { user, isLoaded: isUserLoaded } = useUser();
+    const { data: session, isPending } = authClient.useSession();
+    const user = session?.user;
     const [isProcessing, setIsProcessing] = useState(false);
     const router = useRouter();
 
@@ -20,7 +20,7 @@ const Settings = () => {
     }, [router]);
 
     const handleDeleteAccount = useCallback(() => {
-        if (!isUserLoaded || !user || isProcessing) {
+        if (isPending || !user || isProcessing) {
             return;
         }
 
@@ -35,8 +35,9 @@ const Settings = () => {
                     onPress: async () => {
                         try {
                             setIsProcessing(true);
-                            await user.delete();
-                            await signOut();
+                            await authClient.deleteUser({
+                                callbackURL: '/'
+                            });
                         } catch (error) {
                             setIsProcessing(false);
                             Alert.alert('Something went wrong', 'Unable to delete the account. Please try again.');
@@ -45,7 +46,7 @@ const Settings = () => {
                 },
             ]
         );
-    }, [isProcessing, isUserLoaded, signOut, user]);
+    }, [isProcessing, isPending, user]);
 
     return (
         <View style={styles.container}>

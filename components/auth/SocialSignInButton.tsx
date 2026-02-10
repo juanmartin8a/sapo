@@ -1,8 +1,8 @@
 import React, { cloneElement, isValidElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { useOAuth, useSSO, useSignInWithApple } from '@clerk/clerk-expo';
 import AppleLogo from '@/assets/icons/apple_logo.svg';
+import { authClient } from '@/clients/auth-client';
 
 type SocialProvider = 'google' | 'apple';
 
@@ -16,10 +16,6 @@ const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) 
     const isApple = provider === 'apple';
     const [loading, setLoading] = useState(false);
     const [isNativeAppleAuthAvailable, setIsNativeAppleAuthAvailable] = useState(false);
-
-    const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
-    const { startSSOFlow } = useSSO();
-    const { startAppleAuthenticationFlow } = useSignInWithApple();
 
     useEffect(() => {
         if (!isApple) {
@@ -71,47 +67,56 @@ const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) 
     }, [icon, isApple]);
 
     const shouldUseNativeAppleAuth = isApple && isNativeAppleAuthAvailable;
-    const indicatorColor = isApple ? '#fff' : '#000';
+    console.log("use apple native auth: ", shouldUseNativeAppleAuth)
 
     const handlePress = useCallback(async () => {
         setLoading(true);
 
         try {
             if (provider === 'google') {
-                const { createdSessionId, setActive } = await startOAuthFlow();
+                const data = await authClient.signIn.social({
+                    provider: 'google',
+                    callbackURL: '/'
+                })
 
-                if (createdSessionId && setActive) {
-                    await setActive({ session: createdSessionId });
-                }
+                console.log(data)
+
 
                 return;
             }
 
             if (provider === 'apple' && shouldUseNativeAppleAuth) {
-                const { createdSessionId, setActive } = await startAppleAuthenticationFlow();
+                const credential = await AppleAuthentication.signInAsync({
+                    requestedScopes: [
+                        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+                        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+                    ],
+                });
 
-                if (createdSessionId && setActive) {
-                    await setActive({ session: createdSessionId });
-                }
+                const data = await authClient.signIn.social({
+                    provider: 'apple',
+                    idToken: {
+                        token: credential.identityToken!,
+                    }
+                })
+
+                console.log(data)
 
                 return;
             }
 
             if (provider === 'apple') {
-                const { createdSessionId, setActive } = await startSSOFlow({
-                    strategy: 'oauth_apple',
-                });
-
-                if (createdSessionId && setActive) {
-                    await setActive({ session: createdSessionId });
-                }
+                const data = await authClient.signIn.social({
+                    provider: 'apple',
+                    callbackURL: '/'
+                })
             }
         } catch (error) {
             console.warn(`${provider} sign-in failed`, error);
         } finally {
             setLoading(false);
         }
-    }, [provider, shouldUseNativeAppleAuth, startAppleAuthenticationFlow, startOAuthFlow, startSSOFlow]);
+    }, [provider, shouldUseNativeAppleAuth]);
 
     return (
         <TouchableOpacity
@@ -119,7 +124,7 @@ const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) 
             style={[
                 styles.button,
                 provider === 'apple' ? styles.appleButton : styles.googleButton,
-                loading && styles.disabled,
+                // loading && styles.disabled,
             ]}
             onPress={handlePress}
             disabled={loading}
@@ -130,18 +135,14 @@ const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) 
                 ]}
             >
                 {processedIcon}
-                {loading ? (
-                    <ActivityIndicator color={indicatorColor} />
-                ) : (
-                    <Text
-                        style={[
-                            styles.label,
-                            provider === 'apple' ? styles.appleLabel : styles.googleLabel,
-                        ]}
-                    >
-                        {label}
-                    </Text>
-                )}
+                <Text
+                    style={[
+                        styles.label,
+                        provider === 'apple' ? styles.appleLabel : styles.googleLabel,
+                    ]}
+                >
+                    {label}
+                </Text>
             </View>
         </TouchableOpacity>
     );

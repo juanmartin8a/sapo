@@ -2,18 +2,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import BottomSheet from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuth } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 import LogOutIcon from '@/assets/icons/log-out.svg';
 import SettingsIcon from '@/assets/icons/settings.svg';
 import useHomeBottomSheetNotifier from '@/stores/homeBottomSheetNotifierStore';
 import { useSidebarIsOpenNotifier } from '@/stores';
+import { authClient } from '@/clients/auth-client';
 
 const AccountTapBottomSheet = () => {
     const sheetRef = useRef<BottomSheet>(null);
     const snapPoints = useMemo(() => ['25%'], []);
     const insets = useSafeAreaInsets();
-    const { signOut, isLoaded: isAuthLoaded } = useAuth();
+    const { isPending } = authClient.useSession();
     const [isProcessing, setIsProcessing] = useState(false);
     const router = useRouter();
     const isClosed = useRef<boolean>(true);
@@ -95,13 +95,13 @@ const AccountTapBottomSheet = () => {
     }, [router, handleSheetClose]);
 
     const handleSignOut = useCallback(async () => {
-        if (!isAuthLoaded || isProcessing) {
+        if (isPending || isProcessing) {
             return;
         }
 
         try {
             setIsProcessing(true);
-            await signOut();
+            await authClient.signOut();
             sheetRef.current?.close();
             handleSheetClose();
         } catch {
@@ -109,7 +109,7 @@ const AccountTapBottomSheet = () => {
         } finally {
             setIsProcessing(false);
         }
-    }, [isAuthLoaded, isProcessing, signOut, handleSheetClose]);
+    }, [isPending, isProcessing, handleSheetClose]);
 
     return (
         <BottomSheet
@@ -136,10 +136,10 @@ const AccountTapBottomSheet = () => {
                     </View>
                 </TouchableOpacity>
                 <TouchableOpacity
-                    style={[(!isAuthLoaded || isProcessing) && styles.listItemDisabled]}
+                    style={[(isPending || isProcessing) && styles.listItemDisabled]}
                     onPress={handleSignOut}
                     activeOpacity={0.85}
-                    disabled={!isAuthLoaded || isProcessing}
+                    disabled={isPending || isProcessing}
                 >
                     <View style={styles.signOutContent}>
                         <LogOutIcon width={20} height={20} stroke="#fff" style={styles.icon} />
