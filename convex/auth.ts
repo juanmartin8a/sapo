@@ -29,7 +29,7 @@ export const createAuth = (
         logger: {
             disabled: optionsOnly,
         },
-        trustedOrigins: ["sapo://"],
+        trustedOrigins: ["sapo://", "https://appleid.apple.com"],
         database: authComponent.adapter(ctx),
         user: {
             deleteUser: {
