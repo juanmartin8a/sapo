@@ -1,13 +1,13 @@
 import { httpRouter } from "convex/server";
 import { authComponent, createAuth } from "./auth";
-import { streamSapopinguino, streamSapopinguinoOptions } from "./sapopinguinoStream";
+import { streamSapopinguino, streamSapopinguinoOptions } from "./sapopinguino";
 
 const http = httpRouter();
 
 authComponent.registerRoutes(http, createAuth);
 
 http.route({
-    path: "/sapopinguino-stream",
+    path: "/sapopinguino",
     method: "POST",
     handler: streamSapopinguino,
 });
