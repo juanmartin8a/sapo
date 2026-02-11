@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, NativeSyntheticEvent, TextLayoutEventData } from 'react-native';
-import useWebSocketStore from '../../stores/websocketStore';
+import useSseStore from '../../stores/sseStore';
 import SapoIcon from "../../assets/icons/sapo.svg"
 import SapoBocaAbiertaIcon from "../../assets/icons/sapo_boca_abierta.svg"
 import { SCREEN_WIDTH } from '@gorhom/bottom-sheet';
@@ -13,9 +13,9 @@ interface CursorPos {
 export default function Translate() {
     const {
         tokens,
-        wsError,
-        disconnectWebSocket,
-    } = useWebSocketStore();
+        streamError,
+        disconnectStream,
+    } = useSseStore();
 
     const [cursorPos, setCursorPos] = useState<CursorPos>({ x: 0, y: 0 });
     const sapoWidth = SCREEN_WIDTH * 0.4;
@@ -48,7 +48,7 @@ export default function Translate() {
 
     useEffect(() => {
         return () => {
-            disconnectWebSocket();
+            disconnectStream();
         };
     }, []);
 
@@ -75,7 +75,7 @@ export default function Translate() {
         <ScrollView>
             <View style={styles.container}>
                 <View style={styles.textContainer}>
-                    {wsError ? (
+                    {streamError ? (
                         <Text style={styles.errorText}>An error occurred </Text>
                     ) : (
                         <Text

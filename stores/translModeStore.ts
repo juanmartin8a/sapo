@@ -1,20 +1,20 @@
 import { create } from 'zustand';
 
-export type TranslMode = 'translate' | 'transliterate';
+export type TransformationMode = 'translate' | 'respell';
 
 interface TranslateModeStoreProps {
-    mode: TranslMode;
+    mode: TransformationMode;
     inputLimit: number;
 
-    setMode: (mode: TranslMode) => void;
+    setMode: (mode: TransformationMode) => void;
 }
 
-const useTranslModeStore = create<TranslateModeStoreProps>((set) => ({
-    mode: 'transliterate',
+const useTransformationModeStore = create<TranslateModeStoreProps>((set) => ({
+    mode: 'respell',
     inputLimit: 1000,
-    setMode: (mode: TranslMode) => {
+    setMode: (mode: TransformationMode) => {
         set({ mode });
     },
 }));
 
-export default useTranslModeStore;
+export default useTransformationModeStore;
