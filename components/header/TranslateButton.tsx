@@ -6,21 +6,21 @@ import RepeatIcon from "@/assets/icons/repeat.svg";
 import SquareIcon from "@/assets/icons/square.svg";
 import MoreHorizontalIcon from "@/assets/icons/more-horizontal.svg";
 import usePagerPos from "@/stores/pagerPosStore";
-import useWebSocketStore from "@/stores/websocketStore";
+import useSseStore from "@/stores/sseStore";
 import { Pressable } from "react-native-gesture-handler";
 import { useCallback } from "react";
 
 const TranslateButton = () => {
     const translateButtonState = useTranslateButtonStateNotifier((state) => state.state)
-    const lastTranslation = useWebSocketStore.getState().lastTranslation
+    const lastTranslation = useSseStore.getState().lastTranslation
     const text = useTextToTranslate((state) => state.text)
 
     const goToPage = usePagerPos((state) => state.goToPage)
     const offset = usePagerPos((state) => state.offset)
 
-    const sendMessage = useWebSocketStore((state) => state.sendMessage)
-    const stopStream = useWebSocketStore((state) => state.stopStream)
-    const repeatLastTranslation = useWebSocketStore((state) => state.repeatLastTranslation)
+    const sendMessage = useSseStore((state) => state.sendMessage)
+    const stopStream = useSseStore((state) => state.stopStream)
+    const repeatLastTranslation = useSseStore((state) => state.repeatLastTranslation)
 
     const arrowOpacity = 1 - offset;
     const loadingOpacity = offset;

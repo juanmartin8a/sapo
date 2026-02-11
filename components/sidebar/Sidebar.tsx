@@ -90,20 +90,20 @@ const SideBar = ({ translationX }: SideBarProps) => {
                             </Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                            onPress={() => setMode('transliterate')}
+                            onPress={() => setMode('respell')}
                             activeOpacity={0.7}
                             style={[
                                 styles.modeOption,
-                                mode === 'transliterate' && styles.modeOptionActive,
+                                mode === 'respell' && styles.modeOptionActive,
                             ]}
                         >
                             <Text
                                 style={[
                                     styles.modeOptionText,
-                                    mode === 'transliterate' && styles.modeOptionTextActive,
+                                    mode === 'respell' && styles.modeOptionTextActive,
                                 ]}
                             >
-                                Transliterate
+                                Respell
                             </Text>
                         </TouchableOpacity>
                     </View>
