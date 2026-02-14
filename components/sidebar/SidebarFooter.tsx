@@ -4,6 +4,8 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo } from 'react';
 import { StyleSheet, TouchableOpacity, Text, View } from 'react-native';
 import LogInIcon from '@/assets/icons/log-in.svg';
+import { useConvexAuth, useQuery } from 'convex/react';
+import { api } from '@/convex/_generated/api';
 
 type SideBarFooterProps = {
     requestBottomSheet: (sheet: HomeBottomSheetKey) => void
@@ -11,11 +13,15 @@ type SideBarFooterProps = {
 
 const SideBarFooter = ({ requestBottomSheet }: SideBarFooterProps) => {
     const router = useRouter();
+    const convexUser = useQuery(api.auth.getCurrentUser);
     const { data: session } = authClient.useSession()
-    const user = session?.user;
-    const email = user?.email ?? "";
-    const emailInitial = user?.email.charAt(0).toUpperCase();
-    const isSignedIn = !!user;
+    const email = useMemo(() => {
+        return convexUser?.email ?? session?.user?.email
+    }, [convexUser?.email, session?.user?.email])
+    const emailInitial = useMemo(() => {
+        return email?.[0]?.toUpperCase();
+    }, [convexUser?.email, session?.user?.email])
+    const isAuthenticated = React.useMemo(() => !!email, [email]);
 
     const handleSignInPress = useCallback(() => {
         router.push('/auth');
@@ -23,7 +29,7 @@ const SideBarFooter = ({ requestBottomSheet }: SideBarFooterProps) => {
 
     return (
         <View style={styles.footer}>
-            {isSignedIn ? (
+            {isAuthenticated ? (
                 <View style={styles.userActionsContainer}>
                     <TouchableOpacity
                         onPress={() => requestBottomSheet('account_tap')}
