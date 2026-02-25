@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Alert, Keyboard, StyleSheet, TextInput } from "react-native"
 import useTextToTranslateStore from "@/stores/textToTranslateStore";
 import useTranslModeStore from "@/stores/translModeStore";
+import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -9,22 +10,34 @@ const TextToTranslateInput = () => {
     const textInputRef = useRef<TextInput>(null);
     const text = useTextToTranslateStore((state) => state.text)
     const setText = useTextToTranslateStore((state) => state.setText)
-    const inputLimit = useTranslModeStore((state) => state.inputLimit)
+    const mode = useTranslModeStore((state) => state.mode)
+    const hasActiveSubscription = useSubscriptionStatusStore((state) => state.hasActiveSubscription)
     const [isTextInputScrolling, setIsTextInputScrolling] = useState<boolean | null>(null);
-    const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
+    const scrollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [tapStoppedScroll, setTapStoppedScroll] = useState(false)
     const hasAlertedRef = useRef(false)
+    const inputLimit = hasActiveSubscription ? (mode === "respell" ? 300 : 1000) : 10
     const isLimitReached = text.length >= inputLimit
     const insets = useSafeAreaInsets()
 
     useEffect(() => {
+        if (text.length > inputLimit) {
+            setText(text.slice(0, inputLimit))
+        }
+    }, [inputLimit, setText, text])
+
+    useEffect(() => {
         if (isLimitReached && !hasAlertedRef.current) {
             hasAlertedRef.current = true
-            Alert.alert('Input limit reached', 'This demo currently has a limit of 1000 characters for testing purposes')
+            const modeLabel = mode === "respell" ? "respelling" : "translating"
+            Alert.alert(
+                "Input limit reached",
+                `You can use up to ${inputLimit} characters while ${modeLabel}.`
+            )
         } else if (!isLimitReached && hasAlertedRef.current) {
             hasAlertedRef.current = false
         }
-    }, [isLimitReached])
+    }, [inputLimit, isLimitReached, mode])
 
     const handleScroll = () => {
         if (textInputRef.current?.isFocused() === false) {

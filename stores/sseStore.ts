@@ -1,5 +1,7 @@
 import { fetch as expoFetch } from "expo/fetch";
 import { create } from "zustand";
+
+import { authClient } from "@/clients/auth-client";
 import { languages, languagesPlusAutoDetect } from "@/constants/languages";
 import useLanguageSelectorBottomSheetNotifier from "./languageSelectionNotifierStore";
 import usePagerPos from "./pagerPosStore";
@@ -242,11 +244,23 @@ const useSseStore = create<SseState>((set, get) => {
             };
 
             try {
+                const { data: convexTokenData } = await authClient.convex.token();
+                const convexToken = convexTokenData?.token;
+
+                if (!convexToken || !isActiveRequest()) {
+                    if (isActiveRequest()) {
+                        markStreamError();
+                    }
+
+                    return;
+                }
+
                 const response = await expoFetch(streamUrl, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
                         Accept: "text/event-stream",
+                        Authorization: `Bearer ${convexToken}`,
                     },
                     body: JSON.stringify({ input: requestInput }),
                     signal: abortController.signal,

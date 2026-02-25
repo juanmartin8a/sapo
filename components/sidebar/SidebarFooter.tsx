@@ -1,30 +1,34 @@
 import { authClient } from '@/clients/auth-client';
-import { HomeBottomSheetKey } from '@/types/bottomSheets';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo } from 'react';
 import { StyleSheet, TouchableOpacity, Text, View } from 'react-native';
 import LogInIcon from '@/assets/icons/log-in.svg';
-import { useConvexAuth, useQuery } from 'convex/react';
+import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
+import useSubscriptionStatusStore from '@/stores/subscriptionStatusStore';
 
-type SideBarFooterProps = {
-    requestBottomSheet: (sheet: HomeBottomSheetKey) => void
-}
-
-const SideBarFooter = ({ requestBottomSheet }: SideBarFooterProps) => {
+const SideBarFooter = () => {
     const router = useRouter();
     const convexUser = useQuery(api.auth.getCurrentUser);
     const { data: session } = authClient.useSession()
+    const hasActiveSubscription = useSubscriptionStatusStore((state) => state.hasActiveSubscription);
     const email = useMemo(() => {
         return convexUser?.email ?? session?.user?.email
     }, [convexUser?.email, session?.user?.email])
+    const subscriptionLabel = useMemo(() => {
+        return hasActiveSubscription ? 'Polyglot' : 'free';
+    }, [hasActiveSubscription])
     const emailInitial = useMemo(() => {
         return email?.[0]?.toUpperCase();
-    }, [convexUser?.email, session?.user?.email])
+    }, [email])
     const isAuthenticated = React.useMemo(() => !!email, [email]);
 
     const handleSignInPress = useCallback(() => {
         router.push('/auth');
+    }, [router]);
+
+    const handleOpenProfile = useCallback(() => {
+        router.push('/profile-modal');
     }, [router]);
 
     return (
@@ -32,7 +36,7 @@ const SideBarFooter = ({ requestBottomSheet }: SideBarFooterProps) => {
             {isAuthenticated ? (
                 <View style={styles.userActionsContainer}>
                     <TouchableOpacity
-                        onPress={() => requestBottomSheet('account_tap')}
+                        onPress={handleOpenProfile}
                         activeOpacity={0.7}
                         style={styles.userContainer}
                     >
@@ -43,7 +47,7 @@ const SideBarFooter = ({ requestBottomSheet }: SideBarFooterProps) => {
                             <Text style={styles.emailText} numberOfLines={1}>
                                 {email}
                             </Text>
-                            <Text style={styles.planText}>Free</Text>
+                            <Text style={styles.planText}>{subscriptionLabel}</Text>
                         </View>
                     </TouchableOpacity>
                 </View>

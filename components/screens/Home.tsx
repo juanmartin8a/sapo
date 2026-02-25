@@ -6,10 +6,9 @@ import Animated, {
     useSharedValue,
     useAnimatedStyle,
     withTiming,
-    useAnimatedReaction,
-    Easing
+    Easing,
 } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
+import { runOnJS } from 'react-native-worklets';
 import SideBar, { SIDEBAR_WIDTH } from "@/components/sidebar/Sidebar";
 import Translate from "@/components/home/Translate";
 import { useSidebarIsOpenNotifier, useTranslModeStore } from "@/stores";
@@ -18,7 +17,6 @@ import TranslateButton from "../header/TranslateButton";
 import SidebarIcon from "../../assets/icons/sidebar.svg";
 import TextToTranslateInput from "../home/TextToTranslateInput";
 import usePagerPos from "@/stores/pagerPosStore";
-import AccountTapBottomSheet from "../home/AccountTapBottomSheet";
 import SourceLangugeSelectorBottomSheet from "../home/SourceLanguageSelectorBottomSheet";
 import TargetLanguageSelectorBottomSheet from "../home/TargetLanguageSelectorBottomSheet";
 
@@ -29,7 +27,6 @@ export default function Home() {
     const gestureStartX = useSharedValue(0);
 
     const [isSideBarPosAtStart, setIsSideBarPosAtStart] = useState(true);
-    const isSideBarPosAtStartShared = useSharedValue(true);
     const pagerNativeGesture = useMemo(() => Gesture.Native(), []);
 
     const isSidebarOpenOrClosed = useSidebarIsOpenNotifier(state => state.isSidebarOpenOrClosed);
@@ -39,79 +36,40 @@ export default function Home() {
     const mode = useTranslModeStore((state) => state.mode);
     const modeText = mode.charAt(0).toUpperCase() + mode.slice(1);
 
+    const setSidebarStateJS = useCallback(
+        (isOpen: boolean) => {
+            setIsSideBarPosAtStart(!isOpen);
+            isSidebarOpenOrClosed(isOpen);
+        },
+        [isSidebarOpenOrClosed]
+    );
+
+    const animateToTarget = useCallback((target: number) => {
+        'worklet';
+        if (sideBarTranslationX.value === target) return
+
+        isAnimating.value = true;
+        sideBarTranslationX.value = withTiming(
+            target,
+            { duration: 500, easing: Easing.bezier(0.23, 1, 0.32, 1) },
+            (isFinished) => {
+                if (!isFinished) return
+                isAnimating.value = false;
+
+                const isOpen = target === SIDEBAR_WIDTH
+                runOnJS(setSidebarStateJS)(isOpen)
+            }
+        );
+    }, []);
+
     const openSidebar = useCallback(() => {
         if (isAnimating.value) return;
         isAnimating.value = true;
         Keyboard.dismiss();
-        sideBarTranslationX.value = withTiming(
-            SIDEBAR_WIDTH,
-            { duration: 500, easing: Easing.bezier(0.23, 1, 0.32, 1) },
-            (isFinished) => {
-                if (isFinished) {
-                    isAnimating.value = false;
-                }
-            }
-        );
-    }, []);
-
-    const closeSidebar = useCallback(() => {
-        if (isAnimating.value) return;
-        isAnimating.value = true;
-        sideBarTranslationX.value = withTiming(
-            0,
-            { duration: 500, easing: Easing.bezier(0.23, 1, 0.32, 1) },
-            (isFinished) => {
-                if (isFinished) {
-                    isAnimating.value = false;
-                }
-            }
-        );
-    }, []);
-
-    const updateJsState = useCallback((value: number) => {
-        const isSidebarClosed = value === 0;
-        setIsSideBarPosAtStart(isSidebarClosed);
-        isSideBarPosAtStartShared.value = isSidebarClosed;
-
-        if (value === 0 || value === SIDEBAR_WIDTH) {
-            isSidebarOpenOrClosed(!isSidebarClosed);
-        }
-    }, [isSidebarOpenOrClosed]);
-
-    useAnimatedReaction(
-        () => sideBarTranslationX.value,
-        (currentValue, previousValue) => {
-            if (currentValue !== previousValue) {
-                scheduleOnRN(updateJsState, currentValue);
-            }
-        },
-        [updateJsState]
-    );
+        animateToTarget(SIDEBAR_WIDTH)
+    }, [animateToTarget]);
 
     const panGesture = useMemo(() => {
-        const clampToSidebar = (value: number) => {
-            'worklet';
-            if (value < 0) return 0;
-            if (value > SIDEBAR_WIDTH) return SIDEBAR_WIDTH;
-            return value;
-        };
-
-        const animateToTarget = (target: number) => {
-            'worklet';
-            if (sideBarTranslationX.value === target) {
-                return;
-            }
-            isAnimating.value = true;
-            sideBarTranslationX.value = withTiming(
-                target,
-                { duration: 500, easing: Easing.bezier(0.23, 1, 0.32, 1) },
-                (isFinished) => {
-                    if (isFinished) {
-                        isAnimating.value = false;
-                    }
-                }
-            );
-        };
 
         return Gesture.Pan()
             .simultaneousWithExternalGesture(pagerNativeGesture)
@@ -120,23 +78,16 @@ export default function Home() {
                 gestureStartX.value = sideBarTranslationX.value;
             })
             .onUpdate((event) => {
-                if (isAnimating.value) {
-                    return;
-                }
+                if (isAnimating.value) return;
 
                 const proposedPosition = gestureStartX.value + event.translationX;
 
-                if (gestureStartX.value === 0 && proposedPosition <= 0 && isSideBarPosAtStartShared.value) {
-                    sideBarTranslationX.value = 0;
-                    return;
-                }
+                const clamped = Math.max(0, Math.min(SIDEBAR_WIDTH, proposedPosition))
 
-                sideBarTranslationX.value = clampToSidebar(proposedPosition);
+                sideBarTranslationX.value = clamped;
             })
             .onEnd((event) => {
-                if (isAnimating.value) {
-                    return;
-                }
+                if (isAnimating.value) return;
 
                 const currentX = sideBarTranslationX.value;
                 const flingVelocity = 400;
@@ -149,21 +100,19 @@ export default function Home() {
                     shouldOpen = false;
                 }
 
-                const target = shouldOpen ? SIDEBAR_WIDTH : 0;
-                animateToTarget(target);
+                animateToTarget(shouldOpen ? SIDEBAR_WIDTH : 0);
             });
-    }, [gestureStartX, isAnimating, isSideBarPosAtStartShared, pagerNativeGesture, sideBarTranslationX]);
+    }, [gestureStartX, isAnimating, pagerNativeGesture, sideBarTranslationX]);
 
     const overlayTapGesture = useMemo(() => {
         return Gesture.Tap()
             .maxDuration(2000)
             .shouldCancelWhenOutside(false)
             .onEnd((_event, successful) => {
-                if (successful) {
-                    scheduleOnRN(closeSidebar);
-                }
+                if (!successful) return;
+                animateToTarget(0);
             });
-    }, [closeSidebar]);
+    }, [animateToTarget]);
 
     useEffect(() => {
         const unsubscribe = usePagerPos.subscribe(
@@ -233,7 +182,6 @@ export default function Home() {
                 </GestureDetector>
                 <TargetLanguageSelectorBottomSheet />
                 <SourceLangugeSelectorBottomSheet />
-                <AccountTapBottomSheet />
             </GestureHandlerRootView>
         </View>
     );

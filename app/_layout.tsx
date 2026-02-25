@@ -3,7 +3,9 @@ import { Stack } from "expo-router";
 import * as WebBrowser from 'expo-web-browser';
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
+
 import { authClient } from "@/clients/auth-client";
+import RevenueCatIdentitySync from "@/components/providers/RevenueCatIdentitySync";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -16,6 +18,7 @@ const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL as strin
 export default function RootLayout() {
     return (
         <ConvexBetterAuthProvider client={convex} authClient={authClient}>
+            <RevenueCatIdentitySync />
             <KeyboardProvider>
                 <Stack screenOptions={{ headerShown: false }} />
             </KeyboardProvider>

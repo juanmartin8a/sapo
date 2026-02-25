@@ -133,7 +133,7 @@ const SideBar = ({ translationX }: SideBarProps) => {
                     </TouchableOpacity>
                 </View>
             </View>
-            <SideBarFooter requestBottomSheet={requestBottomSheet} />
+            <SideBarFooter />
         </Animated.View>
     );
 };
