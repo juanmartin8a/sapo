@@ -116,7 +116,7 @@ const SideBar = ({ translationX }: SideBarProps) => {
                     >
                         <View style={styles.field}>
                             <Text style={styles.textInField}>{inputLanguage}</Text>
-                            <ChevronRightIcon stroke="black" />
+                            <ChevronRightIcon width={22} stroke="black" />
                         </View>
                     </TouchableOpacity>
                 </View>
@@ -128,7 +128,7 @@ const SideBar = ({ translationX }: SideBarProps) => {
                     >
                         <View style={styles.field}>
                             <Text style={styles.textInField}>{targetLanguage}</Text>
-                            <ChevronRightIcon height={24} stroke="black" />
+                            <ChevronRightIcon height={22} stroke="black" />
                         </View>
                     </TouchableOpacity>
                 </View>
@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
         paddingVertical: 12
     },
     label: {
-        fontSize: 16,
+        fontSize: 15,
         fontWeight: "500",
         color: "#aaa"
     },
@@ -160,8 +160,8 @@ const styles = StyleSheet.create({
     },
     textInField: {
         flex: 1,
-        fontSize: 18,
-        lineHeight: 18,
+        fontSize: 16,
+        lineHeight: 16,
         color: "black",
         fontWeight: "500",
     },

@@ -27,8 +27,8 @@ const SideBarFooter = () => {
         router.push('/auth');
     }, [router]);
 
-    const handleOpenProfile = useCallback(() => {
-        router.push('/profile-modal');
+    const handleOpenSettings = useCallback(() => {
+        router.push('/settings-modal');
     }, [router]);
 
     return (
@@ -36,7 +36,7 @@ const SideBarFooter = () => {
             {isAuthenticated ? (
                 <View style={styles.userActionsContainer}>
                     <TouchableOpacity
-                        onPress={handleOpenProfile}
+                        onPress={handleOpenSettings}
                         activeOpacity={0.7}
                         style={styles.userContainer}
                     >

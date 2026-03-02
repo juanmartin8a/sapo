@@ -5,7 +5,7 @@ import XIcon from "../../../assets/icons/x.svg";
 
 const isIOS = Platform.OS === "ios";
 
-export default function ProfileModalLayout() {
+export default function SettingsModalLayout() {
     const router = useRouter();
 
     const handleDismiss = useCallback(() => {
@@ -17,9 +17,9 @@ export default function ProfileModalLayout() {
             <Pressable
                 onPress={handleDismiss}
                 hitSlop={4}
-                style={({ pressed }) => [styles.closeButton, pressed && styles.closeButtonPressed]}
+                style={({ pressed }) => [styles.headerActionButton, pressed && styles.headerActionButtonPressed]}
             >
-                <XIcon width={26} height={26} stroke="black" />
+                <XIcon width={26} height={26} stroke="#1E3526" />
             </Pressable>
         );
     }, [handleDismiss]);
@@ -30,8 +30,7 @@ export default function ProfileModalLayout() {
                 headerShown: true,
                 headerShadowVisible: false,
                 headerStyle: styles.header,
-                headerTintColor: "black",
-                contentStyle: styles.content,
+                headerTintColor: "#1E3526",
                 headerRight: isIOS ? renderCloseButton : undefined,
             }}
         >
@@ -39,22 +38,24 @@ export default function ProfileModalLayout() {
                 name="index"
                 options={{
                     title: "Settings",
+                    contentStyle: { backgroundColor: "transparent" }
                 }}
             />
             <Stack.Screen
                 name="data-controls"
                 options={{
                     title: "Data controls",
+                    headerBackButtonDisplayMode: 'minimal',
                     headerRight: () => null,
-                    headerBackButtonDisplayMode: "minimal",
                 }}
             />
             <Stack.Screen
                 name="subscription"
                 options={{
                     title: "Subscription",
+                    headerBackButtonDisplayMode: 'minimal',
                     headerRight: () => null,
-                    headerBackButtonDisplayMode: "minimal",
+                    // headerTintColor: "black"
                 }}
             />
         </Stack>
@@ -63,18 +64,17 @@ export default function ProfileModalLayout() {
 
 const styles = StyleSheet.create({
     header: {
-        backgroundColor: "#f2f2f2",
+        backgroundColor: "#E1ECDD",
     },
-    content: {
-        backgroundColor: "#f2f2f2",
-    },
-    closeButton: {
+    headerActionButton: {
         width: 36,
         height: 36,
+        borderWidth: 0,
+        borderColor: "transparent",
         alignItems: "center",
         justifyContent: "center",
     },
-    closeButtonPressed: {
+    headerActionButtonPressed: {
         opacity: 0.7,
     },
 });

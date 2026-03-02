@@ -3,7 +3,7 @@ import { Alert, StyleSheet, View } from "react-native";
 
 import TrashIcon from "@/assets/icons/trash.svg";
 import { authClient } from "@/clients/auth-client";
-import SettingsButton from "@/components/profile-modal/SettingsButton";
+import SettingsButton from "@/components/settings-modal/SettingsButton";
 
 export default function DataControlsScreen() {
     const { data: session, isPending } = authClient.useSession();
@@ -44,8 +44,10 @@ export default function DataControlsScreen() {
             <SettingsButton
                 text={isProcessing ? "Deleting account..." : "Delete account"}
                 leftIcon={TrashIcon}
-                textColor="#FF3B30"
-                iconColor="#FF3B30"
+                backgroundColor="#CDDEC8"
+                borderRadius={22}
+                textColor="#8B332A"
+                iconColor="#8B332A"
                 loading={isProcessing}
                 disabled={isPending || isProcessing || !user}
                 onPress={handleDeleteAccount}
@@ -57,7 +59,7 @@ export default function DataControlsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: "#f2f2f2",
+        backgroundColor: "#E1ECDD",
         paddingTop: 24,
         paddingHorizontal: 16,
     },

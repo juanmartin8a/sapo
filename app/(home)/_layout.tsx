@@ -8,7 +8,7 @@ export default function HomeLayout() {
     return (
         <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen
-                name="profile-modal"
+                name="settings-modal"
                 options={{
                     presentation: "modal",
                     animation: "slide_from_bottom",

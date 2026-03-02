@@ -11,11 +11,13 @@ interface SettingsButtonProps {
     onPress: () => void;
     leftIcon?: SettingsButtonIcon;
     showChevron?: boolean;
-    background?: boolean;
+    backgroundColor?: string;
+    borderRadius?: number;
     disabled?: boolean;
     loading?: boolean;
     textColor?: string;
     iconColor?: string;
+    chevronColor?: string;
 }
 
 const SettingsButton = ({
@@ -23,11 +25,13 @@ const SettingsButton = ({
     onPress,
     leftIcon: LeftIcon,
     showChevron = false,
-    background = true,
+    backgroundColor,
+    borderRadius,
     disabled = false,
     loading = false,
-    textColor = "black",
-    iconColor = "black",
+    textColor = "#1E3526",
+    iconColor = "#1E3526",
+    chevronColor = "#5E755A",
 }: SettingsButtonProps) => {
     return (
         <TouchableOpacity
@@ -36,7 +40,8 @@ const SettingsButton = ({
             onPress={onPress}
             style={[
                 styles.button,
-                background ? styles.buttonWithBackground : styles.buttonWithoutBackground,
+                backgroundColor ? { backgroundColor } : null,
+                borderRadius !== undefined ? { borderRadius } : null,
                 disabled && styles.disabled,
             ]}
         >
@@ -47,7 +52,7 @@ const SettingsButton = ({
                     LeftIcon && <LeftIcon width={20} height={20} stroke={iconColor} style={styles.leadingElement} />
                 )}
                 <Text style={[styles.text, { color: textColor }]}>{text}</Text>
-                {showChevron ? <ChevronRightIcon width={20} height={20} stroke="#8E8E93" /> : null}
+                {showChevron ? <ChevronRightIcon width={20} height={20} stroke={chevronColor} /> : null}
             </View>
         </TouchableOpacity>
     );
@@ -56,13 +61,6 @@ const SettingsButton = ({
 const styles = StyleSheet.create({
     button: {
         width: "100%",
-    },
-    buttonWithBackground: {
-        backgroundColor: "#fff",
-        borderRadius: 12,
-    },
-    buttonWithoutBackground: {
-        backgroundColor: "transparent",
     },
     content: {
         flexDirection: "row",
