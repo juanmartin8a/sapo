@@ -17,6 +17,7 @@ export const tables = {
         email: v.string(),
         emailVerified: v.boolean(),
         image: v.optional(v.union(v.null(), v.string())),
+        isAnonymous: v.optional(v.boolean()),
         createdAt: v.number(),
         updatedAt: v.number(),
         userId: v.optional(v.union(v.null(), v.string())),

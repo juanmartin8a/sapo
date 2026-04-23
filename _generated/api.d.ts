@@ -8,11 +8,19 @@
  * @module
  */
 
+import type * as anonymousUser from "../anonymousUser.js";
 import type * as auth from "../auth.js";
+import type * as crons from "../crons.js";
 import type * as http from "../http.js";
-import type * as sapopinguino from "../sapopinguino.js";
+import type * as httpAuth from "../httpAuth.js";
+import type * as refresh from "../refresh.js";
+import type * as sapopinguinoHttp from "../sapopinguinoHttp.js";
+import type * as sapopinguinoQuota from "../sapopinguinoQuota.js";
 import type * as sapopinguinoTranslate from "../sapopinguinoTranslate.js";
 import type * as sendEmail from "../sendEmail.js";
+import type * as subscriptionsConfig from "../subscriptionsConfig.js";
+import type * as subscriptionsWebhook from "../subscriptionsWebhook.js";
+import type * as subscriptionsWorkers from "../subscriptionsWorkers.js";
 
 import type {
   ApiFromModules,
@@ -21,11 +29,19 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  anonymousUser: typeof anonymousUser;
   auth: typeof auth;
+  crons: typeof crons;
   http: typeof http;
-  sapopinguino: typeof sapopinguino;
+  httpAuth: typeof httpAuth;
+  refresh: typeof refresh;
+  sapopinguinoHttp: typeof sapopinguinoHttp;
+  sapopinguinoQuota: typeof sapopinguinoQuota;
   sapopinguinoTranslate: typeof sapopinguinoTranslate;
   sendEmail: typeof sendEmail;
+  subscriptionsConfig: typeof subscriptionsConfig;
+  subscriptionsWebhook: typeof subscriptionsWebhook;
+  subscriptionsWorkers: typeof subscriptionsWorkers;
 }>;
 
 /**
@@ -68,6 +84,7 @@ export declare const components: {
                   email: string;
                   emailVerified: boolean;
                   image?: null | string;
+                  isAnonymous?: boolean;
                   name: string;
                   updatedAt: number;
                   userId?: null | string;
@@ -141,6 +158,7 @@ export declare const components: {
                     | "email"
                     | "emailVerified"
                     | "image"
+                    | "isAnonymous"
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
@@ -328,6 +346,7 @@ export declare const components: {
                     | "email"
                     | "emailVerified"
                     | "image"
+                    | "isAnonymous"
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
@@ -509,6 +528,7 @@ export declare const components: {
             maximumRowsRead?: number;
             numItems: number;
           };
+          select?: Array<string>;
           sortBy?: { direction: "asc" | "desc"; field: string };
           where?: Array<{
             connector?: "AND" | "OR";
@@ -581,6 +601,7 @@ export declare const components: {
                   email?: string;
                   emailVerified?: boolean;
                   image?: null | string;
+                  isAnonymous?: boolean;
                   name?: string;
                   updatedAt?: number;
                   userId?: null | string;
@@ -592,6 +613,7 @@ export declare const components: {
                     | "email"
                     | "emailVerified"
                     | "image"
+                    | "isAnonymous"
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
@@ -813,6 +835,7 @@ export declare const components: {
                   email?: string;
                   emailVerified?: boolean;
                   image?: null | string;
+                  isAnonymous?: boolean;
                   name?: string;
                   updatedAt?: number;
                   userId?: null | string;
@@ -824,6 +847,7 @@ export declare const components: {
                     | "email"
                     | "emailVerified"
                     | "image"
+                    | "isAnonymous"
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
@@ -1022,6 +1046,389 @@ export declare const components: {
                 }>;
               };
           onUpdateHandle?: string;
+        },
+        any
+      >;
+    };
+  };
+  sapopinguino: {
+    streamControl: {
+      clearStreamControl: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          operation: "translate" | "respell";
+          streamId: string;
+          userId: string;
+        },
+        any
+      >;
+      consumeStreamControlAction: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          operation: "translate" | "respell";
+          streamId: string;
+          userId: string;
+        },
+        any
+      >;
+      deleteUserStreamControls: FunctionReference<
+        "mutation",
+        "internal",
+        { userId: string },
+        any
+      >;
+      getStreamControlStatus: FunctionReference<
+        "query",
+        "internal",
+        {
+          operation: "translate" | "respell";
+          streamId: string;
+          userId: string;
+        },
+        any
+      >;
+      registerStreamControl: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          nowMs: number;
+          operation: "translate" | "respell";
+          streamId: string;
+          userId: string;
+        },
+        any
+      >;
+      requestStreamStop: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          nowMs: number;
+          operation: "translate" | "respell";
+          streamId: string;
+          userId: string;
+        },
+        any
+      >;
+      requestUserStreamStops: FunctionReference<
+        "mutation",
+        "internal",
+        { nowMs: number; userId: string },
+        any
+      >;
+    };
+  };
+  subscriptions: {
+    webhook: {
+      applyReconciledSubscriptionState: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          allow_user_deletion_in_progress?: boolean;
+          expiration_reconciliation_delay_ms: number;
+          revenuecat_app_user_id: string;
+          signup_at_ms?: number;
+          snapshot: {
+            entitlement_id?: string;
+            environment?: string;
+            has_active_subscription: boolean;
+            period_end_at_ms?: number;
+            period_start_at_ms?: number;
+            product_id?: string;
+            store?: string;
+            store_subscription_id?: string;
+          };
+          store_subscription_id_hint?: string;
+          synced_at_ms: number;
+          user_id: string;
+        },
+        any
+      >;
+      applyUsageEventChargeToQuotaPeriod: FunctionReference<
+        "mutation",
+        "internal",
+        { now_ms: number; usage_event_id: string },
+        any
+      >;
+      chargeSubscriptionQuotaUsage: FunctionReference<
+        "mutation",
+        "internal",
+        { now_ms: number; usage_event_id: string },
+        any
+      >;
+      clearUserDeletionOperation: FunctionReference<
+        "mutation",
+        "internal",
+        { user_id: string },
+        any
+      >;
+      clearUserDeletionPreparation: FunctionReference<
+        "mutation",
+        "internal",
+        { user_id: string },
+        any
+      >;
+      completeSubscriptionQuotaUsage: FunctionReference<
+        "mutation",
+        "internal",
+        { now_ms: number; usage_event_id: string },
+        any
+      >;
+      deferSubscriptionStateReconciliation: FunctionReference<
+        "mutation",
+        "internal",
+        { next_attempt_at_ms: number; user_id: string },
+        any
+      >;
+      deleteUserSubscriptionData: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          now_ms: number;
+          preserved_quota_period_id?: string;
+          revenuecat_app_user_id?: string;
+          user_id: string;
+        },
+        any
+      >;
+      finalizeDeletedUserSubscriptionData: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          has_active_subscription: boolean;
+          now_ms: number;
+          preserved_quota_period_id?: string;
+          revenuecat_app_user_id?: string;
+          store_subscription_id?: string;
+          store_subscription_period_id?: string;
+          user_id: string;
+        },
+        any
+      >;
+      forceStopUserActiveUsageEvents: FunctionReference<
+        "mutation",
+        "internal",
+        { now_ms: number; user_id: string },
+        any
+      >;
+      getActiveUserDeletionUsageEventCount: FunctionReference<
+        "query",
+        "internal",
+        { user_id: string },
+        any
+      >;
+      getPreparedUserDeletionContext: FunctionReference<
+        "query",
+        "internal",
+        { user_id: string },
+        any
+      >;
+      getRevenueCatEventForProcessing: FunctionReference<
+        "query",
+        "internal",
+        { event_doc_id: string },
+        any
+      >;
+      getSubscriptionStateByUserId: FunctionReference<
+        "query",
+        "internal",
+        { user_id: string },
+        any
+      >;
+      getUserDeletionCleanupStatus: FunctionReference<
+        "query",
+        "internal",
+        { user_id: string },
+        any
+      >;
+      getUserDeletionOperationState: FunctionReference<
+        "query",
+        "internal",
+        { user_id: string },
+        any
+      >;
+      getUserDeletionSnapshot: FunctionReference<
+        "query",
+        "internal",
+        { user_id: string },
+        any
+      >;
+      ingestRevenueCatEvent: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          normalized_event: {
+            aliases: Array<string>;
+            app_user_id?: string;
+            entitlement_ids: Array<string>;
+            environment?: string;
+            event_at_ms: number;
+            event_id: string;
+            event_type: string;
+            expiration_at_ms?: number;
+            grace_period_expiration_at_ms?: number;
+            original_app_user_id?: string;
+            product_id?: string;
+            purchased_at_ms?: number;
+            store?: string;
+            transaction_id?: string;
+            transferred_from: Array<string>;
+            transferred_to: Array<string>;
+          };
+          raw_payload?: string;
+          received_at_ms: number;
+        },
+        any
+      >;
+      linkAnonymousSubscriptionStateToUser: FunctionReference<
+        "mutation",
+        "internal",
+        { anonymous_user_id: string; now_ms: number; user_id: string },
+        any
+      >;
+      listRetryableRevenueCatEvents: FunctionReference<
+        "query",
+        "internal",
+        {
+          limit: number;
+          now_ms: number;
+          status:
+            | "pending"
+            | "failed"
+            | "processed"
+            | "ignored"
+            | "dead_letter";
+        },
+        any
+      >;
+      listRevenueCatEventsEligibleForRetentionPurge: FunctionReference<
+        "query",
+        "internal",
+        {
+          limit: number;
+          older_than_ms: number;
+          status: "processed" | "ignored" | "dead_letter";
+        },
+        any
+      >;
+      listRevenueCatEventsForStatus: FunctionReference<
+        "query",
+        "internal",
+        {
+          limit: number;
+          status:
+            | "pending"
+            | "failed"
+            | "processed"
+            | "ignored"
+            | "dead_letter";
+        },
+        any
+      >;
+      listSubscriptionStatesDueForExpirationReconciliation: FunctionReference<
+        "query",
+        "internal",
+        { limit: number; now_ms: number },
+        any
+      >;
+      markRevenueCatEventIgnored: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          event_doc_id: string;
+          now_ms: number;
+          reason: string;
+          user_id?: string;
+        },
+        any
+      >;
+      markRevenueCatEventProcessed: FunctionReference<
+        "mutation",
+        "internal",
+        { event_doc_id: string; now_ms: number; user_id?: string },
+        any
+      >;
+      markRevenueCatEventProcessingFailure: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          error_message: string;
+          event_doc_id: string;
+          now_ms: number;
+          retry_config: {
+            max_retry_count: number;
+            retry_base_delay_ms: number;
+            retry_max_delay_ms: number;
+          };
+        },
+        any
+      >;
+      markSubscriptionQuotaUsageFailed: FunctionReference<
+        "mutation",
+        "internal",
+        { after_charge: boolean; now_ms: number; usage_event_id: string },
+        any
+      >;
+      markSubscriptionQuotaUsageStopped: FunctionReference<
+        "mutation",
+        "internal",
+        { after_charge: boolean; now_ms: number; usage_event_id: string },
+        any
+      >;
+      purgeRevenueCatEventsById: FunctionReference<
+        "mutation",
+        "internal",
+        { event_doc_ids: Array<string> },
+        any
+      >;
+      reserveSubscriptionQuotaUsage: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          input_char_count: number;
+          model?: string;
+          now_ms: number;
+          operation: "translate" | "respell";
+          req_id: string;
+          signup_at_ms?: number;
+          user_id: string;
+        },
+        any
+      >;
+      startUserDeletionOperation: FunctionReference<
+        "mutation",
+        "internal",
+        { now_ms: number; user_id: string },
+        any
+      >;
+      upsertSubscriptionPlanLimits: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          now_ms: number;
+          plans: Array<{
+            is_active: boolean;
+            plan_key: "free" | "polyglot";
+            respell_input_char_limit: number;
+            respell_monthly_char_limit: number;
+            translate_input_char_limit: number;
+            translate_monthly_char_limit: number;
+          }>;
+        },
+        any
+      >;
+      upsertUserDeletionPreparation: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          has_active_subscription: boolean;
+          prepared_at_ms: number;
+          preserved_quota_period_id?: string;
+          revenuecat_app_user_id?: string;
+          store_subscription_id?: string;
+          store_subscription_period_id?: string;
+          user_id: string;
         },
         any
       >;

@@ -35,6 +35,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   email: string;
                   emailVerified: boolean;
                   image?: null | string;
+                  isAnonymous?: boolean;
                   name: string;
                   updatedAt: number;
                   userId?: null | string;
@@ -109,6 +110,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "email"
                     | "emailVerified"
                     | "image"
+                    | "isAnonymous"
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
@@ -297,6 +299,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "email"
                     | "emailVerified"
                     | "image"
+                    | "isAnonymous"
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
@@ -479,6 +482,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             maximumRowsRead?: number;
             numItems: number;
           };
+          select?: Array<string>;
           sortBy?: { direction: "asc" | "desc"; field: string };
           where?: Array<{
             connector?: "AND" | "OR";
@@ -553,6 +557,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   email?: string;
                   emailVerified?: boolean;
                   image?: null | string;
+                  isAnonymous?: boolean;
                   name?: string;
                   updatedAt?: number;
                   userId?: null | string;
@@ -564,6 +569,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "email"
                     | "emailVerified"
                     | "image"
+                    | "isAnonymous"
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
@@ -786,6 +792,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   email?: string;
                   emailVerified?: boolean;
                   image?: null | string;
+                  isAnonymous?: boolean;
                   name?: string;
                   updatedAt?: number;
                   userId?: null | string;
@@ -797,6 +804,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "email"
                     | "emailVerified"
                     | "image"
+                    | "isAnonymous"
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
