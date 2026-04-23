@@ -6,22 +6,29 @@ import LogInIcon from '@/assets/icons/log-in.svg';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import useSubscriptionStatusStore from '@/stores/subscriptionStatusStore';
+import { getSessionUserAuthState } from '@/utils/auth';
 
 const SideBarFooter = () => {
     const router = useRouter();
     const convexUser = useQuery(api.auth.getCurrentUser);
     const { data: session } = authClient.useSession()
+    const authState = getSessionUserAuthState(session?.user);
     const hasActiveSubscription = useSubscriptionStatusStore((state) => state.hasActiveSubscription);
+    const isAuthenticatedSession = authState === 'authenticated';
     const email = useMemo(() => {
-        return convexUser?.email ?? session?.user?.email
-    }, [convexUser?.email, session?.user?.email])
+        if (!isAuthenticatedSession) {
+            return null;
+        }
+
+        return convexUser?.email ?? session?.user?.email ?? null;
+    }, [convexUser?.email, isAuthenticatedSession, session?.user?.email])
     const subscriptionLabel = useMemo(() => {
         return hasActiveSubscription ? 'Polyglot' : 'free';
     }, [hasActiveSubscription])
     const emailInitial = useMemo(() => {
         return email?.[0]?.toUpperCase();
     }, [email])
-    const isAuthenticated = React.useMemo(() => !!email, [email]);
+    const isAuthenticated = React.useMemo(() => isAuthenticatedSession && !!email, [email, isAuthenticatedSession]);
 
     const handleSignInPress = useCallback(() => {
         router.push('/auth');

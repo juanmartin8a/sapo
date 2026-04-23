@@ -23,6 +23,7 @@ const TranslateButton = () => {
     const repeatLastTranslation = useSseStore((state) => state.repeatLastTranslation)
 
     const arrowOpacity = 1 - offset;
+    // console.log(`TranslateButton: ${arrowOpacity}`)
     const loadingOpacity = offset;
 
     const next = useCallback(() => {

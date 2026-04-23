@@ -5,7 +5,7 @@ import Animated, { SharedValue, useAnimatedStyle } from 'react-native-reanimated
 import ChevronRightIcon from "../../assets/icons/chevron-right.svg";
 import useLanguageSelectorBottomSheetNotifier from '@/stores/languageSelectionNotifierStore';
 import { languages, languagesPlusAutoDetect } from '@/constants/languages';
-import useTranslModeStore from '@/stores/translModeStore';
+import useTransformationOperationStore from '@/stores/transformationOperationStore';
 import useHomeBottomSheetNotifier from '@/stores/homeBottomSheetNotifierStore';
 import { HomeBottomSheetKey } from '@/types/bottomSheets';
 import SideBarFooter from './SidebarFooter';
@@ -20,8 +20,8 @@ const SideBar = ({ translationX }: SideBarProps) => {
     const insets = useSafeAreaInsets();
     const [inputLanguage, setInputLanguage] = useState<string>(languagesPlusAutoDetect[0]);
     const [targetLanguage, setTargetLanguage] = useState<string>(languages[1]);
-    const mode = useTranslModeStore((state) => state.mode);
-    const setMode = useTranslModeStore((state) => state.setMode);
+    const operation = useTransformationOperationStore((state) => state.operation);
+    const setOperation = useTransformationOperationStore((state) => state.setOperation);
 
     // Get individual values from the store to avoid unnecessary re-renders
     const selectedIndex0 = useLanguageSelectorBottomSheetNotifier(state => state.selectedIndex0);
@@ -43,12 +43,16 @@ const SideBar = ({ translationX }: SideBarProps) => {
 
     // Update the displayed languages when indices change in the store
     useEffect(() => {
-        const newInputLang = languagesPlusAutoDetect[selectedIndex0] || languagesPlusAutoDetect[0];
+        const newInputLang =
+            languagesPlusAutoDetect[selectedIndex0 as keyof typeof languagesPlusAutoDetect]
+            ?? languagesPlusAutoDetect[0];
         setInputLanguage(newInputLang);
     }, [selectedIndex0]);
 
     useEffect(() => {
-        const newTargetLang = languages[selectedIndex1] || languages[1];
+        const newTargetLang =
+            languages[selectedIndex1 as keyof typeof languages]
+            ?? languages[1];
         setTargetLanguage(newTargetLang);
     }, [selectedIndex1]);
 
@@ -70,37 +74,37 @@ const SideBar = ({ translationX }: SideBarProps) => {
             ]}
         >
             <View style={styles.topContent}>
-                <View style={styles.modeSection}>
-                    <View style={styles.modeToggleContainer}>
+                <View style={styles.operationSection}>
+                    <View style={styles.operationToggleContainer}>
                         <TouchableOpacity
-                            onPress={() => setMode('translate')}
+                            onPress={() => setOperation('translate')}
                             activeOpacity={0.7}
                             style={[
-                                styles.modeOption,
-                                mode === 'translate' && styles.modeOptionActive,
+                                styles.operationOption,
+                                operation === 'translate' && styles.operationOptionActive,
                             ]}
                         >
                             <Text
                                 style={[
-                                    styles.modeOptionText,
-                                    mode === 'translate' && styles.modeOptionTextActive,
+                                    styles.operationOptionText,
+                                    operation === 'translate' && styles.operationOptionTextActive,
                                 ]}
                             >
                                 Translate
                             </Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                            onPress={() => setMode('respell')}
+                            onPress={() => setOperation('respell')}
                             activeOpacity={0.7}
                             style={[
-                                styles.modeOption,
-                                mode === 'respell' && styles.modeOptionActive,
+                                styles.operationOption,
+                                operation === 'respell' && styles.operationOptionActive,
                             ]}
                         >
                             <Text
                                 style={[
-                                    styles.modeOptionText,
-                                    mode === 'respell' && styles.modeOptionTextActive,
+                                    styles.operationOptionText,
+                                    operation === 'respell' && styles.operationOptionTextActive,
                                 ]}
                             >
                                 Respell
@@ -165,39 +169,39 @@ const styles = StyleSheet.create({
         color: "black",
         fontWeight: "500",
     },
-    modeSection: {
+    operationSection: {
         width: '100%',
         alignItems: 'stretch',
         marginBottom: 32,
         marginTop: 8,
         // backgroundColor: 'red'
     },
-    modeLabelText: {
+    operationLabelText: {
         fontSize: 16,
         fontWeight: '500',
         color: '#aaa',
         marginBottom: 10,
         textAlign: 'left',
     },
-    modeToggleContainer: {
+    operationToggleContainer: {
         width: '100%',
         gap: 8,
     },
-    modeOption: {
+    operationOption: {
         paddingVertical: 12,
         paddingHorizontal: 16,
         backgroundColor: 'transparent',
         borderRadius: 12,
     },
-    modeOptionActive: {
+    operationOptionActive: {
         backgroundColor: '#000',
     },
-    modeOptionText: {
+    operationOptionText: {
         fontSize: 14,
         fontWeight: '600',
         color: '#000',
     },
-    modeOptionTextActive: {
+    operationOptionTextActive: {
         color: '#fff',
     },
     sideBar: {

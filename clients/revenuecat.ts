@@ -1,4 +1,4 @@
-import { Platform } from "react-native";
+import { Linking, Platform } from "react-native";
 import Purchases, { type CustomerInfo, type PurchasesError } from "react-native-purchases";
 
 const REVENUECAT_ANONYMOUS_ID_PREFIX = "$RCAnonymousID:";
@@ -73,8 +73,14 @@ export const isReceiptAlreadyInUseRevenueCatError = (error: unknown) => {
 
 let configurePromise: Promise<boolean> | null = null;
 
-export const configureRevenueCat = async (appUserId?: string | null): Promise<boolean> => {
+export const configureRevenueCat = async (appUserId: string): Promise<boolean> => {
     if (!hasRevenueCatConfig()) {
+        return false;
+    }
+
+    const normalizedAppUserId = appUserId.trim();
+
+    if (normalizedAppUserId.length === 0) {
         return false;
     }
 
@@ -92,7 +98,7 @@ export const configureRevenueCat = async (appUserId?: string | null): Promise<bo
         if (!isConfigured) {
             Purchases.configure({
                 apiKey: getRevenueCatApiKey(),
-                ...(appUserId ? { appUserID: appUserId } : {}),
+                appUserID: normalizedAppUserId,
             });
         }
 
@@ -107,4 +113,36 @@ export const configureRevenueCat = async (appUserId?: string | null): Promise<bo
 
 export const isAnonymousRevenueCatUser = (appUserId: string) => {
     return appUserId.startsWith(REVENUECAT_ANONYMOUS_ID_PREFIX);
+};
+
+export const getRevenueCatCustomerInfo = async (appUserId: string): Promise<CustomerInfo | null> => {
+    const isConfigured = await configureRevenueCat(appUserId);
+
+    if (!isConfigured) {
+        return null;
+    }
+
+    const currentAppUserId = await Purchases.getAppUserID();
+
+    if (currentAppUserId !== appUserId) {
+        return (await Purchases.logIn(appUserId)).customerInfo;
+    }
+
+    return Purchases.getCustomerInfo();
+};
+
+export const getRevenueCatManagementUrl = async (appUserId: string) => {
+    const customerInfo = await getRevenueCatCustomerInfo(appUserId);
+    return customerInfo?.managementURL ?? null;
+};
+
+export const openRevenueCatManagementUrl = async (appUserId: string) => {
+    const managementUrl = await getRevenueCatManagementUrl(appUserId);
+
+    if (!managementUrl) {
+        return false;
+    }
+
+    await Linking.openURL(managementUrl);
+    return true;
 };

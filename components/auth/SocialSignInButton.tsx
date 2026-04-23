@@ -2,14 +2,14 @@ import React, { cloneElement, isValidElement, useCallback, useEffect, useMemo, u
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import AppleLogo from '@/assets/icons/apple_logo.svg';
-import { authClient } from '@/clients/auth-client';
+import { authClient, ensureAnonymousSession } from '@/clients/auth-client';
 
 type SocialProvider = 'google' | 'apple';
 
 interface SocialSignInButtonProps {
     provider: SocialProvider;
     label: string;
-    icon?: React.ReactElement;
+    icon?: React.ReactElement<{ width?: number; height?: number }>;
 }
 
 const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) => {
@@ -73,11 +73,19 @@ const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) 
         setLoading(true);
 
         try {
+            await ensureAnonymousSession().catch((error) => {
+                if (__DEV__) {
+                    console.warn('Anonymous session bootstrap failed before social sign-in', error);
+                }
+            });
+
             if (provider === 'google') {
                 const data = await authClient.signIn.social({
                     provider: 'google',
                     callbackURL: '/'
                 })
+
+                await authClient.getSession();
 
                 console.log(data)
 
@@ -100,16 +108,20 @@ const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) 
                     }
                 })
 
+                await authClient.getSession();
+
                 console.log(data)
 
                 return;
             }
 
             if (provider === 'apple') {
-                const data = await authClient.signIn.social({
+                await authClient.signIn.social({
                     provider: 'apple',
                     callbackURL: '/'
                 })
+
+                await authClient.getSession();
             }
         } catch (error) {
             console.warn(`${provider} sign-in failed`, error);

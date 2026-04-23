@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { Alert, Platform, StyleSheet, Text, View } from "react-native";
 import Purchases from "react-native-purchases";
 
+import LogInIcon from "@/assets/icons/log-in.svg";
 import LogOutIcon from "@/assets/icons/log-out.svg";
 import RepeatIcon from "@/assets/icons/repeat.svg";
 import EarthIcon from "@/assets/icons/earth.svg";
@@ -14,10 +15,13 @@ import {
     hasRevenueCatConfig,
     isReceiptAlreadyInUseRevenueCatError,
     isRevenueCatSupportedPlatform,
+    openRevenueCatManagementUrl,
 } from "@/clients/revenuecat";
+import { refreshSubscriptionState } from "@/clients/subscription-refresh";
 import GroupedList from "@/components/settings-modal/GroupedList";
 import SettingsButton from "@/components/settings-modal/SettingsButton";
 import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
+import { getSessionUserAuthState } from "@/utils/auth";
 
 const colors = {
     screenBackground: "#E1ECDD",
@@ -44,22 +48,40 @@ const getSubscriptionLinkedElsewhereMessage = (storeAccountLabel: string) => {
     return `This ${storeAccountLabel} account already has a S A P O subscription linked to another S A P O account. Please sign in to that account, or contact us for support at support@sapo.surf.`;
 };
 
+const getRestoreSyncPendingMessage = () => {
+    return "Your purchases were restored, but we could not finish syncing your subscription yet. Please try again in a moment.";
+};
+
 export default function SettingsModalScreen() {
     const router = useRouter();
     const { data: session, isPending } = authClient.useSession();
-    const userId = session?.user?.id ?? null;
+    const user = session?.user;
+    const authState = getSessionUserAuthState(user);
+    const isAuthenticatedUser = authState === "authenticated";
+    const userId = isAuthenticatedUser ? user?.id ?? null : null;
     const setHasActiveSubscription = useSubscriptionStatusStore(
         (state) => state.setHasActiveSubscription
     );
-    const [isProcessing, setIsProcessing] = useState(false);
+    const [isSigningOut, setIsSigningOut] = useState(false);
     const [isRestoringPurchases, setIsRestoringPurchases] = useState(false);
+    const [isManagingSubscription, setIsManagingSubscription] = useState(false);
     const canUseRevenueCat = hasRevenueCatConfig();
     const storeAccountLabel =
         Platform.OS === "android" ? "Google" : Platform.OS === "ios" ? "Apple" : "store";
+    const shouldShowAuthenticatedActions = isAuthenticatedUser || isSigningOut;
     const isRestorePurchasesDisabled =
         isPending ||
-        isProcessing ||
+        isSigningOut ||
+        isManagingSubscription ||
         isRestoringPurchases ||
+        !userId ||
+        !isRevenueCatSupportedPlatform ||
+        !canUseRevenueCat;
+    const isManageSubscriptionDisabled =
+        isPending ||
+        isSigningOut ||
+        isRestoringPurchases ||
+        isManagingSubscription ||
         !userId ||
         !isRevenueCatSupportedPlatform ||
         !canUseRevenueCat;
@@ -72,10 +94,14 @@ export default function SettingsModalScreen() {
         router.push("/settings-modal/data-controls");
     }, [router]);
 
+    const handleSignIn = useCallback(() => {
+        router.push("/auth");
+    }, [router]);
+
     const handleRestorePurchases = useCallback(async () => {
         if (
             isPending ||
-            isProcessing ||
+            isSigningOut ||
             isRestoringPurchases ||
             !userId ||
             !isRevenueCatSupportedPlatform ||
@@ -101,7 +127,17 @@ export default function SettingsModalScreen() {
             setHasActiveSubscription(isActive);
 
             if (isActive) {
-                Alert.alert("Purchases restored", "Your subscription is active on this account.");
+                try {
+                    await refreshSubscriptionState();
+                    Alert.alert("Purchases restored", "Your subscription is active on this account.");
+                } catch (error) {
+                    if (__DEV__) {
+                        console.warn("Failed to refresh subscription state after restore", error);
+                    }
+
+                    Alert.alert("Subscription syncing", getRestoreSyncPendingMessage());
+                }
+
                 return;
             }
 
@@ -123,27 +159,66 @@ export default function SettingsModalScreen() {
     }, [
         canUseRevenueCat,
         isPending,
-        isProcessing,
+        isSigningOut,
         isRestoringPurchases,
         setHasActiveSubscription,
         storeAccountLabel,
         userId,
     ]);
 
-    const handleSignOut = useCallback(async () => {
-        if (isPending || isProcessing || isRestoringPurchases) {
+    const handleManageSubscription = useCallback(async () => {
+        if (
+            isPending ||
+            isSigningOut ||
+            isRestoringPurchases ||
+            isManagingSubscription ||
+            !userId ||
+            !isRevenueCatSupportedPlatform ||
+            !canUseRevenueCat
+        ) {
             return;
         }
 
         try {
-            setIsProcessing(true);
+            setIsManagingSubscription(true);
+
+            const didOpenManagement = await openRevenueCatManagementUrl(userId);
+
+            if (!didOpenManagement) {
+                Alert.alert(
+                    "No active subscription",
+                    `We could not find an active ${storeAccountLabel} subscription to manage for this account.`
+                );
+            }
+        } catch (error) {
+            Alert.alert("Unable to open subscription settings", getErrorMessage(error));
+        } finally {
+            setIsManagingSubscription(false);
+        }
+    }, [
+        canUseRevenueCat,
+        isManagingSubscription,
+        isPending,
+        isRestoringPurchases,
+        isSigningOut,
+        storeAccountLabel,
+        userId,
+    ]);
+
+    const handleSignOut = useCallback(async () => {
+        if (isPending || isSigningOut || isRestoringPurchases || isManagingSubscription) {
+            return;
+        }
+
+        try {
+            setIsSigningOut(true);
             await authClient.signOut();
             router.dismissTo("/");
         } catch {
             Alert.alert("Something went wrong", "Unable to sign out. Please try again.");
-            setIsProcessing(false);
+            setIsSigningOut(false);
         }
-    }, [isPending, isProcessing, isRestoringPurchases, router]);
+    }, [isManagingSubscription, isPending, isRestoringPurchases, isSigningOut, router]);
 
     return (
         <View style={styles.container}>
@@ -157,10 +232,17 @@ export default function SettingsModalScreen() {
                         textColor={colors.primaryText}
                         iconColor={colors.primaryText}
                         chevronColor={colors.mutedChevron}
+                        disabled={isSigningOut}
                         onPress={handleOpenSubscription}
                     />
                     <SettingsButton
-                        text={isRestoringPurchases ? "Restoring purchases..." : "Restore purchases"}
+                        text={
+                            !shouldShowAuthenticatedActions
+                                ? "Sign in to restore purchases"
+                                : isRestoringPurchases
+                                  ? "Restoring purchases..."
+                                  : "Restore purchases"
+                        }
                         leftIcon={RepeatIcon}
                         textColor={colors.primaryText}
                         iconColor={colors.primaryText}
@@ -170,27 +252,58 @@ export default function SettingsModalScreen() {
                             void handleRestorePurchases();
                         }}
                     />
+                    <SettingsButton
+                        text={
+                            !shouldShowAuthenticatedActions
+                                ? "Sign in to manage subscription"
+                                : isManagingSubscription
+                                  ? "Opening subscription..."
+                                  : "Manage subscription"
+                        }
+                        leftIcon={SettingsIcon}
+                        textColor={colors.primaryText}
+                        iconColor={colors.primaryText}
+                        loading={isManagingSubscription}
+                        disabled={isManageSubscriptionDisabled}
+                        onPress={() => {
+                            void handleManageSubscription();
+                        }}
+                    />
                 </GroupedList>
             </View>
+            {shouldShowAuthenticatedActions ? (
+                <SettingsButton
+                    text="Data controls"
+                    leftIcon={SettingsIcon}
+                    showChevron
+                    backgroundColor={colors.accountButtonBackground}
+                    borderRadius={22}
+                    textColor={colors.primaryText}
+                    iconColor={colors.primaryText}
+                    chevronColor={colors.mutedChevron}
+                    disabled={isSigningOut}
+                    onPress={handleOpenDataControls}
+                />
+            ) : null}
             <SettingsButton
-                text="Data controls"
-                leftIcon={SettingsIcon}
-                showChevron
-                backgroundColor={colors.accountButtonBackground}
-                borderRadius={22}
+                text={
+                    !shouldShowAuthenticatedActions
+                        ? "Sign in"
+                        : isSigningOut
+                          ? "Logging out..."
+                          : "Log out"
+                }
+                leftIcon={shouldShowAuthenticatedActions ? LogOutIcon : LogInIcon}
                 textColor={colors.primaryText}
                 iconColor={colors.primaryText}
-                chevronColor={colors.mutedChevron}
-                onPress={handleOpenDataControls}
-            />
-            <SettingsButton
-                text={isProcessing ? "Logging out..." : "Log out"}
-                leftIcon={LogOutIcon}
-                textColor={colors.primaryText}
-                iconColor={colors.primaryText}
-                loading={isProcessing}
-                disabled={isPending || isProcessing || isRestoringPurchases}
+                loading={isSigningOut}
+                disabled={isPending || isSigningOut || isRestoringPurchases || isManagingSubscription}
                 onPress={() => {
+                    if (!shouldShowAuthenticatedActions) {
+                        handleSignIn();
+                        return;
+                    }
+
                     void handleSignOut();
                 }}
             />

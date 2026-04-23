@@ -14,10 +14,14 @@
       "usesAppleSignIn": true,
       "entitlements": {
         "com.apple.developer.applesignin": [
+          "Default",
           "Default"
         ]
       },
-      "buildNumber": "3"
+      "buildNumber": "3",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {

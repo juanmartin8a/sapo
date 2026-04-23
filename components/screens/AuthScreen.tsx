@@ -7,23 +7,25 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import ArrowLeftIcon from '@/assets/icons/arrow-left.svg';
 import { authClient } from '@/clients/auth-client';
+import { isAnonymousSessionUser } from '@/utils/auth';
 
 const AuthScreen = () => {
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const { data: session, isPending } = authClient.useSession()
+    const isAnonymousUser = isAnonymousSessionUser(session?.user)
 
     const handleGoBack = useCallback(() => {
         router.back();
     }, [router]);
 
     useEffect(() => {
-        if (isPending || !session) {
+        if (isPending || !session || isAnonymousUser) {
             return;
         }
 
         router.back();
-    }, [isPending, session, router]);
+    }, [isAnonymousUser, isPending, session, router]);
 
     return (
         <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>

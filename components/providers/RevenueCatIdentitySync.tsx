@@ -11,10 +11,13 @@ import {
     isRevenueCatSupportedPlatform,
 } from "@/clients/revenuecat";
 import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
+import { isAnonymousSessionUser } from "@/utils/auth";
 
 export default function RevenueCatIdentitySync() {
     const { data: session, isPending, refetch } = authClient.useSession();
-    const userId = session?.user?.id ?? null;
+    const user = session?.user;
+    const isAnonymousUser = isAnonymousSessionUser(user);
+    const userId = !isAnonymousUser ? user?.id ?? null : null;
     const setHasActiveSubscription = useSubscriptionStatusStore(
         (state) => state.setHasActiveSubscription
     );
@@ -195,6 +198,38 @@ export default function RevenueCatIdentitySync() {
             isCancelled = true;
         };
     }, [fallbackSubscriptionStatusOnError, isPending, setHasActiveSubscription, userId]);
+
+    useEffect(() => {
+        if (isPending || userId) {
+            return;
+        }
+
+        if (!isRevenueCatSupportedPlatform || !hasRevenueCatConfig()) {
+            return;
+        }
+
+        let isCancelled = false;
+
+        const logOutRevenueCatIdentity = async () => {
+            try {
+                if (!(await Purchases.isConfigured())) {
+                    return;
+                }
+
+                await Purchases.logOut();
+            } catch (error) {
+                if (__DEV__ && !isCancelled) {
+                    console.warn("RevenueCat logout failed", error);
+                }
+            }
+        };
+
+        void logOutRevenueCatIdentity();
+
+        return () => {
+            isCancelled = true;
+        };
+    }, [isPending, userId]);
 
     return null;
 }

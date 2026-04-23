@@ -25,6 +25,8 @@ import {
     isReceiptAlreadyInUseRevenueCatError,
     isRevenueCatSupportedPlatform,
 } from "@/clients/revenuecat";
+import { refreshSubscriptionState } from "@/clients/subscription-refresh";
+import { isAnonymousSessionUser } from "@/utils/auth";
 
 const getSubscriptionPackage = (packages: PurchasesPackage[]) => {
     if (packages.length === 0) {
@@ -139,9 +141,15 @@ const getSubscriptionLinkedElsewhereMessage = (storeAccountLabel: string) => {
     return `This ${storeAccountLabel} account already has a S A P O subscription linked to another S A P O account. Please sign in to that account, or contact us for support at support@sapo.surf.`;
 };
 
+const getSubscriptionSyncPendingMessage = () => {
+    return "The purchase was completed, but we could not finish syncing your subscription yet. Please restore purchases from Settings in a moment.";
+};
+
 export default function SubscriptionScreen() {
     const { data: session } = authClient.useSession();
-    const userId = session?.user?.id ?? null;
+    const user = session?.user;
+    const isAnonymousUser = isAnonymousSessionUser(user);
+    const userId = !isAnonymousUser ? user?.id ?? null : null;
     const [isLoadingSubscription, setIsLoadingSubscription] = useState(true);
     const [isPurchasing, setIsPurchasing] = useState(false);
     const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
@@ -345,7 +353,20 @@ export default function SubscriptionScreen() {
                 setHasActiveSubscription(hasActiveAfterLogin);
 
                 if (hasActiveAfterLogin) {
-                    Alert.alert("Subscription active", "Your SAPO subscription is already active on this account.");
+                    try {
+                        await refreshSubscriptionState();
+                        Alert.alert(
+                            "Subscription active",
+                            "Your SAPO subscription is already active on this account."
+                        );
+                    } catch (error) {
+                        if (__DEV__) {
+                            console.warn("Failed to refresh subscription state after login", error);
+                        }
+
+                        Alert.alert("Subscription syncing", getSubscriptionSyncPendingMessage());
+                    }
+
                     return;
                 }
             }
@@ -366,7 +387,17 @@ export default function SubscriptionScreen() {
             setHasActiveSubscription(isActive);
 
             if (isActive) {
-                Alert.alert("Subscription active", "Your SAPO subscription is now active.");
+                try {
+                    await refreshSubscriptionState();
+                    Alert.alert("Subscription active", "Your SAPO subscription is now active.");
+                } catch (error) {
+                    if (__DEV__) {
+                        console.warn("Failed to refresh subscription state after purchase", error);
+                    }
+
+                    Alert.alert("Subscription syncing", getSubscriptionSyncPendingMessage());
+                }
+
                 return;
             }
 

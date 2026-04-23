@@ -11,7 +11,7 @@ import Animated, {
 import { runOnJS } from 'react-native-worklets';
 import SideBar, { SIDEBAR_WIDTH } from "@/components/sidebar/Sidebar";
 import Translate from "@/components/home/Translate";
-import { useSidebarIsOpenNotifier, useTranslModeStore } from "@/stores";
+import { useSidebarIsOpenNotifier, useTransformationOperationStore } from "@/stores";
 import Header from "../header/Header";
 import TranslateButton from "../header/TranslateButton";
 import SidebarIcon from "../../assets/icons/sidebar.svg";
@@ -26,6 +26,8 @@ export default function Home() {
     const isAnimating = useSharedValue(false);
     const gestureStartX = useSharedValue(0);
 
+    const pos = useRef<number>(0);
+
     const [isSideBarPosAtStart, setIsSideBarPosAtStart] = useState(true);
     const pagerNativeGesture = useMemo(() => Gesture.Native(), []);
 
@@ -33,8 +35,8 @@ export default function Home() {
     const setOffset = usePagerPos(state => state.setOffset);
     const setPos = usePagerPos(state => state.setPos);
 
-    const mode = useTranslModeStore((state) => state.mode);
-    const modeText = mode.charAt(0).toUpperCase() + mode.slice(1);
+    const operation = useTransformationOperationStore((state) => state.operation);
+    const operationText = operation.charAt(0).toUpperCase() + operation.slice(1);
 
     const setSidebarStateJS = useCallback(
         (isOpen: boolean) => {
@@ -151,18 +153,32 @@ export default function Home() {
                                 rightComponent={<TranslateButton />}
                             />
                             <View style={{ backgroundColor: 'transparent', paddingHorizontal: 24, paddingTop: 0, paddingBottom: 3 }}>
-                                <Text style={styles.modeText}>{modeText + " " + (mode === 'translate' ? ':)' : '(:')}</Text>
+                                <Text style={styles.operationText}>{operationText + " " + (operation === 'translate' ? ':)' : '(:')}</Text>
                             </View>
                             <GestureDetector gesture={pagerNativeGesture}>
                                 <PagerView
                                     ref={pagerRef}
                                     style={styles.pagerView}
                                     initialPage={0}
+                                    onPageScrollStateChanged={(e) => {
+                                        if (e.nativeEvent.pageScrollState === 'idle') {
+                                            if (usePagerPos.getState().pos !== pos.current) {
+                                                setPos(pos.current)
+                                            }
+                                        }
+                                    }}
                                     scrollEnabled={true}
                                     overScrollMode="never"
+                                    keyboardDismissMode="on-drag"
                                     orientation="horizontal"
-                                    onPageScroll={(e) => setOffset(e.nativeEvent.offset)}
-                                    onPageSelected={(e) => setPos(e.nativeEvent.position)}
+                                    onPageScroll={
+                                        (e) => setOffset(e.nativeEvent.offset)
+                                    }
+                                    onPageSelected={
+                                        (e) => {
+                                            pos.current = e.nativeEvent.position
+                                        }
+                                    }
                                 >
                                     <View key="1" style={{ width: "100%", height: "100%" }}>
                                         <TextToTranslateInput />
@@ -207,7 +223,7 @@ const styles = StyleSheet.create({
     pagerView: {
         flex: 1,
     },
-    modeText: {
+    operationText: {
         fontSize: 13,
         lineHeight: 13,
         color: "#aaa",
