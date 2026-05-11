@@ -1,12 +1,10 @@
 import { Linking, Platform } from "react-native";
 import Purchases, { type CustomerInfo, type PurchasesError } from "react-native-purchases";
 
-const REVENUECAT_ANONYMOUS_ID_PREFIX = "$RCAnonymousID:";
-
 const iosRevenueCatApiKey = process.env.EXPO_PUBLIC_REVENUE_CAT_APPLE_API_KEY ?? "";
 const androidRevenueCatApiKey = process.env.EXPO_PUBLIC_REVENUE_CAT_GOOGLE_API_KEY ?? "";
 const iosSubscriptionProductId = process.env.EXPO_PUBLIC_IOS_SUBSCRIPTION_PRODUCT_ID ?? "";
-const androidSubscriptionProductId = process.env.EXPO_PUBLIC_ANDROID_SUBSCRIPTION_PRODUCT_ID ?? "";
+const androidSubscriptionProductId = process.env.EXPO_PUBLIC_ANDR_SUBSCRIPTION_PRODUCT_ID ?? "";
 
 export const revenueCatEntitlementId =
     process.env.EXPO_PUBLIC_REVENUE_CAT_ENTITLEMENT_ID ?? "";
@@ -53,7 +51,7 @@ export const hasActiveRevenueCatSubscription = (customerInfo: CustomerInfo) => {
         return customerInfo.activeSubscriptions.includes(configuredProductId);
     }
 
-    return Object.keys(customerInfo.entitlements.active).length > 0;
+    return false;
 };
 
 export const isReceiptAlreadyInUseRevenueCatError = (error: unknown) => {
@@ -109,10 +107,6 @@ export const configureRevenueCat = async (appUserId: string): Promise<boolean> =
     });
 
     return configurePromise;
-};
-
-export const isAnonymousRevenueCatUser = (appUserId: string) => {
-    return appUserId.startsWith(REVENUECAT_ANONYMOUS_ID_PREFIX);
 };
 
 export const getRevenueCatCustomerInfo = async (appUserId: string): Promise<CustomerInfo | null> => {

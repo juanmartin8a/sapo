@@ -1,23 +1,10 @@
-function readAnonymousFlag(user: unknown) {
+export function isAnonymousSessionUser(user: unknown) {
     if (typeof user !== "object" || user === null) {
         return false;
     }
 
     const record = user as Record<string, unknown>;
-
-    if (record.isAnonymous === true) {
-        return true;
-    }
-
-    if (typeof record.user !== "object" || record.user === null) {
-        return false;
-    }
-
-    return (record.user as { isAnonymous?: unknown }).isAnonymous === true;
-}
-
-export function isAnonymousSessionUser(user: unknown) {
-    return readAnonymousFlag(user);
+    return record.isAnonymous === true;
 }
 
 export function getSessionUserAuthState(user: unknown) {

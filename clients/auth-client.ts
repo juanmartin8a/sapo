@@ -22,21 +22,9 @@ type AuthSession = (typeof authClient)["$Infer"]["Session"];
 
 let anonymousSessionPromise: Promise<AuthSession> | null = null;
 
-function readSessionData(result: unknown): AuthSession | null {
-    if (typeof result !== "object" || result === null) {
-        return null;
-    }
-
-    if ("data" in result) {
-        const data = (result as { data?: unknown }).data;
-        return typeof data === "object" && data !== null ? (data as AuthSession) : null;
-    }
-
-    return result as AuthSession;
-}
-
 async function getCurrentSession() {
-    return readSessionData(await authClient.getSession());
+    const { data } = await authClient.getSession();
+    return data;
 }
 
 export async function signInAnonymously() {

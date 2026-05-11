@@ -199,37 +199,5 @@ export default function RevenueCatIdentitySync() {
         };
     }, [fallbackSubscriptionStatusOnError, isPending, setHasActiveSubscription, userId]);
 
-    useEffect(() => {
-        if (isPending || userId) {
-            return;
-        }
-
-        if (!isRevenueCatSupportedPlatform || !hasRevenueCatConfig()) {
-            return;
-        }
-
-        let isCancelled = false;
-
-        const logOutRevenueCatIdentity = async () => {
-            try {
-                if (!(await Purchases.isConfigured())) {
-                    return;
-                }
-
-                await Purchases.logOut();
-            } catch (error) {
-                if (__DEV__ && !isCancelled) {
-                    console.warn("RevenueCat logout failed", error);
-                }
-            }
-        };
-
-        void logOutRevenueCatIdentity();
-
-        return () => {
-            isCancelled = true;
-        };
-    }, [isPending, userId]);
-
     return null;
 }

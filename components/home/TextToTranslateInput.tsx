@@ -6,6 +6,10 @@ import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+const trimTextToLimit = (text: string, limit: number) => {
+    return Array.from(text).slice(0, limit).join("")
+}
+
 const TextToTranslateInput = () => {
     const textInputRef = useRef<TextInput>(null);
     const text = useTextToTranslateStore((state) => state.text)
@@ -16,15 +20,20 @@ const TextToTranslateInput = () => {
     const scrollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [tapStoppedScroll, setTapStoppedScroll] = useState(false)
     const hasAlertedRef = useRef(false)
-    const inputLimit = hasActiveSubscription ? (operation === "respell" ? 300 : 1000) : 10
-    const isLimitReached = text.length >= inputLimit
+    const inputLimit = hasActiveSubscription === false ? 10 : (operation === "respell" ? 300 : 1000)
+    const textLength = Array.from(text).length
+    const isLimitReached = textLength >= inputLimit
     const insets = useSafeAreaInsets()
 
+    const handleChangeText = (nextText: string) => {
+        setText(Array.from(nextText).length > inputLimit ? trimTextToLimit(nextText, inputLimit) : nextText)
+    }
+
     useEffect(() => {
-        if (text.length > inputLimit) {
-            setText(text.slice(0, inputLimit))
+        if (textLength > inputLimit) {
+            setText(trimTextToLimit(text, inputLimit))
         }
-    }, [inputLimit, setText, text])
+    }, [inputLimit, setText, text, textLength])
 
     useEffect(() => {
         if (isLimitReached && !hasAlertedRef.current) {
@@ -64,7 +73,7 @@ const TextToTranslateInput = () => {
                 style={[styles.textInput]}
                 multiline
                 value={text}
-                onChangeText={setText}
+                onChangeText={handleChangeText}
                 placeholder="Type something..."
                 placeholderTextColor="#aaa"
                 returnKeyType="done"
@@ -83,7 +92,6 @@ const TextToTranslateInput = () => {
                 }}
                 submitBehavior="blurAndSubmit"
                 onSubmitEditing={() => Keyboard.dismiss()}
-                maxLength={inputLimit}
                 editable={((!isTextInputScrolling && !tapStoppedScroll) || Keyboard.isVisible())}// && isSideBarPosAtStart}
             />
         </KeyboardAvoidingView>

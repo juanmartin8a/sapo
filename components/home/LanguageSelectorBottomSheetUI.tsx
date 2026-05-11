@@ -1,7 +1,5 @@
 import BottomSheet, { BottomSheetFlatList } from "@gorhom/bottom-sheet";
-import { Text, TouchableOpacity } from "react-native";
-import { View } from "react-native";
-import { StyleSheet } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import CheckIcon from "@/assets/icons/check.svg";
 import React from "react";
@@ -36,9 +34,10 @@ const LangugeSelectorBottomSheetUI = ({ ref, data, selectedIndex, onClose, onCha
         >
             <BottomSheetFlatList
                 data={data}
-                keyExtractor={([key]) => key}
+                keyExtractor={(item: [string, string]) => item[0]}
                 ItemSeparatorComponent={() => <View style={{ height: 12 }}></View>}
-                renderItem={({ item: [key, value] }) => {
+                renderItem={({ item }: { item: [string, string] }) => {
+                    const [key, value] = item;
                     const index = parseInt(key);
                     const isSelected = index === selectedIndex;
 

@@ -1,5 +1,5 @@
 import React, { cloneElement, isValidElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import AppleLogo from '@/assets/icons/apple_logo.svg';
 import { authClient, ensureAnonymousSession } from '@/clients/auth-client';
@@ -11,6 +11,15 @@ interface SocialSignInButtonProps {
     label: string;
     icon?: React.ReactElement<{ width?: number; height?: number }>;
 }
+
+const assertSocialSignInSucceeded = (
+    result: Awaited<ReturnType<typeof authClient.signIn.social>>,
+    provider: SocialProvider
+) => {
+    if (result.error) {
+        throw new Error(result.error.message ?? `${provider} sign-in failed`);
+    }
+};
 
 const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) => {
     const isApple = provider === 'apple';
@@ -67,7 +76,6 @@ const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) 
     }, [icon, isApple]);
 
     const shouldUseNativeAppleAuth = isApple && isNativeAppleAuthAvailable;
-    console.log("use apple native auth: ", shouldUseNativeAppleAuth)
 
     const handlePress = useCallback(async () => {
         setLoading(true);
@@ -80,15 +88,13 @@ const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) 
             });
 
             if (provider === 'google') {
-                const data = await authClient.signIn.social({
+                const result = await authClient.signIn.social({
                     provider: 'google',
                     callbackURL: '/'
                 })
 
+                assertSocialSignInSucceeded(result, provider);
                 await authClient.getSession();
-
-                console.log(data)
-
 
                 return;
             }
@@ -101,30 +107,38 @@ const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) 
                     ],
                 });
 
-                const data = await authClient.signIn.social({
+                if (!credential.identityToken) {
+                    throw new Error('Apple sign-in did not return an identity token');
+                }
+
+                const result = await authClient.signIn.social({
                     provider: 'apple',
                     idToken: {
-                        token: credential.identityToken!,
+                        token: credential.identityToken,
                     }
                 })
 
+                assertSocialSignInSucceeded(result, provider);
                 await authClient.getSession();
-
-                console.log(data)
 
                 return;
             }
 
             if (provider === 'apple') {
-                await authClient.signIn.social({
+                const result = await authClient.signIn.social({
                     provider: 'apple',
                     callbackURL: '/'
                 })
 
+                assertSocialSignInSucceeded(result, provider);
                 await authClient.getSession();
             }
         } catch (error) {
-            console.warn(`${provider} sign-in failed`, error);
+            if (__DEV__) {
+                console.warn(`${provider} sign-in failed`, error);
+            }
+
+            Alert.alert('Sign-in failed', 'Please try again.');
         } finally {
             setLoading(false);
         }

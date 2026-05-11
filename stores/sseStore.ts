@@ -2,9 +2,11 @@ import { fetch as expoFetch } from "expo/fetch";
 import { create } from "zustand";
 
 import { getConvexAccessToken } from "@/clients/auth-client";
+import { refreshSubscriptionState } from "@/clients/subscription-refresh";
 import { languages, languagesPlusAutoDetect } from "@/constants/languages";
 import useLanguageSelectorBottomSheetNotifier from "./languageSelectionNotifierStore";
 import usePagerPos from "./pagerPosStore";
+import useSubscriptionStatusStore from "./subscriptionStatusStore";
 import useTransformationOperationStore, {
     TransformationOperation,
 } from "./transformationOperationStore";
@@ -20,6 +22,89 @@ function wait(milliseconds: number) {
     return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+type ActiveStreamStopSnapshot = {
+    abortController: AbortController | null;
+    streamId: string | null;
+    operation: TransformationOperation | null;
+    convexToken: string | null;
+};
+
+async function requestSapopinguinoStreamStop(snapshot: ActiveStreamStopSnapshot) {
+    if (!snapshot.streamId || !snapshot.operation) {
+        return;
+    }
+
+    const stopDeadline = Date.now() + STOP_ABORT_GRACE_MS;
+
+    while (true) {
+        const remainingStopWindowMs = stopDeadline - Date.now();
+        if (remainingStopWindowMs <= 0) {
+            return;
+        }
+
+        const stopRequestAbortController = new AbortController();
+        const stopRequestTimeoutId = setTimeout(() => {
+            stopRequestAbortController.abort();
+        }, remainingStopWindowMs);
+
+        try {
+            const convexSiteUrl = process.env.EXPO_PUBLIC_CONVEX_SITE_URL;
+            if (!convexSiteUrl) {
+                console.error("Missing EXPO_PUBLIC_CONVEX_SITE_URL for stop request");
+                return;
+            }
+
+            const convexToken = snapshot.convexToken
+                ?? (await getConvexAccessToken({ ensureAnonymousSession: true }));
+
+            if (!convexToken) {
+                console.error("[sseStore] Failed to get Convex auth token for stop request");
+                return;
+            }
+
+            const stopUrl = `${convexSiteUrl.replace(/\/$/, "")}${STREAM_STOP_ENDPOINT_PATH}`;
+            const response = await expoFetch(stopUrl, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${convexToken}`,
+                },
+                body: JSON.stringify({
+                    streamId: snapshot.streamId,
+                    operation: snapshot.operation,
+                }),
+                signal: stopRequestAbortController.signal,
+            });
+
+            if (response.ok) {
+                return;
+            }
+
+            if (response.status !== 409 || Date.now() >= stopDeadline) {
+                console.error(
+                    `[sseStore] Stop request failed status=${response.status} streamId=${snapshot.streamId}`
+                );
+                return;
+            }
+        } catch (error) {
+            if ((error as Error).name === "AbortError") {
+                return;
+            }
+
+            console.error("[sseStore] Failed to request intentional stop:", error);
+            return;
+        } finally {
+            clearTimeout(stopRequestTimeoutId);
+        }
+
+        if (Date.now() >= stopDeadline) {
+            return;
+        }
+
+        await wait(STOP_REQUEST_RETRY_MS);
+    }
+}
+
 interface Token {
     type: string;
     input?: string;
@@ -31,6 +116,7 @@ interface Token {
 interface SseState {
     tokens: Map<number, Token>;
     streamError: boolean;
+    streamErrorMessage: string | null;
     abortController: AbortController | null;
     activeStreamId: string | null;
     activeStreamOperation: TransformationOperation | null;
@@ -115,6 +201,56 @@ function parseSSEEvent(rawEvent: string): { event: string | null; data: string |
     };
 }
 
+function getStreamErrorMessageFromCode(errorCode: string | null, status: number) {
+    if (errorCode === "monthly_limit_exceeded" || status === 429) {
+        return "Quota limit reached.";
+    }
+
+    if (errorCode === "input_limit_exceeded") {
+        return "Input limit reached.";
+    }
+
+    if (errorCode === "user_deletion_in_progress") {
+        return "Account deletion is in progress.";
+    }
+
+    return "An error occurred";
+}
+
+function resolveStreamErrorMessage(responseText: string, status: number) {
+    if (responseText.trim().length === 0) {
+        return getStreamErrorMessageFromCode(null, status);
+    }
+
+    try {
+        const parsedResponse = JSON.parse(responseText) as unknown;
+
+        if (typeof parsedResponse === "object" && parsedResponse !== null) {
+            const typedResponse = parsedResponse as { error?: unknown; message?: unknown };
+
+            if (typeof typedResponse.message === "string" && typedResponse.message.trim().length > 0) {
+                return typedResponse.message.trim();
+            }
+
+            if (typeof typedResponse.error === "string") {
+                return getStreamErrorMessageFromCode(typedResponse.error, status);
+            }
+        }
+    } catch {
+        return getStreamErrorMessageFromCode(null, status);
+    }
+
+    return getStreamErrorMessageFromCode(null, status);
+}
+
+async function readStreamErrorMessage(response: Response) {
+    try {
+        return resolveStreamErrorMessage(await response.text(), response.status);
+    } catch {
+        return getStreamErrorMessageFromCode(null, response.status);
+    }
+}
+
 const useSseStore = create<SseState>((set, get) => {
     const setTranslateButtonState = (nextState: translateButtonState) => {
         const { state, switchState } = useTranslateButtonStateNotifier.getState();
@@ -126,6 +262,36 @@ const useSseStore = create<SseState>((set, get) => {
     const setIdleTranslateButtonState = () => {
         const pagerPos = usePagerPos.getState().pos;
         setTranslateButtonState(pagerPos === 1 ? "repeat" : "next");
+    };
+
+    const getActiveStreamStopSnapshot = (): ActiveStreamStopSnapshot => {
+        const { abortController, activeStreamId, activeStreamOperation, activeConvexToken } = get();
+
+        return {
+            abortController,
+            streamId: activeStreamId,
+            operation: activeStreamOperation,
+            convexToken: activeConvexToken,
+        };
+    };
+
+    const requestStopThenAbortStream = (snapshot: ActiveStreamStopSnapshot) => {
+        void (async () => {
+            try {
+                await requestSapopinguinoStreamStop(snapshot);
+            } finally {
+                if (snapshot.abortController) {
+                    snapshot.abortController.abort();
+                }
+
+                if (get().abortController === snapshot.abortController) {
+                    set({
+                        abortController: null,
+                        activeConvexToken: null,
+                    });
+                }
+            }
+        })();
     };
 
     const appendToken = (token: Token) => {
@@ -155,6 +321,7 @@ const useSseStore = create<SseState>((set, get) => {
     return {
         tokens: new Map<number, Token>(),
         streamError: false,
+        streamErrorMessage: null,
         abortController: null,
         activeStreamId: null,
         activeStreamOperation: null,
@@ -163,10 +330,7 @@ const useSseStore = create<SseState>((set, get) => {
         lastTranslation: null,
 
         disconnectStream: () => {
-            const { abortController } = get();
-            if (abortController) {
-                abortController.abort();
-            }
+            const streamSnapshot = getActiveStreamStopSnapshot();
 
             set({
                 abortController: null,
@@ -175,6 +339,8 @@ const useSseStore = create<SseState>((set, get) => {
                 activeConvexToken: null,
                 isStreaming: false,
             });
+
+            requestStopThenAbortStream(streamSnapshot);
         },
 
         sendMessage: async (input: string) => {
@@ -198,15 +364,16 @@ const useSseStore = create<SseState>((set, get) => {
 
             setTranslateButtonState("loading");
 
-            const previousController = get().abortController;
-            if (previousController) {
-                previousController.abort();
+            const previousStreamSnapshot = getActiveStreamStopSnapshot();
+            if (previousStreamSnapshot.abortController) {
+                requestStopThenAbortStream(previousStreamSnapshot);
             }
 
             if (!convexSiteUrl) {
                 console.error("Missing EXPO_PUBLIC_CONVEX_SITE_URL for SSE request");
                 set({
                     streamError: true,
+                    streamErrorMessage: "An error occurred",
                     abortController: null,
                     activeStreamId: null,
                     activeStreamOperation: null,
@@ -225,14 +392,17 @@ const useSseStore = create<SseState>((set, get) => {
                 input,
             });
 
-            console.log(
-                `[sseStore] Starting stream request operation=${operation} endpoint=${endpointPath}`
-            );
+            if (__DEV__) {
+                console.log(
+                    `[sseStore] Starting stream request operation=${operation} endpoint=${endpointPath}`
+                );
+            }
 
             set({
                 lastTranslation: { inputLanguage, targetLanguage, input },
                 tokens: new Map<number, Token>(),
                 streamError: false,
+                streamErrorMessage: null,
                 abortController,
                 activeStreamId: streamId,
                 activeStreamOperation: operation,
@@ -243,9 +413,21 @@ const useSseStore = create<SseState>((set, get) => {
             const isActiveRequest = () =>
                 get().abortController === abortController && get().activeStreamId === streamId;
 
-            const markStreamError = () => {
-                set({ streamError: true });
+            const markStreamError = (message = "An error occurred") => {
+                set({ streamError: true, streamErrorMessage: message });
                 setIdleTranslateButtonState();
+            };
+
+            const markStreamEventError = (payload: string | null) => {
+                if (!payload || payload === STREAM_ERROR_MARKER) {
+                    markStreamError();
+                    return;
+                }
+
+                const resolvedMessage = resolveStreamErrorMessage(payload, 500);
+                markStreamError(
+                    resolvedMessage === "An error occurred" ? payload.trim() : resolvedMessage
+                );
             };
 
             const processTokenPayload = (payload: string): "continue" | "stop" => {
@@ -293,6 +475,18 @@ const useSseStore = create<SseState>((set, get) => {
                     return;
                 }
 
+                if (useSubscriptionStatusStore.getState().hasActiveSubscription === true) {
+                    await refreshSubscriptionState().catch((error) => {
+                        if (__DEV__) {
+                            console.warn("Failed to refresh subscription state before stream request", error);
+                        }
+                    });
+
+                    if (!isActiveRequest()) {
+                        return;
+                    }
+                }
+
                 set({ activeConvexToken: convexToken });
 
                 const response = await expoFetch(streamUrl, {
@@ -308,10 +502,12 @@ const useSseStore = create<SseState>((set, get) => {
 
                 if (!response.ok) {
                     if (isActiveRequest()) {
+                        const errorMessage = await readStreamErrorMessage(response);
+
                         console.error(
                             `[sseStore] Stream request failed status=${response.status} endpoint=${endpointPath}`
                         );
-                        markStreamError();
+                        markStreamError(errorMessage);
                     }
                     return;
                 }
@@ -336,7 +532,7 @@ const useSseStore = create<SseState>((set, get) => {
                             }
 
                             if (event === "error") {
-                                markStreamError();
+                                markStreamEventError(data);
                                 return;
                             }
 
@@ -355,7 +551,7 @@ const useSseStore = create<SseState>((set, get) => {
                             const { event, data } = parseSSEEvent(remainder);
                             if (data !== null) {
                                 if (event === "error") {
-                                    markStreamError();
+                                    markStreamEventError(data);
                                     return;
                                 }
 
@@ -419,7 +615,7 @@ const useSseStore = create<SseState>((set, get) => {
                             }
 
                             if (event === "error") {
-                                markStreamError();
+                                markStreamEventError(data);
                                 return;
                             }
 
@@ -439,7 +635,7 @@ const useSseStore = create<SseState>((set, get) => {
                         const { event, data } = parseSSEEvent(eventBuffer);
                         if (data !== null) {
                             if (event === "error") {
-                                markStreamError();
+                                markStreamEventError(data);
                                 return;
                             }
 
@@ -520,119 +716,27 @@ const useSseStore = create<SseState>((set, get) => {
         },
 
         stopStream: () => {
-            const { abortController, activeStreamId, activeStreamOperation, activeConvexToken } = get();
-
-            const requestStop = async () => {
-                if (!activeStreamId || !activeStreamOperation) {
-                    return;
-                }
-
-                const stopDeadline = Date.now() + STOP_ABORT_GRACE_MS;
-
-                while (true) {
-                    const remainingStopWindowMs = stopDeadline - Date.now();
-                    if (remainingStopWindowMs <= 0) {
-                        return;
-                    }
-
-                    const stopRequestAbortController = new AbortController();
-                    const stopRequestTimeoutId = setTimeout(() => {
-                        stopRequestAbortController.abort();
-                    }, remainingStopWindowMs);
-
-                    try {
-                        const convexSiteUrl = process.env.EXPO_PUBLIC_CONVEX_SITE_URL;
-                        if (!convexSiteUrl) {
-                            console.error("Missing EXPO_PUBLIC_CONVEX_SITE_URL for stop request");
-                            return;
-                        }
-
-                        const convexToken = activeConvexToken
-                            ?? (await getConvexAccessToken({ ensureAnonymousSession: true }));
-
-                        if (!convexToken) {
-                            console.error("[sseStore] Failed to get Convex auth token for stop request");
-                            return;
-                        }
-
-                        const stopUrl = `${convexSiteUrl.replace(/\/$/, "")}${STREAM_STOP_ENDPOINT_PATH}`;
-                        const response = await expoFetch(stopUrl, {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/json",
-                                Authorization: `Bearer ${convexToken}`,
-                            },
-                            body: JSON.stringify({
-                                streamId: activeStreamId,
-                                operation: activeStreamOperation,
-                            }),
-                            signal: stopRequestAbortController.signal,
-                        });
-
-                        if (response.ok) {
-                            return;
-                        }
-
-                        if (response.status !== 409 || Date.now() >= stopDeadline) {
-                            console.error(
-                                `[sseStore] Stop request failed status=${response.status} streamId=${activeStreamId}`
-                            );
-                            return;
-                        }
-                    } catch (error) {
-                        if ((error as Error).name === "AbortError") {
-                            return;
-                        }
-
-                        console.error("[sseStore] Failed to request intentional stop:", error);
-                        return;
-                    } finally {
-                        clearTimeout(stopRequestTimeoutId);
-                    }
-
-                    if (Date.now() >= stopDeadline) {
-                        return;
-                    }
-
-                    await wait(STOP_REQUEST_RETRY_MS);
-                }
-            };
+            const streamSnapshot = getActiveStreamStopSnapshot();
 
             setIdleTranslateButtonState();
             set({
                 streamError: false,
+                streamErrorMessage: null,
                 activeStreamId: null,
                 activeStreamOperation: null,
                 isStreaming: false,
             });
 
-            void (async () => {
-                try {
-                    await requestStop();
-                } finally {
-                    if (abortController) {
-                        abortController.abort();
-                    }
-
-                    if (get().abortController === abortController) {
-                        set({
-                            abortController: null,
-                            activeConvexToken: null,
-                        });
-                    }
-                }
-            })();
+            requestStopThenAbortStream(streamSnapshot);
         },
 
         reset: () => {
-            const { abortController } = get();
-            if (abortController) {
-                abortController.abort();
-            }
+            const streamSnapshot = getActiveStreamStopSnapshot();
 
             set({
                 tokens: new Map<number, Token>(),
                 streamError: false,
+                streamErrorMessage: null,
                 abortController: null,
                 activeStreamId: null,
                 activeStreamOperation: null,
@@ -640,6 +744,8 @@ const useSseStore = create<SseState>((set, get) => {
                 isStreaming: false,
                 lastTranslation: null,
             });
+
+            requestStopThenAbortStream(streamSnapshot);
         },
     };
 });

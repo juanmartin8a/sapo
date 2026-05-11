@@ -32,6 +32,8 @@ const TranslateButton = () => {
                 repeatLastTranslation();
             } else if (translateButtonState === 'stop') {
                 stopStream();
+            } else if (text.trim().length === 0) {
+                return;
             } else {
                 sendMessage(
                     text
@@ -40,11 +42,11 @@ const TranslateButton = () => {
 
             goToPage(1);
         }
-    }, [translateButtonState, text]);
+    }, [repeatLastTranslation, sendMessage, stopStream, translateButtonState, text, goToPage]);
 
 
     return (
-        <Pressable onPress={next}>
+        <Pressable onPress={next} disabled={translateButtonState === 'next' && text.trim().length === 0}>
             <View style={{ padding: 6 }}>
                 {(translateButtonState === 'next' || translateButtonState === 'repeat') &&
                     <View style={{ position: 'relative', width: 32, height: 32 }}>

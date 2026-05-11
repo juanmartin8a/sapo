@@ -32,6 +32,16 @@ export default function DataControlsScreen() {
     const userId = isAuthenticatedUser ? user?.id ?? null : null;
     const [isProcessing, setIsProcessing] = useState(false);
 
+    const requestAccountDeletion = useCallback(async () => {
+        const result = await authClient.deleteUser({
+            callbackURL: "/",
+        });
+
+        if (result.error) {
+            throw new Error(result.error.message ?? "Unable to delete the account.");
+        }
+    }, []);
+
     const handleDeleteAccount = useCallback(async () => {
         if (isPending || !canDeleteAccount || isProcessing) {
             return;
@@ -74,23 +84,21 @@ export default function DataControlsScreen() {
                     onPress: async () => {
                         try {
                             setIsProcessing(true);
-                            await authClient.deleteUser({
-                                callbackURL: "/",
-                            });
-                            setIsProcessing(false);
+                            await requestAccountDeletion();
                             Alert.alert(
                                 "Check your email",
                                 "We sent a verification link to confirm account deletion."
                             );
                         } catch {
-                            setIsProcessing(false);
                             Alert.alert("Something went wrong", "Unable to delete the account. Please try again.");
+                        } finally {
+                            setIsProcessing(false);
                         }
                     },
                 },
             ]
         );
-    }, [canDeleteAccount, isPending, isProcessing, userId]);
+    }, [canDeleteAccount, isPending, isProcessing, requestAccountDeletion, userId]);
 
     return (
         <View style={styles.container}>

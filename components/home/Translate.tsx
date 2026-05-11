@@ -14,6 +14,7 @@ export default function Translate() {
     const {
         tokens,
         streamError,
+        streamErrorMessage,
         disconnectStream,
     } = useSseStore();
 
@@ -32,9 +33,8 @@ export default function Translate() {
         const lastToken = tokenArray[tokenArray.length - 1]?.[1]
 
         if (lastToken?.type === 'word' || lastToken?.type === "translate") {
-            if (sapoMouthOpen) {
+            if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current);
-                setSapoMouthOpen(false);
             }
 
             setSapoMouthOpen(true);
@@ -50,7 +50,7 @@ export default function Translate() {
         return () => {
             disconnectStream();
         };
-    }, []);
+    }, [disconnectStream]);
 
     const onTextLayout = (e: NativeSyntheticEvent<TextLayoutEventData>) => {
         const newLines = e.nativeEvent.lines.map((ln) => ({
@@ -76,7 +76,7 @@ export default function Translate() {
             <View style={styles.container}>
                 <View style={styles.textContainer}>
                     {streamError ? (
-                        <Text style={styles.errorText}>An error occurred </Text>
+                        <Text style={styles.errorText}>{streamErrorMessage ?? "An error occurred"}</Text>
                     ) : (
                         <Text
                             onTextLayout={onTextLayout}

@@ -37,6 +37,16 @@ const Settings = () => {
     const [isProcessing, setIsProcessing] = useState(false);
     const router = useRouter();
 
+    const requestAccountDeletion = useCallback(async () => {
+        const result = await authClient.deleteUser({
+            callbackURL: '/',
+        });
+
+        if (result.error) {
+            throw new Error(result.error.message ?? 'Unable to delete the account.');
+        }
+    }, []);
+
     const handleGoBack = useCallback(() => {
         router.back();
     }, [router]);
@@ -83,23 +93,21 @@ const Settings = () => {
                     onPress: async () => {
                         try {
                             setIsProcessing(true);
-                            await authClient.deleteUser({
-                                callbackURL: '/'
-                            });
-                            setIsProcessing(false);
+                            await requestAccountDeletion();
                             Alert.alert(
                                 'Check your email',
                                 'We sent a verification link to confirm account deletion.'
                             );
                         } catch {
-                            setIsProcessing(false);
                             Alert.alert('Something went wrong', 'Unable to delete the account. Please try again.');
+                        } finally {
+                            setIsProcessing(false);
                         }
                     },
                 },
             ]
         );
-    }, [canDeleteAccount, isProcessing, isPending, userId]);
+    }, [canDeleteAccount, isProcessing, isPending, requestAccountDeletion, userId]);
 
     return (
         <View style={styles.container}>

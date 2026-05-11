@@ -25,7 +25,11 @@ import {
     isReceiptAlreadyInUseRevenueCatError,
     isRevenueCatSupportedPlatform,
 } from "@/clients/revenuecat";
-import { refreshSubscriptionState } from "@/clients/subscription-refresh";
+import {
+    refreshSubscriptionState,
+    refreshSubscriptionStateAfterRevenueCatUpdate,
+    retrySubscriptionStateAfterRevenueCatUpdateInBackground,
+} from "@/clients/subscription-refresh";
 import { isAnonymousSessionUser } from "@/utils/auth";
 
 const getSubscriptionPackage = (packages: PurchasesPackage[]) => {
@@ -142,7 +146,15 @@ const getSubscriptionLinkedElsewhereMessage = (storeAccountLabel: string) => {
 };
 
 const getSubscriptionSyncPendingMessage = () => {
-    return "The purchase was completed, but we could not finish syncing your subscription yet. Please restore purchases from Settings in a moment.";
+    return "Your purchase is active. We are still syncing it to SAPO and will keep trying automatically.";
+};
+
+const retryRevenueCatUpdateSyncInBackground = () => {
+    void retrySubscriptionStateAfterRevenueCatUpdateInBackground().catch((error) => {
+        if (__DEV__) {
+            console.warn("Background subscription sync retry failed", error);
+        }
+    });
 };
 
 export default function SubscriptionScreen() {
@@ -347,24 +359,38 @@ export default function SubscriptionScreen() {
 
             if (currentAppUserId !== userId) {
                 const loggedInCustomerInfo = (await Purchases.logIn(userId)).customerInfo;
-                const hasActiveAfterLogin = hasActiveRevenueCatSubscription(loggedInCustomerInfo);
+                const hasActiveClientSubscriptionAfterLogin = hasActiveRevenueCatSubscription(loggedInCustomerInfo);
+                let hasActiveServerSubscriptionAfterLogin = false;
+                let loginRefreshFailed = false;
+
+                try {
+                    const refreshResult = hasActiveClientSubscriptionAfterLogin
+                        ? await refreshSubscriptionStateAfterRevenueCatUpdate()
+                        : await refreshSubscriptionState();
+                    hasActiveServerSubscriptionAfterLogin = refreshResult?.has_active_subscription === true;
+                } catch (error) {
+                    loginRefreshFailed = true;
+
+                    if (__DEV__) {
+                        console.warn("Failed to refresh subscription state after login", error);
+                    }
+                }
+
+                const hasActiveAfterLogin =
+                    hasActiveClientSubscriptionAfterLogin || hasActiveServerSubscriptionAfterLogin;
 
                 setIsSubscriptionLinkedElsewhere(false);
                 setHasActiveSubscription(hasActiveAfterLogin);
 
                 if (hasActiveAfterLogin) {
-                    try {
-                        await refreshSubscriptionState();
+                    if (loginRefreshFailed) {
+                        retryRevenueCatUpdateSyncInBackground();
+                        Alert.alert("Subscription active", getSubscriptionSyncPendingMessage());
+                    } else {
                         Alert.alert(
                             "Subscription active",
                             "Your SAPO subscription is already active on this account."
                         );
-                    } catch (error) {
-                        if (__DEV__) {
-                            console.warn("Failed to refresh subscription state after login", error);
-                        }
-
-                        Alert.alert("Subscription syncing", getSubscriptionSyncPendingMessage());
                     }
 
                     return;
@@ -381,21 +407,34 @@ export default function SubscriptionScreen() {
                 return;
             }
 
-            const isActive = hasActiveRevenueCatSubscription(customerInfo);
+            const hasActiveClientSubscription = hasActiveRevenueCatSubscription(customerInfo);
+            let hasActiveServerSubscription = false;
+            let purchaseRefreshFailed = false;
+
+            try {
+                const refreshResult = hasActiveClientSubscription
+                    ? await refreshSubscriptionStateAfterRevenueCatUpdate()
+                    : await refreshSubscriptionState();
+                hasActiveServerSubscription = refreshResult?.has_active_subscription === true;
+            } catch (error) {
+                purchaseRefreshFailed = true;
+
+                if (__DEV__) {
+                    console.warn("Failed to refresh subscription state after purchase", error);
+                }
+            }
+
+            const isActive = hasActiveClientSubscription || hasActiveServerSubscription;
 
             setIsSubscriptionLinkedElsewhere(false);
             setHasActiveSubscription(isActive);
 
             if (isActive) {
-                try {
-                    await refreshSubscriptionState();
+                if (purchaseRefreshFailed) {
+                    retryRevenueCatUpdateSyncInBackground();
+                    Alert.alert("Subscription active", getSubscriptionSyncPendingMessage());
+                } else {
                     Alert.alert("Subscription active", "Your SAPO subscription is now active.");
-                } catch (error) {
-                    if (__DEV__) {
-                        console.warn("Failed to refresh subscription state after purchase", error);
-                    }
-
-                    Alert.alert("Subscription syncing", getSubscriptionSyncPendingMessage());
                 }
 
                 return;
@@ -461,11 +500,11 @@ export default function SubscriptionScreen() {
                 <View style={styles.featureList}>
                     <View style={styles.featureRow}>
                         <CheckIcon width={18} height={18} stroke="#000" style={styles.featureIcon} />
-                        <Text style={styles.featureText}>5,000 respelled words</Text>
+                        <Text style={styles.featureText}>6,000 respell input characters</Text>
                     </View>
                     <View style={styles.featureRow}>
                         <CheckIcon width={18} height={18} stroke="#000" style={styles.featureIcon} />
-                        <Text style={styles.featureText}>20,000 translated words</Text>
+                        <Text style={styles.featureText}>500,000 translate input characters</Text>
                     </View>
                 </View>
 
