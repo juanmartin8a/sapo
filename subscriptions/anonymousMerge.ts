@@ -3,8 +3,6 @@ import {
     type SubscriptionWindow,
 } from "./subscriptionWindows";
 
-export type AnonymousMergeOperation = "translate" | "respell";
-
 export type AnonymousMergeStateLike = {
     plan_key: "free" | "polyglot";
     has_active_subscription: boolean;
@@ -12,8 +10,6 @@ export type AnonymousMergeStateLike = {
     billing_cycle_end_at_ms?: number;
     window_start_at_ms: number;
     window_end_at_ms: number;
-    translate_chars_used?: number;
-    respell_chars_used?: number;
     revenuecat_app_user_id?: string;
     last_revenuecat_event_id?: string;
     last_revenuecat_event_at_ms?: number;
@@ -37,10 +33,6 @@ export type AnonymousMergeTimelineAuthority = "source" | "target";
 
 function isFiniteTimestampMs(value: number | undefined): value is number {
     return typeof value === "number" && Number.isFinite(value);
-}
-
-function isMeaningfulUsageCounter(value: number | undefined) {
-    return typeof value === "number" && value > 0;
 }
 
 function isFreeQuotaPeriod(quotaPeriod: AnonymousMergeQuotaPeriodLike) {
@@ -81,8 +73,6 @@ export function hasQuotaSubsystemHistory(args: {
 
     return (
         state.has_active_subscription ||
-        isMeaningfulUsageCounter(state.translate_chars_used) ||
-        isMeaningfulUsageCounter(state.respell_chars_used) ||
         typeof state.revenuecat_app_user_id === "string" ||
         typeof state.last_revenuecat_event_id === "string" ||
         isFiniteTimestampMs(state.last_revenuecat_event_at_ms) ||

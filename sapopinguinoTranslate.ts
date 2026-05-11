@@ -2,41 +2,40 @@ import { internal } from "./_generated/api";
 import { httpAction } from "./_generated/server";
 import { authenticatedOrAnonymousHttpAction } from "./httpAuth";
 import {
+    STREAM_REGISTRATION_DELETION_ERROR,
+    STREAM_REGISTRATION_MISSING_USER_ERROR,
     clearSapopinguinoStreamControl,
     consumeSapopinguinoStreamStopAction,
-    isSapopinguinoUserDeletionInProgress,
+    maintainSapopinguinoStreamControlLease,
     monitorSapopinguinoStreamStopSignal,
     registerSapopinguinoStreamControl,
-} from "./sapopinguinoHttp";
+} from "./sapopinguino/streamControlRuntime";
+import { sapopinguinoQuotaErrorResponse } from "./sapopinguinoHttp";
+import {
+    isValidSapopinguinoStreamId,
+    readSapopinguinoJsonRequestBody,
+    sanitizeSapopinguinoInputPayload,
+} from "./sapopinguinoInput";
 import {
     chargeSapopinguinoQuota,
-    completeSapopinguinoQuota,
-    failSapopinguinoQuota,
+    finalizeSapopinguinoQuota,
     reserveSapopinguinoQuota,
-    stopSapopinguinoQuota,
 } from "./sapopinguinoQuota";
 import type { Id } from "./subscriptions/_generated/dataModel";
-
-const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
-const STREAM_END_MARKER = "<end:)>";
-const STREAM_ERROR_MARKER = "<error:/>";
+import {
+    streamOpenAIResponses,
+    STREAM_END_MARKER,
+    STREAM_ERROR_MARKER,
+} from "./sapopinguino/openAiResponses";
 
 type StreamRequestBody = {
     input?: string;
     streamId?: string;
 };
 
-type OpenAIStreamEvent = {
-    type?: string;
-    delta?: string;
-    error?: {
-        message?: string;
-    };
-};
-
-function responseHeaders() {
+function responseHeaders(contentType = "text/event-stream; charset=utf-8") {
     return new Headers({
-        "Content-Type": "text/event-stream; charset=utf-8",
+        "Content-Type": contentType,
         "Cache-Control": "no-cache, no-transform",
         Connection: "keep-alive",
         "X-Accel-Buffering": "no",
@@ -62,172 +61,6 @@ function enqueueEvent(
     controller.enqueue(encoder.encode(formatSSEEvent(event, data)));
 }
 
-function sseEventsFromChunkBuffer(chunkBuffer: string): { events: string[]; remainder: string } {
-    const normalized = chunkBuffer.replace(/\r\n/g, "\n");
-    const events: string[] = [];
-
-    let cursor = 0;
-    let boundary = normalized.indexOf("\n\n", cursor);
-
-    while (boundary !== -1) {
-        events.push(normalized.slice(cursor, boundary));
-        cursor = boundary + 2;
-        boundary = normalized.indexOf("\n\n", cursor);
-    }
-
-    return {
-        events,
-        remainder: normalized.slice(cursor),
-    };
-}
-
-function readSSEDataLines(rawEvent: string): string | null {
-    const lines = rawEvent.split("\n");
-    const dataLines: string[] = [];
-
-    for (const line of lines) {
-        if (line.startsWith("data:")) {
-            dataLines.push(line.slice(5).trimStart());
-        }
-    }
-
-    if (dataLines.length === 0) {
-        return null;
-    }
-
-    return dataLines.join("\n");
-}
-
-async function handleDataPayload(
-    dataPayload: string,
-    controller: ReadableStreamDefaultController<Uint8Array>,
-    encoder: TextEncoder,
-    ensureQuotaCharged: () => Promise<boolean>,
-): Promise<"continue" | "completed" | "errored"> {
-    if (dataPayload === "[DONE]") {
-        enqueueEvent(controller, encoder, "done", STREAM_END_MARKER);
-        return "completed";
-    }
-
-    let parsedEvent: OpenAIStreamEvent;
-    try {
-        parsedEvent = JSON.parse(dataPayload) as OpenAIStreamEvent;
-    } catch {
-        return "continue";
-    }
-
-    if (parsedEvent.type === "error" || parsedEvent.type?.endsWith(".error")) {
-        enqueueEvent(controller, encoder, "error", STREAM_ERROR_MARKER);
-        return "errored";
-    }
-
-    if (parsedEvent.type !== "response.output_text.delta" || typeof parsedEvent.delta !== "string") {
-        return "continue";
-    }
-
-    if (!(await ensureQuotaCharged())) {
-        enqueueEvent(controller, encoder, "error", STREAM_ERROR_MARKER);
-        return "errored";
-    }
-
-    if (parsedEvent.delta.length === 0) {
-        return "continue";
-    }
-
-    enqueueEvent(controller, encoder, "token", parsedEvent.delta);
-    return "continue";
-}
-
-async function streamFromOpenAI(
-    input: string,
-    signal: AbortSignal,
-    controller: ReadableStreamDefaultController<Uint8Array>,
-    encoder: TextEncoder,
-    ensureQuotaCharged: () => Promise<boolean>,
-): Promise<"completed" | "errored"> {
-    const openAIKey = process.env.OPENAI_API_KEY;
-    const promptId = process.env.OPENAI_SAPOPINGUINO_TRANSLATE_PROMPT_ID;
-    const promptVersion = process.env.OPENAI_SAPOPINGUINO_TRANSLATE_PROMPT_V;
-
-    if (!openAIKey) {
-        enqueueEvent(controller, encoder, "error", STREAM_ERROR_MARKER);
-        return "errored";
-    }
-
-    const upstreamResponse = await fetch(OPENAI_RESPONSES_URL, {
-        method: "POST",
-        headers: {
-            Authorization: `Bearer ${openAIKey}`,
-            "Content-Type": "application/json",
-            Accept: "text/event-stream",
-        },
-        body: JSON.stringify({
-            prompt: {
-                id: promptId,
-                version: promptVersion,
-            },
-            input: input,
-            stream: true,
-        }),
-        signal,
-    });
-
-    if (!upstreamResponse.ok || upstreamResponse.body === null) {
-        enqueueEvent(controller, encoder, "error", STREAM_ERROR_MARKER);
-        return "errored";
-    }
-
-    const reader = upstreamResponse.body.getReader();
-    const textDecoder = new TextDecoder();
-    let eventBuffer = "";
-
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-            break;
-        }
-
-        eventBuffer += textDecoder.decode(value, { stream: true });
-        const { events, remainder } = sseEventsFromChunkBuffer(eventBuffer);
-        eventBuffer = remainder;
-
-        for (const rawEvent of events) {
-            const dataPayload = readSSEDataLines(rawEvent);
-            if (dataPayload === null) {
-                continue;
-            }
-
-            const nextStep = await handleDataPayload(
-                dataPayload,
-                controller,
-                encoder,
-                ensureQuotaCharged
-            );
-            if (nextStep !== "continue") {
-                return nextStep;
-            }
-        }
-    }
-
-    if (eventBuffer.trim().length > 0) {
-        const trailingPayload = readSSEDataLines(eventBuffer);
-        if (trailingPayload !== null) {
-            const nextStep = await handleDataPayload(
-                trailingPayload,
-                controller,
-                encoder,
-                ensureQuotaCharged
-            );
-            if (nextStep !== "continue") {
-                return nextStep;
-            }
-        }
-    }
-
-    enqueueEvent(controller, encoder, "done", STREAM_END_MARKER);
-    return "completed";
-}
-
 export const sapopinguinoTranslateOptions = httpAction(async () => {
     return new Response(null, {
         status: 204,
@@ -243,15 +76,15 @@ export const sapopinguinoTranslate = authenticatedOrAnonymousHttpAction(async (c
         });
     }
 
-    let body: StreamRequestBody;
-    try {
-        body = (await request.json()) as StreamRequestBody;
-    } catch {
+    const bodyResult = await readSapopinguinoJsonRequestBody<StreamRequestBody>(request);
+    if (!bodyResult.ok) {
         return new Response(formatSSEEvent("error", STREAM_ERROR_MARKER), {
-            status: 400,
+            status: bodyResult.status,
             headers: responseHeaders(),
         });
     }
+
+    const body = bodyResult.body;
 
     if (typeof body.input !== "string" || body.input.length === 0) {
         return new Response(formatSSEEvent("error", STREAM_ERROR_MARKER), {
@@ -260,7 +93,16 @@ export const sapopinguinoTranslate = authenticatedOrAnonymousHttpAction(async (c
         });
     }
 
-    if (typeof body.streamId !== "string" || body.streamId.length === 0) {
+    const sanitizedInput = sanitizeSapopinguinoInputPayload(body.input);
+
+    if (!sanitizedInput) {
+        return new Response(formatSSEEvent("error", STREAM_ERROR_MARKER), {
+            status: 400,
+            headers: responseHeaders(),
+        });
+    }
+
+    if (typeof body.streamId !== "string" || !isValidSapopinguinoStreamId(body.streamId)) {
         return new Response(formatSSEEvent("error", STREAM_ERROR_MARKER), {
             status: 400,
             headers: responseHeaders(),
@@ -282,10 +124,11 @@ export const sapopinguinoTranslate = authenticatedOrAnonymousHttpAction(async (c
             });
         }
 
-        if (
-            refreshResult.status === "user_missing" ||
-            refreshResult.status === "deletion_in_progress"
-        ) {
+        if (refreshResult.status === "deletion_in_progress") {
+            return sapopinguinoQuotaErrorResponse(409, "user_deletion_in_progress");
+        }
+
+        if (refreshResult.status === "user_missing") {
             return new Response(formatSSEEvent("error", STREAM_ERROR_MARKER), {
                 status: 409,
                 headers: responseHeaders(),
@@ -300,16 +143,16 @@ export const sapopinguinoTranslate = authenticatedOrAnonymousHttpAction(async (c
         const quotaReservation = await reserveSapopinguinoQuota(ctx, {
             userId: auth.userId,
             operation,
-            input: body.input,
+            input: sanitizedInput.userInput,
             streamId: body.streamId,
             signupAtMs: auth.user.createdAt,
         });
 
         if (quotaReservation.status === "blocked") {
-            return new Response(formatSSEEvent("error", STREAM_ERROR_MARKER), {
-                status: quotaReservation.httpStatus,
-                headers: responseHeaders(),
-            });
+            return sapopinguinoQuotaErrorResponse(
+                quotaReservation.httpStatus,
+                quotaReservation.reason
+            );
         }
 
         if (quotaReservation.status === "error") {
@@ -328,50 +171,37 @@ export const sapopinguinoTranslate = authenticatedOrAnonymousHttpAction(async (c
     }
 
     try {
-        if (!auth.isAnonymous && (await isSapopinguinoUserDeletionInProgress(ctx, auth.userId))) {
-            if (usageEventId) {
-                try {
-                    await stopSapopinguinoQuota(ctx, usageEventId, false);
-                } catch (error) {
-                    console.error(
-                        "Failed to stop sapopinguino translate quota during account deletion:",
-                        error
-                    );
-                }
-            }
+        await registerSapopinguinoStreamControl(ctx, body.streamId, auth.userId, operation);
+    } catch (error) {
+        const isDeletionBlockedError =
+            error instanceof Error &&
+            error.message === STREAM_REGISTRATION_DELETION_ERROR;
+        const isMissingUserError =
+            error instanceof Error &&
+            error.message === STREAM_REGISTRATION_MISSING_USER_ERROR;
 
-            return new Response(formatSSEEvent("error", STREAM_ERROR_MARKER), {
-                status: 409,
-                headers: responseHeaders(),
+        if (usageEventId) {
+            await finalizeSapopinguinoQuota(ctx, {
+                usageEventId,
+                terminalState:
+                    isDeletionBlockedError || isMissingUserError
+                        ? "user_stopped_before_charge"
+                        : "failed_before_charge",
+                logContext: "sapopinguino translate stream registration",
             });
         }
 
-        await registerSapopinguinoStreamControl(ctx, body.streamId, auth.userId, operation);
-    } catch (error) {
-        const isRegistrationBlockedError =
-            error instanceof Error &&
-            (error.message === "Cannot register sapopinguino stream while user deletion is in progress" ||
-                error.message === "Cannot register sapopinguino stream for missing user");
-
-        if (usageEventId) {
-            try {
-                if (isRegistrationBlockedError) {
-                    await stopSapopinguinoQuota(ctx, usageEventId, false);
-                } else {
-                    await failSapopinguinoQuota(ctx, usageEventId, false);
-                }
-            } catch (error) {
-                console.error("Failed to mark sapopinguino translate quota as failed before charge:", error);
-            }
+        if (isDeletionBlockedError) {
+            return sapopinguinoQuotaErrorResponse(409, "user_deletion_in_progress");
         }
 
         return new Response(formatSSEEvent("error", STREAM_ERROR_MARKER), {
-            status: isRegistrationBlockedError ? 409 : 500,
+            status: isMissingUserError ? 409 : 500,
             headers: responseHeaders(),
         });
     }
 
-    const input = body.input;
+    const input = sanitizedInput.payload;
     const streamId = body.streamId;
     const encoder = new TextEncoder();
 
@@ -381,6 +211,25 @@ export const sapopinguinoTranslate = authenticatedOrAnonymousHttpAction(async (c
             let stopRequested = false;
             let hasChargedQuota = false;
             const upstreamAbortController = new AbortController();
+            const abortUpstream = () => {
+                if (!upstreamAbortController.signal.aborted) {
+                    upstreamAbortController.abort();
+                }
+            };
+            const streamControlLeaseMonitor = maintainSapopinguinoStreamControlLease(ctx, {
+                streamId,
+                userId: auth.userId,
+                operation,
+                upstreamAbortController,
+                onStopRequested: () => {
+                    stopRequested = true;
+                },
+            }).catch((error) => {
+                console.error(
+                    "Failed to maintain sapopinguino translate stream control lease:",
+                    error
+                );
+            });
             const stopMonitor = auth.isAnonymous
                 ? null
                 : monitorSapopinguinoStreamStopSignal(ctx, {
@@ -398,15 +247,11 @@ export const sapopinguinoTranslate = authenticatedOrAnonymousHttpAction(async (c
                       );
                   });
 
-            request.signal.addEventListener(
-                "abort",
-                () => {
-                    if (!upstreamAbortController.signal.aborted) {
-                        upstreamAbortController.abort();
-                    }
-                },
-                { once: true }
-            );
+            if (request.signal.aborted) {
+                abortUpstream();
+            } else {
+                request.signal.addEventListener("abort", abortUpstream, { once: true });
+            }
 
             const ensureQuotaCharged = async () => {
                 if (!usageEventId) {
@@ -430,33 +275,53 @@ export const sapopinguinoTranslate = authenticatedOrAnonymousHttpAction(async (c
                     return;
                 }
 
-                try {
-                    if (userStopped) {
-                        await stopSapopinguinoQuota(ctx, usageEventId, hasChargedQuota);
-                    } else {
-                        await failSapopinguinoQuota(ctx, usageEventId, hasChargedQuota);
-                    }
-                } catch (error) {
-                    console.error("Failed to finalize sapopinguino translate quota state:", error);
-                }
+                await finalizeSapopinguinoQuota(ctx, {
+                    usageEventId,
+                    terminalState: userStopped
+                        ? hasChargedQuota
+                            ? "user_stopped_after_charge"
+                            : "user_stopped_before_charge"
+                        : hasChargedQuota
+                          ? "failed_after_charge"
+                          : "failed_before_charge",
+                    logContext: "sapopinguino translate stream",
+                });
             };
 
             try {
-                const streamResult = await streamFromOpenAI(
+                const streamResult = await streamOpenAIResponses({
                     input,
-                    upstreamAbortController.signal,
-                    controller,
-                    encoder,
-                    ensureQuotaCharged
-                );
+                    promptId: process.env.OPENAI_SAPOPINGUINO_TRANSLATE_PROMPT_ID,
+                    promptVersion: process.env.OPENAI_SAPOPINGUINO_TRANSLATE_PROMPT_V,
+                    signal: upstreamAbortController.signal,
+                    onDelta: async (delta) => {
+                        if (delta.length === 0) {
+                            return "continue";
+                        }
+
+                        if (!(await ensureQuotaCharged())) {
+                            enqueueEvent(controller, encoder, "error", STREAM_ERROR_MARKER);
+                            return "errored";
+                        }
+
+                        enqueueEvent(controller, encoder, "token", delta);
+                        return "continue";
+                    },
+                    onCompleted: () => {
+                        enqueueEvent(controller, encoder, "done", STREAM_END_MARKER);
+                    },
+                    onErrored: () => {
+                        enqueueEvent(controller, encoder, "error", STREAM_ERROR_MARKER);
+                    },
+                });
 
                 if (streamResult === "completed") {
                     if (usageEventId) {
-                        try {
-                            await completeSapopinguinoQuota(ctx, usageEventId);
-                        } catch (error) {
-                            console.error("Failed to mark sapopinguino translate quota as completed:", error);
-                        }
+                        await finalizeSapopinguinoQuota(ctx, {
+                            usageEventId,
+                            terminalState: "completed",
+                            logContext: "sapopinguino translate stream",
+                        });
                     }
                 } else {
                     await finalizeFailure(false);
@@ -483,11 +348,14 @@ export const sapopinguinoTranslate = authenticatedOrAnonymousHttpAction(async (c
                     await finalizeFailure(false);
                 }
             } finally {
+                request.signal.removeEventListener("abort", abortUpstream);
+
                 if (!upstreamAbortController.signal.aborted) {
                     upstreamAbortController.abort();
                 }
 
                 await stopMonitor;
+                await streamControlLeaseMonitor;
 
                 if (!stopActionConsumed) {
                     try {

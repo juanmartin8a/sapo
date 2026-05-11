@@ -23,12 +23,108 @@ type ActionRunner = {
     runAction: (action: unknown, args: Record<string, unknown>) => Promise<unknown>;
 };
 
+type QueryRunner = {
+    runQuery: (query: unknown, args: Record<string, unknown>) => Promise<unknown>;
+};
+
+type BetterAuthAccountRecord = {
+    providerId?: unknown;
+    accessToken?: unknown;
+    refreshToken?: unknown;
+};
+
+const APPLE_TOKEN_REVOCATION_URL = "https://appleid.apple.com/auth/revoke";
+
 function hasRunMutation(ctx: GenericCtx<DataModel>): ctx is GenericCtx<DataModel> & MutationRunner {
     return typeof (ctx as { runMutation?: unknown }).runMutation === "function";
 }
 
 function hasRunAction(ctx: GenericCtx<DataModel>): ctx is GenericCtx<DataModel> & ActionRunner {
     return typeof (ctx as { runAction?: unknown }).runAction === "function";
+}
+
+function hasRunQuery(ctx: GenericCtx<DataModel>): ctx is GenericCtx<DataModel> & QueryRunner {
+    return typeof (ctx as { runQuery?: unknown }).runQuery === "function";
+}
+
+function isBetterAuthAccountRecord(value: unknown): value is BetterAuthAccountRecord {
+    return typeof value === "object" && value !== null;
+}
+
+async function revokeAppleToken(args: {
+    token: string;
+    tokenTypeHint: "access_token" | "refresh_token";
+}) {
+    const clientId = process.env.APPLE_CLIENT_ID;
+    const clientSecret = process.env.APPLE_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+        throw new Error("Missing Sign in with Apple client credentials for token revocation");
+    }
+
+    const body = new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        token: args.token,
+        token_type_hint: args.tokenTypeHint,
+    });
+
+    const response = await fetch(APPLE_TOKEN_REVOCATION_URL, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body,
+    });
+
+    if (response.ok) {
+        return;
+    }
+
+    const responseText = await response.text().catch(() => "");
+    if (responseText.includes("invalid_token")) {
+        return;
+    }
+
+    throw new Error(`Sign in with Apple token revocation failed with status ${response.status}`);
+}
+
+async function revokeAppleAccountTokens(ctx: GenericCtx<DataModel>, userId: string) {
+    if (!hasRunQuery(ctx)) {
+        throw new Error("Query context required for Sign in with Apple token revocation");
+    }
+
+    const accounts = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+        model: "account",
+        where: [
+            { field: "userId", value: userId },
+            { field: "providerId", value: "apple" },
+        ],
+    });
+
+    if (!Array.isArray(accounts)) {
+        return;
+    }
+
+    const tokensToRevoke = new Map<string, "access_token" | "refresh_token">();
+
+    for (const account of accounts) {
+        if (!isBetterAuthAccountRecord(account) || account.providerId !== "apple") {
+            continue;
+        }
+
+        if (typeof account.refreshToken === "string" && account.refreshToken.length > 0) {
+            tokensToRevoke.set(account.refreshToken, "refresh_token");
+        }
+
+        if (typeof account.accessToken === "string" && account.accessToken.length > 0) {
+            tokensToRevoke.set(account.accessToken, "access_token");
+        }
+    }
+
+    for (const [token, tokenTypeHint] of tokensToRevoke.entries()) {
+        await revokeAppleToken({ token, tokenTypeHint });
+    }
 }
 
 async function prepareAuthenticatedUserDeletion(ctx: GenericCtx<DataModel>, user: unknown) {
@@ -45,6 +141,12 @@ async function prepareAuthenticatedUserDeletion(ctx: GenericCtx<DataModel>, user
     await ctx.runAction(internal.subscriptionsWorkers.prepareUserAccountDeletion, {
         user_id: userId,
     });
+
+    try {
+        await revokeAppleAccountTokens(ctx, userId);
+    } catch (error) {
+        console.warn("Failed to revoke Sign in with Apple tokens during account deletion:", error);
+    }
 }
 
 async function finalizeAuthenticatedUserDeletion(ctx: GenericCtx<DataModel>, user: unknown) {
@@ -60,6 +162,7 @@ async function finalizeAuthenticatedUserDeletion(ctx: GenericCtx<DataModel>, use
 
     await ctx.runAction(internal.subscriptionsWorkers.finalizeDeletedUserData, {
         user_id: userId,
+        mark_auth_deleted: true,
     });
 }
 
@@ -148,7 +251,11 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
                     await prepareAuthenticatedUserDeletion(ctx, user);
                 },
                 afterDelete: async (user) => {
-                    await finalizeAuthenticatedUserDeletion(ctx, user);
+                    try {
+                        await finalizeAuthenticatedUserDeletion(ctx, user);
+                    } catch (error) {
+                        console.error("Failed to mark queued account deletion after auth delete:", error);
+                    }
                 },
             }
         },

@@ -1,0 +1,267 @@
+import { describe, expect, it } from "@jest/globals";
+
+import {
+    canAcquireUserDeletionOperation,
+    doesUserDeletionStatusAllowAutomaticRetry,
+    doesUserDeletionStatusBlockProcessing,
+    doesUserDeletionStatusBlockRevenueCatReconciliation,
+    hasRequiredPreservedQuotaPeriod,
+    resolveAuthDeletedUserDeletionContext,
+    resolvePreparedUserDeletionContext,
+    resolveUserDeletionAuthDeleteWaitStatus,
+    USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS,
+    USER_DELETION_LATE_AUTH_WAIT_STATUS,
+} from "../userDeletionQueue";
+
+describe("user deletion queue helpers", () => {
+    it("blocks user processing for every queued deletion status", () => {
+        expect(doesUserDeletionStatusBlockProcessing(undefined)).toBe(false);
+        expect(doesUserDeletionStatusBlockProcessing(null)).toBe(false);
+        expect(doesUserDeletionStatusBlockProcessing(USER_DELETION_LATE_AUTH_WAIT_STATUS)).toBe(
+            true
+        );
+        expect(
+            doesUserDeletionStatusBlockProcessing(USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS)
+        ).toBe(true);
+
+        expect(doesUserDeletionStatusBlockProcessing("preparing")).toBe(true);
+        expect(doesUserDeletionStatusBlockProcessing("awaiting_auth_delete")).toBe(true);
+        expect(doesUserDeletionStatusBlockProcessing("ready_for_cleanup")).toBe(true);
+        expect(doesUserDeletionStatusBlockProcessing("waiting_for_quiescence")).toBe(true);
+        expect(doesUserDeletionStatusBlockProcessing("retryable_error")).toBe(true);
+        expect(doesUserDeletionStatusBlockProcessing("cleanup_in_progress")).toBe(true);
+    });
+
+    it("blocks RevenueCat reconciliation for every queued deletion status", () => {
+        expect(doesUserDeletionStatusBlockRevenueCatReconciliation(undefined)).toBe(false);
+        expect(doesUserDeletionStatusBlockRevenueCatReconciliation(null)).toBe(false);
+        expect(
+            doesUserDeletionStatusBlockRevenueCatReconciliation(USER_DELETION_LATE_AUTH_WAIT_STATUS)
+        ).toBe(true);
+        expect(
+            doesUserDeletionStatusBlockRevenueCatReconciliation(
+                USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS
+            )
+        ).toBe(true);
+
+        expect(doesUserDeletionStatusBlockRevenueCatReconciliation("preparing")).toBe(true);
+        expect(doesUserDeletionStatusBlockRevenueCatReconciliation("awaiting_auth_delete")).toBe(
+            true
+        );
+        expect(doesUserDeletionStatusBlockRevenueCatReconciliation("ready_for_cleanup")).toBe(true);
+        expect(doesUserDeletionStatusBlockRevenueCatReconciliation("waiting_for_quiescence")).toBe(
+            true
+        );
+        expect(doesUserDeletionStatusBlockRevenueCatReconciliation("retryable_error")).toBe(true);
+        expect(doesUserDeletionStatusBlockRevenueCatReconciliation("cleanup_in_progress")).toBe(
+            true
+        );
+    });
+
+    it("stops automatic retry only for the auth-delete dead-letter state", () => {
+        expect(doesUserDeletionStatusAllowAutomaticRetry(undefined)).toBe(true);
+        expect(doesUserDeletionStatusAllowAutomaticRetry("awaiting_auth_delete")).toBe(true);
+        expect(doesUserDeletionStatusAllowAutomaticRetry(USER_DELETION_LATE_AUTH_WAIT_STATUS)).toBe(
+            true
+        );
+        expect(
+            doesUserDeletionStatusAllowAutomaticRetry(USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS)
+        ).toBe(false);
+    });
+
+    it("allows explicit terminal recovery to reacquire dead-lettered deletions", () => {
+        expect(
+            canAcquireUserDeletionOperation({
+                status: USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS,
+                now_ms: 1_000,
+                next_retry_at_ms: 253402300799999,
+            })
+        ).toBe(false);
+
+        expect(
+            canAcquireUserDeletionOperation({
+                status: USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS,
+                now_ms: 1_000,
+                next_retry_at_ms: 253402300799999,
+                allow_terminal_recovery: true,
+            })
+        ).toBe(true);
+
+        expect(
+            canAcquireUserDeletionOperation({
+                status: "awaiting_auth_delete",
+                now_ms: 1_000,
+                next_retry_at_ms: 2_000,
+                allow_terminal_recovery: true,
+            })
+        ).toBe(false);
+    });
+
+    it("escalates auth-delete waiting from fast poll to late poll to dead-letter", () => {
+        expect(
+            resolveUserDeletionAuthDeleteWaitStatus({
+                elapsed_ms: 30_000,
+                confirm_timeout_ms: 60_000,
+                dead_letter_timeout_ms: 86_400_000,
+            })
+        ).toBe("awaiting_auth_delete");
+
+        expect(
+            resolveUserDeletionAuthDeleteWaitStatus({
+                elapsed_ms: 60_000,
+                confirm_timeout_ms: 60_000,
+                dead_letter_timeout_ms: 86_400_000,
+            })
+        ).toBe(USER_DELETION_LATE_AUTH_WAIT_STATUS);
+
+        expect(
+            resolveUserDeletionAuthDeleteWaitStatus({
+                elapsed_ms: 86_400_000,
+                confirm_timeout_ms: 60_000,
+                dead_letter_timeout_ms: 86_400_000,
+            })
+        ).toBe(USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS);
+    });
+
+    it("prefers the latest snapshot when transitioning to auth-deleted cleanup", () => {
+        expect(
+            resolveAuthDeletedUserDeletionContext({
+                snapshot: {
+                    has_active_subscription: true,
+                    revenuecat_app_user_id: "rc_current",
+                    current_quota_period_id: "quota_current",
+                    store_subscription_id: "store_current",
+                    store_subscription_period_id: "period_current",
+                },
+                existing_context: {
+                    has_active_subscription: false,
+                    revenuecat_app_user_id: "rc_stale",
+                    preserved_quota_period_id: "quota_stale",
+                    store_subscription_id: "store_stale",
+                    store_subscription_period_id: "period_stale",
+                },
+            })
+        ).toEqual({
+            has_active_subscription: true,
+            revenuecat_app_user_id: "rc_current",
+            preserved_quota_period_id: "quota_current",
+            store_subscription_id: "store_current",
+            store_subscription_period_id: "period_current",
+        });
+    });
+
+    it("falls back to the existing preserved quota period when the fresh snapshot is incomplete", () => {
+        expect(
+            resolveAuthDeletedUserDeletionContext({
+                snapshot: {
+                    has_active_subscription: true,
+                    revenuecat_app_user_id: "rc_current",
+                    current_quota_period_id: undefined,
+                    store_subscription_id: "store_current",
+                    store_subscription_period_id: undefined,
+                },
+                existing_context: {
+                    has_active_subscription: true,
+                    revenuecat_app_user_id: "rc_stale",
+                    preserved_quota_period_id: "quota_stale",
+                    store_subscription_id: "store_stale",
+                    store_subscription_period_id: "period_stale",
+                },
+            })
+        ).toEqual({
+            has_active_subscription: true,
+            revenuecat_app_user_id: "rc_current",
+            preserved_quota_period_id: "quota_stale",
+            store_subscription_id: "store_current",
+            store_subscription_period_id: "period_stale",
+        });
+    });
+
+    it("drops preserved paid context when the latest snapshot is no longer active", () => {
+        expect(
+            resolveAuthDeletedUserDeletionContext({
+                snapshot: {
+                    has_active_subscription: false,
+                    revenuecat_app_user_id: "rc_current",
+                },
+                existing_context: {
+                    has_active_subscription: true,
+                    revenuecat_app_user_id: "rc_stale",
+                    preserved_quota_period_id: "quota_stale",
+                    store_subscription_id: "store_stale",
+                    store_subscription_period_id: "period_stale",
+                },
+            })
+        ).toEqual({
+            has_active_subscription: false,
+            revenuecat_app_user_id: "rc_current",
+            preserved_quota_period_id: undefined,
+            store_subscription_id: "store_stale",
+            store_subscription_period_id: "period_stale",
+        });
+    });
+
+    it("builds prepared deletion context from the local snapshot after refresh fallback", () => {
+        expect(
+            resolvePreparedUserDeletionContext({
+                snapshot: {
+                    has_active_subscription: true,
+                    revenuecat_app_user_id: undefined,
+                    current_quota_period_id: "quota_current",
+                    store_subscription_id: "store_current",
+                    store_subscription_period_id: "period_current",
+                },
+                fallback_revenuecat_app_user_id: "user_from_refresh_attempt",
+            })
+        ).toEqual({
+            has_active_subscription: true,
+            revenuecat_app_user_id: "user_from_refresh_attempt",
+            preserved_quota_period_id: "quota_current",
+            store_subscription_id: "store_current",
+            store_subscription_period_id: "period_current",
+        });
+    });
+
+    it("drops preserved quota context for free prepared deletion snapshots", () => {
+        expect(
+            resolvePreparedUserDeletionContext({
+                snapshot: {
+                    has_active_subscription: false,
+                    revenuecat_app_user_id: "rc_current",
+                    current_quota_period_id: "quota_current",
+                    store_subscription_id: "store_current",
+                    store_subscription_period_id: "period_current",
+                },
+            })
+        ).toEqual({
+            has_active_subscription: false,
+            revenuecat_app_user_id: "rc_current",
+            preserved_quota_period_id: undefined,
+            store_subscription_id: "store_current",
+            store_subscription_period_id: "period_current",
+        });
+    });
+
+    it("requires a preserved quota period only for active subscription cleanup", () => {
+        expect(
+            hasRequiredPreservedQuotaPeriod({
+                has_active_subscription: true,
+                preserved_quota_period_id: undefined,
+            })
+        ).toBe(false);
+
+        expect(
+            hasRequiredPreservedQuotaPeriod({
+                has_active_subscription: true,
+                preserved_quota_period_id: "quota_current",
+            })
+        ).toBe(true);
+
+        expect(
+            hasRequiredPreservedQuotaPeriod({
+                has_active_subscription: false,
+                preserved_quota_period_id: undefined,
+            })
+        ).toBe(true);
+    });
+});

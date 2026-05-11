@@ -12,7 +12,7 @@ export default defineSchema({
         updated_at_ms: v.number(),
     }).index("by_plan_key", ["plan_key"]),
 
-    // This table serves as the current period quota's source of truth
+    // Current subscription metadata. Quota consumption lives in quota_period_counters.
     subscription_states: defineTable({
         user_id: v.string(),
         revenuecat_app_user_id: v.optional(v.string()),
@@ -31,8 +31,6 @@ export default defineSchema({
         window_key: v.string(),
         window_start_at_ms: v.number(),
         window_end_at_ms: v.number(),
-        translate_chars_used: v.optional(v.number()),
-        respell_chars_used: v.optional(v.number()),
         last_revenuecat_event_id: v.optional(v.string()),
         last_revenuecat_event_at_ms: v.optional(v.number()),
         last_synced_at_ms: v.number(),
@@ -57,14 +55,7 @@ export default defineSchema({
         product_id: v.optional(v.string()),
         store: v.optional(v.string()),
         environment: v.optional(v.string()),
-        translate_input_char_limit: v.number(),
-        respell_input_char_limit: v.number(),
-        translate_period_char_limit: v.number(),
-        respell_period_char_limit: v.number(),
-        translate_charged_chars: v.number(),
-        respell_charged_chars: v.number(),
         status: v.union(v.literal("open"), v.literal("closed"), v.literal("frozen")),
-        last_charged_at_ms: v.optional(v.number()),
         closed_at_ms: v.optional(v.number()),
         frozen_at_ms: v.optional(v.number()),
         restored_at_ms: v.optional(v.number()),
@@ -78,21 +69,53 @@ export default defineSchema({
         .index("by_status_and_period_start_at_ms", ["status", "period_start_at_ms"])
         .index("by_status_and_period_end_at_ms", ["status", "period_end_at_ms"]),
 
-    user_deletion_operations: defineTable({
-        user_id: v.string(),
-        started_at_ms: v.number(),
+    quota_period_counters: defineTable({
+        quota_period_id: v.id("quota_periods"),
+        operation: v.union(v.literal("translate"), v.literal("respell")),
+        quota_unit: v.literal("input_characters"),
+        charged_units: v.number(),
+        input_limit: v.number(),
+        period_limit: v.number(),
+        last_charged_at_ms: v.optional(v.number()),
+        created_at_ms: v.number(),
         updated_at_ms: v.number(),
-    }).index("by_user_id", ["user_id"]),
+    })
+        .index("by_quota_period_id", ["quota_period_id"])
+        .index("by_quota_period_id_operation_unit", [
+            "quota_period_id",
+            "operation",
+            "quota_unit",
+        ]),
 
-    user_deletion_preparations: defineTable({
+    user_deletion_queue: defineTable({
         user_id: v.string(),
+        status: v.union(
+            v.literal("preparing"),
+            v.literal("awaiting_auth_delete"),
+            v.literal("awaiting_auth_delete_late"),
+            v.literal("auth_delete_dead_letter"),
+            v.literal("ready_for_cleanup"),
+            v.literal("waiting_for_quiescence"),
+            v.literal("retryable_error"),
+            v.literal("cleanup_in_progress")
+        ),
+        started_at_ms: v.number(),
+        prepared_at_ms: v.optional(v.number()),
+        auth_deleted_at_ms: v.optional(v.number()),
+        next_retry_at_ms: v.number(),
+        retry_count: v.number(),
+        last_error: v.optional(v.string()),
+        force_stop_after_at_ms: v.optional(v.number()),
         revenuecat_app_user_id: v.optional(v.string()),
-        has_active_subscription: v.boolean(),
+        has_active_subscription: v.optional(v.boolean()),
         preserved_quota_period_id: v.optional(v.id("quota_periods")),
         store_subscription_id: v.optional(v.string()),
         store_subscription_period_id: v.optional(v.string()),
-        prepared_at_ms: v.number(),
-    }).index("by_user_id", ["user_id"]),
+        updated_at_ms: v.number(),
+    })
+        .index("by_user_id", ["user_id"])
+        .index("by_next_retry_at_ms", ["next_retry_at_ms"])
+        .index("by_status_and_updated_at_ms", ["status", "updated_at_ms"]),
 
     usage_events: defineTable({
         req_id: v.string(),
@@ -142,8 +165,6 @@ export default defineSchema({
         entitlement_ids: v.array(v.string()),
         product_id: v.optional(v.string()),
         transaction_id: v.optional(v.string()),
-        // Legacy compatibility for already-ingested webhook events.
-        original_transaction_id: v.optional(v.string()),
         store: v.optional(v.string()),
         environment: v.optional(v.string()),
         expiration_at_ms: v.optional(v.number()),
@@ -170,4 +191,22 @@ export default defineSchema({
         .index("by_app_user_id_and_event_at_ms", ["app_user_id", "event_at_ms"])
         .index("by_original_app_user_id_and_event_at_ms", ["original_app_user_id", "event_at_ms"])
         .index("by_user_id_and_event_at_ms", ["user_id", "event_at_ms"]),
+
+    revenue_cat_event_users: defineTable({
+        event_doc_id: v.id("revenue_cat_events"),
+        user_id: v.string(),
+        status: v.union(v.literal("pending"), v.literal("processed"), v.literal("ignored")),
+        processing_started_at_ms: v.optional(v.number()),
+        processing_expires_at_ms: v.optional(v.number()),
+        created_at_ms: v.number(),
+        updated_at_ms: v.number(),
+    })
+        .index("by_event_doc_id_and_user_id", ["event_doc_id", "user_id"])
+        .index("by_event_doc_id_and_status", ["event_doc_id", "status"])
+        .index("by_user_id_and_event_doc_id", ["user_id", "event_doc_id"])
+        .index("by_user_id_status_and_processing_expires_at_ms", [
+            "user_id",
+            "status",
+            "processing_expires_at_ms",
+        ]),
 });

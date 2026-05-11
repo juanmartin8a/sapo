@@ -8,19 +8,22 @@
  * @module
  */
 
-import type * as anonymousUser from "../anonymousUser.js";
 import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
 import type * as http from "../http.js";
 import type * as httpAuth from "../httpAuth.js";
 import type * as refresh from "../refresh.js";
 import type * as sapopinguinoHttp from "../sapopinguinoHttp.js";
+import type * as sapopinguinoInput from "../sapopinguinoInput.js";
 import type * as sapopinguinoQuota from "../sapopinguinoQuota.js";
+import type * as sapopinguinoQuotaRecovery from "../sapopinguinoQuotaRecovery.js";
 import type * as sapopinguinoTranslate from "../sapopinguinoTranslate.js";
+import type * as sapopinguinoWorkers from "../sapopinguinoWorkers.js";
 import type * as sendEmail from "../sendEmail.js";
 import type * as subscriptionsConfig from "../subscriptionsConfig.js";
 import type * as subscriptionsWebhook from "../subscriptionsWebhook.js";
 import type * as subscriptionsWorkers from "../subscriptionsWorkers.js";
+import type * as userDeletionQueue from "../userDeletionQueue.js";
 
 import type {
   ApiFromModules,
@@ -29,19 +32,22 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  anonymousUser: typeof anonymousUser;
   auth: typeof auth;
   crons: typeof crons;
   http: typeof http;
   httpAuth: typeof httpAuth;
   refresh: typeof refresh;
   sapopinguinoHttp: typeof sapopinguinoHttp;
+  sapopinguinoInput: typeof sapopinguinoInput;
   sapopinguinoQuota: typeof sapopinguinoQuota;
+  sapopinguinoQuotaRecovery: typeof sapopinguinoQuotaRecovery;
   sapopinguinoTranslate: typeof sapopinguinoTranslate;
+  sapopinguinoWorkers: typeof sapopinguinoWorkers;
   sendEmail: typeof sendEmail;
   subscriptionsConfig: typeof subscriptionsConfig;
   subscriptionsWebhook: typeof subscriptionsWebhook;
   subscriptionsWorkers: typeof subscriptionsWorkers;
+  userDeletionQueue: typeof userDeletionQueue;
 }>;
 
 /**
@@ -1052,6 +1058,56 @@ export declare const components: {
     };
   };
   sapopinguino: {
+    quotaRecovery: {
+      acquireQuotaFinalizationRecovery: FunctionReference<
+        "mutation",
+        "internal",
+        { leaseExpiresAtMs: number; nowMs: number; usageEventId: string },
+        any
+      >;
+      clearQuotaFinalizationRecovery: FunctionReference<
+        "mutation",
+        "internal",
+        { usageEventId: string },
+        any
+      >;
+      enqueueQuotaFinalizationRecovery: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          lastError?: string;
+          nextRetryAtMs?: number;
+          nowMs: number;
+          terminalState:
+            | "completed"
+            | "failed_before_charge"
+            | "failed_after_charge"
+            | "user_stopped_before_charge"
+            | "user_stopped_after_charge";
+          usageEventId: string;
+        },
+        any
+      >;
+      listDueQuotaFinalizationRecoveries: FunctionReference<
+        "query",
+        "internal",
+        { limit: number; nowMs: number },
+        any
+      >;
+      updateQuotaFinalizationRecovery: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          attemptCount: number;
+          lastError?: string | null;
+          nextRetryAtMs: number;
+          nowMs: number;
+          status: "pending" | "dead_letter";
+          usageEventId: string;
+        },
+        any
+      >;
+    };
     streamControl: {
       clearStreamControl: FunctionReference<
         "mutation",
@@ -1073,6 +1129,12 @@ export declare const components: {
         },
         any
       >;
+      deleteStaleStreamControls: FunctionReference<
+        "mutation",
+        "internal",
+        { limit?: number; nowMs: number },
+        any
+      >;
       deleteUserStreamControls: FunctionReference<
         "mutation",
         "internal",
@@ -1089,10 +1151,35 @@ export declare const components: {
         },
         any
       >;
+      getUserStreamControlCount: FunctionReference<
+        "query",
+        "internal",
+        { userId: string },
+        any
+      >;
+      getUserStreamControlQuiescence: FunctionReference<
+        "query",
+        "internal",
+        { nowMs: number; userId: string },
+        any
+      >;
+      refreshStreamControlLease: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          leaseExpiresAtMs: number;
+          nowMs: number;
+          operation: "translate" | "respell";
+          streamId: string;
+          userId: string;
+        },
+        any
+      >;
       registerStreamControl: FunctionReference<
         "mutation",
         "internal",
         {
+          leaseExpiresAtMs: number;
           nowMs: number;
           operation: "translate" | "respell";
           streamId: string;
@@ -1121,6 +1208,28 @@ export declare const components: {
   };
   subscriptions: {
     webhook: {
+      acquireRevenueCatEventProcessingLeases: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          event_doc_id: string;
+          lease_expires_at_ms: number;
+          now_ms: number;
+          user_ids: Array<string>;
+        },
+        any
+      >;
+      acquireUserDeletionOperation: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          allow_terminal_recovery?: boolean;
+          lease_expires_at_ms: number;
+          now_ms: number;
+          user_id: string;
+        },
+        any
+      >;
       applyReconciledSubscriptionState: FunctionReference<
         "mutation",
         "internal",
@@ -1163,12 +1272,6 @@ export declare const components: {
         { user_id: string },
         any
       >;
-      clearUserDeletionPreparation: FunctionReference<
-        "mutation",
-        "internal",
-        { user_id: string },
-        any
-      >;
       completeSubscriptionQuotaUsage: FunctionReference<
         "mutation",
         "internal",
@@ -1181,6 +1284,12 @@ export declare const components: {
         { next_attempt_at_ms: number; user_id: string },
         any
       >;
+      deleteFrozenQuotaPeriodsEligibleForRetentionPurge: FunctionReference<
+        "mutation",
+        "internal",
+        { limit: number; older_than_ms: number },
+        any
+      >;
       deleteUserSubscriptionData: FunctionReference<
         "mutation",
         "internal",
@@ -1190,6 +1299,12 @@ export declare const components: {
           revenuecat_app_user_id?: string;
           user_id: string;
         },
+        any
+      >;
+      ensureUserDeletionPreservedQuotaPeriod: FunctionReference<
+        "mutation",
+        "internal",
+        { now_ms: number; user_id: string },
         any
       >;
       finalizeDeletedUserSubscriptionData: FunctionReference<
@@ -1212,13 +1327,13 @@ export declare const components: {
         { now_ms: number; user_id: string },
         any
       >;
-      getActiveUserDeletionUsageEventCount: FunctionReference<
+      getActiveRevenueCatEventProcessingForUserDeletion: FunctionReference<
         "query",
         "internal",
-        { user_id: string },
+        { limit: number; now_ms: number; user_id: string },
         any
       >;
-      getPreparedUserDeletionContext: FunctionReference<
+      getActiveUserDeletionUsageEventCount: FunctionReference<
         "query",
         "internal",
         { user_id: string },
@@ -1231,12 +1346,6 @@ export declare const components: {
         any
       >;
       getSubscriptionStateByUserId: FunctionReference<
-        "query",
-        "internal",
-        { user_id: string },
-        any
-      >;
-      getUserDeletionCleanupStatus: FunctionReference<
         "query",
         "internal",
         { user_id: string },
@@ -1287,6 +1396,18 @@ export declare const components: {
         { anonymous_user_id: string; now_ms: number; user_id: string },
         any
       >;
+      listAuthDeleteDeadLetterUserDeletionOperations: FunctionReference<
+        "query",
+        "internal",
+        { limit: number },
+        any
+      >;
+      listDueUserDeletionOperations: FunctionReference<
+        "query",
+        "internal",
+        { limit: number; now_ms: number },
+        any
+      >;
       listRetryableRevenueCatEvents: FunctionReference<
         "query",
         "internal",
@@ -1332,38 +1453,6 @@ export declare const components: {
         { limit: number; now_ms: number },
         any
       >;
-      markRevenueCatEventIgnored: FunctionReference<
-        "mutation",
-        "internal",
-        {
-          event_doc_id: string;
-          now_ms: number;
-          reason: string;
-          user_id?: string;
-        },
-        any
-      >;
-      markRevenueCatEventProcessed: FunctionReference<
-        "mutation",
-        "internal",
-        { event_doc_id: string; now_ms: number; user_id?: string },
-        any
-      >;
-      markRevenueCatEventProcessingFailure: FunctionReference<
-        "mutation",
-        "internal",
-        {
-          error_message: string;
-          event_doc_id: string;
-          now_ms: number;
-          retry_config: {
-            max_retry_count: number;
-            retry_base_delay_ms: number;
-            retry_max_delay_ms: number;
-          };
-        },
-        any
-      >;
       markSubscriptionQuotaUsageFailed: FunctionReference<
         "mutation",
         "internal",
@@ -1376,10 +1465,59 @@ export declare const components: {
         { after_charge: boolean; now_ms: number; usage_event_id: string },
         any
       >;
+      markUserDeletionAuthDeleted: FunctionReference<
+        "mutation",
+        "internal",
+        { force_stop_after_at_ms: number; now_ms: number; user_id: string },
+        any
+      >;
       purgeRevenueCatEventsById: FunctionReference<
         "mutation",
         "internal",
         { event_doc_ids: Array<string> },
+        any
+      >;
+      recordRevenueCatEventProcessingProgress: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          error_message?: string;
+          event_doc_id: string;
+          ignored_user_ids: Array<string>;
+          next_retry_at_ms?: number;
+          now_ms: number;
+          processed_user_ids: Array<string>;
+          released_user_ids?: Array<string>;
+          retry_config?: {
+            max_retry_count: number;
+            retry_base_delay_ms: number;
+            retry_max_delay_ms: number;
+          };
+          status_message?: string;
+        },
+        any
+      >;
+      rescheduleUserDeletionOperation: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          auth_deleted_at_ms?: number;
+          force_stop_after_at_ms?: number;
+          last_error?: string | null;
+          next_retry_at_ms: number;
+          now_ms: number;
+          retry_count_increment?: number;
+          status:
+            | "preparing"
+            | "awaiting_auth_delete"
+            | "awaiting_auth_delete_late"
+            | "auth_delete_dead_letter"
+            | "ready_for_cleanup"
+            | "waiting_for_quiescence"
+            | "retryable_error"
+            | "cleanup_in_progress";
+          user_id: string;
+        },
         any
       >;
       reserveSubscriptionQuotaUsage: FunctionReference<

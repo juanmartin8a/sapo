@@ -18,8 +18,6 @@ describe("anonymous free merge helpers", () => {
                     free_period_anchor_at_ms: Date.UTC(2026, 3, 5),
                     window_start_at_ms: Date.UTC(2026, 3, 5),
                     window_end_at_ms: Date.UTC(2026, 4, 5),
-                    translate_chars_used: 0,
-                    respell_chars_used: 0,
                 },
                 quotaPeriods: [],
                 usageEvents: [],
@@ -54,8 +52,6 @@ describe("anonymous free merge helpers", () => {
                     free_period_anchor_at_ms: Date.UTC(2026, 3, 25),
                     window_start_at_ms: Date.UTC(2026, 3, 25),
                     window_end_at_ms: Date.UTC(2026, 4, 25),
-                    translate_chars_used: 0,
-                    respell_chars_used: 0,
                 },
                 targetQuotaPeriods: [],
                 targetUsageEvents: [],
@@ -70,11 +66,9 @@ describe("anonymous free merge helpers", () => {
                     free_period_anchor_at_ms: Date.UTC(2026, 3, 25),
                     window_start_at_ms: Date.UTC(2026, 3, 25),
                     window_end_at_ms: Date.UTC(2026, 4, 25),
-                    translate_chars_used: 100,
-                    respell_chars_used: 0,
                 },
                 targetQuotaPeriods: [],
-                targetUsageEvents: [],
+                targetUsageEvents: [{ reserved_at_ms: Date.UTC(2026, 3, 26) }],
             })
         ).toBe("target");
     });

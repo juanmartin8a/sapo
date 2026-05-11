@@ -2,10 +2,11 @@ const DEFAULT_RETRY_BASE_DELAY_MS = 15_000;
 const DEFAULT_MAX_RETRY_DELAY_MS = 6 * 60 * 60 * 1000;
 const DEFAULT_MAX_RETRY_COUNT = 12;
 const DEFAULT_ON_DEMAND_SUBSCRIPTION_REFRESH_INTERVAL_MS = 8 * 60 * 60 * 1000;
-const DEFAULT_EXPIRATION_RECONCILIATION_DELAY_MS = 12 * 60 * 60 * 1000;
+const DEFAULT_EXPIRATION_RECONCILIATION_DELAY_MS = 15 * 60 * 1000;
 const DEFAULT_RETRY_BATCH_LIMIT = 20;
 const DEFAULT_RECONCILIATION_BATCH_LIMIT = 10;
 const DEFAULT_RECONCILIATION_FAILURE_BACKOFF_MS = 30 * 60 * 1000;
+const DEFAULT_FROZEN_QUOTA_PERIOD_RETENTION_MS = 60 * 24 * 60 * 60 * 1000;
 
 function parseNumber(value: unknown): number | null {
     if (typeof value === "number" && Number.isFinite(value)) {
@@ -40,6 +41,15 @@ function parseIntegerEnvValue(value: string | undefined, defaultValue: number) {
     return Math.floor(parsed);
 }
 
+function parseRequiredPositiveIntegerEnvValue(value: string | undefined) {
+    const parsed = parseNumber(value);
+    if (parsed === null || parsed <= 0) {
+        return null;
+    }
+
+    return Math.floor(parsed);
+}
+
 export function getPolyglotEntitlementId() {
     return (
         parseString(process.env.REVENUECAT_POLYGLOT_ENTITLEMENT_ID) ??
@@ -52,27 +62,6 @@ export function getRevenueCatProjectId() {
     return parseString(process.env.REVENUECAT_PROJECT_ID) ?? "";
 }
 
-export function getPolyglotProductIds() {
-    const configured =
-        parseString(process.env.REVENUECAT_POLYGLOT_PRODUCT_IDS)
-            ?.split(",")
-            .map((value) => value.trim())
-            .filter((value) => value.length > 0) ?? [];
-
-    const iosFallback = parseString(process.env.EXPO_PUBLIC_IOS_SUBSCRIPTION_PRODUCT_ID);
-    const androidFallback = parseString(process.env.EXPO_PUBLIC_ANDROID_SUBSCRIPTION_PRODUCT_ID);
-
-    if (iosFallback) {
-        configured.push(iosFallback);
-    }
-
-    if (androidFallback) {
-        configured.push(androidFallback);
-    }
-
-    return Array.from(new Set(configured));
-}
-
 export function getSubscriptionProcessingConfig() {
     const polyglotEntitlementId = getPolyglotEntitlementId();
 
@@ -80,17 +69,20 @@ export function getSubscriptionProcessingConfig() {
         ...(polyglotEntitlementId.length > 0
             ? { polyglot_entitlement_id: polyglotEntitlementId }
             : {}),
-        polyglot_product_ids: getPolyglotProductIds(),
         expiration_reconciliation_delay_ms: parseIntegerEnvValue(
-            process.env.REVENUECAT_EXPIRATION_RECONCILIATION_DELAY_MS,
+            process.env.REVENUECAT_EXP_RECONCILIATION_DELAY_MS,
             DEFAULT_EXPIRATION_RECONCILIATION_DELAY_MS
         ),
     };
 }
 
+export function hasPolyglotSubscriptionFilters() {
+    return getPolyglotEntitlementId().length > 0;
+}
+
 export function getOnDemandSubscriptionRefreshIntervalMs() {
     return parseIntegerEnvValue(
-        process.env.REVENUECAT_ON_DEMAND_RECONCILIATION_AFTER_MS,
+        process.env.REVENUECAT_ON_DEMAND_SYNC_AFTER_MS,
         DEFAULT_ON_DEMAND_SUBSCRIPTION_REFRESH_INTERVAL_MS
     );
 }
@@ -133,4 +125,15 @@ export function getReconciliationFailureBackoffMs() {
         process.env.REVENUECAT_RECONCILIATION_FAILURE_BACKOFF_MS,
         DEFAULT_RECONCILIATION_FAILURE_BACKOFF_MS
     );
+}
+
+export function getFrozenQuotaPeriodRetentionMs() {
+    return parseIntegerEnvValue(
+        process.env.FROZEN_QUOTA_PERIOD_RETENTION_MS,
+        DEFAULT_FROZEN_QUOTA_PERIOD_RETENTION_MS
+    );
+}
+
+export function getRevenueCatEventsRetentionMs() {
+    return parseRequiredPositiveIntegerEnvValue(process.env.REVENUECAT_EVENTS_RETENTION_MS);
 }

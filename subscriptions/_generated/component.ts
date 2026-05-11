@@ -24,6 +24,30 @@ import type { FunctionReference } from "convex/server";
 export type ComponentApi<Name extends string | undefined = string | undefined> =
   {
     webhook: {
+      acquireRevenueCatEventProcessingLeases: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          event_doc_id: string;
+          lease_expires_at_ms: number;
+          now_ms: number;
+          user_ids: Array<string>;
+        },
+        any,
+        Name
+      >;
+      acquireUserDeletionOperation: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          allow_terminal_recovery?: boolean;
+          lease_expires_at_ms: number;
+          now_ms: number;
+          user_id: string;
+        },
+        any,
+        Name
+      >;
       applyReconciledSubscriptionState: FunctionReference<
         "mutation",
         "internal",
@@ -70,13 +94,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         any,
         Name
       >;
-      clearUserDeletionPreparation: FunctionReference<
-        "mutation",
-        "internal",
-        { user_id: string },
-        any,
-        Name
-      >;
       completeSubscriptionQuotaUsage: FunctionReference<
         "mutation",
         "internal",
@@ -91,6 +108,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         any,
         Name
       >;
+      deleteFrozenQuotaPeriodsEligibleForRetentionPurge: FunctionReference<
+        "mutation",
+        "internal",
+        { limit: number; older_than_ms: number },
+        any,
+        Name
+      >;
       deleteUserSubscriptionData: FunctionReference<
         "mutation",
         "internal",
@@ -100,6 +124,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           revenuecat_app_user_id?: string;
           user_id: string;
         },
+        any,
+        Name
+      >;
+      ensureUserDeletionPreservedQuotaPeriod: FunctionReference<
+        "mutation",
+        "internal",
+        { now_ms: number; user_id: string },
         any,
         Name
       >;
@@ -125,14 +156,14 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         any,
         Name
       >;
-      getActiveUserDeletionUsageEventCount: FunctionReference<
+      getActiveRevenueCatEventProcessingForUserDeletion: FunctionReference<
         "query",
         "internal",
-        { user_id: string },
+        { limit: number; now_ms: number; user_id: string },
         any,
         Name
       >;
-      getPreparedUserDeletionContext: FunctionReference<
+      getActiveUserDeletionUsageEventCount: FunctionReference<
         "query",
         "internal",
         { user_id: string },
@@ -147,13 +178,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Name
       >;
       getSubscriptionStateByUserId: FunctionReference<
-        "query",
-        "internal",
-        { user_id: string },
-        any,
-        Name
-      >;
-      getUserDeletionCleanupStatus: FunctionReference<
         "query",
         "internal",
         { user_id: string },
@@ -209,6 +233,20 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         any,
         Name
       >;
+      listAuthDeleteDeadLetterUserDeletionOperations: FunctionReference<
+        "query",
+        "internal",
+        { limit: number },
+        any,
+        Name
+      >;
+      listDueUserDeletionOperations: FunctionReference<
+        "query",
+        "internal",
+        { limit: number; now_ms: number },
+        any,
+        Name
+      >;
       listRetryableRevenueCatEvents: FunctionReference<
         "query",
         "internal",
@@ -258,41 +296,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         any,
         Name
       >;
-      markRevenueCatEventIgnored: FunctionReference<
-        "mutation",
-        "internal",
-        {
-          event_doc_id: string;
-          now_ms: number;
-          reason: string;
-          user_id?: string;
-        },
-        any,
-        Name
-      >;
-      markRevenueCatEventProcessed: FunctionReference<
-        "mutation",
-        "internal",
-        { event_doc_id: string; now_ms: number; user_id?: string },
-        any,
-        Name
-      >;
-      markRevenueCatEventProcessingFailure: FunctionReference<
-        "mutation",
-        "internal",
-        {
-          error_message: string;
-          event_doc_id: string;
-          now_ms: number;
-          retry_config: {
-            max_retry_count: number;
-            retry_base_delay_ms: number;
-            retry_max_delay_ms: number;
-          };
-        },
-        any,
-        Name
-      >;
       markSubscriptionQuotaUsageFailed: FunctionReference<
         "mutation",
         "internal",
@@ -307,10 +310,62 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         any,
         Name
       >;
+      markUserDeletionAuthDeleted: FunctionReference<
+        "mutation",
+        "internal",
+        { force_stop_after_at_ms: number; now_ms: number; user_id: string },
+        any,
+        Name
+      >;
       purgeRevenueCatEventsById: FunctionReference<
         "mutation",
         "internal",
         { event_doc_ids: Array<string> },
+        any,
+        Name
+      >;
+      recordRevenueCatEventProcessingProgress: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          error_message?: string;
+          event_doc_id: string;
+          ignored_user_ids: Array<string>;
+          next_retry_at_ms?: number;
+          now_ms: number;
+          processed_user_ids: Array<string>;
+          released_user_ids?: Array<string>;
+          retry_config?: {
+            max_retry_count: number;
+            retry_base_delay_ms: number;
+            retry_max_delay_ms: number;
+          };
+          status_message?: string;
+        },
+        any,
+        Name
+      >;
+      rescheduleUserDeletionOperation: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          auth_deleted_at_ms?: number;
+          force_stop_after_at_ms?: number;
+          last_error?: string | null;
+          next_retry_at_ms: number;
+          now_ms: number;
+          retry_count_increment?: number;
+          status:
+            | "preparing"
+            | "awaiting_auth_delete"
+            | "awaiting_auth_delete_late"
+            | "auth_delete_dead_letter"
+            | "ready_for_cleanup"
+            | "waiting_for_quiescence"
+            | "retryable_error"
+            | "cleanup_in_progress";
+          user_id: string;
+        },
         any,
         Name
       >;
