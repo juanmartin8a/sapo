@@ -12,7 +12,7 @@
 		startViewTransition?: (callback: () => Promise<void>) => SapoViewTransition;
 	};
 
-	const frogTransitionRoutes = new Set(['/', '/support']);
+	const frogTransitionRoutes = new Set(['/', '/support', '/delete-account']);
 	const normalizeFrogTransitionPath = (path: string) => path.replace(/\/$/, '') || '/';
 	const frogTransitionClass = 'sapo-frog-view-transitioning';
 
