@@ -8,8 +8,10 @@
 
 	let animationReady = $state(false);
 	let mouthOpen = $state(false);
+	let acronymSpeaking = $state(false);
 	let wordDelays = $state(acronymWords.map((_, index) => 0.12 + index * 0.2));
 	let frogClickTimer: ReturnType<typeof setTimeout> | null = null;
+	const endAcronymSpeakingDelay = 260;
 
 	const openFrogMouthBriefly = (duration = 80 + Math.random() * 120) => {
 		if (frogClickTimer) {
@@ -28,6 +30,7 @@
 
 		wordDelays = acronymWords.map((_, index) => 0.08 + index * 0.22 + Math.random() * 0.08);
 		animationReady = true;
+		acronymSpeaking = true;
 
 		wordDelays.forEach((delay) => {
 			timers.push(
@@ -36,6 +39,15 @@
 				}, delay * 1000)
 			);
 		});
+
+		timers.push(
+			setTimeout(
+				() => {
+					acronymSpeaking = false;
+				},
+				Math.max(...wordDelays) * 1000 + endAcronymSpeakingDelay
+			)
+		);
 
 		return () => {
 			timers.forEach(clearTimeout);
@@ -77,9 +89,14 @@
 			>
 				<button
 					type="button"
-					class="relative mx-auto aspect-[929/914] w-[min(62vw,14rem)] sm:w-[min(18vw,15rem)]"
+					class="sapo-frog-transition relative mx-auto aspect-[929/914] w-[min(62vw,14rem)] sm:w-[min(18vw,15rem)]"
 					aria-label="Make the SAPO frog speak"
-					onclick={() => openFrogMouthBriefly()}
+					disabled={acronymSpeaking}
+					onclick={() => {
+						if (!acronymSpeaking) {
+							openFrogMouthBriefly();
+						}
+					}}
 				>
 					<div class="absolute inset-0">
 						<img

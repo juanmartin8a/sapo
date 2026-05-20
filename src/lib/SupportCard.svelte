@@ -1,5 +1,61 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { onMount } from 'svelte';
+
+	const supportPhraseLead = ['Need', 'a', 'hand', 'with'];
+	const supportPhraseLetters = ['S', 'A', 'P', 'O'];
+	const supportPhraseWords = [...supportPhraseLead, ...supportPhraseLetters];
+
+	let animationReady = $state(false);
+	let mouthOpen = $state(false);
+	let supportPhraseSpeaking = $state(false);
+	let wordDelays = $state(supportPhraseWords.map((_, index) => 0.12 + index * 0.2));
+	let frogClickTimer: ReturnType<typeof setTimeout> | null = null;
+	const endSupportPhraseSpeakingDelay = 260;
+
+	const openFrogMouthBriefly = (duration = 80 + Math.random() * 120) => {
+		if (frogClickTimer) {
+			clearTimeout(frogClickTimer);
+		}
+
+		mouthOpen = true;
+		frogClickTimer = setTimeout(() => {
+			mouthOpen = false;
+			frogClickTimer = null;
+		}, duration);
+	};
+
+	onMount(() => {
+		const timers: ReturnType<typeof setTimeout>[] = [];
+
+		wordDelays = supportPhraseWords.map((_, index) => 0.08 + index * 0.22 + Math.random() * 0.08);
+		animationReady = true;
+		supportPhraseSpeaking = true;
+
+		wordDelays.forEach((delay) => {
+			timers.push(
+				setTimeout(() => {
+					openFrogMouthBriefly(135);
+				}, delay * 1000)
+			);
+		});
+
+		timers.push(
+			setTimeout(
+				() => {
+					supportPhraseSpeaking = false;
+				},
+				Math.max(...wordDelays) * 1000 + endSupportPhraseSpeakingDelay
+			)
+		);
+
+		return () => {
+			timers.forEach(clearTimeout);
+			if (frogClickTimer) {
+				clearTimeout(frogClickTimer);
+			}
+		};
+	});
 </script>
 
 <svelte:head>
@@ -25,9 +81,34 @@
 		</header>
 
 		<section
-			class="mx-auto grid w-full max-w-3xl items-center gap-6 sm:grid-cols-[0.36fr_0.64fr] sm:gap-10"
+			class="mx-auto grid w-full max-w-3xl items-center gap-4 self-center sm:grid-cols-[0.36fr_0.64fr] sm:gap-10"
 		>
-			<img src="/sapo-frog.svg" alt="SAPO frog" class="mx-auto w-[min(48vw,11rem)] sm:w-full" />
+			<button
+				type="button"
+				class="sapo-frog-transition relative mx-auto aspect-[929/914] w-[min(48vw,11rem)] sm:w-full"
+				aria-label="Make the SAPO frog speak"
+				disabled={supportPhraseSpeaking}
+				onclick={() => {
+					if (!supportPhraseSpeaking) {
+						openFrogMouthBriefly();
+					}
+				}}
+			>
+				<div class="absolute inset-0">
+					<img
+						src="/sapo-frog.svg"
+						alt="SAPO frog"
+						class="absolute bottom-0 left-0 h-auto w-full transition-opacity duration-75"
+						style:opacity={mouthOpen ? 0 : 1}
+					/>
+					<img
+						src="/sapo-frog-open.svg"
+						alt=""
+						class="absolute bottom-0 left-0 h-auto w-full transition-opacity duration-75"
+						style:opacity={mouthOpen ? 1 : 0}
+					/>
+				</div>
+			</button>
 
 			<div class="text-center sm:text-left">
 				<p
@@ -36,8 +117,31 @@
 					Support
 				</p>
 
-				<h1 class="text-4xl leading-none font-black tracking-[-0.06em] sm:text-6xl">
-					Need a hand with S&nbsp;A&nbsp;P&nbsp;O?
+				<h1
+					class="flex flex-wrap justify-center gap-x-[0.18em] gap-y-1 text-4xl leading-none font-black tracking-[-0.06em] sm:justify-start sm:text-6xl"
+					class:support-words-ready={animationReady}
+				>
+					{#each supportPhraseLead as word, index (word)}
+						<span class="support-word inline-block" style={`--word-delay: ${wordDelays[index]}s`}>
+							{word}
+						</span>
+					{/each}
+					<span class="inline-flex gap-x-[0.18em] whitespace-nowrap">
+						{#each supportPhraseLetters as letter, index (letter)}
+							<span
+								class="support-word inline-block"
+								style={`--word-delay: ${wordDelays[index + supportPhraseLead.length]}s`}
+							>
+								{letter}
+							</span>
+						{/each}
+						<span
+							class="support-word inline-block"
+							style={`--word-delay: ${wordDelays[supportPhraseWords.length - 1] + 0.08}s`}
+						>
+							?
+						</span>
+					</span>
 				</h1>
 
 				<p class="mt-5 max-w-md text-base leading-7 text-[#4C6349]">
@@ -67,3 +171,36 @@
 		</footer>
 	</div>
 </main>
+
+<style>
+	.support-word {
+		opacity: 0;
+		transform: translate3d(0.35rem, 0.9rem, 0) scale(0.98);
+	}
+
+	.support-words-ready .support-word {
+		animation: support-word-reveal 360ms cubic-bezier(0.23, 1, 0.32, 1) both;
+		animation-delay: var(--word-delay);
+	}
+
+	@keyframes support-word-reveal {
+		from {
+			opacity: 0;
+			transform: translate3d(0.35rem, 0.9rem, 0) scale(0.98);
+		}
+
+		to {
+			opacity: 1;
+			transform: translate3d(0, 0, 0) scale(1);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.support-word,
+		.support-words-ready .support-word {
+			animation: none;
+			opacity: 1;
+			transform: none;
+		}
+	}
+</style>

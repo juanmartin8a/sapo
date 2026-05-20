@@ -24,6 +24,33 @@ body {
 	min-height: 100svh;
 }
 
+.sapo-frog-transition {
+	appearance: none;
+	border: 0;
+	background: transparent;
+	contain: paint;
+	padding: 0;
+	-webkit-tap-highlight-color: transparent;
+}
+
+.sapo-frog-transition:disabled {
+	opacity: 1;
+}
+
+.sapo-frog-view-transitioning .sapo-frog-transition {
+	view-transition-name: sapo-frog;
+}
+
+::view-transition-group(sapo-frog) {
+	animation-duration: 520ms;
+	animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+	animation-duration: 180ms;
+}
+
 a:not([class]) {
 	color: inherit;
 }
