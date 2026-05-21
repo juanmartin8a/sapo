@@ -58,7 +58,7 @@
 </script>
 
 <svelte:head>
-	<link rel="icon" href="/sapo-logo.png" />
+	<link rel="icon" href="/sapo-favicon.svg" type="image/svg+xml" />
 	<link rel="preload" as="image" href="/sapo-frog.svg" type="image/svg+xml" fetchpriority="high" />
 	<link
 		rel="preload"

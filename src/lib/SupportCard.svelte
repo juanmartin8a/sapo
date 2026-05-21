@@ -63,10 +63,7 @@
 	<meta name="description" content="Contact S A P O support." />
 </svelte:head>
 
-<main
-	class="min-h-svh px-4 py-4 text-[#1E3526] sm:px-6 sm:py-5 lg:px-10"
-	style="background: radial-gradient(circle at 10% 18%, rgba(225, 236, 221, 0.78), transparent 23rem), radial-gradient(circle at 96% 88%, rgba(197, 216, 192, 0.5), transparent 26rem), #ffffff;"
->
+<main class="min-h-svh px-4 py-4 text-[#1E3526] sm:px-6 sm:py-5 lg:px-10">
 	<div
 		class="mx-auto grid min-h-[calc(100svh-2rem)] w-full max-w-5xl grid-rows-[auto_1fr_auto] gap-3 sm:min-h-[calc(100svh-2.5rem)]"
 	>
@@ -148,15 +145,15 @@
 					Leave us an email at
 					<a
 						class="font-bold text-[#1E3526] underline underline-offset-4"
-						href="mailto:juanmarzabala8a@gmail.com?subject=SAPO%20Support"
+						href="mailto:support@sapo.surf?subject=SAPO%20Support"
 					>
-						juanmarzabala8a@gmail.com</a
+						support@sapo.surf</a
 					>.
 				</p>
 
 				<a
 					class="mt-7 inline-flex rounded-full bg-black px-5 py-3 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#1E3526]"
-					href="mailto:juanmarzabala8a@gmail.com?subject=SAPO%20Support"
+					href="mailto:support@sapo.surf?subject=SAPO%20Support"
 				>
 					Email support
 				</a>

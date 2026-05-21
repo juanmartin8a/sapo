@@ -62,14 +62,11 @@
 	<title>S A P O | Sound Adaptation & Phonetic Orchestration</title>
 	<meta
 		name="description"
-		content="S A P O is a simple mobile app and open phonetic dataset project for translation and respelling across languages."
+		content="S A P O helps you translate words and hear how they sound in other languages, while supporting an open phonetic dataset."
 	/>
 </svelte:head>
 
-<main
-	class="relative h-svh overflow-hidden px-4 py-4 text-[#1E3526] sm:px-6 sm:py-5 lg:px-10"
-	style="background: radial-gradient(circle at 7% 17%, rgba(225, 236, 221, 0.78), transparent 23rem), radial-gradient(circle at 96% 92%, rgba(197, 216, 192, 0.5), transparent 26rem), #ffffff;"
->
+<main class="relative h-svh overflow-hidden px-4 py-4 text-[#1E3526] sm:px-6 sm:py-5 lg:px-10">
 	<div class="relative mx-auto grid h-full w-full max-w-5xl grid-rows-[auto_1fr_auto] gap-3">
 		<header class="flex items-center justify-between gap-4">
 			<a href={resolve('/')} class="text-sm font-semibold tracking-[0.34em] text-[#1E3526]">
@@ -149,11 +146,10 @@
 			<p
 				class="mx-auto max-w-4xl text-center text-sm leading-6 text-[#4C6349] sm:text-base sm:leading-7"
 			>
-				S&nbsp;A&nbsp;P&nbsp;O is an open-source project building the S&nbsp;A&nbsp;P&nbsp;O open
-				phonetic database: a cross-language respelling dataset that maps how words sound from every
-				language into every other language. The mobile app provides translation and phonetic
-				respelling, with a portion of subscription revenue funding the background AI work that
-				expands the dataset.
+				S&nbsp;A&nbsp;P&nbsp;O helps you translate words and see how they sound in another language.
+				It also supports linguistic research with an open phonetic database of phonetic
+				respellings for comparing pronunciations across languages. Subscriptions help keep the
+				app running and grow the dataset.
 			</p>
 
 			<div class="flex flex-wrap items-center justify-center gap-3">

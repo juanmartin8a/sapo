@@ -2,12 +2,15 @@
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 
-	const titleWords = ['Delete', 'your', 'SAPO', 'account'];
+	const titleLeadWords = ['Delete', 'your'];
+	const titleLetters = ['S', 'A', 'P', 'O'];
+	const titleTailWords = ['account'];
+	const titleParts = [...titleLeadWords, ...titleLetters, ...titleTailWords];
 
 	let animationReady = $state(false);
 	let mouthOpen = $state(false);
 	let titleSpeaking = $state(false);
-	let wordDelays = $state(titleWords.map((_, index) => 0.12 + index * 0.2));
+	let wordDelays = $state(titleParts.map((_, index) => 0.12 + index * 0.2));
 	let frogClickTimer: ReturnType<typeof setTimeout> | null = null;
 	const endTitleSpeakingDelay = 260;
 
@@ -26,7 +29,7 @@
 	onMount(() => {
 		const timers: ReturnType<typeof setTimeout>[] = [];
 
-		wordDelays = titleWords.map((_, index) => 0.08 + index * 0.22 + Math.random() * 0.08);
+		wordDelays = titleParts.map((_, index) => 0.08 + index * 0.22 + Math.random() * 0.08);
 		animationReady = true;
 		titleSpeaking = true;
 
@@ -64,10 +67,7 @@
 	/>
 </svelte:head>
 
-<main
-	class="min-h-svh px-4 py-4 text-[#1E3526] sm:px-6 sm:py-5 lg:px-10"
-	style="background: radial-gradient(circle at 10% 18%, rgba(225, 236, 221, 0.78), transparent 23rem), radial-gradient(circle at 96% 88%, rgba(197, 216, 192, 0.5), transparent 26rem), #ffffff;"
->
+<main class="min-h-svh px-4 py-4 text-[#1E3526] sm:px-6 sm:py-5 lg:px-10">
 	<div
 		class="mx-auto grid min-h-[calc(100svh-2rem)] w-full max-w-5xl grid-rows-[auto_1fr_auto] gap-3 sm:min-h-[calc(100svh-2.5rem)]"
 	>
@@ -128,8 +128,26 @@
 						class="flex flex-wrap justify-center gap-x-[0.18em] gap-y-1 text-4xl leading-none font-black tracking-[-0.06em] sm:justify-start sm:text-6xl"
 						class:delete-words-ready={animationReady}
 					>
-						{#each titleWords as word, index (word)}
+						{#each titleLeadWords as word, index (word)}
 							<span class="delete-word inline-block" style={`--word-delay: ${wordDelays[index]}s`}>
+								{word}
+							</span>
+						{/each}
+						<span class="whitespace-nowrap">
+							{#each titleLetters as letter, index (letter)}
+								<span
+									class="delete-word inline-block"
+									style={`--word-delay: ${wordDelays[index + titleLeadWords.length]}s`}
+								>
+									{letter}
+								</span>{#if index < titleLetters.length - 1}&nbsp;{/if}
+							{/each}
+						</span>
+						{#each titleTailWords as word, index (word)}
+							<span
+								class="delete-word inline-block"
+								style={`--word-delay: ${wordDelays[index + titleLeadWords.length + titleLetters.length]}s`}
+							>
 								{word}
 							</span>
 						{/each}

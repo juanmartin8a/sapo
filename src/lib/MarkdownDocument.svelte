@@ -10,10 +10,7 @@
 	<title>{title} | S A P O</title>
 </svelte:head>
 
-<main
-	class="min-h-svh px-4 py-4 text-[#1E3526] sm:px-6 sm:py-5 lg:px-10"
-	style="background: radial-gradient(circle at 8% 8%, rgba(225, 236, 221, 0.78), transparent 24rem), radial-gradient(circle at 94% 18%, rgba(197, 216, 192, 0.42), transparent 24rem), #ffffff;"
->
+<main class="min-h-svh px-4 py-4 text-[#1E3526] sm:px-6 sm:py-5 lg:px-10">
 	<div class="mx-auto max-w-5xl">
 		<nav class="mb-8 flex items-center justify-between gap-4 text-sm font-semibold text-[#4C6349]">
 			<a

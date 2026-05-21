@@ -17,11 +17,27 @@ html,
 body {
 	margin: 0;
 	min-width: 320px;
-	background: #ffffff;
 }
 
 body {
 	min-height: 100svh;
+	background-color: #ffffff;
+	background-image:
+		radial-gradient(circle at 8% 14rem, rgba(225, 236, 221, 0.78), transparent 23rem),
+		radial-gradient(circle at 8% 32rem, rgba(225, 236, 221, 0.66), transparent 23rem),
+		radial-gradient(circle at 96% 46rem, rgba(197, 216, 192, 0.5), transparent 26rem),
+		radial-gradient(circle at 28% 86rem, rgba(225, 236, 221, 0.42), transparent 21rem);
+	background-position:
+		0 0,
+		0 54rem,
+		0 7rem,
+		0 23rem;
+	background-repeat: no-repeat, repeat-y, repeat-y, repeat-y;
+	background-size:
+		100% 60rem,
+		100% 132rem,
+		100% 139rem,
+		100% 163rem;
 }
 
 .sapo-frog-transition {
