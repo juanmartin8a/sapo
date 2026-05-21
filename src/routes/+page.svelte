@@ -59,7 +59,7 @@
 </script>
 
 <svelte:head>
-	<title>S A P O | Sound Adaptation & Phonetic Orchestration</title>
+	<title>S A P O</title>
 	<meta
 		name="description"
 		content="S A P O helps you translate words and hear how they sound in other languages, while supporting an open phonetic dataset."
