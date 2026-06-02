@@ -5,7 +5,7 @@ Compact guidance for future OpenCode sessions in this repo.
 ## Project Shape
 
 - Expo + React Native + TypeScript app using Expo Router (`package.json` `main` is `expo-router/entry`). Routes live in `app/`; reusable UI lives mostly in `components/`.
-- `app/_layout.tsx` wires the global providers: Convex, Better Auth, anonymous-session warmup, RevenueCat identity sync, and keyboard handling.
+- `app/_layout.tsx` wires the global providers: Convex, Better Auth, auth gating, RevenueCat identity sync, and keyboard handling.
 - App state is in Zustand stores under `stores/`; Convex/Better Auth client code is in `clients/`.
 - `convex/` is both backend code and a configured git submodule (`.gitmodules`); edits there are in the nested repo and root git status only shows the submodule pointer. If it is missing after clone, run `git submodule update --init --recursive`.
 - Convex is componentized: root `convex/convex.config.ts` uses `betterAuth`, `sapopinguino`, `subscriptions`, and `@convex-dev/resend` components.

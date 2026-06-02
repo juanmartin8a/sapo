@@ -8,7 +8,7 @@ import { BottomSheetMethods } from "@gorhom/bottom-sheet/lib/typescript/types";
 interface LangugeSelectorBottomSheetUIProps {
     ref: React.RefObject<BottomSheetMethods | null>;
     data: ([string, string])[];
-    selectedIndex: number;
+    selectedKey: string;
     onClose: () => void;
     onChange: (index: number) => void;
     onLanguageSelected: (key: string) => void;
@@ -16,7 +16,7 @@ interface LangugeSelectorBottomSheetUIProps {
 
 // UI component for SourceLanguageSelectorBottomSheet.tsx and targetLanguageSelectorBottomSheet.tsx
 
-const LangugeSelectorBottomSheetUI = ({ ref, data, selectedIndex, onClose, onChange, onLanguageSelected }: LangugeSelectorBottomSheetUIProps) => {
+const LangugeSelectorBottomSheetUI = ({ ref, data, selectedKey, onClose, onChange, onLanguageSelected }: LangugeSelectorBottomSheetUIProps) => {
     const insets = useSafeAreaInsets();
 
     return (
@@ -38,8 +38,7 @@ const LangugeSelectorBottomSheetUI = ({ ref, data, selectedIndex, onClose, onCha
                 ItemSeparatorComponent={() => <View style={{ height: 12 }}></View>}
                 renderItem={({ item }: { item: [string, string] }) => {
                     const [key, value] = item;
-                    const index = parseInt(key);
-                    const isSelected = index === selectedIndex;
+                    const isSelected = key === selectedKey;
 
                     return (
                         <TouchableOpacity

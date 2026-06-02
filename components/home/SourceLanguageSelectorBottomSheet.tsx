@@ -98,7 +98,7 @@ export default function SourceLangugeSelectorBottomSheet() {
 
     return (
         <LangugeSelectorBottomSheetUI
-            selectedIndex={selectedIndex}
+            selectedKey={String(selectedIndex)}
             ref={sheetRef}
             onLanguageSelected={handleLanguageSelect}
             onClose={handleSheetClose}

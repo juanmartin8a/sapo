@@ -7,16 +7,19 @@
     "icon": "./assets/images/sapo_logo.png",
     "scheme": "sapo",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.juanmartin8a.SAPO",
       "usesAppleSignIn": true,
+      "associatedDomains": [
+        "applinks:sapo.surf"
+      ],
       "entitlements": {
         "com.apple.developer.applesignin": [
-          "Default",
           "Default"
-        ]
+        ],
+        "com.apple.developer.kernel.extended-virtual-addressing": true,
+        "com.apple.developer.kernel.increased-memory-limit": true
       },
       "buildNumber": "3",
       "infoPlist": {
@@ -25,7 +28,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/sapo_logo.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.juanmartin8a.SAPO"
@@ -38,6 +41,16 @@
     "plugins": [
       "expo-router",
       "expo-apple-authentication",
+      [
+        "expo-build-properties",
+        {
+          "buildReactNativeFromSource": true,
+          "useHermesV1": true,
+          "ios": {
+            "deploymentTarget": "15.1"
+          }
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -61,7 +74,8 @@
       ],
       "expo-web-browser",
       "expo-secure-store",
-      "expo-iap"
+      "expo-iap",
+      "react-native-litert-lm"
     ],
     "experiments": {
       "typedRoutes": true

@@ -12,13 +12,13 @@ SAPO is operated by the app publisher shown in the applicable app store listing.
 
 ## 1. Summary
 
-- SAPO uses account functionality, including automatically created anonymous sessions and optional Google or Apple sign-in.
+- SAPO offers optional Google or Apple sign-in for account features and does not create accounts in the background.
 - SAPO sends text you submit, plus selected source and target language labels, to our backend and to OpenAI's API to generate translation or respelling output.
 - SAPO uses Convex-hosted backend services, Better Auth authentication software, OpenAI, RevenueCat, Apple, Google, and Resend to provide the app.
 - SAPO offers paid subscriptions through Apple App Store and Google Play, managed through RevenueCat.
 - SAPO does not sell personal data, share personal data for targeted advertising, serve ads, or use third-party analytics SDKs in the current codebase.
 - SAPO does not request camera, microphone, contacts, photo library, precise location, health, fitness, or advertising tracking permissions in the current app configuration.
-- Authenticated users can request account deletion in the app. Deleting your SAPO account does not cancel Apple or Google store billing.
+- Signed-in users can request account deletion in the app. Deleting your SAPO account does not cancel Apple or Google store billing.
 
 ---
 
@@ -26,8 +26,7 @@ SAPO is operated by the app publisher shown in the applicable app store listing.
 
 This Policy applies to SAPO's mobile app and backend endpoints, including:
 
-- Anonymous session creation and authenticated account sign-in.
-- Google and Apple sign-in.
+- Google and Apple account sign-in.
 - Translation and respelling requests.
 - Usage metering, quota enforcement, and stream stop controls.
 - Subscriptions, purchase restore, subscription refresh, and account deletion workflows.
@@ -41,8 +40,8 @@ This Policy does not cover third-party websites, app stores, identity providers,
 
 | Category | Examples | Source | Required Or Optional |
 |---|---|---|---|
-| Account and authentication data | SAPO user ID, anonymous user ID, name, email address, email verification status, optional profile image, sign-in provider account ID, account creation/update timestamps | You, Apple, Google, Better Auth software running on our backend | Required for account/session functionality; Google/Apple sign-in is optional |
-| Session and security data | Session tokens, Convex auth tokens, session expiration, IP address, user agent, verification tokens, OAuth access/refresh/ID tokens where provided by sign-in providers | Your device, Better Auth, Apple, Google | Required for secure sign-in and app functionality |
+| Account and authentication data | SAPO user ID, name, email address, email verification status, optional profile image, sign-in provider account ID, account creation/update timestamps | You, Apple, Google, Better Auth software running on our backend | Optional; required only for account features |
+| Session and security data | Session tokens, Convex auth tokens, session expiration, IP address, user agent, verification tokens, OAuth access/refresh/ID tokens where provided by sign-in providers | Your device, Better Auth, Apple, Google | Required for secure sign-in and account features |
 | User content | Text you submit for translation or respelling, selected source language, selected target language, generated output streamed back to the app | You | Required only when you use translation or respelling |
 | Usage and quota data | Operation type, stream ID, request ID, model name where recorded, input character counts, reserved/charged quota units, quota period counters, timestamps, request state such as completed, failed, or stopped | App and backend | Required to provide free/paid quota and prevent abuse |
 | Subscription and purchase data | RevenueCat app user ID, entitlement ID, product ID, active subscription status, store subscription IDs, transaction IDs, purchase/expiration/grace-period timestamps, store, environment, RevenueCat webhook event IDs and event status | RevenueCat, Apple App Store, Google Play, backend | Required for paid subscription functionality |
@@ -54,19 +53,9 @@ SAPO does not intentionally collect payment card numbers, bank account numbers, 
 
 ---
 
-## 4. Anonymous Sessions
+## 4. Accounts, Google Sign-In, And Apple Sign-In
 
-SAPO automatically creates or warms up an anonymous session when no session exists. This allows the app to authenticate backend requests, provide translation and respelling, enforce quotas, stop active streams, and protect the service from abuse before you choose whether to sign in.
-
-Anonymous sessions use a generated user identifier and session token. If you later sign in with Google or Apple, SAPO may link or migrate relevant anonymous quota/subscription state to the authenticated account so your app state continues to work.
-
-Deleting the app or signing out may remove local session access from your device, but it may not automatically delete server-side anonymous records. Contact us if you want help with an anonymous-session privacy request. We may need limited information to locate the relevant session without collecting more data than necessary.
-
----
-
-## 5. Accounts, Google Sign-In, And Apple Sign-In
-
-You can use SAPO with an anonymous session or sign in with Google or Apple.
+You can open SAPO without signing in. Google or Apple sign-in is optional and is used for account features such as subscriptions, purchase restore, subscription management, and account deletion. SAPO does not create accounts in the background.
 
 When you sign in with Google or Apple, SAPO may receive and store account information provided by the sign-in provider, such as your name, email address, provider account identifier, email verification status, profile image, and sign-in tokens. On iOS, native Apple sign-in requests email and full name. Apple may provide full name only the first time you authorize the app.
 
@@ -74,7 +63,7 @@ SAPO stores authentication/session data on your device using platform secure sto
 
 ---
 
-## 6. Translation And Respelling Text
+## 5. Translation And Respelling Text
 
 When you use translation or respelling, SAPO sends the text you enter, source language, target language, operation type, stream ID, and an authorization token to SAPO's backend. The backend validates size and format limits, reserves quota, sends the sanitized request to OpenAI's Responses API, and streams the generated output back to your app.
 
@@ -88,7 +77,7 @@ SAPO does not use submitted text or generated output to train its own models. Op
 
 ---
 
-## 7. Subscriptions And Purchases
+## 6. Subscriptions And Purchases
 
 SAPO offers a paid subscription through Apple App Store and Google Play. Subscriptions are managed through RevenueCat.
 
@@ -102,11 +91,11 @@ Deleting your SAPO account does not cancel your Apple or Google subscription. Yo
 
 ---
 
-## 8. How We Use Personal Data
+## 7. How We Use Personal Data
 
 SAPO uses personal data for these purposes:
 
-- Provide anonymous and authenticated sessions.
+- Provide authenticated sessions.
 - Enable Google and Apple sign-in.
 - Process translation and respelling requests.
 - Stream generated output and allow you to stop active streams.
@@ -122,13 +111,13 @@ SAPO does not use personal data for third-party advertising, targeted advertisin
 
 ---
 
-## 9. Legal Bases For EEA, UK, And Similar Laws
+## 8. Legal Bases For EEA, UK, And Similar Laws
 
 Where GDPR, UK GDPR, Swiss FADP, LGPD, or similar laws require a legal basis, SAPO relies on the following bases as applicable:
 
 | Purpose | Legal Basis |
 |---|---|
-| Anonymous sessions, account access, authentication, translation, respelling, subscription access, purchase restore, and account management | Performance of a contract or steps taken at your request |
+| Account access, authentication, translation, respelling, subscription access, purchase restore, and account management | Performance of a contract or steps taken at your request |
 | Processing user-submitted text that may contain personal data | Performance of a contract or your consent where required by law |
 | Processing sensitive data you voluntarily include in free-form text | Explicit consent where required by law, limited to providing the requested feature |
 | Security, abuse prevention, quota enforcement, operational logs, service reliability, debugging, and fraud prevention | Legitimate interests, provided those interests are not overridden by your rights |
@@ -139,7 +128,7 @@ You may object to processing based on legitimate interests. You may withdraw con
 
 ---
 
-## 10. Sharing, Service Providers, And Tools
+## 9. Sharing, Service Providers, And Tools
 
 SAPO discloses personal data only as needed for the purposes described in this Policy. Some entries below are independent service providers; Better Auth is authentication software running as part of SAPO's backend rather than a separate hosted recipient in the current codebase.
 
@@ -158,7 +147,7 @@ SAPO may also disclose information if required by law, to protect rights and saf
 
 ---
 
-## 11. App Store And Data Safety Disclosure Summary
+## 10. App Store And Data Safety Disclosure Summary
 
 This section summarizes current practices for app store privacy labels and data safety forms. Store taxonomies differ, and the final store-console answers must match the store's current definitions.
 
@@ -166,7 +155,7 @@ This section summarizes current practices for app store privacy labels and data 
 |---|---|---|---|
 | Name | Yes, if provided by Apple/Google sign-in | Yes | Account management and app functionality |
 | Email address | Yes, for authenticated accounts and deletion email | Yes | Account management, app functionality, transactional communication |
-| User ID | Yes, SAPO/anonymous/RevenueCat user IDs | Yes | App functionality, account management, security, subscription management |
+| User ID | Yes, SAPO and RevenueCat user IDs | Yes | App functionality, account management, security, subscription management |
 | Other user content | Yes, text submitted for translation/respelling | May be linked during request by session/account token | App functionality; processed primarily in real time |
 | Purchase history | Yes, subscription status and transaction/subscription identifiers | Yes | App functionality, account management, fraud prevention, compliance |
 | App activity or usage data | Yes, operation type, quota counters, character counts, stream/request state | Yes | App functionality, quota enforcement, security, reliability |
@@ -178,7 +167,7 @@ SAPO does not use collected data for tracking as Apple defines tracking, does no
 
 ---
 
-## 12. Local Device Storage
+## 11. Local Device Storage
 
 SAPO uses Expo SecureStore to store authentication/session data securely on your device. The current client-side state stores used for text input, language selections, active stream state, subscription state, and last translation are in-memory app state and are not configured for persistent local storage in the current codebase.
 
@@ -186,7 +175,7 @@ Your operating system, app store, RevenueCat SDK, or sign-in provider may mainta
 
 ---
 
-## 13. Retention
+## 12. Retention
 
 SAPO keeps personal data only as long as reasonably necessary for the purposes described in this Policy, unless a longer period is required or permitted by law.
 
@@ -194,7 +183,6 @@ SAPO keeps personal data only as long as reasonably necessary for the purposes d
 |---|---|
 | Raw submitted text and generated output | Not intentionally stored as normal SAPO application data after request completion; temporarily processed in memory, transit, streaming, and provider systems as needed |
 | Account records | While your account exists, then deleted or de-identified through the account deletion workflow unless retention is required by law or necessary for security/dispute purposes |
-| Anonymous session records | While needed to provide the app, enforce quotas, maintain security, or until deleted/de-identified through applicable cleanup or verified request |
 | Session tokens | Until expiration, sign-out, account deletion, or backend cleanup |
 | OAuth/provider tokens | While needed for sign-in/account functionality; Apple tokens are attempted to be revoked during account deletion where available |
 | Usage and quota records | While needed for quota enforcement, subscription integrity, dispute resolution, security, and account operation; removed during account deletion except limited preserved records described below |
@@ -209,9 +197,9 @@ Backups and provider logs may persist for limited periods before deletion cycles
 
 ---
 
-## 14. Account Deletion And Data Controls
+## 13. Account Deletion And Data Controls
 
-Authenticated users can request account deletion in the app through **Settings > Data controls > Delete account**. SAPO sends a verification email before deleting the account.
+Signed-in users can request account deletion in the app through **Settings > Data controls > Delete account**. SAPO sends a verification email before deleting the account.
 
 When deletion is confirmed, SAPO begins an asynchronous cleanup workflow that may:
 
@@ -228,7 +216,7 @@ Deleting your SAPO account does not cancel Apple App Store or Google Play billin
 
 ---
 
-## 15. Your Privacy Rights
+## 14. Your Privacy Rights
 
 Depending on where you live, you may have rights to:
 
@@ -244,13 +232,13 @@ Depending on where you live, you may have rights to:
 - Avoid discrimination for exercising privacy rights.
 - Lodge a complaint with your local data protection authority or regulator.
 
-To exercise rights, contact **support@sapo.surf**. We may need to verify your identity or authority before acting on a request. For authenticated accounts, we may ask you to verify through account access or email. For anonymous sessions, we may ask for limited session, device, timing, or request details needed to locate data while minimizing additional collection.
+To exercise rights, contact **support@sapo.surf**. We may need to verify your identity or authority before acting on a request. For signed-in accounts, we may ask you to verify through account access or email.
 
 If we do not hold data that can reasonably be linked to you, or if data has already been deleted, de-identified, or only processed ephemerally, we will explain that in our response.
 
 ---
 
-## 16. U.S. State Privacy Disclosures
+## 15. U.S. State Privacy Disclosures
 
 For residents of California and other U.S. states with comprehensive privacy laws, SAPO provides the following disclosures.
 
@@ -268,7 +256,7 @@ SAPO does not sell personal information, does not share personal information for
 
 ---
 
-## 17. International Transfers
+## 16. International Transfers
 
 SAPO and its service providers may process personal data in the United States and other countries where we or our providers operate. These countries may have privacy laws different from your country.
 
@@ -276,7 +264,7 @@ Where required, SAPO relies on appropriate transfer safeguards, such as data pro
 
 ---
 
-## 18. Security
+## 17. Security
 
 SAPO uses technical, organizational, and administrative safeguards appropriate to the nature of the data, including encrypted transport, secure on-device storage for session data, access controls, provider security controls, and operational monitoring.
 
@@ -284,7 +272,7 @@ No system is perfectly secure. You should avoid submitting sensitive information
 
 ---
 
-## 19. Children And Teens
+## 18. Children And Teens
 
 SAPO is not directed to children under 13, and it is not intended for anyone below the age where parental consent is required in their location. Users under 18 should use SAPO only with permission from a parent or guardian.
 
@@ -292,7 +280,7 @@ SAPO does not knowingly collect personal data from children. If you believe a ch
 
 ---
 
-## 20. Automated Decisions And AI Output
+## 19. Automated Decisions And AI Output
 
 SAPO uses automated systems to generate translation and respelling output, enforce quotas, determine subscription entitlement status, and block requests during deletion or quota exhaustion. SAPO does not use personal data for automated decisions that produce legal or similarly significant effects about you.
 
@@ -300,19 +288,19 @@ AI-generated output may be inaccurate or incomplete. Do not rely on SAPO output 
 
 ---
 
-## 21. Do Not Track And Global Privacy Control
+## 20. Do Not Track And Global Privacy Control
 
 SAPO does not track you across apps or websites for advertising, does not sell personal data, and does not share personal data for targeted advertising. Browser-level Do Not Track or Global Privacy Control signals therefore do not change current SAPO behavior. If SAPO's practices change, we will honor legally required opt-out signals.
 
 ---
 
-## 22. Changes To This Policy
+## 21. Changes To This Policy
 
 We may update this Policy as SAPO changes. When we make material changes, we will update the Effective Date and provide notice where required by law or app store rules.
 
 ---
 
-## 23. Contact
+## 22. Contact
 
 Privacy and support requests: **support@sapo.surf**
 
@@ -324,5 +312,6 @@ Do not send privacy requests to **donotreply@sapo.surf**, which is used for tran
 
 ## Version History
 
-- **v2.0 (2026-05-11):** Updated for anonymous/authenticated accounts, Google and Apple sign-in, OpenAI processing, RevenueCat subscriptions, quotas, deletion workflows, app store disclosures, and global privacy rights.
+- **v2.1 (2026-05-27):** Removed background account creation while keeping Google and Apple sign-in optional.
+- **v2.0 (2026-05-11):** Updated for account authentication, Google and Apple sign-in, OpenAI processing, RevenueCat subscriptions, quotas, deletion workflows, app store disclosures, and global privacy rights.
 - **v1.0 (2025-09-19):** Initial public release.

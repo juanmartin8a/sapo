@@ -5,7 +5,7 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 
 import { authClient } from "@/clients/auth-client";
-import AnonymousSessionGate from "@/components/providers/AnonymousSessionGate";
+import AuthGate from "@/components/providers/AuthGate";
 import RevenueCatIdentitySync from "@/components/providers/RevenueCatIdentitySync";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -17,12 +17,11 @@ const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL as strin
 export default function RootLayout() {
     return (
         <ConvexBetterAuthProvider client={convex} authClient={authClient}>
-            <AnonymousSessionGate>
-                <RevenueCatIdentitySync />
-                <KeyboardProvider>
-                    <Stack screenOptions={{ headerShown: false }} />
-                </KeyboardProvider>
-            </AnonymousSessionGate>
+            <AuthGate />
+            <RevenueCatIdentitySync />
+            <KeyboardProvider>
+                <Stack screenOptions={{ headerShown: false }} />
+            </KeyboardProvider>
         </ConvexBetterAuthProvider>
     );
 }

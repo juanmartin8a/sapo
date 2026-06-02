@@ -2,9 +2,15 @@ import { fetch as expoFetch } from "expo/fetch";
 import { create } from "zustand";
 
 import { getConvexAccessToken } from "@/clients/auth-client";
+import {
+    isLocalTranslationAbortError,
+    stopActiveLocalTranslation,
+    translateWithLocalModel,
+} from "@/clients/local-translation";
 import { refreshSubscriptionState } from "@/clients/subscription-refresh";
 import { languages, languagesPlusAutoDetect } from "@/constants/languages";
 import useLanguageSelectorBottomSheetNotifier from "./languageSelectionNotifierStore";
+import useLocalModelStore from "./localModelStore";
 import usePagerPos from "./pagerPosStore";
 import useSubscriptionStatusStore from "./subscriptionStatusStore";
 import useTransformationOperationStore, {
@@ -27,6 +33,7 @@ type ActiveStreamStopSnapshot = {
     streamId: string | null;
     operation: TransformationOperation | null;
     convexToken: string | null;
+    localStop: (() => Promise<void>) | null;
 };
 
 async function requestSapopinguinoStreamStop(snapshot: ActiveStreamStopSnapshot) {
@@ -54,8 +61,7 @@ async function requestSapopinguinoStreamStop(snapshot: ActiveStreamStopSnapshot)
                 return;
             }
 
-            const convexToken = snapshot.convexToken
-                ?? (await getConvexAccessToken({ ensureAnonymousSession: true }));
+            const convexToken = snapshot.convexToken ?? (await getConvexAccessToken());
 
             if (!convexToken) {
                 console.error("[sseStore] Failed to get Convex auth token for stop request");
@@ -121,6 +127,7 @@ interface SseState {
     activeStreamId: string | null;
     activeStreamOperation: TransformationOperation | null;
     activeConvexToken: string | null;
+    activeLocalStop: (() => Promise<void>) | null;
     isStreaming: boolean;
     lastTranslation: {
         inputLanguage: string;
@@ -265,19 +272,31 @@ const useSseStore = create<SseState>((set, get) => {
     };
 
     const getActiveStreamStopSnapshot = (): ActiveStreamStopSnapshot => {
-        const { abortController, activeStreamId, activeStreamOperation, activeConvexToken } = get();
+        const {
+            abortController,
+            activeStreamId,
+            activeStreamOperation,
+            activeConvexToken,
+            activeLocalStop,
+        } = get();
 
         return {
             abortController,
             streamId: activeStreamId,
             operation: activeStreamOperation,
             convexToken: activeConvexToken,
+            localStop: activeLocalStop,
         };
     };
 
     const requestStopThenAbortStream = (snapshot: ActiveStreamStopSnapshot) => {
         void (async () => {
             try {
+                if (snapshot.localStop) {
+                    await snapshot.localStop();
+                    return;
+                }
+
                 await requestSapopinguinoStreamStop(snapshot);
             } finally {
                 if (snapshot.abortController) {
@@ -288,6 +307,7 @@ const useSseStore = create<SseState>((set, get) => {
                     set({
                         abortController: null,
                         activeConvexToken: null,
+                        activeLocalStop: null,
                     });
                 }
             }
@@ -300,6 +320,10 @@ const useSseStore = create<SseState>((set, get) => {
             nextTokens.set(nextTokens.size, token);
             return { tokens: nextTokens };
         });
+    };
+
+    const setTranslationToken = (value: string) => {
+        set({ tokens: new Map([[0, { type: "translate", value }]]) });
     };
 
     const parseToken = (payload: string, operation: TransformationOperation): Token => {
@@ -326,6 +350,7 @@ const useSseStore = create<SseState>((set, get) => {
         activeStreamId: null,
         activeStreamOperation: null,
         activeConvexToken: null,
+        activeLocalStop: null,
         isStreaming: false,
         lastTranslation: null,
 
@@ -337,6 +362,7 @@ const useSseStore = create<SseState>((set, get) => {
                 activeStreamId: null,
                 activeStreamOperation: null,
                 activeConvexToken: null,
+                activeLocalStop: null,
                 isStreaming: false,
             });
 
@@ -369,6 +395,116 @@ const useSseStore = create<SseState>((set, get) => {
                 requestStopThenAbortStream(previousStreamSnapshot);
             }
 
+            if (operation === "translate") {
+                const localModelState = useLocalModelStore.getState();
+                const shouldUseLocalModel = localModelState.isEnabled;
+
+                if (shouldUseLocalModel) {
+                    const abortController = new AbortController();
+                    const stopLocalTranslation = async () => {
+                        abortController.abort();
+                        await stopActiveLocalTranslation();
+                    };
+
+                    set({
+                        lastTranslation: { inputLanguage, targetLanguage, input },
+                        tokens: new Map<number, Token>(),
+                        streamError: false,
+                        streamErrorMessage: null,
+                        abortController,
+                        activeStreamId: streamId,
+                        activeStreamOperation: operation,
+                        activeConvexToken: null,
+                        activeLocalStop: stopLocalTranslation,
+                        isStreaming: true,
+                    });
+
+                    const isActiveLocalRequest = () =>
+                        get().abortController === abortController && get().activeStreamId === streamId;
+
+                    const markLocalTranslationError = (message = "Local translation failed.") => {
+                        set({ streamError: true, streamErrorMessage: message });
+                        setIdleTranslateButtonState();
+                    };
+                    let acceptLocalTokens = true;
+                    let localModelWasReady = localModelState.isLoaded;
+
+                    try {
+                        if (!localModelWasReady) {
+                            useLocalModelStore.getState().setLoading(true);
+                        }
+
+                        setTranslateButtonState("stop");
+
+                        const translatedText = await translateWithLocalModel(
+                            { inputLanguage, targetLanguage, input },
+                            {
+                                signal: abortController.signal,
+                                onReady: () => {
+                                    localModelWasReady = true;
+                                    useLocalModelStore.getState().setLoaded(true);
+                                    useLocalModelStore.getState().setLoading(false);
+                                },
+                                onToken: (token) => {
+                                    if (!acceptLocalTokens || !isActiveLocalRequest()) {
+                                        return;
+                                    }
+
+                                    setTranslateButtonState("stop");
+                                    appendToken({ type: "translate", value: token });
+                                },
+                            }
+                        );
+
+                        if (!isActiveLocalRequest()) {
+                            return;
+                        }
+
+                        acceptLocalTokens = false;
+
+                        if (translatedText.trim().length === 0) {
+                            markLocalTranslationError("Local model returned an empty translation.");
+                            return;
+                        }
+
+                        setTranslationToken(translatedText);
+                        setIdleTranslateButtonState();
+                    } catch (error) {
+                        acceptLocalTokens = false;
+                        useLocalModelStore.getState().setLoading(false);
+
+                        if (isLocalTranslationAbortError(error) || !localModelWasReady) {
+                            useLocalModelStore.getState().setLoaded(false);
+                        }
+
+                        if (!isLocalTranslationAbortError(error) && isActiveLocalRequest()) {
+                            console.error("Local translation failed:", error);
+                            markLocalTranslationError(
+                                error instanceof Error && error.message.trim().length > 0
+                                    ? error.message
+                                    : "Local translation failed."
+                            );
+                        }
+                    } finally {
+                        acceptLocalTokens = false;
+                        useLocalModelStore.getState().setLoading(false);
+
+                        if (isActiveLocalRequest()) {
+                            set({
+                                abortController: null,
+                                activeStreamId: null,
+                                activeStreamOperation: null,
+                                activeConvexToken: null,
+                                activeLocalStop: null,
+                                isStreaming: false,
+                            });
+                        }
+                    }
+
+                    return;
+                }
+            }
+
             if (!convexSiteUrl) {
                 console.error("Missing EXPO_PUBLIC_CONVEX_SITE_URL for SSE request");
                 set({
@@ -378,6 +514,7 @@ const useSseStore = create<SseState>((set, get) => {
                     activeStreamId: null,
                     activeStreamOperation: null,
                     activeConvexToken: null,
+                    activeLocalStop: null,
                     isStreaming: false,
                 });
                 setIdleTranslateButtonState();
@@ -407,6 +544,7 @@ const useSseStore = create<SseState>((set, get) => {
                 activeStreamId: streamId,
                 activeStreamOperation: operation,
                 activeConvexToken: null,
+                activeLocalStop: null,
                 isStreaming: true,
             });
 
@@ -462,9 +600,7 @@ const useSseStore = create<SseState>((set, get) => {
             };
 
             try {
-                const convexToken = await getConvexAccessToken({
-                    ensureAnonymousSession: true,
-                });
+                const convexToken = await getConvexAccessToken();
 
                 if (!convexToken || !isActiveRequest()) {
                     if (isActiveRequest()) {
@@ -702,6 +838,7 @@ const useSseStore = create<SseState>((set, get) => {
                         activeStreamId: null,
                         activeStreamOperation: null,
                         activeConvexToken: null,
+                        activeLocalStop: null,
                         isStreaming: false,
                     });
                 }
@@ -724,6 +861,7 @@ const useSseStore = create<SseState>((set, get) => {
                 streamErrorMessage: null,
                 activeStreamId: null,
                 activeStreamOperation: null,
+                activeLocalStop: null,
                 isStreaming: false,
             });
 
@@ -741,6 +879,7 @@ const useSseStore = create<SseState>((set, get) => {
                 activeStreamId: null,
                 activeStreamOperation: null,
                 activeConvexToken: null,
+                activeLocalStop: null,
                 isStreaming: false,
                 lastTranslation: null,
             });

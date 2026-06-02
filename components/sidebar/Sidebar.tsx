@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, Dimensions, Text, View, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { StyleSheet, Dimensions, Text, View, TouchableOpacity, Alert, ActivityIndicator, Animated as RNAnimated, Easing } from 'react-native';
+import { useNetworkState } from 'expo-network';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { SharedValue, useAnimatedStyle } from 'react-native-reanimated';
 import ChevronRightIcon from "../../assets/icons/chevron-right.svg";
@@ -7,7 +8,9 @@ import useLanguageSelectorBottomSheetNotifier from '@/stores/languageSelectionNo
 import { languages, languagesPlusAutoDetect } from '@/constants/languages';
 import useTransformationOperationStore from '@/stores/transformationOperationStore';
 import useHomeBottomSheetNotifier from '@/stores/homeBottomSheetNotifierStore';
+import useLocalModelStore from '@/stores/localModelStore';
 import { HomeBottomSheetKey } from '@/types/bottomSheets';
+import { LOCAL_TRANSLATION_MODELS } from '@/clients/local-model';
 import SideBarFooter from './SidebarFooter';
 
 export const SIDEBAR_WIDTH = Dimensions.get("window").width * 0.7;
@@ -22,6 +25,25 @@ const SideBar = ({ translationX }: SideBarProps) => {
     const [targetLanguage, setTargetLanguage] = useState<string>(languages[1]);
     const operation = useTransformationOperationStore((state) => state.operation);
     const setOperation = useTransformationOperationStore((state) => state.setOperation);
+    const isLocalModelDownloaded = useLocalModelStore((state) => state.isDownloaded);
+    const isLocalModelEnabled = useLocalModelStore((state) => state.isEnabled);
+    const isLocalModelLoaded = useLocalModelStore((state) => state.isLoaded);
+    const isLocalModelLoading = useLocalModelStore((state) => state.isLoading);
+    const isLocalModelRefreshing = useLocalModelStore((state) => state.isRefreshing);
+    const selectedLocalModelId = useLocalModelStore((state) => state.selectedModelId);
+    const refreshLocalModelStatus = useLocalModelStore((state) => state.refreshDownloadedStatus);
+    const loadLocalModel = useLocalModelStore((state) => state.loadModel);
+    const toggleLocalModel = useLocalModelStore((state) => state.toggleEnabled);
+    const networkState = useNetworkState();
+    const selectedLocalModel = LOCAL_TRANSLATION_MODELS.find((model) => model.id === selectedLocalModelId)
+        ?? null;
+    const hasInternetConnection = networkState.isInternetReachable ?? networkState.isConnected ?? false;
+    const isLocalModeSelected = isLocalModelEnabled;
+    const isLocalModelBusy = isLocalModelLoading || isLocalModelRefreshing;
+    const shouldShowLoadModelButton = isLocalModelDownloaded && !isLocalModelLoaded;
+    const [isLoadModelButtonVisible, setIsLoadModelButtonVisible] = useState(shouldShowLoadModelButton);
+    const loadModelButtonTransitionValue = useRef(new RNAnimated.Value(shouldShowLoadModelButton ? 1 : 0)).current;
+    const loadModelButtonTransitionRunRef = useRef(0);
 
     // Get individual values from the store to avoid unnecessary re-renders
     const selectedIndex0 = useLanguageSelectorBottomSheetNotifier(state => state.selectedIndex0);
@@ -41,6 +63,41 @@ const SideBar = ({ translationX }: SideBarProps) => {
         useHomeBottomSheetNotifier.getState().showBottomSheet(sheet, true);
     }, []);
 
+    const handleToggleLocalModel = useCallback(async () => {
+        await toggleLocalModel();
+    }, [toggleLocalModel]);
+
+    const handleSelectOnlineMode = useCallback(async () => {
+        if (!isLocalModelEnabled) {
+            return;
+        }
+
+        await handleToggleLocalModel();
+    }, [handleToggleLocalModel, isLocalModelEnabled]);
+
+    const handleSelectLocalMode = useCallback(async () => {
+        if (isLocalModelEnabled) {
+            return;
+        }
+
+        await handleToggleLocalModel();
+    }, [handleToggleLocalModel, isLocalModelEnabled]);
+
+    const handleLocalModelAction = useCallback(async () => {
+        if (!isLocalModelDownloaded || isLocalModelLoaded || isLocalModelBusy) {
+            return;
+        }
+
+        try {
+            await loadLocalModel();
+        } catch (error) {
+            Alert.alert(
+                "Unable to load local model",
+                error instanceof Error ? error.message : "Please try again."
+            );
+        }
+    }, [isLocalModelDownloaded, isLocalModelLoaded, isLocalModelBusy, loadLocalModel]);
+
     // Update the displayed languages when indices change in the store
     useEffect(() => {
         const newInputLang =
@@ -56,11 +113,62 @@ const SideBar = ({ translationX }: SideBarProps) => {
         setTargetLanguage(newTargetLang);
     }, [selectedIndex1]);
 
+    useEffect(() => {
+        void refreshLocalModelStatus();
+    }, [refreshLocalModelStatus]);
+
+    useEffect(() => {
+        if (shouldShowLoadModelButton === isLoadModelButtonVisible) {
+            return;
+        }
+
+        const transitionRun = loadModelButtonTransitionRunRef.current + 1;
+        loadModelButtonTransitionRunRef.current = transitionRun;
+        loadModelButtonTransitionValue.stopAnimation();
+
+        if (shouldShowLoadModelButton) {
+            setIsLoadModelButtonVisible(true);
+            loadModelButtonTransitionValue.setValue(0);
+            RNAnimated.timing(loadModelButtonTransitionValue, {
+                toValue: 1,
+                duration: 180,
+                easing: Easing.out(Easing.cubic),
+                useNativeDriver: true,
+            }).start();
+            return;
+        }
+
+        RNAnimated.timing(loadModelButtonTransitionValue, {
+            toValue: 0,
+            duration: 120,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+        }).start(({ finished }) => {
+            if (!finished || loadModelButtonTransitionRunRef.current !== transitionRun) {
+                return;
+            }
+
+            setIsLoadModelButtonVisible(false);
+        });
+    }, [isLoadModelButtonVisible, loadModelButtonTransitionValue, shouldShowLoadModelButton]);
+
     const animatedStyle = useAnimatedStyle(() => {
         return {
             transform: [{ translateX: translationX.value - SIDEBAR_WIDTH }],
         };
     });
+
+    const loadModelButtonAnimatedStyle = {
+        opacity: loadModelButtonTransitionValue,
+        transform: [
+            {
+                scale: loadModelButtonTransitionValue.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.96, 1],
+                }),
+            },
+        ],
+    };
 
     return (
         <Animated.View
@@ -113,28 +221,125 @@ const SideBar = ({ translationX }: SideBarProps) => {
                     </View>
                 </View>
                 <View style={styles.inputContainer}>
-                    <Text style={styles.label}>Source Language:</Text>
                     <TouchableOpacity
                         onPress={() => requestBottomSheet('input_lang_selector')}
                         activeOpacity={0.7}
                     >
                         <View style={styles.field}>
-                            <Text style={styles.textInField}>{inputLanguage}</Text>
-                            <ChevronRightIcon width={22} stroke="black" />
+                            <Text style={styles.label}>Source:</Text>
+                            <View style={styles.languageValue}>
+                                <Text style={styles.languageText} numberOfLines={1}>{inputLanguage}</Text>
+                                <ChevronRightIcon width={22} height={22} stroke="black" />
+                            </View>
                         </View>
                     </TouchableOpacity>
                 </View>
                 <View style={styles.inputContainer}>
-                    <Text style={styles.label}>Target Language:</Text>
                     <TouchableOpacity
                         onPress={() => requestBottomSheet('target_lang_selector')}
                         activeOpacity={0.7}
                     >
                         <View style={styles.field}>
-                            <Text style={styles.textInField}>{targetLanguage}</Text>
-                            <ChevronRightIcon height={22} stroke="black" />
+                            <Text style={styles.label}>Target:</Text>
+                            <View style={styles.languageValue}>
+                                <Text style={styles.languageText} numberOfLines={1}>{targetLanguage}</Text>
+                                <ChevronRightIcon width={22} height={22} stroke="black" />
+                            </View>
                         </View>
                     </TouchableOpacity>
+                </View>
+                <View style={styles.localModelContainer}>
+                    <View style={styles.localModeToggleContainer}>
+                        <TouchableOpacity
+                            onPress={handleSelectOnlineMode}
+                            activeOpacity={0.7}
+                            style={[
+                                styles.localModeOption,
+                                !isLocalModeSelected && styles.localModeOptionActive,
+                            ]}
+                        >
+                            <View style={styles.localModeOnlineLabel}>
+                                <Text
+                                    style={[
+                                        styles.localModeOptionText,
+                                        !isLocalModeSelected && styles.localModeOptionTextActive,
+                                    ]}
+                                >
+                                    Online
+                                </Text>
+                                <View
+                                    style={[
+                                        styles.connectionDot,
+                                        hasInternetConnection ? styles.connectionDotOnline : styles.connectionDotOffline,
+                                    ]}
+                                />
+                            </View>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={handleSelectLocalMode}
+                            activeOpacity={0.7}
+                            style={[
+                                styles.localModeOption,
+                                isLocalModeSelected && styles.localModeOptionActive,
+                            ]}
+                        >
+                            <Text
+                                style={[
+                                    styles.localModeOptionText,
+                                    isLocalModeSelected && styles.localModeOptionTextActive,
+                                ]}
+                            >
+                                Local
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                    <View style={styles.localModelSelectorContainer}>
+                        <TouchableOpacity
+                            onPress={() => requestBottomSheet('local_model_selector')}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.localModelSelectorField}>
+                                <View style={styles.localModelNameContainer}>
+                                    <Text style={styles.localModelSelectorText} numberOfLines={1}>
+                                        {selectedLocalModel?.displayName ?? "None"}
+                                    </Text>
+                                    {selectedLocalModel ? (
+                                        <View
+                                            style={[
+                                                styles.localModelStatusDot,
+                                                isLocalModelBusy
+                                                    ? styles.localModelStatusDotLoading
+                                                    : isLocalModelLoaded
+                                                        ? styles.localModelStatusDotLoaded
+                                                        : styles.localModelStatusDotIdle,
+                                            ]}
+                                        />
+                                    ) : null}
+                                </View>
+                                <ChevronRightIcon width={22} height={22} stroke="black" />
+                            </View>
+                        </TouchableOpacity>
+                    </View>
+                    {isLoadModelButtonVisible && (
+                        <RNAnimated.View style={loadModelButtonAnimatedStyle}>
+                            <TouchableOpacity
+                                onPress={handleLocalModelAction}
+                                disabled={isLocalModelBusy}
+                                activeOpacity={0.78}
+                                style={[
+                                    styles.localModelActionButton,
+                                    isLocalModelBusy && styles.localModelActionButtonDisabled,
+                                ]}
+                            >
+                                <View style={styles.localModelActionButtonContent}>
+                                    <Text style={styles.localModelActionButtonText}>Load model</Text>
+                                    {isLocalModelLoading && (
+                                        <ActivityIndicator color="#fff" size="small" />
+                                    )}
+                                </View>
+                            </TouchableOpacity>
+                        </RNAnimated.View>
+                    )}
                 </View>
             </View>
             <SideBarFooter />
@@ -147,27 +352,101 @@ const styles = StyleSheet.create({
         flexGrow: 1,
     },
     inputContainer: {
-        paddingVertical: 12
+        paddingVertical: 6,
     },
     label: {
         fontSize: 15,
         fontWeight: "500",
-        color: "#aaa"
+        color: "#aaa",
+        marginRight: 12,
     },
     field: {
         width: "100%",
-        height: 42,
-        alignContent: 'space-around',
-        justifyContent: 'center',
+        minHeight: 34,
+        justifyContent: 'space-between',
         alignItems: "center",
         flexDirection: "row",
     },
-    textInField: {
+    languageValue: {
         flex: 1,
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+    },
+    languageText: {
+        flexShrink: 1,
         fontSize: 16,
-        lineHeight: 16,
+        lineHeight: 18,
         color: "black",
         fontWeight: "500",
+        textAlign: 'right',
+    },
+    localModelContainer: {
+        paddingVertical: 12,
+        marginTop: 32,
+    },
+    localModelSelectorContainer: {
+        paddingTop: 32,
+    },
+    localModelSelectorField: {
+        width: "100%",
+        minHeight: 34,
+        alignItems: "center",
+        flexDirection: "row",
+        justifyContent: "space-between",
+    },
+    localModelNameContainer: {
+        flex: 1,
+        minWidth: 0,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 7,
+    },
+    localModelSelectorText: {
+        flexShrink: 1,
+        fontSize: 16,
+        lineHeight: 18,
+        color: "black",
+        fontWeight: "500",
+    },
+    localModelStatusDot: {
+        width: 5,
+        height: 5,
+        borderRadius: 3,
+    },
+    localModelStatusDotIdle: {
+        backgroundColor: '#aaa',
+    },
+    localModelStatusDotLoading: {
+        backgroundColor: '#FFCC00',
+    },
+    localModelStatusDotLoaded: {
+        backgroundColor: '#34C759',
+    },
+    localModelActionButton: {
+        width: '100%',
+        minHeight: 42,
+        marginTop: 10,
+        borderRadius: 12,
+        backgroundColor: '#000',
+        alignItems: 'stretch',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+    },
+    localModelActionButtonDisabled: {
+        opacity: 0.45,
+    },
+    localModelActionButtonText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    localModelActionButtonContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
     },
     operationSection: {
         width: '100%',
@@ -203,6 +482,53 @@ const styles = StyleSheet.create({
     },
     operationOptionTextActive: {
         color: '#fff',
+    },
+    localModeToggleContainer: {
+        width: '100%',
+        flexDirection: 'row',
+        gap: 8,
+    },
+    localModeOption: {
+        flex: 1,
+        minHeight: 42,
+        paddingVertical: 12,
+        paddingHorizontal: 12,
+        backgroundColor: 'transparent',
+        borderRadius: 12,
+        alignItems: 'flex-start',
+        justifyContent: 'center',
+    },
+    localModeOptionActive: {
+        backgroundColor: '#000',
+    },
+    localModeOptionDisabled: {
+        opacity: 0.45,
+    },
+    localModeOptionText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#000',
+    },
+    localModeOptionTextActive: {
+        color: '#fff',
+    },
+    localModeOnlineLabel: {
+        width: '100%',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+        gap: 6,
+    },
+    connectionDot: {
+        width: 5,
+        height: 5,
+        borderRadius: 3,
+    },
+    connectionDotOnline: {
+        backgroundColor: '#34C759',
+    },
+    connectionDotOffline: {
+        backgroundColor: '#FF3B30',
     },
     sideBar: {
         position: "absolute",

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -35,6 +35,7 @@ const Settings = () => {
     const canDeleteAccount = isAuthenticatedUser;
     const userId = isAuthenticatedUser ? user?.id ?? null : null;
     const [isProcessing, setIsProcessing] = useState(false);
+    const isPreparingDeleteAlertRef = useRef(false);
     const router = useRouter();
 
     const requestAccountDeletion = useCallback(async () => {
@@ -52,32 +53,34 @@ const Settings = () => {
     }, [router]);
 
     const handleDeleteAccount = useCallback(async () => {
-        if (isPending || !canDeleteAccount || isProcessing) {
+        if (isPending || !canDeleteAccount || isProcessing || isPreparingDeleteAlertRef.current) {
             return;
         }
 
-        setIsProcessing(true);
+        isPreparingDeleteAlertRef.current = true;
 
         const storeAccountLabel =
             Platform.OS === 'android' ? 'Google' : Platform.OS === 'ios' ? 'Apple' : 'store';
         let hasActiveSubscription = false;
 
-        if (
-            userId &&
-            isRevenueCatSupportedPlatform &&
-            hasRevenueCatConfig()
-        ) {
-            try {
-                const customerInfo = await getRevenueCatCustomerInfo(userId);
-                hasActiveSubscription = customerInfo
-                    ? hasActiveRevenueCatSubscription(customerInfo)
-                    : false;
-            } catch {
-                hasActiveSubscription = true;
+        try {
+            if (
+                userId &&
+                isRevenueCatSupportedPlatform &&
+                hasRevenueCatConfig()
+            ) {
+                try {
+                    const customerInfo = await getRevenueCatCustomerInfo(userId);
+                    hasActiveSubscription = customerInfo
+                        ? hasActiveRevenueCatSubscription(customerInfo)
+                        : false;
+                } catch {
+                    hasActiveSubscription = true;
+                }
             }
+        } finally {
+            isPreparingDeleteAlertRef.current = false;
         }
-
-        setIsProcessing(false);
 
         Alert.alert(
             'Delete account',

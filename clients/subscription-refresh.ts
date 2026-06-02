@@ -4,8 +4,6 @@ type RefreshSubscriptionResponse = {
     ok?: boolean;
     error?: string;
     refresh?: {
-        status?: string;
-        error?: string;
         has_active_subscription?: boolean;
         plan_key?: "free" | "polyglot";
     };
@@ -57,23 +55,7 @@ function getRefreshUrl() {
     return `${baseUrl.replace(/\/$/, "")}/refresh`;
 }
 
-function getRefreshErrorMessage(
-    response: RefreshSubscriptionResponse | null,
-    responseText: string,
-    status: number
-) {
-    if (typeof response?.error === "string" && response.error.trim().length > 0) {
-        return response.error;
-    }
-
-    if (typeof response?.refresh?.error === "string" && response.refresh.error.trim().length > 0) {
-        return response.refresh.error;
-    }
-
-    if (responseText.trim().length > 0) {
-        return responseText.trim();
-    }
-
+function getRefreshErrorMessage(status: number) {
     return `Subscription refresh failed with status ${status}`;
 }
 
@@ -120,10 +102,7 @@ async function requestSubscriptionStateRefresh(): Promise<RefreshSubscriptionRes
     }
 
     if (!response.ok || parsedResponse?.ok !== true) {
-        throw new SubscriptionRefreshError(
-            getRefreshErrorMessage(parsedResponse, responseText, response.status),
-            response.status
-        );
+        throw new SubscriptionRefreshError(getRefreshErrorMessage(response.status), response.status);
     }
 
     return parsedResponse.refresh ?? null;

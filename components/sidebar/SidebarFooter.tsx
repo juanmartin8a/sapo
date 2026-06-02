@@ -10,8 +10,8 @@ import { getSessionUserAuthState } from '@/utils/auth';
 
 const SideBarFooter = () => {
     const router = useRouter();
-    const convexUser = useQuery(api.auth.getCurrentUser);
     const { data: session } = authClient.useSession()
+    const convexUser = useQuery(api.auth.getCurrentUser, session ? {} : "skip");
     const authState = getSessionUserAuthState(session?.user);
     const hasActiveSubscription = useSubscriptionStatusStore((state) => state.hasActiveSubscription);
     const isAuthenticatedSession = authState === 'authenticated';

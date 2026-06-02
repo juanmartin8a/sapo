@@ -2,14 +2,19 @@ import React, { cloneElement, isValidElement, useCallback, useEffect, useMemo, u
 import { Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import AppleLogo from '@/assets/icons/apple_logo.svg';
-import { authClient, ensureAnonymousSession } from '@/clients/auth-client';
+import { authClient } from '@/clients/auth-client';
 
-type SocialProvider = 'google' | 'apple';
+export type SocialProvider = 'google' | 'apple';
 
 interface SocialSignInButtonProps {
     provider: SocialProvider;
     label: string;
     icon?: React.ReactElement<{ width?: number; height?: number }>;
+    loading?: boolean;
+    disabled?: boolean;
+    onSignInStart?: (provider: SocialProvider) => void;
+    onSignInCancel?: (provider: SocialProvider) => void;
+    onSignInError?: (provider: SocialProvider) => void;
 }
 
 const assertSocialSignInSucceeded = (
@@ -21,10 +26,37 @@ const assertSocialSignInSucceeded = (
     }
 };
 
-const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) => {
+const isUserCancelledSignIn = (error: unknown) => {
+    if (typeof error !== 'object' || error === null) {
+        return false;
+    }
+
+    const errorRecord = error as { code?: unknown; message?: unknown; name?: unknown };
+    const code = typeof errorRecord.code === 'string' ? errorRecord.code : null;
+
+    if (code === 'ERR_REQUEST_CANCELED') {
+        return true;
+    }
+
+    const name = typeof errorRecord.name === 'string' ? errorRecord.name.toLowerCase() : '';
+    const message = typeof errorRecord.message === 'string' ? errorRecord.message.toLowerCase() : '';
+
+    return name.includes('cancel') || message.includes('cancel') || message.includes('dismiss');
+};
+
+const SocialSignInButton = ({
+    provider,
+    label,
+    icon,
+    loading = false,
+    disabled = false,
+    onSignInStart,
+    onSignInCancel,
+    onSignInError,
+}: SocialSignInButtonProps) => {
     const isApple = provider === 'apple';
-    const [loading, setLoading] = useState(false);
     const [isNativeAppleAuthAvailable, setIsNativeAppleAuthAvailable] = useState(false);
+    const isDisabled = disabled || loading;
 
     useEffect(() => {
         if (!isApple) {
@@ -77,16 +109,29 @@ const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) 
 
     const shouldUseNativeAppleAuth = isApple && isNativeAppleAuthAvailable;
 
+    const confirmAuthenticatedSession = useCallback(async (treatMissingSessionAsCancel: boolean) => {
+        const { data: nextSession } = await authClient.getSession();
+
+        if (nextSession) {
+            return;
+        }
+
+        if (treatMissingSessionAsCancel) {
+            onSignInCancel?.(provider);
+            return;
+        }
+
+        throw new Error(`${provider} sign-in completed without an authenticated session`);
+    }, [onSignInCancel, provider]);
+
     const handlePress = useCallback(async () => {
-        setLoading(true);
+        if (isDisabled) {
+            return;
+        }
+
+        onSignInStart?.(provider);
 
         try {
-            await ensureAnonymousSession().catch((error) => {
-                if (__DEV__) {
-                    console.warn('Anonymous session bootstrap failed before social sign-in', error);
-                }
-            });
-
             if (provider === 'google') {
                 const result = await authClient.signIn.social({
                     provider: 'google',
@@ -94,7 +139,7 @@ const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) 
                 })
 
                 assertSocialSignInSucceeded(result, provider);
-                await authClient.getSession();
+                await confirmAuthenticatedSession(true);
 
                 return;
             }
@@ -119,7 +164,7 @@ const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) 
                 })
 
                 assertSocialSignInSucceeded(result, provider);
-                await authClient.getSession();
+                await confirmAuthenticatedSession(false);
 
                 return;
             }
@@ -131,18 +176,22 @@ const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) 
                 })
 
                 assertSocialSignInSucceeded(result, provider);
-                await authClient.getSession();
+                await confirmAuthenticatedSession(true);
             }
         } catch (error) {
+            if (isUserCancelledSignIn(error)) {
+                onSignInCancel?.(provider);
+                return;
+            }
+
             if (__DEV__) {
                 console.warn(`${provider} sign-in failed`, error);
             }
 
             Alert.alert('Sign-in failed', 'Please try again.');
-        } finally {
-            setLoading(false);
+            onSignInError?.(provider);
         }
-    }, [provider, shouldUseNativeAppleAuth]);
+    }, [confirmAuthenticatedSession, isDisabled, onSignInCancel, onSignInError, onSignInStart, provider, shouldUseNativeAppleAuth]);
 
     return (
         <TouchableOpacity
@@ -150,17 +199,24 @@ const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) 
             style={[
                 styles.button,
                 provider === 'apple' ? styles.appleButton : styles.googleButton,
-                // loading && styles.disabled,
+                isDisabled && styles.disabled,
             ]}
             onPress={handlePress}
-            disabled={loading}
+            disabled={isDisabled}
+            accessibilityState={{ disabled: isDisabled, busy: loading }}
         >
             <View
                 style={[
                     styles.content,
                 ]}
             >
-                {processedIcon}
+                {processedIcon ? (
+                    <View style={styles.leadingElement}>
+                        {processedIcon}
+                    </View>
+                ) : (
+                    null
+                )}
                 <Text
                     style={[
                         styles.label,
@@ -193,6 +249,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
+    leadingElement: {
+        width: 44,
+        height: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     label: {
         fontSize: 17,
         fontWeight: '500',
@@ -204,7 +266,7 @@ const styles = StyleSheet.create({
         color: '#fff',
     },
     disabled: {
-        opacity: 0.6,
+        opacity: 0.5,
     },
 });
 

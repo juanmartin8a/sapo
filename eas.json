@@ -6,13 +6,22 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "SKIP_IOS_FRAMEWORK_DOWNLOAD": "1"
+      }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "SKIP_IOS_FRAMEWORK_DOWNLOAD": "1"
+      }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "SKIP_IOS_FRAMEWORK_DOWNLOAD": "1"
+      }
     }
   },
   "submit": {

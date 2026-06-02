@@ -125,6 +125,39 @@ export const getRevenueCatCustomerInfo = async (appUserId: string): Promise<Cust
     return Purchases.getCustomerInfo();
 };
 
+export const logOutRevenueCatIdentity = async (expectedAppUserId?: string | null) => {
+    if (!hasRevenueCatConfig()) {
+        return false;
+    }
+
+    if (configurePromise) {
+        try {
+            await configurePromise;
+        } catch {
+            // Fall through to the configured-state check below.
+        }
+    }
+
+    const isConfigured = await Purchases.isConfigured();
+
+    if (!isConfigured) {
+        return false;
+    }
+
+    const currentAppUserId = await Purchases.getAppUserID();
+
+    if (expectedAppUserId && currentAppUserId !== expectedAppUserId) {
+        return false;
+    }
+
+    if (!expectedAppUserId) {
+        return false;
+    }
+
+    await Purchases.logOut();
+    return true;
+};
+
 export const getRevenueCatManagementUrl = async (appUserId: string) => {
     const customerInfo = await getRevenueCatCustomerInfo(appUserId);
     return customerInfo?.managementURL ?? null;

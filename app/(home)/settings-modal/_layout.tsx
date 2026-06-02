@@ -50,6 +50,14 @@ export default function SettingsModalLayout() {
                 }}
             />
             <Stack.Screen
+                name="local-model"
+                options={{
+                    title: "Local model",
+                    headerBackButtonDisplayMode: 'minimal',
+                    headerRight: () => null,
+                }}
+            />
+            <Stack.Screen
                 name="subscription"
                 options={{
                     title: "Subscription",

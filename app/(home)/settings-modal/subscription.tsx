@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
+    Linking,
     Platform,
     Pressable,
     StyleSheet,
@@ -30,7 +31,9 @@ import {
     refreshSubscriptionStateAfterRevenueCatUpdate,
     retrySubscriptionStateAfterRevenueCatUpdateInBackground,
 } from "@/clients/subscription-refresh";
-import { isAnonymousSessionUser } from "@/utils/auth";
+
+const TERMS_OF_USE_URL = "https://sapo.surf/terms-of-use";
+const PRIVACY_POLICY_URL = "https://sapo.surf/privacy-policy";
 
 const getSubscriptionPackage = (packages: PurchasesPackage[]) => {
     if (packages.length === 0) {
@@ -160,8 +163,7 @@ const retryRevenueCatUpdateSyncInBackground = () => {
 export default function SubscriptionScreen() {
     const { data: session } = authClient.useSession();
     const user = session?.user;
-    const isAnonymousUser = isAnonymousSessionUser(user);
-    const userId = !isAnonymousUser ? user?.id ?? null : null;
+    const userId = user?.id ?? null;
     const [isLoadingSubscription, setIsLoadingSubscription] = useState(true);
     const [isPurchasing, setIsPurchasing] = useState(false);
     const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
@@ -481,6 +483,14 @@ export default function SubscriptionScreen() {
         isSubscriptionLinkedElsewhere ||
         hasActiveSubscription;
 
+    const handleOpenTermsOfUse = useCallback(() => {
+        void Linking.openURL(TERMS_OF_USE_URL);
+    }, []);
+
+    const handleOpenPrivacyPolicy = useCallback(() => {
+        void Linking.openURL(PRIVACY_POLICY_URL);
+    }, []);
+
     return (
         <View style={styles.container}>
             <View style={styles.card}>
@@ -527,6 +537,23 @@ export default function SubscriptionScreen() {
                 <Text style={styles.footnote}>
                     {`Auto-renews monthly. Cancel anytime from your ${storeAccountLabel} account subscriptions settings.`}
                 </Text>
+
+                <View style={styles.legalLinksRow}>
+                    <Text
+                        accessibilityRole="link"
+                        onPress={handleOpenTermsOfUse}
+                        style={styles.legalLink}
+                    >
+                        Terms of Use
+                    </Text>
+                    <Text
+                        accessibilityRole="link"
+                        onPress={handleOpenPrivacyPolicy}
+                        style={styles.legalLink}
+                    >
+                        Privacy Policy
+                    </Text>
+                </View>
             </View>
         </View>
     );
@@ -628,5 +655,18 @@ const styles = StyleSheet.create({
         lineHeight: 16,
         fontWeight: "400",
         color: "#8E8E93",
+    },
+    legalLinksRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+    },
+    legalLink: {
+        alignSelf: "flex-start",
+        color: "#000",
+        fontSize: 12,
+        lineHeight: 16,
+        fontWeight: "600",
+        textDecorationLine: "underline",
     },
 });

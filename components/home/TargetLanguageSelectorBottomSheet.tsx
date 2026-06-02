@@ -1,13 +1,8 @@
 import { languages } from "@/constants/languages";
 import useLanguageSelectorBottomSheetNotifier from '@/stores/languageSelectionNotifierStore';
 import useSidebarIsOpenNotifier from '@/stores/sidebarIsOpenNotifierStore';
-import BottomSheet, { BottomSheetFlatList } from "@gorhom/bottom-sheet";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Text, TouchableOpacity } from "react-native";
-import { View } from "react-native";
-import { StyleSheet } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import CheckIcon from "@/assets/icons/check.svg";
+import BottomSheet from "@gorhom/bottom-sheet";
+import { useCallback, useEffect, useRef } from "react";
 import useHomeBottomSheetNotifier from "@/stores/homeBottomSheetNotifierStore";
 import LangugeSelectorBottomSheetUI from "./LanguageSelectorBottomSheetUI";
 
@@ -15,7 +10,6 @@ import LangugeSelectorBottomSheetUI from "./LanguageSelectorBottomSheetUI";
 // Single component would require more logic which would make the code harder to understand and debug.
 
 export default function TargetLanguageSelectorBottomSheet() {
-    const insets = useSafeAreaInsets();
     const sheetRef = useRef<BottomSheet>(null);
     const isClosed = useRef<boolean>(true);
 
@@ -103,7 +97,7 @@ export default function TargetLanguageSelectorBottomSheet() {
 
     return (
         <LangugeSelectorBottomSheetUI
-            selectedIndex={selectedIndex}
+            selectedKey={String(selectedIndex)}
             ref={sheetRef}
             onLanguageSelected={handleLanguageSelect}
             onClose={handleSheetClose}

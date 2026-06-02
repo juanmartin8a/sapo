@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import { Alert, Platform, StyleSheet, Text, View } from "react-native";
 import Purchases from "react-native-purchases";
 
@@ -35,6 +35,8 @@ const colors = {
     mutedChevron: "#5E755A",
     destructiveText: "#8B332A",
 };
+
+const LOCAL_MODEL_ROUTE = "/settings-modal/local-model" as Href;
 
 const getErrorMessage = (error: unknown) => {
     if (typeof error === "object" && error && "message" in error) {
@@ -104,6 +106,10 @@ export default function SettingsModalScreen() {
 
     const handleOpenDataControls = useCallback(() => {
         router.push("/settings-modal/data-controls");
+    }, [router]);
+
+    const handleOpenLocalModel = useCallback(() => {
+        router.push(LOCAL_MODEL_ROUTE);
     }, [router]);
 
     const handleSignIn = useCallback(() => {
@@ -295,6 +301,21 @@ export default function SettingsModalScreen() {
                         }}
                     />
                 </GroupedList>
+            </View>
+            <View style={styles.sectionContainer}>
+                <Text style={styles.sectionLabel}>Device</Text>
+                <SettingsButton
+                    text="Local model"
+                    leftIcon={SettingsIcon}
+                    showChevron
+                    backgroundColor={colors.accountButtonBackground}
+                    borderRadius={22}
+                    textColor={colors.primaryText}
+                    iconColor={colors.primaryText}
+                    chevronColor={colors.mutedChevron}
+                    disabled={isSigningOut}
+                    onPress={handleOpenLocalModel}
+                />
             </View>
             {shouldShowAuthenticatedActions ? (
                 <SettingsButton

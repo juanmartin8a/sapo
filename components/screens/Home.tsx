@@ -19,6 +19,7 @@ import TextToTranslateInput from "../home/TextToTranslateInput";
 import usePagerPos from "@/stores/pagerPosStore";
 import SourceLangugeSelectorBottomSheet from "../home/SourceLanguageSelectorBottomSheet";
 import TargetLanguageSelectorBottomSheet from "../home/TargetLanguageSelectorBottomSheet";
+import LocalModelSelectorBottomSheet from "../home/LocalModelSelectorBottomSheet";
 
 export default function Home() {
     const pagerRef = useRef<PagerView>(null);
@@ -62,14 +63,14 @@ export default function Home() {
                 runOnJS(setSidebarStateJS)(isOpen)
             }
         );
-    }, []);
+    }, [isAnimating, setSidebarStateJS, sideBarTranslationX]);
 
     const openSidebar = useCallback(() => {
         if (isAnimating.value) return;
         isAnimating.value = true;
         Keyboard.dismiss();
         animateToTarget(SIDEBAR_WIDTH)
-    }, [animateToTarget]);
+    }, [animateToTarget, isAnimating]);
 
     const panGesture = useMemo(() => {
 
@@ -104,7 +105,7 @@ export default function Home() {
 
                 animateToTarget(shouldOpen ? SIDEBAR_WIDTH : 0);
             });
-    }, [gestureStartX, isAnimating, pagerNativeGesture, sideBarTranslationX]);
+    }, [animateToTarget, gestureStartX, isAnimating, pagerNativeGesture, sideBarTranslationX]);
 
     const overlayTapGesture = useMemo(() => {
         return Gesture.Tap()
@@ -198,6 +199,7 @@ export default function Home() {
                 </GestureDetector>
                 <TargetLanguageSelectorBottomSheet />
                 <SourceLangugeSelectorBottomSheet />
+                <LocalModelSelectorBottomSheet />
             </GestureHandlerRootView>
         </View>
     );

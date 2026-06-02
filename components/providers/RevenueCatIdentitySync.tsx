@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
+import { useQuery } from "convex/react";
 import { AppState } from "react-native";
 import Purchases, { type CustomerInfo } from "react-native-purchases";
 
@@ -9,19 +10,23 @@ import {
     hasRevenueCatConfig,
     isReceiptAlreadyInUseRevenueCatError,
     isRevenueCatSupportedPlatform,
+    logOutRevenueCatIdentity,
 } from "@/clients/revenuecat";
+import { api } from "@/convex/_generated/api";
 import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
-import { isAnonymousSessionUser } from "@/utils/auth";
 
 export default function RevenueCatIdentitySync() {
     const { data: session, isPending, refetch } = authClient.useSession();
-    const user = session?.user;
-    const isAnonymousUser = isAnonymousSessionUser(user);
-    const userId = !isAnonymousUser ? user?.id ?? null : null;
+    const currentUser = useQuery(api.auth.getCurrentUser, session ? {} : "skip");
+    const isCheckingCurrentUser = Boolean(session) && currentUser === undefined;
+    const isAuthPending = isPending || isCheckingCurrentUser;
+    const userId = currentUser ? session?.user?.id ?? null : null;
     const setHasActiveSubscription = useSubscriptionStatusStore(
         (state) => state.setHasActiveSubscription
     );
     const receiptConflictUserIdRef = useRef<string | null>(null);
+    const authenticatedSessionUserIdRef = useRef<string | null>(null);
+    const syncedRevenueCatUserIdRef = useRef<string | null>(null);
 
     const fallbackSubscriptionStatusOnError = useCallback(() => {
         if (useSubscriptionStatusStore.getState().hasActiveSubscription === null) {
@@ -57,7 +62,7 @@ export default function RevenueCatIdentitySync() {
     }, [refetch, setHasActiveSubscription]);
 
     useEffect(() => {
-        if (isPending) {
+        if (isAuthPending) {
             return;
         }
 
@@ -121,10 +126,10 @@ export default function RevenueCatIdentitySync() {
                 Purchases.removeCustomerInfoUpdateListener(handleCustomerInfoUpdate);
             }
         };
-    }, [fallbackSubscriptionStatusOnError, isPending, setHasActiveSubscription, userId]);
+    }, [fallbackSubscriptionStatusOnError, isAuthPending, setHasActiveSubscription, userId]);
 
     useEffect(() => {
-        if (isPending) {
+        if (isAuthPending) {
             return;
         }
 
@@ -134,10 +139,26 @@ export default function RevenueCatIdentitySync() {
         }
 
         if (!userId) {
+            const previousRevenueCatUserId =
+                syncedRevenueCatUserIdRef.current ?? authenticatedSessionUserIdRef.current;
+
             receiptConflictUserIdRef.current = null;
+            authenticatedSessionUserIdRef.current = null;
+            syncedRevenueCatUserIdRef.current = null;
             setHasActiveSubscription(false);
+
+            if (previousRevenueCatUserId) {
+                void logOutRevenueCatIdentity(previousRevenueCatUserId).catch((error) => {
+                    if (__DEV__) {
+                        console.warn("RevenueCat identity logout failed", error);
+                    }
+                });
+            }
+
             return;
         }
+
+        authenticatedSessionUserIdRef.current = userId;
 
         let isCancelled = false;
 
@@ -173,6 +194,7 @@ export default function RevenueCatIdentitySync() {
 
                 if (!isCancelled) {
                     receiptConflictUserIdRef.current = null;
+                    syncedRevenueCatUserIdRef.current = userId;
                     setHasActiveSubscription(hasActiveRevenueCatSubscription(customerInfo));
                 }
             } catch (error) {
@@ -197,7 +219,7 @@ export default function RevenueCatIdentitySync() {
         return () => {
             isCancelled = true;
         };
-    }, [fallbackSubscriptionStatusOnError, isPending, setHasActiveSubscription, userId]);
+    }, [fallbackSubscriptionStatusOnError, isAuthPending, setHasActiveSubscription, userId]);
 
     return null;
 }
