@@ -50,9 +50,9 @@ export default function SettingsModalLayout() {
                 }}
             />
             <Stack.Screen
-                name="local-model"
+                name="local-models"
                 options={{
-                    title: "Local model",
+                    title: "Local models",
                     headerBackButtonDisplayMode: 'minimal',
                     headerRight: () => null,
                 }}

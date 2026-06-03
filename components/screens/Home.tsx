@@ -17,6 +17,7 @@ import TranslateButton from "../header/TranslateButton";
 import SidebarIcon from "../../assets/icons/sidebar.svg";
 import TextToTranslateInput from "../home/TextToTranslateInput";
 import usePagerPos from "@/stores/pagerPosStore";
+import useLocalModelStore from "@/stores/localModelStore";
 import SourceLangugeSelectorBottomSheet from "../home/SourceLanguageSelectorBottomSheet";
 import TargetLanguageSelectorBottomSheet from "../home/TargetLanguageSelectorBottomSheet";
 import LocalModelSelectorBottomSheet from "../home/LocalModelSelectorBottomSheet";
@@ -37,7 +38,11 @@ export default function Home() {
     const setPos = usePagerPos(state => state.setPos);
 
     const operation = useTransformationOperationStore((state) => state.operation);
+    const isLocalModelEnabled = useLocalModelStore((state) => state.isEnabled);
     const operationText = operation.charAt(0).toUpperCase() + operation.slice(1);
+    const operationLabel = operation === 'translate' && isLocalModelEnabled
+        ? `${operationText} | local :)`
+        : operationText + " " + (operation === 'translate' ? ':)' : '(:');
 
     const setSidebarStateJS = useCallback(
         (isOpen: boolean) => {
@@ -154,7 +159,7 @@ export default function Home() {
                                 rightComponent={<TranslateButton />}
                             />
                             <View style={{ backgroundColor: 'transparent', paddingHorizontal: 24, paddingTop: 0, paddingBottom: 3 }}>
-                                <Text style={styles.operationText}>{operationText + " " + (operation === 'translate' ? ':)' : '(:')}</Text>
+                                <Text style={styles.operationText}>{operationLabel}</Text>
                             </View>
                             <GestureDetector gesture={pagerNativeGesture}>
                                 <PagerView

@@ -3,6 +3,7 @@ import { StyleSheet, Dimensions, Text, View, TouchableOpacity, Alert, ActivityIn
 import { useNetworkState } from 'expo-network';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { SharedValue, useAnimatedStyle } from 'react-native-reanimated';
+import { useRouter } from 'expo-router';
 import ChevronRightIcon from "../../assets/icons/chevron-right.svg";
 import useLanguageSelectorBottomSheetNotifier from '@/stores/languageSelectionNotifierStore';
 import { languages, languagesPlusAutoDetect } from '@/constants/languages';
@@ -20,6 +21,7 @@ type SideBarProps = {
 }
 
 const SideBar = ({ translationX }: SideBarProps) => {
+    const router = useRouter();
     const insets = useSafeAreaInsets();
     const [inputLanguage, setInputLanguage] = useState<string>(languagesPlusAutoDetect[0]);
     const [targetLanguage, setTargetLanguage] = useState<string>(languages[1]);
@@ -31,6 +33,7 @@ const SideBar = ({ translationX }: SideBarProps) => {
     const isLocalModelLoading = useLocalModelStore((state) => state.isLoading);
     const isLocalModelRefreshing = useLocalModelStore((state) => state.isRefreshing);
     const selectedLocalModelId = useLocalModelStore((state) => state.selectedModelId);
+    const downloadedLocalModelIds = useLocalModelStore((state) => state.downloadedModelIds);
     const refreshLocalModelStatus = useLocalModelStore((state) => state.refreshDownloadedStatus);
     const loadLocalModel = useLocalModelStore((state) => state.loadModel);
     const toggleLocalModel = useLocalModelStore((state) => state.toggleEnabled);
@@ -40,6 +43,7 @@ const SideBar = ({ translationX }: SideBarProps) => {
     const hasInternetConnection = networkState.isInternetReachable ?? networkState.isConnected ?? false;
     const isLocalModeSelected = isLocalModelEnabled;
     const isLocalModelBusy = isLocalModelLoading || isLocalModelRefreshing;
+    const canOpenLocalModelSelector = downloadedLocalModelIds.length > 1;
     const shouldShowLoadModelButton = isLocalModelDownloaded && !isLocalModelLoaded;
     const [isLoadModelButtonVisible, setIsLoadModelButtonVisible] = useState(shouldShowLoadModelButton);
     const loadModelButtonTransitionValue = useRef(new RNAnimated.Value(shouldShowLoadModelButton ? 1 : 0)).current;
@@ -97,6 +101,17 @@ const SideBar = ({ translationX }: SideBarProps) => {
             );
         }
     }, [isLocalModelDownloaded, isLocalModelLoaded, isLocalModelBusy, loadLocalModel]);
+
+    const handleLocalModelSelectorPress = useCallback(() => {
+        if (downloadedLocalModelIds.length === 0) {
+            router.push("/settings-modal/local-models");
+            return;
+        }
+
+        if (downloadedLocalModelIds.length > 1) {
+            requestBottomSheet('local_model_selector');
+        }
+    }, [downloadedLocalModelIds.length, requestBottomSheet, router]);
 
     // Update the displayed languages when indices change in the store
     useEffect(() => {
@@ -294,8 +309,9 @@ const SideBar = ({ translationX }: SideBarProps) => {
                         </TouchableOpacity>
                     </View>
                     <View style={styles.localModelSelectorContainer}>
+                        <Text style={styles.localModelSelectorLabel}>Local model:</Text>
                         <TouchableOpacity
-                            onPress={() => requestBottomSheet('local_model_selector')}
+                            onPress={handleLocalModelSelectorPress}
                             activeOpacity={0.7}
                         >
                             <View style={styles.localModelSelectorField}>
@@ -316,7 +332,9 @@ const SideBar = ({ translationX }: SideBarProps) => {
                                         />
                                     ) : null}
                                 </View>
-                                <ChevronRightIcon width={22} height={22} stroke="black" />
+                                {canOpenLocalModelSelector ? (
+                                    <ChevronRightIcon width={22} height={22} stroke="black" />
+                                ) : null}
                             </View>
                         </TouchableOpacity>
                     </View>
@@ -388,6 +406,12 @@ const styles = StyleSheet.create({
     localModelSelectorContainer: {
         paddingTop: 32,
     },
+    localModelSelectorLabel: {
+        color: "#aaa",
+        fontSize: 15,
+        fontWeight: "500",
+        marginBottom: 2,
+    },
     localModelSelectorField: {
         width: "100%",
         minHeight: 34,
@@ -410,8 +434,8 @@ const styles = StyleSheet.create({
         fontWeight: "500",
     },
     localModelStatusDot: {
-        width: 5,
-        height: 5,
+        width: 6,
+        height: 6,
         borderRadius: 3,
     },
     localModelStatusDotIdle: {

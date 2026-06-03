@@ -18,7 +18,9 @@ export const stopActiveLocalTranslation = async () => undefined;
 
 export const releaseLocalTranslationModel = async () => undefined;
 
-export const ensureLocalTranslationModelLoaded = async () => undefined;
+export const getLoadedLocalTranslationModelId = () => null;
+
+export const ensureLocalTranslationModelLoaded = async (_modelId?: string | null) => undefined;
 
 export const translateWithLocalModel = async (
     _args: LocalTranslationArgs,

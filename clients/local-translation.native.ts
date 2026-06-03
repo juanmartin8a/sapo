@@ -1,7 +1,9 @@
 import {
     getLocalModelFileUri,
+    getSelectedLocalTranslationModel,
     isLocalModelDownloaded,
     isLocalModelSupported,
+    type LocalTranslationModelId,
 } from "@/clients/local-model";
 import type { LiteRTLMInstance } from "react-native-litert-lm";
 
@@ -37,6 +39,8 @@ const LOCAL_TRANSLATION_STOP_WORDS = [
 
 let modelPromise: Promise<LiteRTLMInstance> | null = null;
 let loadedModel: LiteRTLMInstance | null = null;
+let loadedModelId: LocalTranslationModelId | null = null;
+let loadingModelId: LocalTranslationModelId | null = null;
 let activeModel: LiteRTLMInstance | null = null;
 let activeGenerationId = 0;
 
@@ -122,13 +126,13 @@ const closeModel = (model: LiteRTLMInstance | null) => {
     }
 };
 
-const loadLocalTranslationModel = async () => {
+const loadLocalTranslationModel = async (modelId?: LocalTranslationModelId | null) => {
     if (!isLocalModelSupported()) {
         throw new Error("Local translations are available on iOS and Android only.");
     }
 
-    const modelUri = getLocalModelFileUri();
-    if (!modelUri || !(await isLocalModelDownloaded())) {
+    const modelUri = getLocalModelFileUri(modelId ?? undefined);
+    if (!modelId || !modelUri || !(await isLocalModelDownloaded(modelId))) {
         throw new Error("Download the local model before using offline translations.");
     }
 
@@ -165,16 +169,34 @@ const loadLocalTranslationModel = async () => {
         throw new Error("The downloaded local model could not be loaded. Delete it and download it again.");
     }
 
+    if (loadedModel && loadedModel !== model) {
+        closeModel(loadedModel);
+    }
+
     console.info("Local LiteRT-LM model loaded.");
     loadedModel = model;
+    loadedModelId = modelId;
     return model;
 };
 
-const getLocalTranslationModel = async () => {
+const getLocalTranslationModel = async (modelId?: LocalTranslationModelId | null) => {
+    const targetModelId = modelId ?? getSelectedLocalTranslationModel()?.id;
+
+    if (!targetModelId) {
+        throw new Error("A local model must be selected before using offline translations.");
+    }
+
+    if (modelPromise && loadingModelId !== targetModelId) {
+        await releaseLocalTranslationModel();
+    }
+
     if (!modelPromise) {
-        modelPromise = loadLocalTranslationModel().catch((error) => {
+        loadingModelId = targetModelId;
+        modelPromise = loadLocalTranslationModel(targetModelId).catch((error) => {
             modelPromise = null;
             loadedModel = null;
+            loadedModelId = null;
+            loadingModelId = null;
             throw error;
         });
     }
@@ -196,6 +218,8 @@ export const stopActiveLocalTranslation = async () => {
     const modelToClose = activeModel;
     if (loadedModel === modelToClose) {
         loadedModel = null;
+        loadedModelId = null;
+        loadingModelId = null;
         modelPromise = null;
     }
     activeModel = null;
@@ -209,13 +233,17 @@ export const releaseLocalTranslationModel = async () => {
     const modelToClose = loadedModel ?? activeModel;
     modelPromise = null;
     loadedModel = null;
+    loadedModelId = null;
+    loadingModelId = null;
     activeModel = null;
 
     closeModel(modelToClose);
 };
 
-export const ensureLocalTranslationModelLoaded = async () => {
-    await getLocalTranslationModel();
+export const getLoadedLocalTranslationModelId = () => loadedModelId;
+
+export const ensureLocalTranslationModelLoaded = async (modelId?: LocalTranslationModelId | null) => {
+    await getLocalTranslationModel(modelId);
 };
 
 export const translateWithLocalModel = async (

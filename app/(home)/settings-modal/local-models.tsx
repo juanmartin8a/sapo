@@ -39,8 +39,9 @@ export default function LocalModelScreen() {
     const [deletingModelId, setDeletingModelId] = useState<LocalTranslationModelId | null>(null);
     const mountedRef = useRef(true);
     const activeDownloadRef = useRef<ReturnType<typeof createLocalModelDownload> | null>(null);
-    const setLocalModelDownloaded = useLocalModelStore((state) => state.setDownloaded);
+    const setDownloadedModelIds = useLocalModelStore((state) => state.setDownloadedModelIds);
     const selectedModelId = useLocalModelStore((state) => state.selectedModelId);
+    const loadedModelId = useLocalModelStore((state) => state.loadedModelId);
 
     const refreshStatus = useCallback(async () => {
         try {
@@ -53,7 +54,11 @@ export default function LocalModelScreen() {
                 setStatusByModelId(nextStatusByModelId);
             }
 
-            setLocalModelDownloaded(selectedModelId ? nextStatusByModelId[selectedModelId]?.isDownloaded ?? false : false);
+            await setDownloadedModelIds(
+                LOCAL_TRANSLATION_MODELS
+                    .filter((model) => nextStatusByModelId[model.id]?.isDownloaded)
+                    .map((model) => model.id)
+            );
         } catch {
             if (mountedRef.current) {
                 Alert.alert("Unable to check model", "Please try again.");
@@ -63,7 +68,7 @@ export default function LocalModelScreen() {
                 setIsRefreshing(false);
             }
         }
-    }, [selectedModelId, setLocalModelDownloaded]);
+    }, [setDownloadedModelIds]);
 
     useEffect(() => {
         mountedRef.current = true;
@@ -111,9 +116,15 @@ export default function LocalModelScreen() {
                     ...current,
                     [model.id]: nextStatus,
                 }));
-                if (model.id === selectedModelId) {
-                    setLocalModelDownloaded(nextStatus.isDownloaded);
-                }
+                await setDownloadedModelIds(
+                    LOCAL_TRANSLATION_MODELS
+                        .filter((localModel) => {
+                            const status = localModel.id === model.id ? nextStatus : statusByModelId[localModel.id];
+
+                            return status?.isDownloaded;
+                        })
+                        .map((localModel) => localModel.id)
+                );
                 setDownloadProgressByModelId((current) => ({
                     ...current,
                     [model.id]: undefined,
@@ -141,7 +152,7 @@ export default function LocalModelScreen() {
                 setDownloadingModelId(null);
             }
         }
-    }, [deletingModelId, downloadingModelId, refreshStatus, selectedModelId, setLocalModelDownloaded]);
+    }, [deletingModelId, downloadingModelId, refreshStatus, setDownloadedModelIds, statusByModelId]);
 
     const handleCancelDownload = useCallback(async () => {
         const activeDownload = activeDownloadRef.current;
@@ -177,8 +188,9 @@ export default function LocalModelScreen() {
                     onPress: async () => {
                         try {
                             setDeletingModelId(model.id);
-                            if (model.id === selectedModelId) {
+                            if (model.id === loadedModelId) {
                                 await releaseLocalTranslationModel();
+                                useLocalModelStore.getState().setLoaded(false);
                             }
                             await deleteLocalModel(model.id);
                             await refreshStatus();
@@ -193,7 +205,7 @@ export default function LocalModelScreen() {
                 },
             ]
         );
-    }, [deletingModelId, downloadingModelId, refreshStatus, selectedModelId, statusByModelId]);
+    }, [deletingModelId, downloadingModelId, loadedModelId, refreshStatus, statusByModelId]);
 
     const renderModelCard = (model: LocalTranslationModel) => {
         const status = statusByModelId[model.id];

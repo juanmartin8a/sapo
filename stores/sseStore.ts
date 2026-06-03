@@ -1,4 +1,5 @@
 import { fetch as expoFetch } from "expo/fetch";
+import { Alert } from "react-native";
 import { create } from "zustand";
 
 import { getConvexAccessToken } from "@/clients/auth-client";
@@ -23,6 +24,8 @@ const STREAM_ERROR_MARKER = "<error:/>";
 const STREAM_STOP_ENDPOINT_PATH = "/sapopinguino-stop";
 const STOP_ABORT_GRACE_MS = 350;
 const STOP_REQUEST_RETRY_MS = 75;
+const LOCAL_MODEL_SELECTION_ALERT_TITLE = "Select a local model";
+const LOCAL_MODEL_SELECTION_ALERT_MESSAGE = "A local model must be selected before using offline translations.";
 
 function wait(milliseconds: number) {
     return new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -400,6 +403,38 @@ const useSseStore = create<SseState>((set, get) => {
                 const shouldUseLocalModel = localModelState.isEnabled;
 
                 if (shouldUseLocalModel) {
+                    let readyLocalModelState = localModelState;
+
+                    if (!readyLocalModelState.selectedModelId || !readyLocalModelState.isDownloaded) {
+                        await useLocalModelStore.getState().refreshDownloadedStatus();
+                        readyLocalModelState = useLocalModelStore.getState();
+                    }
+
+                    if (!readyLocalModelState.selectedModelId || !readyLocalModelState.isDownloaded) {
+                        setIdleTranslateButtonState();
+                        set({ streamError: false, streamErrorMessage: null });
+                        Alert.alert(LOCAL_MODEL_SELECTION_ALERT_TITLE, LOCAL_MODEL_SELECTION_ALERT_MESSAGE);
+                        return;
+                    }
+
+                    if (
+                        !readyLocalModelState.isLoaded ||
+                        readyLocalModelState.loadedModelId !== readyLocalModelState.selectedModelId
+                    ) {
+                        try {
+                            await useLocalModelStore.getState().loadModel();
+                            readyLocalModelState = useLocalModelStore.getState();
+                        } catch (error) {
+                            setIdleTranslateButtonState();
+                            set({ streamError: false, streamErrorMessage: null });
+                            Alert.alert(
+                                "Unable to load local model",
+                                error instanceof Error ? error.message : "Please try again."
+                            );
+                            return;
+                        }
+                    }
+
                     const abortController = new AbortController();
                     const stopLocalTranslation = async () => {
                         abortController.abort();
@@ -427,7 +462,7 @@ const useSseStore = create<SseState>((set, get) => {
                         setIdleTranslateButtonState();
                     };
                     let acceptLocalTokens = true;
-                    let localModelWasReady = localModelState.isLoaded;
+                    let localModelWasReady = readyLocalModelState.isLoaded;
 
                     try {
                         if (!localModelWasReady) {

@@ -1,17 +1,20 @@
-import { LOCAL_TRANSLATION_MODELS, type LocalTranslationModelId } from "@/clients/local-model";
+import { isLocalModelDownloaded, LOCAL_TRANSLATION_MODELS, type LocalTranslationModelId } from "@/clients/local-model";
 import useHomeBottomSheetNotifier from "@/stores/homeBottomSheetNotifierStore";
 import useLocalModelStore from "@/stores/localModelStore";
 import useSidebarIsOpenNotifier from "@/stores/sidebarIsOpenNotifierStore";
 import BottomSheet from "@gorhom/bottom-sheet";
+import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef } from "react";
 import LangugeSelectorBottomSheetUI from "./LanguageSelectorBottomSheetUI";
 
 const SHEET_KEY = "local_model_selector";
 
 export default function LocalModelSelectorBottomSheet() {
+    const router = useRouter();
     const sheetRef = useRef<BottomSheet>(null);
     const isClosed = useRef<boolean>(true);
     const initSnapSuccess = useRef<boolean>(false);
+    const isCheckingModelRef = useRef<boolean>(false);
     const selectedModelId = useLocalModelStore((state) => state.selectedModelId);
     const selectModel = useLocalModelStore((state) => state.selectModel);
     const sidebarIsOpen = useSidebarIsOpenNotifier(state => state.isOpen);
@@ -79,9 +82,32 @@ export default function LocalModelSelectorBottomSheet() {
         }
     }, [])
 
-    const handleModelSelect = (key: string) => {
+    const handleModelSelect = async (key: string) => {
+        if (isCheckingModelRef.current) {
+            return;
+        }
+
         const modelId = key as LocalTranslationModelId;
-        void selectModel(modelId === selectedModelId ? null : modelId);
+
+        try {
+            isCheckingModelRef.current = true;
+            const isDownloaded = await isLocalModelDownloaded(modelId);
+
+            if (!isDownloaded) {
+                sheetRef.current?.close();
+                router.push("/settings-modal/local-models");
+                return;
+            }
+
+            if (modelId === selectedModelId) {
+                await selectModel(null);
+                return;
+            }
+
+            await selectModel(modelId);
+        } finally {
+            isCheckingModelRef.current = false;
+        }
     }
 
     return (

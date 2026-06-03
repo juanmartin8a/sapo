@@ -36,7 +36,7 @@ const colors = {
     destructiveText: "#8B332A",
 };
 
-const LOCAL_MODEL_ROUTE = "/settings-modal/local-model" as Href;
+const LOCAL_MODEL_ROUTE = "/settings-modal/local-models" as Href;
 
 const getErrorMessage = (error: unknown) => {
     if (typeof error === "object" && error && "message" in error) {
@@ -305,7 +305,7 @@ export default function SettingsModalScreen() {
             <View style={styles.sectionContainer}>
                 <Text style={styles.sectionLabel}>Device</Text>
                 <SettingsButton
-                    text="Local model"
+                    text="Local models"
                     leftIcon={SettingsIcon}
                     showChevron
                     backgroundColor={colors.accountButtonBackground}
