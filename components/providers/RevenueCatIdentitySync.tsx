@@ -12,6 +12,10 @@ import {
     isRevenueCatSupportedPlatform,
     logOutRevenueCatIdentity,
 } from "@/clients/revenuecat";
+import {
+    refreshSubscriptionState,
+    refreshSubscriptionStateAfterRevenueCatUpdate,
+} from "@/clients/subscription-refresh";
 import { api } from "@/convex/_generated/api";
 import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
 
@@ -27,6 +31,7 @@ export default function RevenueCatIdentitySync() {
     const receiptConflictUserIdRef = useRef<string | null>(null);
     const authenticatedSessionUserIdRef = useRef<string | null>(null);
     const syncedRevenueCatUserIdRef = useRef<string | null>(null);
+    const lastRevenueCatActiveRef = useRef<boolean | null>(null);
 
     const fallbackSubscriptionStatusOnError = useCallback(() => {
         if (useSubscriptionStatusStore.getState().hasActiveSubscription === null) {
@@ -85,11 +90,45 @@ export default function RevenueCatIdentitySync() {
             }
 
             if (receiptConflictUserIdRef.current === userId) {
+                lastRevenueCatActiveRef.current = false;
                 setHasActiveSubscription(false);
                 return;
             }
 
-            setHasActiveSubscription(hasActiveRevenueCatSubscription(customerInfo));
+            const hasActiveSubscription = hasActiveRevenueCatSubscription(customerInfo);
+
+            void (async () => {
+                const currentAppUserId = await Purchases.getAppUserID();
+
+                if (isCancelled || currentAppUserId !== userId) {
+                    return;
+                }
+
+                const previousHasActiveSubscription = lastRevenueCatActiveRef.current;
+                const previousStoredHasActiveSubscription =
+                    useSubscriptionStatusStore.getState().hasActiveSubscription;
+                const shouldRefreshServerState = previousHasActiveSubscription === null
+                    ? hasActiveSubscription || previousStoredHasActiveSubscription === true
+                    : previousHasActiveSubscription !== hasActiveSubscription;
+
+                lastRevenueCatActiveRef.current = hasActiveSubscription;
+                setHasActiveSubscription(hasActiveSubscription);
+
+                if (!shouldRefreshServerState) {
+                    return;
+                }
+
+                if (hasActiveSubscription) {
+                    await refreshSubscriptionStateAfterRevenueCatUpdate(userId);
+                    return;
+                }
+
+                await refreshSubscriptionState({ userId });
+            })().catch((error) => {
+                if (__DEV__) {
+                    console.warn("RevenueCat listener subscription sync failed", error);
+                }
+            });
         };
 
         const initializeCustomerInfoListener = async () => {
@@ -145,6 +184,7 @@ export default function RevenueCatIdentitySync() {
             receiptConflictUserIdRef.current = null;
             authenticatedSessionUserIdRef.current = null;
             syncedRevenueCatUserIdRef.current = null;
+            lastRevenueCatActiveRef.current = null;
             setHasActiveSubscription(false);
 
             if (previousRevenueCatUserId) {
@@ -156,6 +196,10 @@ export default function RevenueCatIdentitySync() {
             }
 
             return;
+        }
+
+        if (authenticatedSessionUserIdRef.current !== userId) {
+            lastRevenueCatActiveRef.current = null;
         }
 
         authenticatedSessionUserIdRef.current = userId;
@@ -195,11 +239,31 @@ export default function RevenueCatIdentitySync() {
                 if (!isCancelled) {
                     receiptConflictUserIdRef.current = null;
                     syncedRevenueCatUserIdRef.current = userId;
-                    setHasActiveSubscription(hasActiveRevenueCatSubscription(customerInfo));
+                    const hasActiveSubscription = hasActiveRevenueCatSubscription(customerInfo);
+                    const previousStoredHasActiveSubscription =
+                        useSubscriptionStatusStore.getState().hasActiveSubscription;
+
+                    lastRevenueCatActiveRef.current = hasActiveSubscription;
+                    setHasActiveSubscription(hasActiveSubscription);
+
+                    if (hasActiveSubscription) {
+                        void refreshSubscriptionStateAfterRevenueCatUpdate(userId).catch((error) => {
+                            if (__DEV__) {
+                                console.warn("RevenueCat active subscription sync failed", error);
+                            }
+                        });
+                    } else if (previousStoredHasActiveSubscription === true) {
+                        void refreshSubscriptionState({ userId }).catch((error) => {
+                            if (__DEV__) {
+                                console.warn("RevenueCat inactive subscription sync failed", error);
+                            }
+                        });
+                    }
                 }
             } catch (error) {
                 if (!isCancelled && isReceiptAlreadyInUseRevenueCatError(error)) {
                     receiptConflictUserIdRef.current = userId;
+                    lastRevenueCatActiveRef.current = false;
                     setHasActiveSubscription(false);
                     return;
                 }

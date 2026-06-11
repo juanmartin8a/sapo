@@ -2,13 +2,16 @@ import { fetch as expoFetch } from "expo/fetch";
 import { Alert } from "react-native";
 import { create } from "zustand";
 
-import { getConvexAccessToken } from "@/clients/auth-client";
+import { getConvexAccessToken, getConvexAccessTokenWithUserId } from "@/clients/auth-client";
 import {
     isLocalTranslationAbortError,
     stopActiveLocalTranslation,
     translateWithLocalModel,
 } from "@/clients/local-translation";
-import { refreshSubscriptionState } from "@/clients/subscription-refresh";
+import {
+    getSubscriptionRefreshErrorStatus,
+    refreshSubscriptionState,
+} from "@/clients/subscription-refresh";
 import { languages, languagesPlusAutoDetect } from "@/constants/languages";
 import useLanguageSelectorBottomSheetNotifier from "./languageSelectionNotifierStore";
 import useLocalModelStore from "./localModelStore";
@@ -635,9 +638,11 @@ const useSseStore = create<SseState>((set, get) => {
             };
 
             try {
-                const convexToken = await getConvexAccessToken();
+                const authContext = await getConvexAccessTokenWithUserId();
+                const convexToken = authContext?.token ?? null;
+                const userId = authContext?.userId ?? null;
 
-                if (!convexToken || !isActiveRequest()) {
+                if (!convexToken || !userId || !isActiveRequest()) {
                     if (isActiveRequest()) {
                         console.error("[sseStore] Failed to get Convex auth token for stream request");
                         markStreamError();
@@ -647,11 +652,39 @@ const useSseStore = create<SseState>((set, get) => {
                 }
 
                 if (useSubscriptionStatusStore.getState().hasActiveSubscription === true) {
-                    await refreshSubscriptionState().catch((error) => {
+                    let refreshFailureMessage: string | null = null;
+
+                    await refreshSubscriptionState({
+                        accessToken: convexToken,
+                        userId,
+                        expectActiveSubscription: true,
+                    }).catch((error) => {
+                        const errorStatus = getSubscriptionRefreshErrorStatus(error);
+
                         if (__DEV__) {
                             console.warn("Failed to refresh subscription state before stream request", error);
                         }
+
+                        if (errorStatus === 401 || errorStatus === 409) {
+                            refreshFailureMessage = "Please sign in again.";
+                            return;
+                        }
+
+                        if (errorStatus === 425) {
+                            refreshFailureMessage = "Your subscription is still syncing. Please try again.";
+                            return;
+                        }
+
+                        refreshFailureMessage = "Unable to verify your subscription. Please try again.";
                     });
+
+                    if (refreshFailureMessage) {
+                        if (isActiveRequest()) {
+                            markStreamError(refreshFailureMessage);
+                        }
+
+                        return;
+                    }
 
                     if (!isActiveRequest()) {
                         return;

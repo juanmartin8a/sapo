@@ -27,6 +27,7 @@ import {
     isRevenueCatSupportedPlatform,
 } from "@/clients/revenuecat";
 import {
+    getSubscriptionRefreshErrorStatus,
     refreshSubscriptionState,
     refreshSubscriptionStateAfterRevenueCatUpdate,
     retrySubscriptionStateAfterRevenueCatUpdateInBackground,
@@ -152,8 +153,12 @@ const getSubscriptionSyncPendingMessage = () => {
     return "Your purchase is active. We are still syncing it to SAPO and will keep trying automatically.";
 };
 
-const retryRevenueCatUpdateSyncInBackground = () => {
-    void retrySubscriptionStateAfterRevenueCatUpdateInBackground().catch((error) => {
+const getSubscriptionSessionChangedMessage = () => {
+    return "Your account changed while syncing the subscription. Please sign in again and retry.";
+};
+
+const retryRevenueCatUpdateSyncInBackground = (userId: string) => {
+    void retrySubscriptionStateAfterRevenueCatUpdateInBackground(userId).catch((error) => {
         if (__DEV__) {
             console.warn("Background subscription sync retry failed", error);
         }
@@ -364,18 +369,29 @@ export default function SubscriptionScreen() {
                 const hasActiveClientSubscriptionAfterLogin = hasActiveRevenueCatSubscription(loggedInCustomerInfo);
                 let hasActiveServerSubscriptionAfterLogin = false;
                 let loginRefreshFailed = false;
+                let loginRefreshAuthMismatch = false;
 
                 try {
                     const refreshResult = hasActiveClientSubscriptionAfterLogin
-                        ? await refreshSubscriptionStateAfterRevenueCatUpdate()
-                        : await refreshSubscriptionState();
+                        ? await refreshSubscriptionStateAfterRevenueCatUpdate(userId)
+                        : await refreshSubscriptionState({ userId });
                     hasActiveServerSubscriptionAfterLogin = refreshResult?.has_active_subscription === true;
                 } catch (error) {
+                    const refreshErrorStatus = getSubscriptionRefreshErrorStatus(error);
+
                     loginRefreshFailed = true;
+                    loginRefreshAuthMismatch = refreshErrorStatus === 401 || refreshErrorStatus === 409;
 
                     if (__DEV__) {
                         console.warn("Failed to refresh subscription state after login", error);
                     }
+                }
+
+                if (loginRefreshAuthMismatch) {
+                    setIsSubscriptionLinkedElsewhere(false);
+                    setHasActiveSubscription(false);
+                    Alert.alert("Session changed", getSubscriptionSessionChangedMessage());
+                    return;
                 }
 
                 const hasActiveAfterLogin =
@@ -386,7 +402,7 @@ export default function SubscriptionScreen() {
 
                 if (hasActiveAfterLogin) {
                     if (loginRefreshFailed) {
-                        retryRevenueCatUpdateSyncInBackground();
+                        retryRevenueCatUpdateSyncInBackground(userId);
                         Alert.alert("Subscription active", getSubscriptionSyncPendingMessage());
                     } else {
                         Alert.alert(
@@ -412,18 +428,29 @@ export default function SubscriptionScreen() {
             const hasActiveClientSubscription = hasActiveRevenueCatSubscription(customerInfo);
             let hasActiveServerSubscription = false;
             let purchaseRefreshFailed = false;
+            let purchaseRefreshAuthMismatch = false;
 
             try {
                 const refreshResult = hasActiveClientSubscription
-                    ? await refreshSubscriptionStateAfterRevenueCatUpdate()
-                    : await refreshSubscriptionState();
+                    ? await refreshSubscriptionStateAfterRevenueCatUpdate(userId)
+                    : await refreshSubscriptionState({ userId });
                 hasActiveServerSubscription = refreshResult?.has_active_subscription === true;
             } catch (error) {
+                const refreshErrorStatus = getSubscriptionRefreshErrorStatus(error);
+
                 purchaseRefreshFailed = true;
+                purchaseRefreshAuthMismatch = refreshErrorStatus === 401 || refreshErrorStatus === 409;
 
                 if (__DEV__) {
                     console.warn("Failed to refresh subscription state after purchase", error);
                 }
+            }
+
+            if (purchaseRefreshAuthMismatch) {
+                setIsSubscriptionLinkedElsewhere(false);
+                setHasActiveSubscription(false);
+                Alert.alert("Session changed", getSubscriptionSessionChangedMessage());
+                return;
             }
 
             const isActive = hasActiveClientSubscription || hasActiveServerSubscription;
@@ -433,7 +460,7 @@ export default function SubscriptionScreen() {
 
             if (isActive) {
                 if (purchaseRefreshFailed) {
-                    retryRevenueCatUpdateSyncInBackground();
+                    retryRevenueCatUpdateSyncInBackground(userId);
                     Alert.alert("Subscription active", getSubscriptionSyncPendingMessage());
                 } else {
                     Alert.alert("Subscription active", "Your SAPO subscription is now active.");

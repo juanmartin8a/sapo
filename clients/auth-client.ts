@@ -32,3 +32,27 @@ export async function getConvexAccessToken() {
 
     return null;
 }
+
+export async function getConvexAccessTokenWithUserId() {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+        const { data: sessionData } = await authClient.getSession();
+        const userId = sessionData?.user?.id ?? null;
+        const { data: convexTokenData } = await authClient.convex.token();
+        const convexToken = convexTokenData?.token ?? null;
+        const { data: confirmedSessionData } = await authClient.getSession();
+        const confirmedUserId = confirmedSessionData?.user?.id ?? null;
+
+        if (convexToken && userId && userId === confirmedUserId) {
+            return {
+                token: convexToken,
+                userId,
+            };
+        }
+
+        if (attempt === 0) {
+            await authClient.getSession();
+        }
+    }
+
+    return null;
+}
