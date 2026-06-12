@@ -117,17 +117,7 @@ const getPackageBillingPeriodLabel = (subscriptionPackage: PurchasesPackage | nu
     }
 };
 
-const getErrorMessage = (error: unknown) => {
-    if (typeof error === "object" && error && "message" in error) {
-        const message = error.message;
-
-        if (typeof message === "string" && message.length > 0) {
-            return message;
-        }
-    }
-
-    return "Please try again.";
-};
+const PURCHASE_ERROR_MESSAGE = "Unable to complete the purchase. Please try again.";
 
 const isPurchaseCancelledError = (error: unknown) => {
     if (!error || typeof error !== "object") {
@@ -484,7 +474,11 @@ export default function SubscriptionScreen() {
                 return;
             }
 
-            Alert.alert("Purchase failed", getErrorMessage(error));
+            if (__DEV__) {
+                console.warn("Purchase failed", error);
+            }
+
+            Alert.alert("Purchase failed", PURCHASE_ERROR_MESSAGE);
         } finally {
             setIsPurchasing(false);
         }

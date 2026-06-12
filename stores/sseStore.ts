@@ -241,10 +241,6 @@ function resolveStreamErrorMessage(responseText: string, status: number) {
         if (typeof parsedResponse === "object" && parsedResponse !== null) {
             const typedResponse = parsedResponse as { error?: unknown; message?: unknown };
 
-            if (typeof typedResponse.message === "string" && typedResponse.message.trim().length > 0) {
-                return typedResponse.message.trim();
-            }
-
             if (typeof typedResponse.error === "string") {
                 return getStreamErrorMessageFromCode(typedResponse.error, status);
             }
@@ -430,9 +426,14 @@ const useSseStore = create<SseState>((set, get) => {
                         } catch (error) {
                             setIdleTranslateButtonState();
                             set({ streamError: false, streamErrorMessage: null });
+
+                            if (__DEV__) {
+                                console.warn("Unable to load local model", error);
+                            }
+
                             Alert.alert(
                                 "Unable to load local model",
-                                error instanceof Error ? error.message : "Please try again."
+                                "Unable to load the local model. Please try again."
                             );
                             return;
                         }
@@ -517,11 +518,7 @@ const useSseStore = create<SseState>((set, get) => {
 
                         if (!isLocalTranslationAbortError(error) && isActiveLocalRequest()) {
                             console.error("Local translation failed:", error);
-                            markLocalTranslationError(
-                                error instanceof Error && error.message.trim().length > 0
-                                    ? error.message
-                                    : "Local translation failed."
-                            );
+                            markLocalTranslationError("Local translation failed. Please try again.");
                         }
                     } finally {
                         acceptLocalTokens = false;
@@ -600,10 +597,7 @@ const useSseStore = create<SseState>((set, get) => {
                     return;
                 }
 
-                const resolvedMessage = resolveStreamErrorMessage(payload, 500);
-                markStreamError(
-                    resolvedMessage === "An error occurred" ? payload.trim() : resolvedMessage
-                );
+                markStreamError(resolveStreamErrorMessage(payload, 500));
             };
 
             const processTokenPayload = (payload: string): "continue" | "stop" => {

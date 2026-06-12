@@ -44,7 +44,11 @@ const Settings = () => {
         });
 
         if (result.error) {
-            throw new Error(result.error.message ?? 'Unable to delete the account.');
+            if (__DEV__) {
+                console.warn('Delete account request failed', result.error);
+            }
+
+            throw new Error('Unable to delete the account.');
         }
     }, []);
 

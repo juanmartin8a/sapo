@@ -39,17 +39,8 @@ const colors = {
 
 const LOCAL_MODEL_ROUTE = "/settings-modal/local-models" as Href;
 
-const getErrorMessage = (error: unknown) => {
-    if (typeof error === "object" && error && "message" in error) {
-        const message = error.message;
-
-        if (typeof message === "string" && message.length > 0) {
-            return message;
-        }
-    }
-
-    return "Please try again.";
-};
+const RESTORE_PURCHASES_ERROR_MESSAGE = "Unable to restore purchases. Please try again.";
+const MANAGE_SUBSCRIPTION_ERROR_MESSAGE = "Unable to open subscription settings. Please try again.";
 
 const getSubscriptionLinkedElsewhereMessage = (storeAccountLabel: string) => {
     return `This ${storeAccountLabel} account already has a S A P O subscription linked to another S A P O account. Please sign in to that account, or contact us for support at support@sapo.surf.`;
@@ -198,7 +189,11 @@ export default function SettingsModalScreen() {
                 return;
             }
 
-            Alert.alert("Restore failed", getErrorMessage(error));
+            if (__DEV__) {
+                console.warn("Restore purchases failed", error);
+            }
+
+            Alert.alert("Restore failed", RESTORE_PURCHASES_ERROR_MESSAGE);
         } finally {
             setIsRestoringPurchases(false);
         }
@@ -237,7 +232,11 @@ export default function SettingsModalScreen() {
                 );
             }
         } catch (error) {
-            Alert.alert("Unable to open subscription settings", getErrorMessage(error));
+            if (__DEV__) {
+                console.warn("Unable to open subscription settings", error);
+            }
+
+            Alert.alert("Unable to open subscription settings", MANAGE_SUBSCRIPTION_ERROR_MESSAGE);
         } finally {
             setIsManagingSubscription(false);
         }

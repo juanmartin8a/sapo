@@ -3,6 +3,8 @@ import { getConvexAccessToken } from "@/clients/auth-client";
 type RefreshSubscriptionResponse = {
     ok?: boolean;
     error?: string;
+    retry_after_ms?: number;
+    limited_kind?: RefreshCooldownKind;
     refresh?: {
         has_active_subscription?: boolean;
         plan_key?: "free" | "polyglot";
@@ -18,17 +20,30 @@ type RefreshSubscriptionStateOptions = {
     retryDelaysMs?: readonly number[];
 };
 
+type RefreshCooldownKind = "refresh_normal" | "refresh_purchase" | "refresh_daily";
+
 const REVENUECAT_UPDATE_REFRESH_RETRY_DELAYS_MS = [1_000, 2_000, 4_000] as const;
 const REVENUECAT_UPDATE_BACKGROUND_REFRESH_RETRY_DELAYS_MS = [15_000] as const;
 const REFRESH_SINGLE_FLIGHT_STALE_MS = 45_000;
 
 class SubscriptionRefreshError extends Error {
     readonly status?: number;
+    readonly retryAfterMs?: number;
+    readonly limitedKind?: RefreshCooldownKind;
 
-    constructor(message: string, status?: number) {
+    constructor(
+        message: string,
+        status?: number,
+        options: {
+            retryAfterMs?: number;
+            limitedKind?: RefreshCooldownKind;
+        } = {}
+    ) {
         super(message);
         this.name = "SubscriptionRefreshError";
         this.status = status;
+        this.retryAfterMs = options.retryAfterMs;
+        this.limitedKind = options.limitedKind;
     }
 }
 
@@ -48,7 +63,17 @@ type ActiveRefresh = {
     promise: Promise<RefreshSubscriptionResult | null>;
 };
 
+type ScheduledCooldownRetry = {
+    timeoutId: ReturnType<typeof setTimeout>;
+};
+
+const REFRESH_COOLDOWN_KINDS = ["refresh_normal", "refresh_purchase", "refresh_daily"] as const;
 const activeRefreshesByUserId = new Map<string, ActiveRefresh>();
+const refreshCooldownsByUserId = new Map<
+    string,
+    Partial<Record<RefreshCooldownKind, number>>
+>();
+const scheduledCooldownRetriesByKey = new Map<string, ScheduledCooldownRetry>();
 
 function sleep(milliseconds: number) {
     return new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -66,6 +91,59 @@ function getRefreshUrl() {
 
 function getRefreshErrorMessage(status: number) {
     return `Subscription refresh failed with status ${status}`;
+}
+
+function isRefreshCooldownKind(value: unknown): value is RefreshCooldownKind {
+    return (
+        value === "refresh_normal" ||
+        value === "refresh_purchase" ||
+        value === "refresh_daily"
+    );
+}
+
+function parsePositiveNumber(value: unknown) {
+    if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+        return value;
+    }
+
+    if (typeof value === "string" && value.trim().length > 0) {
+        const parsed = Number(value);
+        if (Number.isFinite(parsed) && parsed > 0) {
+            return parsed;
+        }
+    }
+
+    return null;
+}
+
+function getRetryAfterHeaderMs(response: Response) {
+    const retryAfterHeader = response.headers.get("Retry-After");
+
+    if (!retryAfterHeader) {
+        return undefined;
+    }
+
+    const retryAfterSeconds = parsePositiveNumber(retryAfterHeader);
+    if (retryAfterSeconds !== null) {
+        return Math.ceil(retryAfterSeconds * 1000);
+    }
+
+    const retryAfterTimestampMs = Date.parse(retryAfterHeader);
+    if (Number.isNaN(retryAfterTimestampMs)) {
+        return undefined;
+    }
+
+    return Math.max(0, retryAfterTimestampMs - Date.now());
+}
+
+function getRetryAfterMs(response: Response, parsedResponse: RefreshSubscriptionResponse | null) {
+    const responseRetryAfterMs = parsePositiveNumber(parsedResponse?.retry_after_ms);
+
+    if (responseRetryAfterMs !== null) {
+        return Math.ceil(responseRetryAfterMs);
+    }
+
+    return getRetryAfterHeaderMs(response);
 }
 
 function shouldRetrySubscriptionRefresh(error: unknown) {
@@ -125,7 +203,14 @@ async function requestSubscriptionStateRefresh(
     }
 
     if (!response.ok || parsedResponse?.ok !== true) {
-        throw new SubscriptionRefreshError(getRefreshErrorMessage(response.status), response.status);
+        throw new SubscriptionRefreshError(getRefreshErrorMessage(response.status), response.status, {
+            retryAfterMs: response.status === 429
+                ? getRetryAfterMs(response, parsedResponse)
+                : undefined,
+            limitedKind: isRefreshCooldownKind(parsedResponse?.limited_kind)
+                ? parsedResponse.limited_kind
+                : undefined,
+        });
     }
 
     return parsedResponse.refresh ?? null;
@@ -137,6 +222,87 @@ export function getSubscriptionRefreshErrorStatus(error: unknown) {
 
 function getRefreshKey(userId?: string | null) {
     return userId && userId.trim().length > 0 ? userId : "current";
+}
+
+function getRefreshRequestKind(options: Pick<RefreshSubscriptionStateOptions, "expectActiveSubscription">) {
+    return options.expectActiveSubscription === true ? "refresh_purchase" : "refresh_normal";
+}
+
+function pruneExpiredRefreshCooldowns(key: string, nowMs: number) {
+    const cooldowns = refreshCooldownsByUserId.get(key);
+
+    if (!cooldowns) {
+        return;
+    }
+
+    for (const kind of REFRESH_COOLDOWN_KINDS) {
+        if (typeof cooldowns[kind] === "number" && cooldowns[kind] <= nowMs) {
+            delete cooldowns[kind];
+        }
+    }
+
+    if (!REFRESH_COOLDOWN_KINDS.some((kind) => typeof cooldowns[kind] === "number")) {
+        refreshCooldownsByUserId.delete(key);
+    }
+}
+
+function getActiveRefreshCooldownUntilMs(
+    key: string,
+    requestKind: RefreshCooldownKind,
+    nowMs: number
+) {
+    pruneExpiredRefreshCooldowns(key, nowMs);
+
+    const cooldowns = refreshCooldownsByUserId.get(key);
+    if (!cooldowns) {
+        return null;
+    }
+
+    const cooldownUntilMs = Math.max(
+        cooldowns.refresh_daily ?? 0,
+        cooldowns[requestKind] ?? 0
+    );
+
+    return cooldownUntilMs > nowMs ? cooldownUntilMs : null;
+}
+
+function recordRefreshCooldown(
+    key: string,
+    kind: RefreshCooldownKind,
+    retryAfterMs: number
+) {
+    const cooldownUntilMs = Date.now() + Math.max(0, Math.ceil(retryAfterMs));
+    const cooldowns = refreshCooldownsByUserId.get(key) ?? {};
+
+    cooldowns[kind] = Math.max(cooldowns[kind] ?? 0, cooldownUntilMs);
+    refreshCooldownsByUserId.set(key, cooldowns);
+
+    return cooldownUntilMs;
+}
+
+function scheduleRefreshAfterCooldown(
+    key: string,
+    options: RefreshSubscriptionStateOptions,
+    cooldownUntilMs: number
+) {
+    if (options.expectActiveSubscription !== true) {
+        return;
+    }
+
+    const scheduleKey = `${key}:${getRefreshRequestKind(options)}`;
+    if (scheduledCooldownRetriesByKey.has(scheduleKey)) {
+        return;
+    }
+
+    const delayMs = Math.max(0, cooldownUntilMs - Date.now());
+    const timeoutId = setTimeout(() => {
+        scheduledCooldownRetriesByKey.delete(scheduleKey);
+        void refreshSubscriptionState(options).catch(() => null);
+    }, delayMs);
+
+    scheduledCooldownRetriesByKey.set(scheduleKey, {
+        timeoutId,
+    });
 }
 
 function startRefresh(
@@ -157,6 +323,22 @@ function startRefresh(
 
                 return refreshResult;
             } catch (error) {
+                if (
+                    error instanceof SubscriptionRefreshError &&
+                    error.status === 429 &&
+                    typeof error.retryAfterMs === "number" &&
+                    error.retryAfterMs > 0
+                ) {
+                    const cooldownUntilMs = recordRefreshCooldown(
+                        key,
+                        error.limitedKind ?? getRefreshRequestKind(options),
+                        error.retryAfterMs
+                    );
+
+                    scheduleRefreshAfterCooldown(key, options, cooldownUntilMs);
+                    return null;
+                }
+
                 const retryDelayMs = options.retryDelaysMs?.[retryIndex];
 
                 if (typeof retryDelayMs !== "number" || !shouldRetrySubscriptionRefresh(error)) {
@@ -188,6 +370,7 @@ export async function refreshSubscriptionState(
     options: RefreshSubscriptionStateOptions = {}
 ): Promise<RefreshSubscriptionResult | null> {
     const key = getRefreshKey(options.userId);
+    const requestKind = getRefreshRequestKind(options);
     const activeRefresh = activeRefreshesByUserId.get(key);
     const nowMs = Date.now();
 
@@ -200,11 +383,25 @@ export async function refreshSubscriptionState(
             return activeRefresh.promise;
         }
 
+        const cooldownUntilMs = getActiveRefreshCooldownUntilMs(key, requestKind, nowMs);
+
+        if (cooldownUntilMs !== null) {
+            scheduleRefreshAfterCooldown(key, options, cooldownUntilMs);
+            return null;
+        }
+
         return startRefresh(key, options);
     }
 
     if (activeRefresh) {
         activeRefreshesByUserId.delete(key);
+    }
+
+    const cooldownUntilMs = getActiveRefreshCooldownUntilMs(key, requestKind, nowMs);
+
+    if (cooldownUntilMs !== null) {
+        scheduleRefreshAfterCooldown(key, options, cooldownUntilMs);
+        return null;
     }
 
     return startRefresh(key, options);

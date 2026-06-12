@@ -22,7 +22,11 @@ const assertSocialSignInSucceeded = (
     provider: SocialProvider
 ) => {
     if (result.error) {
-        throw new Error(result.error.message ?? `${provider} sign-in failed`);
+        if (__DEV__) {
+            console.warn(`${provider} sign-in failed`, result.error);
+        }
+
+        throw new Error(`${provider} sign-in failed`);
     }
 };
 

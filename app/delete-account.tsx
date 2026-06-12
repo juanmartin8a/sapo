@@ -39,6 +39,7 @@ type RouteRecord = {
 
 const DELETE_ACCOUNT_ROUTE_NAME = "delete-account";
 const SETTINGS_MODAL_ROUTE_NAME = "settings-modal";
+const DELETE_ACCOUNT_ERROR_MESSAGE = "Unable to delete the account. Please try the email link again.";
 const completedDeleteAccountTokens = new Set<string>();
 const deleteAccountTokenRequests = new Map<string, Promise<void>>();
 
@@ -125,7 +126,7 @@ function confirmDeleteAccountToken(token: string) {
         const result = await authClient.deleteUser({ token });
 
         if (result.error) {
-            throw new Error(result.error.message ?? "Unable to delete the account.");
+            throw new Error(DELETE_ACCOUNT_ERROR_MESSAGE);
         }
 
         completedDeleteAccountTokens.add(token);
@@ -255,9 +256,11 @@ export default function DeleteAccountConfirmationScreen() {
                         return;
                     }
 
-                    setErrorMessage(
-                        error instanceof Error ? error.message : "Unable to delete the account."
-                    );
+                    if (__DEV__) {
+                        console.warn("Delete account confirmation failed", error);
+                    }
+
+                    setErrorMessage(DELETE_ACCOUNT_ERROR_MESSAGE);
                     setStatus("failed");
                 });
 
@@ -298,9 +301,11 @@ export default function DeleteAccountConfirmationScreen() {
                 return;
             }
 
-            setErrorMessage(
-                error instanceof Error ? error.message : "Unable to delete the account."
-            );
+            if (__DEV__) {
+                console.warn("Delete account confirmation failed", error);
+            }
+
+            setErrorMessage(DELETE_ACCOUNT_ERROR_MESSAGE);
             setStatus("failed");
         });
 

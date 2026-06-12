@@ -95,9 +95,13 @@ const SideBar = ({ translationX }: SideBarProps) => {
         try {
             await loadLocalModel();
         } catch (error) {
+            if (__DEV__) {
+                console.warn("Unable to load local model", error);
+            }
+
             Alert.alert(
                 "Unable to load local model",
-                error instanceof Error ? error.message : "Please try again."
+                "Unable to load the local model. Please try again."
             );
         }
     }, [isLocalModelDownloaded, isLocalModelLoaded, isLocalModelBusy, loadLocalModel]);

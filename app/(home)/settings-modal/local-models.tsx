@@ -136,9 +136,13 @@ export default function LocalModelScreen() {
             }
         } catch (error) {
             if (mountedRef.current && !isLocalModelAbortError(error)) {
+                if (__DEV__) {
+                    console.warn("Local model download failed", error);
+                }
+
                 Alert.alert(
                     "Download failed",
-                    error instanceof Error ? error.message : "Please try again."
+                    "Unable to download the local model. Please try again."
                 );
             }
 
