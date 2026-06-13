@@ -16,14 +16,14 @@
     "preset": "jest-expo"
   },
   "dependencies": {
-    "@better-auth/expo": "~1.6.9",
-    "@convex-dev/better-auth": "^0.12.2",
+    "@better-auth/expo": "~1.6.18",
+    "@convex-dev/better-auth": "^0.12.3",
     "@convex-dev/resend": "^0.2.3",
     "@expo/metro-runtime": "~55.0.11",
     "@expo/ui": "~55.0.15",
     "@gorhom/bottom-sheet": "^5.2.6",
-    "better-auth": "~1.6.9",
-    "convex": "^1.39.1",
+    "better-auth": "~1.6.18",
+    "convex": "^1.41.0",
     "expo": "~55.0.23",
     "expo-apple-authentication": "~55.0.13",
     "expo-auth-session": "~55.0.15",
