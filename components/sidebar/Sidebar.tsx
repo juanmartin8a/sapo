@@ -327,7 +327,7 @@ const SideBar = ({ translationX }: SideBarProps) => {
                                         <View
                                             style={[
                                                 styles.localModelStatusDot,
-                                                isLocalModelBusy
+                                                isLocalModelLoading
                                                     ? styles.localModelStatusDotLoading
                                                     : isLocalModelLoaded
                                                         ? styles.localModelStatusDotLoaded

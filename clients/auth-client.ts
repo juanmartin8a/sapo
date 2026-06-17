@@ -6,9 +6,6 @@ import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
-// crossDomainClient is typed against better-auth's root plugin type in 0.12.3.
-const webAuthClientPlugin = crossDomainClient() as unknown as BetterAuthClientPlugin;
-
 function createNativeAuthClient() {
     return createAuthClient({
         baseURL: process.env.EXPO_PUBLIC_CONVEX_SITE_URL,
@@ -26,6 +23,9 @@ function createNativeAuthClient() {
 type AuthClient = ReturnType<typeof createNativeAuthClient>;
 
 function createWebAuthClient(): AuthClient {
+    // crossDomainClient touches localStorage, so only construct it on web.
+    const webAuthClientPlugin = crossDomainClient() as unknown as BetterAuthClientPlugin;
+
     return createAuthClient({
         baseURL: process.env.EXPO_PUBLIC_CONVEX_SITE_URL,
         plugins: [convexClient(), webAuthClientPlugin],

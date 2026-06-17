@@ -160,10 +160,26 @@ const SocialSignInButton = ({
                     throw new Error('Apple sign-in did not return an identity token');
                 }
 
+                if (!credential.authorizationCode) {
+                    throw new Error('Apple sign-in did not return an authorization code');
+                }
+
                 const result = await authClient.signIn.social({
                     provider: 'apple',
                     idToken: {
                         token: credential.identityToken,
+                        refreshToken: credential.authorizationCode,
+                        user: {
+                            ...(credential.email ? { email: credential.email } : {}),
+                            name: {
+                                ...(credential.fullName?.givenName
+                                    ? { firstName: credential.fullName.givenName }
+                                    : {}),
+                                ...(credential.fullName?.familyName
+                                    ? { lastName: credential.fullName.familyName }
+                                    : {}),
+                            },
+                        },
                     }
                 })
 
