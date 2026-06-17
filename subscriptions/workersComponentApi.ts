@@ -1,6 +1,6 @@
 import { components } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
-import type { UserDeletionQueueStatus } from "../userDeletionQueue";
+import type { UserDeletionCleanupStep, UserDeletionQueueStatus } from "../userDeletionQueue";
 
 export type SubscriptionStateReconciliationCtx = Pick<ActionCtx, "runQuery" | "runMutation">;
 
@@ -20,9 +20,14 @@ export type UserDeletionOperationState = {
     started_at_ms?: number;
     prepared_at_ms?: number;
     auth_deleted_at_ms?: number;
+    revenuecat_deleted_at_ms?: number;
     next_retry_at_ms?: number;
     retry_count?: number;
     force_stop_after_at_ms?: number;
+    cleanup_attempt_id?: string;
+    cleanup_step?: UserDeletionCleanupStep;
+    cleanup_step_started_at_ms?: number;
+    cleanup_lease_expires_at_ms?: number;
     updated_at_ms?: number;
     revenuecat_app_user_id?: string;
     has_active_subscription?: boolean;
@@ -34,6 +39,7 @@ export type UserDeletionOperationState = {
 export type RevenueCatWebhookEventForProcessing = {
     event_id: string;
     event_type: string;
+    event_at_ms: number;
     status: "pending" | "failed" | "processed" | "ignored" | "dead_letter";
     user_id?: string;
     transaction_id?: string;
@@ -43,11 +49,33 @@ export type RevenueCatWebhookEventForProcessing = {
     ignored_user_ids: string[];
 };
 
+export type SubscriptionStateReconciliationLeaseResult =
+    | {
+          status: "acquired";
+          revenuecat_app_user_id: string;
+          has_active_subscription: boolean;
+          plan_key: "free" | "polyglot";
+          last_synced_at_ms: number;
+          billing_cycle_end_at_ms?: number;
+      }
+    | {
+          status: "in_progress";
+          revenuecat_app_user_id: string;
+          has_active_subscription: boolean;
+          plan_key: "free" | "polyglot";
+          last_synced_at_ms: number;
+          billing_cycle_end_at_ms?: number;
+          retry_at_ms?: number;
+      };
+
 export type RevenueCatEventProgressMutationResult = {
     status: "missing" | "pending" | "failed" | "processed" | "ignored" | "dead_letter";
     pending_user_ids?: string[];
     processed_user_ids?: string[];
     ignored_user_ids?: string[];
+    owner_mismatch?: boolean;
+    lease_expired?: boolean;
+    ownership_failure?: string;
 };
 
 export type RevenueCatEventProcessingLeaseAcquisitionResult = {
@@ -61,6 +89,7 @@ export async function recordRevenueCatEventProcessingProgress(
     ctx: SubscriptionStateReconciliationCtx,
     args: {
         event_doc_id: string;
+        processing_attempt_id?: string;
         now_ms: number;
         processed_user_ids: string[];
         ignored_user_ids: string[];
@@ -86,7 +115,7 @@ export async function acquireRevenueCatEventProcessingLeases(
     args: {
         event_doc_id: string;
         user_ids: string[];
-        now_ms: number;
+        processing_attempt_id: string;
         lease_duration_ms: number;
     }
 ) {
@@ -96,10 +125,53 @@ export async function acquireRevenueCatEventProcessingLeases(
         {
             event_doc_id: args.event_doc_id,
             user_ids: args.user_ids,
-            now_ms: args.now_ms,
-            lease_expires_at_ms: args.now_ms + args.lease_duration_ms,
+            processing_attempt_id: args.processing_attempt_id,
+            lease_duration_ms: args.lease_duration_ms,
         }
     )) as RevenueCatEventProcessingLeaseAcquisitionResult;
+}
+
+export async function beginSubscriptionStateReconciliation(
+    ctx: SubscriptionStateReconciliationCtx,
+    args: {
+        user_id: string;
+        revenuecat_app_user_id: string;
+        signup_at_ms?: number;
+        sync_attempt_id: string;
+        now_ms: number;
+        lease_duration_ms: number;
+        expects_active_subscription?: boolean;
+        trusted_active_signal?: boolean;
+        active_signal_at_ms?: number;
+        active_signal_ttl_ms?: number;
+    }
+) {
+    return (await (ctx as any).runMutation(
+        (components.subscriptions.webhook as Record<string, unknown>)
+            .beginSubscriptionStateReconciliation,
+        args
+    )) as SubscriptionStateReconciliationLeaseResult;
+}
+
+export async function releaseSubscriptionStateReconciliation(
+    ctx: SubscriptionStateReconciliationCtx,
+    args: {
+        user_id: string;
+        sync_attempt_id: string;
+        now_ms: number;
+        next_attempt_at_ms?: number;
+    }
+) {
+    return (await (ctx as any).runMutation(
+        (components.subscriptions.webhook as Record<string, unknown>)
+            .releaseSubscriptionStateReconciliation,
+        args
+    )) as {
+        status: "released" | "not_owner" | "missing";
+        owner_mismatch?: boolean;
+        lease_expired?: boolean;
+        ownership_failure?: string | null;
+    };
 }
 
 export async function getBetterAuthUserCreatedAtMs(
@@ -158,15 +230,26 @@ export async function startUserDeletionOperationByUserId(
 
 export async function clearUserDeletionOperationByUserId(
     ctx: SubscriptionStateReconciliationCtx,
-    userId: string
+    userId: string,
+    args?: {
+        cleanup_attempt_id?: string;
+        now_ms?: number;
+    }
 ) {
     return (await (ctx as any).runMutation(
         (components.subscriptions.webhook as Record<string, unknown>).clearUserDeletionOperation,
         {
             user_id: userId,
+            ...(typeof args?.cleanup_attempt_id === "string"
+                ? { cleanup_attempt_id: args.cleanup_attempt_id }
+                : {}),
+            ...(typeof args?.now_ms === "number" ? { now_ms: args.now_ms } : {}),
         }
     )) as {
         deleted_count: number;
+        owner_mismatch?: boolean;
+        lease_expired?: boolean;
+        ownership_failure?: string;
     };
 }
 
@@ -227,12 +310,36 @@ export async function listAuthDeleteDeadLetterUserDeletionOperationUserIds(
     }[];
 }
 
+export async function listCleanupDeadLetterUserDeletionOperationUserIds(
+    ctx: SubscriptionStateReconciliationCtx,
+    args: {
+        limit: number;
+        now_ms?: number;
+        user_id?: string;
+    }
+) {
+    return (await (ctx as any).runQuery(
+        (components.subscriptions.webhook as Record<string, unknown>)
+            .listCleanupDeadLetterUserDeletionOperations,
+        args
+    )) as {
+        user_id: string;
+        status: UserDeletionQueueStatus;
+        retry_count: number;
+        next_retry_at_ms: number;
+        last_error?: string;
+        updated_at_ms: number;
+    }[];
+}
+
 export async function acquireUserDeletionOperationByUserId(
     ctx: SubscriptionStateReconciliationCtx,
     userId: string,
     args: {
         now_ms: number;
         lease_expires_at_ms: number;
+        cleanup_attempt_id: string;
+        cleanup_step?: UserDeletionCleanupStep;
         allow_terminal_recovery?: boolean;
     }
 ) {
@@ -242,6 +349,8 @@ export async function acquireUserDeletionOperationByUserId(
             user_id: userId,
             now_ms: args.now_ms,
             lease_expires_at_ms: args.lease_expires_at_ms,
+            cleanup_attempt_id: args.cleanup_attempt_id,
+            ...(args.cleanup_step ? { cleanup_step: args.cleanup_step } : {}),
             ...(args.allow_terminal_recovery === true
                 ? { allow_terminal_recovery: true }
                 : {}),
@@ -257,6 +366,10 @@ export async function acquireUserDeletionOperationByUserId(
                   next_retry_at_ms: number;
                   retry_count: number;
                   updated_at_ms: number;
+                  cleanup_attempt_id?: string;
+                  cleanup_step?: UserDeletionCleanupStep;
+                  cleanup_step_started_at_ms?: number;
+                  cleanup_lease_expires_at_ms?: number;
               };
           }
         | {
@@ -264,6 +377,47 @@ export async function acquireUserDeletionOperationByUserId(
               missing: boolean;
               status?: UserDeletionQueueStatus;
               next_retry_at_ms?: number;
+          };
+}
+
+export async function renewUserDeletionOperationCleanupLeaseByUserId(
+    ctx: SubscriptionStateReconciliationCtx,
+    userId: string,
+    args: {
+        cleanup_attempt_id: string;
+        cleanup_step: UserDeletionCleanupStep;
+        now_ms: number;
+        lease_expires_at_ms: number;
+    }
+) {
+    return (await (ctx as any).runMutation(
+        (components.subscriptions.webhook as Record<string, unknown>)
+            .renewUserDeletionOperationCleanupLease,
+        {
+            user_id: userId,
+            cleanup_attempt_id: args.cleanup_attempt_id,
+            cleanup_step: args.cleanup_step,
+            now_ms: args.now_ms,
+            lease_expires_at_ms: args.lease_expires_at_ms,
+        }
+    )) as
+        | {
+              renewed: true;
+              status: UserDeletionQueueStatus;
+              next_retry_at_ms: number;
+              cleanup_step?: UserDeletionCleanupStep;
+              cleanup_step_started_at_ms?: number;
+              cleanup_lease_expires_at_ms?: number;
+          }
+        | {
+              renewed: false;
+              missing?: boolean;
+              owner_mismatch?: boolean;
+              lease_expired?: boolean;
+              ownership_failure?: string;
+              status?: UserDeletionQueueStatus;
+              next_retry_at_ms?: number;
+              cleanup_lease_expires_at_ms?: number;
           };
 }
 
@@ -277,7 +431,11 @@ export async function rescheduleUserDeletionOperationByUserId(
         retry_count_increment?: number;
         last_error?: string | null;
         auth_deleted_at_ms?: number;
+        revenuecat_deleted_at_ms?: number;
         force_stop_after_at_ms?: number;
+        cleanup_attempt_id?: string;
+        cleanup_step?: UserDeletionCleanupStep;
+        cleanup_lease_expires_at_ms?: number;
     }
 ) {
     return (await (ctx as any).runMutation(
@@ -296,8 +454,18 @@ export async function rescheduleUserDeletionOperationByUserId(
             ...(typeof args.auth_deleted_at_ms === "number"
                 ? { auth_deleted_at_ms: args.auth_deleted_at_ms }
                 : {}),
+            ...(typeof args.revenuecat_deleted_at_ms === "number"
+                ? { revenuecat_deleted_at_ms: args.revenuecat_deleted_at_ms }
+                : {}),
             ...(typeof args.force_stop_after_at_ms === "number"
                 ? { force_stop_after_at_ms: args.force_stop_after_at_ms }
+                : {}),
+            ...(typeof args.cleanup_attempt_id === "string"
+                ? { cleanup_attempt_id: args.cleanup_attempt_id }
+                : {}),
+            ...(args.cleanup_step ? { cleanup_step: args.cleanup_step } : {}),
+            ...(typeof args.cleanup_lease_expires_at_ms === "number"
+                ? { cleanup_lease_expires_at_ms: args.cleanup_lease_expires_at_ms }
                 : {}),
         }
     )) as {
@@ -305,6 +473,9 @@ export async function rescheduleUserDeletionOperationByUserId(
         status?: UserDeletionQueueStatus;
         next_retry_at_ms?: number;
         retry_count?: number;
+        owner_mismatch?: boolean;
+        lease_expired?: boolean;
+        ownership_failure?: string;
     };
 }
 
@@ -320,6 +491,27 @@ export async function getActiveUserDeletionUsageEventCountByUserId(
         }
     )) as {
         active_usage_event_count: number;
+    };
+}
+
+export async function getActiveRevenueCatEventProcessingForUserDeletionByUserId(
+    ctx: SubscriptionStateReconciliationCtx,
+    userId: string,
+    nowMs: number,
+    limit: number
+) {
+    return (await (ctx as any).runQuery(
+        (components.subscriptions.webhook as Record<string, unknown>)
+            .getActiveRevenueCatEventProcessingForUserDeletion,
+        {
+            user_id: userId,
+            now_ms: nowMs,
+            limit,
+        }
+    )) as {
+        active_processing_count: number;
+        has_more: boolean;
+        processing_expires_at_ms?: number;
     };
 }
 

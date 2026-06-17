@@ -1,19 +1,32 @@
 export const USER_DELETION_LATE_AUTH_WAIT_STATUS = "awaiting_auth_delete_late" as const;
 export const USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS =
     "auth_delete_dead_letter" as const;
+export const USER_DELETION_CLEANUP_DEAD_LETTER_STATUS =
+    "cleanup_dead_letter" as const;
 
 export const userDeletionQueueStatuses = [
     "preparing",
     "awaiting_auth_delete",
     USER_DELETION_LATE_AUTH_WAIT_STATUS,
     USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS,
+    USER_DELETION_CLEANUP_DEAD_LETTER_STATUS,
     "ready_for_cleanup",
     "waiting_for_quiescence",
     "retryable_error",
     "cleanup_in_progress",
 ] as const;
 
+export const userDeletionCleanupSteps = [
+    "acquired",
+    "waiting_for_quiescence",
+    "deleting_revenuecat_subscriber",
+    "deleting_subscription_data",
+    "deleting_stream_controls",
+    "finalizing_subscription_data",
+] as const;
+
 export type UserDeletionQueueStatus = (typeof userDeletionQueueStatuses)[number];
+export type UserDeletionCleanupStep = (typeof userDeletionCleanupSteps)[number];
 
 export type UserDeletionSubscriptionSnapshot<TQuotaPeriodId extends string = string> = {
     has_active_subscription: boolean;
@@ -49,18 +62,48 @@ export function doesUserDeletionStatusBlockRevenueCatReconciliation(
 export function doesUserDeletionStatusAllowAutomaticRetry(
     status?: UserDeletionQueueStatus | null
 ) {
-    return status !== USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS;
+    return (
+        status !== USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS &&
+        status !== USER_DELETION_CLEANUP_DEAD_LETTER_STATUS
+    );
+}
+
+export function getUserDeletionCleanupLeaseRetryAtMs(args: {
+    status?: UserDeletionQueueStatus | null;
+    next_retry_at_ms: number;
+    cleanup_lease_expires_at_ms?: number | null;
+}) {
+    if (
+        args.status === "cleanup_in_progress" &&
+        typeof args.cleanup_lease_expires_at_ms === "number"
+    ) {
+        return args.cleanup_lease_expires_at_ms;
+    }
+
+    return args.next_retry_at_ms;
+}
+
+export function doesUserDeletionCleanupAttemptOwnOperation(args: {
+    current_cleanup_attempt_id?: string | null;
+    cleanup_attempt_id?: string | null;
+}) {
+    return (
+        typeof args.current_cleanup_attempt_id === "string" &&
+        args.current_cleanup_attempt_id === args.cleanup_attempt_id
+    );
 }
 
 export function canAcquireUserDeletionOperation(args: {
     status?: UserDeletionQueueStatus | null;
     next_retry_at_ms: number;
     now_ms: number;
+    cleanup_lease_expires_at_ms?: number | null;
     allow_terminal_recovery?: boolean;
 }) {
     const allowTerminalRecovery =
         args.allow_terminal_recovery === true &&
-        args.status === USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS;
+        (args.status === USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS ||
+            args.status === USER_DELETION_CLEANUP_DEAD_LETTER_STATUS);
 
     if (allowTerminalRecovery) {
         return true;
@@ -68,7 +111,7 @@ export function canAcquireUserDeletionOperation(args: {
 
     return (
         doesUserDeletionStatusAllowAutomaticRetry(args.status) &&
-        args.next_retry_at_ms <= args.now_ms
+        getUserDeletionCleanupLeaseRetryAtMs(args) <= args.now_ms
     );
 }
 
@@ -140,4 +183,18 @@ export function hasRequiredPreservedQuotaPeriod(args: {
     return (
         !args.has_active_subscription || typeof args.preserved_quota_period_id === "string"
     );
+}
+
+export function getMissingPreservedQuotaPeriodErrorMessage(userId: string) {
+    return `Cannot continue paid-user deletion without a preserved quota period for user ${userId}`;
+}
+
+export function assertRequiredPreservedQuotaPeriod(args: {
+    user_id: string;
+    has_active_subscription: boolean;
+    preserved_quota_period_id?: string | null;
+}) {
+    if (!hasRequiredPreservedQuotaPeriod(args)) {
+        throw new Error(getMissingPreservedQuotaPeriodErrorMessage(args.user_id));
+    }
 }

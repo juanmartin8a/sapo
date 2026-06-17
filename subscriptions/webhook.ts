@@ -8,13 +8,6 @@ import {
 } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import {
-    getUsageEventOwnershipTimestampMs,
-    resolveAnonymousFreeMergeAuthority,
-    resolveCanonicalFreeAnchorAtMs,
-    resolvePreferredFreeAnchorAtMs,
-    resolveRebucketedFreeUsageWindow,
-} from "./anonymousMerge";
-import {
     getBillingCycleWindow,
     getRequiredAnchoredMonthlyWindow,
     getRequiredBillingCycleWindow,
@@ -29,33 +22,35 @@ import {
 import { shouldBlockQuotaUsageForPeriod } from "./quotaAvailability";
 import {
     INPUT_CHARACTERS_QUOTA_UNIT,
-    addQuotaPeriodUsageSnapshotUnits,
     applyQuotaPeriodCounterCharge,
     copyQuotaPeriodCountersToQuotaPeriod,
-    createZeroQuotaPeriodUsageSnapshot,
     deleteQuotaPeriodCountersByQuotaPeriodId,
     getOrCreateQuotaPeriodCounter,
     mergeQuotaPeriodCountersIntoTarget,
     resolveQuotaCounterReservationSnapshot,
     resolveQuotaPeriodCounterLimits,
     resolveQuotaPeriodCounterUsageSummary,
-    resolveQuotaPeriodUsageSnapshotFromCounters,
     shouldRejectQuotaInputBeforeCounterCreation,
     syncExistingQuotaPeriodCountersForPlanLimits,
 } from "./quotaPeriodCounters";
 import { canTransitionUsageEventToAfterChargeTerminalState } from "./usageEventTransitions";
 import { resolveForcedStoppedUsageEventTransition } from "./userDeletionUsageEvents";
 import {
+    assertRequiredPreservedQuotaPeriod,
     canAcquireUserDeletionOperation,
+    doesUserDeletionCleanupAttemptOwnOperation,
     doesUserDeletionStatusAllowAutomaticRetry,
     doesUserDeletionStatusBlockProcessing,
     doesUserDeletionStatusBlockRevenueCatReconciliation,
+    getUserDeletionCleanupLeaseRetryAtMs,
     resolveAuthDeletedUserDeletionContext,
+    type UserDeletionCleanupStep,
+    type UserDeletionQueueStatus,
     USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS,
+    USER_DELETION_CLEANUP_DEAD_LETTER_STATUS,
     USER_DELETION_LATE_AUTH_WAIT_STATUS,
 } from "../userDeletionQueue";
 import {
-    isAnonymousRevenueCatAppUserId,
     normalizeRevenueCatWebhookUserIds as normalizeRevenueCatEventUserIds,
     resolveRevenueCatWebhookTargetUserIds as resolveTargetUserIdsFromRevenueCatEvent,
 } from "./revenueCatWebhookIngestion";
@@ -67,10 +62,11 @@ import {
 import {
     getLatestSubscriptionStateByUserId,
     listActiveUsageEventsByUserId,
+    listActiveUsageEventsByUserIdBatch,
+    listQuotaPeriodsByUserIdAndWindowKey,
     listQuotaPeriodsByUserId,
     listQuotaPeriodsByUserIdBatch,
     listSubscriptionStatesByUserId,
-    listUsageEventsByUserId,
     listUsageEventsByUserIdBatch,
     type DbReaderCtx,
 } from "./documents";
@@ -85,16 +81,23 @@ import {
 } from "./planLimits";
 import {
     buildUserDeletionQueueEntry,
+    getLatestUserDeletionQueueEntry,
     getLatestUserDeletionQueueEntryByUserId,
     listUserDeletionQueueEntriesByUserId,
     replaceUserDeletionQueueEntry,
+    type UserDeletionQueueEntryDoc,
 } from "./userDeletionQueueDocuments";
 import {
     deleteOrPruneRevenueCatEventForDeletedUser,
     listRevenueCatEventsForUserDeletionBatch,
 } from "./userDeletionRevenueCatEvents";
+import { deleteQuotaFinalizationRecoveriesByUsageEventId } from "./quotaRecovery";
+import { shouldIgnoreStaleReconciledSubscriptionState } from "./revenueCatApi";
+import { getExclusiveLeaseOwnershipFailure } from "./leaseOwnership";
 
 const PROCESSED_EVENT_STATUSES = new Set(["processed", "ignored", "dead_letter"]);
+const SUBSCRIPTION_SYNC_LEASE_MAX_MS = 30_000;
+const PENDING_ACTIVE_SIGNAL_MAX_TTL_MS = 5 * 60 * 1000;
 
 const webhookEventStatusValidator = v.union(
     v.literal("pending"),
@@ -139,6 +142,15 @@ const retryConfigValidator = v.object({
     retry_max_delay_ms: v.number(),
 });
 
+const refreshRateLimitConfigValidator = v.object({
+    normal_window_ms: v.number(),
+    normal_max_count: v.number(),
+    purchase_window_ms: v.number(),
+    purchase_max_count: v.number(),
+    daily_window_ms: v.number(),
+    daily_max_count: v.number(),
+});
+
 const reconciliationSnapshotValidator = v.object({
     has_active_subscription: v.boolean(),
     entitlement_id: v.optional(v.string()),
@@ -154,6 +166,19 @@ type RetryConfig = {
     max_retry_count: number;
     retry_base_delay_ms: number;
     retry_max_delay_ms: number;
+};
+type RefreshRateLimitKind = "refresh_normal" | "refresh_purchase" | "refresh_daily";
+type RefreshRateLimitBucketPlan = {
+    kind: RefreshRateLimitKind;
+    window_ms: number;
+    max_count: number;
+};
+type RefreshRateLimitBucketState = RefreshRateLimitBucketPlan & {
+    window_start_ms: number;
+    window_end_ms: number;
+    count: number;
+    retained_entry: Doc<"refresh_rate_limits"> | null;
+    duplicate_entries: Doc<"refresh_rate_limits">[];
 };
 
 type SubscriptionStateRecord = Omit<Doc<"subscription_states">, "_id" | "_creationTime">;
@@ -206,16 +231,35 @@ const userDeletionQueueStatusValidator = v.union(
     v.literal("awaiting_auth_delete"),
     v.literal(USER_DELETION_LATE_AUTH_WAIT_STATUS),
     v.literal(USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS),
+    v.literal(USER_DELETION_CLEANUP_DEAD_LETTER_STATUS),
     v.literal("ready_for_cleanup"),
     v.literal("waiting_for_quiescence"),
     v.literal("retryable_error"),
     v.literal("cleanup_in_progress")
 );
 
+const userDeletionCleanupStepValidator = v.union(
+    v.literal("acquired"),
+    v.literal("waiting_for_quiescence"),
+    v.literal("deleting_subscription_data"),
+    v.literal("deleting_stream_controls"),
+    v.literal("finalizing_subscription_data"),
+    v.literal("deleting_revenuecat_subscriber")
+);
+
 const BEFORE_CHARGE_USAGE_EVENT_STATES = new Set([
     "failed_before_charge",
     "user_stopped_before_charge",
 ]);
+const AUTOMATIC_USER_DELETION_RETRY_STATUSES: UserDeletionQueueStatus[] = [
+    "preparing",
+    "awaiting_auth_delete",
+    USER_DELETION_LATE_AUTH_WAIT_STATUS,
+    "ready_for_cleanup",
+    "waiting_for_quiescence",
+    "retryable_error",
+    "cleanup_in_progress",
+];
 
 function resolveNextExpirationReconciliationAtMs(
     hasActiveSubscription: boolean,
@@ -231,6 +275,210 @@ function resolveNextExpirationReconciliationAtMs(
 
 function isFiniteTimestampMs(value: number | undefined): value is number {
     return typeof value === "number" && Number.isFinite(value);
+}
+
+function getFixedWindowStartMs(nowMs: number, windowMs: number) {
+    return Math.floor(nowMs / windowMs) * windowMs;
+}
+
+function getLatestRefreshRateLimitEntry(entries: Doc<"refresh_rate_limits">[]) {
+    return [...entries].sort((left, right) => {
+        if (right.updated_at_ms !== left.updated_at_ms) {
+            return right.updated_at_ms - left.updated_at_ms;
+        }
+
+        return right._creationTime - left._creationTime;
+    })[0] ?? null;
+}
+
+async function getRefreshRateLimitBucketState(
+    ctx: Pick<MutationCtx, "db">,
+    userId: string,
+    plan: RefreshRateLimitBucketPlan,
+    nowMs: number
+): Promise<RefreshRateLimitBucketState> {
+    const safeWindowMs = Math.max(1, Math.floor(plan.window_ms));
+    const windowStartMs = getFixedWindowStartMs(nowMs, safeWindowMs);
+    const windowEndMs = windowStartMs + safeWindowMs;
+    const entries = await ctx.db
+        .query("refresh_rate_limits")
+        .withIndex("by_user_id_kind_and_window_start_ms", (query) =>
+            query
+                .eq("user_id", userId)
+                .eq("kind", plan.kind)
+                .eq("window_start_ms", windowStartMs)
+        )
+        .collect();
+    const currentWindowEntries = entries.filter(
+        (entry) =>
+            entry.window_start_ms === windowStartMs && entry.window_end_ms === windowEndMs
+    );
+    const retainedEntry = getLatestRefreshRateLimitEntry(currentWindowEntries);
+
+    return {
+        ...plan,
+        window_ms: safeWindowMs,
+        max_count: Math.max(1, Math.floor(plan.max_count)),
+        window_start_ms: windowStartMs,
+        window_end_ms: windowEndMs,
+        count: currentWindowEntries.reduce((total, entry) => total + Math.max(0, entry.count), 0),
+        retained_entry: retainedEntry,
+        duplicate_entries: entries.filter((entry) => entry._id !== retainedEntry?._id),
+    };
+}
+
+async function persistRefreshRateLimitBucketState(
+    ctx: Pick<MutationCtx, "db">,
+    userId: string,
+    state: RefreshRateLimitBucketState,
+    nextCount: number,
+    nowMs: number
+) {
+    if (state.retained_entry) {
+        await ctx.db.patch(state.retained_entry._id, {
+            window_start_ms: state.window_start_ms,
+            window_end_ms: state.window_end_ms,
+            count: nextCount,
+            updated_at_ms: nowMs,
+        });
+    } else {
+        await ctx.db.insert("refresh_rate_limits", {
+            user_id: userId,
+            kind: state.kind,
+            window_start_ms: state.window_start_ms,
+            window_end_ms: state.window_end_ms,
+            count: nextCount,
+            updated_at_ms: nowMs,
+        });
+    }
+
+    for (const duplicateEntry of state.duplicate_entries) {
+        await ctx.db.delete(duplicateEntry._id);
+    }
+}
+
+function assertPreservedQuotaPeriodBelongsToDeletionUser(args: {
+    user_id: string;
+    has_active_subscription: boolean;
+    preserved_quota_period_id?: Doc<"quota_periods">["_id"] | null;
+    preservedQuotaPeriod: Doc<"quota_periods"> | null;
+}) {
+    assertRequiredPreservedQuotaPeriod({
+        user_id: args.user_id,
+        has_active_subscription: args.has_active_subscription,
+        preserved_quota_period_id: args.preserved_quota_period_id,
+    });
+
+    if (!args.has_active_subscription) {
+        return;
+    }
+
+    if (!args.preservedQuotaPeriod) {
+        throw new Error("Cannot continue paid-user deletion because the preserved quota period is missing");
+    }
+
+    if (
+        args.preservedQuotaPeriod.user_id !== args.user_id &&
+        args.preservedQuotaPeriod.user_id !== null
+    ) {
+        throw new Error("Cannot continue paid-user deletion with a quota period owned by another user");
+    }
+}
+
+function getUserDeletionCleanupOwnershipFailure(args: {
+    operation: UserDeletionQueueEntryDoc | null;
+    cleanup_attempt_id?: string;
+    now_ms?: number;
+}) {
+    if (typeof args.cleanup_attempt_id !== "string") {
+        return null;
+    }
+
+    if (!args.operation) {
+        return "missing" as const;
+    }
+
+    if (args.operation.status !== "cleanup_in_progress") {
+        return "not_in_progress" as const;
+    }
+
+    if (
+        !doesUserDeletionCleanupAttemptOwnOperation({
+            current_cleanup_attempt_id: args.operation.cleanup_attempt_id,
+            cleanup_attempt_id: args.cleanup_attempt_id,
+        })
+    ) {
+        return "owner_mismatch" as const;
+    }
+
+    if (
+        typeof args.now_ms === "number" &&
+        typeof args.operation.cleanup_lease_expires_at_ms === "number" &&
+        args.operation.cleanup_lease_expires_at_ms <= args.now_ms
+    ) {
+        return "lease_expired" as const;
+    }
+
+    return null;
+}
+
+function getRevenueCatEventProcessingOwnershipFailure(args: {
+    event_user: Record<string, unknown>;
+    processing_attempt_id?: string;
+    now_ms: number;
+}) {
+    return getExclusiveLeaseOwnershipFailure({
+        current_attempt_id:
+            typeof args.event_user.processing_attempt_id === "string"
+                ? args.event_user.processing_attempt_id
+                : undefined,
+        attempt_id: args.processing_attempt_id,
+        lease_expires_at_ms:
+            typeof args.event_user.processing_expires_at_ms === "number"
+                ? args.event_user.processing_expires_at_ms
+                : undefined,
+        now_ms: args.now_ms,
+    });
+}
+
+function getSubscriptionSyncOwnershipFailure(args: {
+    state: Record<string, unknown> | null;
+    sync_attempt_id?: string;
+    now_ms: number;
+}) {
+    return getExclusiveLeaseOwnershipFailure({
+        current_attempt_id:
+            typeof args.state?.sync_attempt_id === "string"
+                ? args.state.sync_attempt_id
+                : undefined,
+        attempt_id: args.sync_attempt_id,
+        lease_expires_at_ms:
+            typeof args.state?.sync_expires_at_ms === "number"
+                ? args.state.sync_expires_at_ms
+                : undefined,
+        now_ms: args.now_ms,
+    });
+}
+
+function hasUnexpiredPendingActiveSignal(
+    state: Record<string, unknown> | null,
+    nowMs: number
+) {
+    return (
+        typeof state?.pending_active_expires_at_ms === "number" &&
+        state.pending_active_expires_at_ms > nowMs
+    );
+}
+
+function getNextUserDeletionCleanupStepStartedAtMs(args: {
+    operation: UserDeletionQueueEntryDoc;
+    cleanup_step: UserDeletionCleanupStep;
+    now_ms: number;
+}) {
+    return args.operation.cleanup_step === args.cleanup_step &&
+        typeof args.operation.cleanup_step_started_at_ms === "number"
+        ? args.operation.cleanup_step_started_at_ms
+        : args.now_ms;
 }
 
 function getSubscriptionWindowFromQuotaPeriodSyncSource(
@@ -482,10 +730,7 @@ function hasComparableSubscriptionStateChanged(
 }
 
 async function getUserDeletionSnapshotRecordByUserId(ctx: DbReaderCtx, userId: string) {
-    const [state, quotaPeriods] = await Promise.all([
-        getLatestSubscriptionStateByUserId(ctx, userId),
-        listQuotaPeriodsByUserId(ctx, userId),
-    ]);
+    const state = await getLatestSubscriptionStateByUserId(ctx, userId);
 
     if (!state) {
         return {
@@ -497,12 +742,19 @@ async function getUserDeletionSnapshotRecordByUserId(ctx: DbReaderCtx, userId: s
         };
     }
 
+    const currentWindow = getSubscriptionWindowFromQuotaPeriodSyncSource(
+        buildQuotaPeriodSyncSourceFromSubscriptionState(state)
+    );
+    const quotaPeriods = await listQuotaPeriodsByUserIdAndWindowKey(
+        ctx,
+        userId,
+        currentWindow.window_key
+    );
+
     const currentQuotaPeriod = await getMostRelevantQuotaPeriodForWindow(
         ctx,
         quotaPeriods,
-        getSubscriptionWindowFromQuotaPeriodSyncSource(
-            buildQuotaPeriodSyncSourceFromSubscriptionState(state)
-        )
+        currentWindow
     );
 
     return {
@@ -608,6 +860,86 @@ async function getRestorableFrozenQuotaPeriodByStoreSubscriptionPeriodId(
     );
 }
 
+async function getQuotaPeriodRestorationTargetForDeletedUser(
+    ctx: MutationCtx,
+    args: {
+        deleted_user_id: string;
+        frozen_quota_period_id: Doc<"quota_periods">["_id"];
+        store_subscription_period_id?: string;
+        store_subscription_id?: string;
+        store?: string;
+        period_start_at_ms: number;
+        period_end_at_ms: number;
+    }
+) {
+    const selectTarget = (quotaPeriods: Doc<"quota_periods">[]) =>
+        quotaPeriods
+            .filter((quotaPeriod) => {
+                if (quotaPeriod._id === args.frozen_quota_period_id) {
+                    return false;
+                }
+                if (quotaPeriod.user_id === null || quotaPeriod.user_id === args.deleted_user_id) {
+                    return false;
+                }
+                if (quotaPeriod.status === "frozen") {
+                    return false;
+                }
+                if (quotaPeriod.period_start_at_ms !== args.period_start_at_ms) {
+                    return false;
+                }
+                if (quotaPeriod.period_end_at_ms !== args.period_end_at_ms) {
+                    return false;
+                }
+                if (
+                    args.store_subscription_id &&
+                    quotaPeriod.store_subscription_id !== args.store_subscription_id
+                ) {
+                    return false;
+                }
+                if (args.store && quotaPeriod.store !== args.store) {
+                    return false;
+                }
+
+                return true;
+            })
+            .sort((left, right) => right.updated_at_ms - left.updated_at_ms)[0] ?? null;
+
+    if (args.store_subscription_period_id) {
+        const quotaPeriods = await ctx.db
+            .query("quota_periods")
+            .withIndex("by_store_subscription_period_id", (query) =>
+                query.eq("store_subscription_period_id", args.store_subscription_period_id)
+            )
+            .collect();
+        const exactTarget = selectTarget(quotaPeriods);
+
+        if (exactTarget) {
+            return exactTarget;
+        }
+    }
+
+    if (!args.store_subscription_id) {
+        return null;
+    }
+
+    const [openCandidates, closedCandidates] = await Promise.all([
+        ctx.db
+            .query("quota_periods")
+            .withIndex("by_status_and_period_start_at_ms", (query) =>
+                query.eq("status", "open").eq("period_start_at_ms", args.period_start_at_ms)
+            )
+            .collect(),
+        ctx.db
+            .query("quota_periods")
+            .withIndex("by_status_and_period_start_at_ms", (query) =>
+                query.eq("status", "closed").eq("period_start_at_ms", args.period_start_at_ms)
+            )
+            .collect(),
+    ]);
+
+    return selectTarget([...openCandidates, ...closedCandidates]);
+}
+
 function getLogicalQuotaPeriodWindow(
     quotaPeriod: Pick<
         Doc<"quota_periods">,
@@ -622,583 +954,6 @@ function getLogicalQuotaPeriodWindow(
             ? { store_subscription_period_id: quotaPeriod.store_subscription_period_id }
             : {}),
     };
-}
-
-function selectPreferredLinkedSubscriptionState(
-    sourceState: Doc<"subscription_states"> | null,
-    targetState: Doc<"subscription_states"> | null
-) {
-    if (!sourceState) {
-        return targetState;
-    }
-
-    if (!targetState) {
-        return sourceState;
-    }
-
-    if (sourceState.has_active_subscription !== targetState.has_active_subscription) {
-        return sourceState.has_active_subscription ? sourceState : targetState;
-    }
-
-    if (sourceState.window_end_at_ms !== targetState.window_end_at_ms) {
-        return sourceState.window_end_at_ms > targetState.window_end_at_ms ? sourceState : targetState;
-    }
-
-    return sourceState.updated_at_ms > targetState.updated_at_ms ? sourceState : targetState;
-}
-
-function getMostRelevantQuotaPeriodForStateSummary(quotaPeriods: Doc<"quota_periods">[]) {
-    return (
-        [...quotaPeriods].sort((left, right) => {
-            if (left.status !== right.status) {
-                const statusOrder = {
-                    open: 0,
-                    closed: 1,
-                    frozen: 2,
-                } as const;
-
-                return statusOrder[left.status] - statusOrder[right.status];
-            }
-
-            if (left.period_end_at_ms !== right.period_end_at_ms) {
-                return right.period_end_at_ms - left.period_end_at_ms;
-            }
-
-            return right.updated_at_ms - left.updated_at_ms;
-        })[0] ?? null
-    );
-}
-
-function resolveMergedFreePeriodAnchorAtMs(
-    sourceState: Doc<"subscription_states"> | null,
-    targetState: Doc<"subscription_states"> | null
-) {
-    return targetState?.free_period_anchor_at_ms ?? sourceState?.free_period_anchor_at_ms;
-}
-
-function resolveMergedRevenueCatAppUserId(
-    sourceState: Doc<"subscription_states"> | null,
-    targetState: Doc<"subscription_states"> | null
-) {
-    const candidates = [
-        targetState?.revenuecat_app_user_id,
-        sourceState?.revenuecat_app_user_id,
-    ].filter((candidate): candidate is string => typeof candidate === "string" && candidate.length > 0);
-
-    const nonAnonymousCandidate = candidates.find(
-        (candidate) => !isAnonymousRevenueCatAppUserId(candidate)
-    );
-
-    return nonAnonymousCandidate ?? candidates[0];
-}
-
-function resolveMergedLastRevenueCatEventMetadata(
-    sourceState: Doc<"subscription_states"> | null,
-    targetState: Doc<"subscription_states"> | null
-) {
-    const targetEventAtMs = targetState?.last_revenuecat_event_at_ms;
-    const sourceEventAtMs = sourceState?.last_revenuecat_event_at_ms;
-
-    if (typeof targetEventAtMs === "number" && typeof sourceEventAtMs === "number") {
-        return targetEventAtMs >= sourceEventAtMs
-            ? {
-                  last_revenuecat_event_id: targetState?.last_revenuecat_event_id,
-                  last_revenuecat_event_at_ms: targetEventAtMs,
-              }
-            : {
-                  last_revenuecat_event_id: sourceState?.last_revenuecat_event_id,
-                  last_revenuecat_event_at_ms: sourceEventAtMs,
-              };
-    }
-
-    if (typeof targetEventAtMs === "number") {
-        return {
-            last_revenuecat_event_id: targetState?.last_revenuecat_event_id,
-            last_revenuecat_event_at_ms: targetEventAtMs,
-        };
-    }
-
-    if (typeof sourceEventAtMs === "number") {
-        return {
-            last_revenuecat_event_id: sourceState?.last_revenuecat_event_id,
-            last_revenuecat_event_at_ms: sourceEventAtMs,
-        };
-    }
-
-    return {
-        last_revenuecat_event_id: undefined,
-        last_revenuecat_event_at_ms: undefined,
-    };
-}
-
-type AppliedUsageDelta = {
-    quotaPeriodId: Doc<"quota_periods">["_id"];
-    operation: SubscriptionUsageOperation;
-    chargedUnits: number;
-    lastAppliedAtMs?: number;
-};
-
-function isFreeSubscriptionState(state: Doc<"subscription_states"> | null) {
-    return state?.plan_key === "free" && state.has_active_subscription === false;
-}
-
-function isFreeQuotaPeriodDoc(quotaPeriod: Doc<"quota_periods">) {
-    return (
-        quotaPeriod.plan_key === "free" &&
-        quotaPeriod.active_subscription === false &&
-        quotaPeriod.window_type === "anchored_monthly"
-    );
-}
-
-function isUsageEventQuotaApplied(usageEvent: Doc<"usage_events">) {
-    return typeof usageEvent.quota_applied_at_ms === "number";
-}
-
-function resolveAppliedUsageEventUnits(usageEvent: Doc<"usage_events">) {
-    return isUsageEventQuotaApplied(usageEvent) && isUsageEventCharged(usageEvent)
-        ? resolveHeldUsageEventUnits(usageEvent)
-        : 0;
-}
-
-function sumAppliedUsageEvents(usageEvents: Doc<"usage_events">[]) {
-    const usageCounters = createZeroQuotaPeriodUsageSnapshot();
-
-    for (const usageEvent of usageEvents) {
-        const appliedUnits = resolveAppliedUsageEventUnits(usageEvent);
-
-        if (appliedUnits <= 0) {
-            continue;
-        }
-
-        addQuotaPeriodUsageSnapshotUnits(usageCounters, usageEvent.operation, appliedUnits);
-    }
-
-    return usageCounters;
-}
-
-function buildUsageEventsByQuotaPeriodId(usageEvents: Doc<"usage_events">[]) {
-    const usageEventsByQuotaPeriodId = new Map<string, Doc<"usage_events">[]>();
-
-    for (const usageEvent of usageEvents) {
-        const quotaPeriodId = String(usageEvent.quota_period_id);
-        const existingUsageEvents = usageEventsByQuotaPeriodId.get(quotaPeriodId);
-
-        if (existingUsageEvents) {
-            existingUsageEvents.push(usageEvent);
-            continue;
-        }
-
-        usageEventsByQuotaPeriodId.set(quotaPeriodId, [usageEvent]);
-    }
-
-    return usageEventsByQuotaPeriodId;
-}
-
-function buildFreeQuotaPeriodSyncSource(window: SubscriptionWindow): QuotaPeriodSyncSource {
-    return {
-        window_key: window.window_key,
-        window_type: window.window_type,
-        window_start_at_ms: window.window_start_at_ms,
-        window_end_at_ms: window.window_end_at_ms,
-        plan_key: "free",
-        has_active_subscription: false,
-    };
-}
-
-async function assertQuotaPeriodAppliedUsageIntegrity(
-    ctx: DbReaderCtx,
-    args: {
-        quotaPeriod: Doc<"quota_periods">;
-        usageEvents: Doc<"usage_events">[];
-    }
-) {
-    const appliedUsageCounters = sumAppliedUsageEvents(args.usageEvents);
-    const quotaPeriodUsageCounters = await resolveQuotaPeriodUsageSnapshotFromCounters(
-        ctx,
-        args.quotaPeriod._id
-    );
-
-    if (
-        quotaPeriodUsageCounters.translateCharsUsed !== appliedUsageCounters.translateCharsUsed ||
-        quotaPeriodUsageCounters.respellCharsUsed !== appliedUsageCounters.respellCharsUsed
-    ) {
-        throw new Error(
-            `Cannot safely merge quota period ${String(args.quotaPeriod._id)} because applied usage events do not match stored charged counters`
-        );
-    }
-}
-
-async function assertFreeStateUsageIntegrity(
-    ctx: DbReaderCtx,
-    args: {
-        state: Doc<"subscription_states"> | null;
-        quotaPeriods: Doc<"quota_periods">[];
-        usageEvents: Doc<"usage_events">[];
-        free_period_anchor_at_ms: number;
-        now_ms: number;
-    }
-) {
-    if (!isFreeSubscriptionState(args.state)) {
-        return;
-    }
-
-    const currentWindow = getRequiredAnchoredMonthlyWindow(
-        args.free_period_anchor_at_ms,
-        args.now_ms
-    );
-    const currentQuotaPeriod = await getMostRelevantQuotaPeriodForWindow(
-        ctx,
-        args.quotaPeriods.filter(isFreeQuotaPeriodDoc),
-        currentWindow
-    );
-
-    if (currentQuotaPeriod) {
-        return;
-    }
-
-    const appliedUsageEventsInWindow = args.usageEvents.filter((usageEvent) => {
-        if (!isUsageEventQuotaApplied(usageEvent)) {
-            return false;
-        }
-
-        const ownershipTimestampMs = getUsageEventOwnershipTimestampMs(usageEvent);
-
-        return (
-            ownershipTimestampMs >= currentWindow.window_start_at_ms &&
-            ownershipTimestampMs < currentWindow.window_end_at_ms
-        );
-    });
-    const appliedUsageSnapshot = sumAppliedUsageEvents(appliedUsageEventsInWindow);
-
-    if (
-        appliedUsageSnapshot.translateCharsUsed > 0 ||
-        appliedUsageSnapshot.respellCharsUsed > 0
-    ) {
-        throw new Error(
-            "Cannot safely merge free subscription state because current window usage is not backed by quota periods"
-        );
-    }
-}
-
-async function replaceMergedSubscriptionStateDocument(
-    ctx: MutationCtx,
-    args: {
-        sourceState: Doc<"subscription_states"> | null;
-        targetState: Doc<"subscription_states"> | null;
-        nextState: SubscriptionStateRecord;
-    }
-) {
-    if (args.targetState) {
-        await ctx.db.replace(args.targetState._id, args.nextState);
-    } else if (args.sourceState) {
-        await ctx.db.replace(args.sourceState._id, args.nextState);
-    } else {
-        await ctx.db.insert("subscription_states", args.nextState);
-    }
-
-    if (
-        args.sourceState &&
-        args.targetState &&
-        args.sourceState._id !== args.targetState._id
-    ) {
-        await ctx.db.delete(args.sourceState._id);
-    }
-}
-
-function buildFreeMergedSubscriptionStateDocument(args: {
-    user_id: string;
-    sourceState: Doc<"subscription_states"> | null;
-    targetState: Doc<"subscription_states"> | null;
-    currentQuotaPeriod: Doc<"quota_periods">;
-    free_period_anchor_at_ms: number;
-    mergedRevenueCatAppUserId: string | undefined;
-    mergedLastRevenueCatEvent: {
-        last_revenuecat_event_id: string | undefined;
-        last_revenuecat_event_at_ms: number | undefined;
-    };
-    now_ms: number;
-}): SubscriptionStateRecord {
-    const createdAtMs = Math.min(
-        args.sourceState?.created_at_ms ?? args.targetState?.created_at_ms ?? args.now_ms,
-        args.targetState?.created_at_ms ?? args.sourceState?.created_at_ms ?? args.now_ms
-    );
-    const lastSyncedAtMs = Math.max(
-        args.sourceState?.last_synced_at_ms ?? 0,
-        args.targetState?.last_synced_at_ms ?? 0
-    );
-
-    return {
-        user_id: args.user_id,
-        ...(args.mergedRevenueCatAppUserId
-            ? { revenuecat_app_user_id: args.mergedRevenueCatAppUserId }
-            : {}),
-        plan_key: "free",
-        has_active_subscription: false,
-        free_period_anchor_at_ms: args.free_period_anchor_at_ms,
-        window_type: args.currentQuotaPeriod.window_type,
-        window_key: args.currentQuotaPeriod.window_key,
-        window_start_at_ms: args.currentQuotaPeriod.period_start_at_ms,
-        window_end_at_ms: args.currentQuotaPeriod.period_end_at_ms,
-        ...(args.mergedLastRevenueCatEvent.last_revenuecat_event_id
-            ? {
-                  last_revenuecat_event_id:
-                      args.mergedLastRevenueCatEvent.last_revenuecat_event_id,
-              }
-            : {}),
-        ...(typeof args.mergedLastRevenueCatEvent.last_revenuecat_event_at_ms === "number"
-            ? {
-                  last_revenuecat_event_at_ms:
-                      args.mergedLastRevenueCatEvent.last_revenuecat_event_at_ms,
-              }
-            : {}),
-        last_synced_at_ms: lastSyncedAtMs > 0 ? lastSyncedAtMs : args.now_ms,
-        stale_after_at_ms: NEVER_RECONCILE_AT_MS,
-        created_at_ms: createdAtMs,
-        updated_at_ms: args.now_ms,
-    };
-}
-
-function assertFreeMergedStateConsistency(args: {
-    state: SubscriptionStateRecord;
-    currentQuotaPeriod: Doc<"quota_periods">;
-    free_period_anchor_at_ms: number;
-    now_ms: number;
-}) {
-    const expectedWindow = getRequiredAnchoredMonthlyWindow(
-        args.free_period_anchor_at_ms,
-        args.now_ms
-    );
-
-    if (!isSameLogicalQuotaPeriodWindow(args.currentQuotaPeriod, expectedWindow)) {
-        throw new Error("Merged free quota period does not match the canonical anchored monthly window");
-    }
-
-    if (!isSameLogicalSubscriptionWindow(args.state, expectedWindow)) {
-        throw new Error("Merged free subscription state does not match the canonical anchored monthly window");
-    }
-}
-
-async function resolveOrCreateFreeQuotaPeriodForWindow(
-    ctx: MutationCtx,
-    args: {
-        user_id: string;
-        window: SubscriptionWindow;
-        currentWindow: SubscriptionWindow;
-        planLimits: SubscriptionPlanLimits;
-        quotaPeriods: Doc<"quota_periods">[];
-        quotaPeriodsById: Map<string, Doc<"quota_periods">>;
-        quotaPeriodsByWindowKey: Map<string, Doc<"quota_periods">>;
-        now_ms: number;
-    }
-) {
-    const cachedQuotaPeriod = args.quotaPeriodsByWindowKey.get(args.window.window_key);
-
-    if (cachedQuotaPeriod) {
-        return cachedQuotaPeriod;
-    }
-
-    const existingQuotaPeriod = await getMostRelevantQuotaPeriodForWindow(
-        ctx,
-        args.quotaPeriods.filter(isFreeQuotaPeriodDoc),
-        args.window
-    );
-
-    if (existingQuotaPeriod) {
-        args.quotaPeriodsByWindowKey.set(args.window.window_key, existingQuotaPeriod);
-        args.quotaPeriodsById.set(String(existingQuotaPeriod._id), existingQuotaPeriod);
-        return existingQuotaPeriod;
-    }
-
-    const isCurrentWindow = isSameLogicalSubscriptionWindow(args.window, args.currentWindow);
-    const insertedQuotaPeriodId = await ctx.db.insert("quota_periods", {
-        ...buildQuotaPeriodBaseDocument({
-            user_id: args.user_id,
-            source: buildFreeQuotaPeriodSyncSource(args.window),
-        }),
-        status: isCurrentWindow ? "open" : "closed",
-        ...(isCurrentWindow ? {} : { closed_at_ms: args.now_ms }),
-        created_at_ms: args.now_ms,
-        updated_at_ms: args.now_ms,
-    });
-    const insertedQuotaPeriod = await ctx.db.get(insertedQuotaPeriodId);
-
-    if (!insertedQuotaPeriod) {
-        throw new Error("Failed to create rebucketed free quota period");
-    }
-
-    args.quotaPeriods.push(insertedQuotaPeriod);
-    args.quotaPeriodsById.set(String(insertedQuotaPeriod._id), insertedQuotaPeriod);
-    args.quotaPeriodsByWindowKey.set(args.window.window_key, insertedQuotaPeriod);
-
-    return insertedQuotaPeriod;
-}
-
-function accumulateAppliedUsageDelta(
-    appliedUsageDeltasByCounterKey: Map<string, AppliedUsageDelta>,
-    usageEvent: Doc<"usage_events">,
-    quotaPeriodId: Doc<"quota_periods">["_id"]
-) {
-    const appliedUnits = resolveAppliedUsageEventUnits(usageEvent);
-
-    if (appliedUnits <= 0) {
-        return;
-    }
-
-    const quotaPeriodKey = `${String(quotaPeriodId)}:${usageEvent.operation}`;
-    const existingDelta =
-        appliedUsageDeltasByCounterKey.get(quotaPeriodKey) ?? {
-            quotaPeriodId,
-            operation: usageEvent.operation,
-            chargedUnits: 0,
-        };
-
-    existingDelta.chargedUnits += appliedUnits;
-
-    const nextAppliedAtMs =
-        usageEvent.quota_applied_at_ms ?? usageEvent.charged_at_ms ?? usageEvent.reserved_at_ms;
-
-    if (
-        typeof nextAppliedAtMs === "number" &&
-        (typeof existingDelta.lastAppliedAtMs !== "number" ||
-            nextAppliedAtMs > existingDelta.lastAppliedAtMs)
-    ) {
-        existingDelta.lastAppliedAtMs = nextAppliedAtMs;
-    }
-
-    appliedUsageDeltasByCounterKey.set(quotaPeriodKey, existingDelta);
-}
-
-async function applyAppliedUsageDeltasToQuotaPeriodCounters(
-    ctx: MutationCtx,
-    args: {
-        quotaPeriodsById: Map<string, Doc<"quota_periods">>;
-        appliedUsageDeltasByCounterKey: Map<string, AppliedUsageDelta>;
-        planLimits: SubscriptionPlanLimits;
-        now_ms: number;
-    }
-) {
-    for (const appliedUsageDelta of args.appliedUsageDeltasByCounterKey.values()) {
-        const quotaPeriodKey = String(appliedUsageDelta.quotaPeriodId);
-        const targetQuotaPeriod = args.quotaPeriodsById.get(quotaPeriodKey);
-
-        if (!targetQuotaPeriod) {
-            throw new Error(`Missing target quota period ${quotaPeriodKey} while applying rebucketed usage`);
-        }
-
-        const limits = resolveQuotaPeriodCounterLimits(appliedUsageDelta.operation, args.planLimits);
-        const counter = await getOrCreateQuotaPeriodCounter(ctx, {
-            quota_period_id: appliedUsageDelta.quotaPeriodId,
-            operation: appliedUsageDelta.operation,
-            quota_unit: INPUT_CHARACTERS_QUOTA_UNIT,
-            input_limit: limits.input_limit,
-            period_limit: limits.period_limit,
-            now_ms: args.now_ms,
-        });
-        const lastChargedAtMs =
-            typeof appliedUsageDelta.lastAppliedAtMs === "number"
-                ? typeof counter.last_charged_at_ms === "number"
-                    ? Math.max(counter.last_charged_at_ms, appliedUsageDelta.lastAppliedAtMs)
-                    : appliedUsageDelta.lastAppliedAtMs
-                : counter.last_charged_at_ms;
-
-        await ctx.db.patch(counter._id, {
-            charged_units: counter.charged_units + appliedUsageDelta.chargedUnits,
-            last_charged_at_ms: lastChargedAtMs,
-            updated_at_ms: args.now_ms,
-        });
-    }
-}
-
-async function persistMergedFreeSubscriptionState(
-    ctx: MutationCtx,
-    args: {
-        sourceState: Doc<"subscription_states"> | null;
-        targetState: Doc<"subscription_states"> | null;
-        user_id: string;
-        free_period_anchor_at_ms: number;
-        mergedRevenueCatAppUserId: string | undefined;
-        mergedLastRevenueCatEvent: {
-            last_revenuecat_event_id: string | undefined;
-            last_revenuecat_event_at_ms: number | undefined;
-        };
-        now_ms: number;
-    }
-) {
-    const planLimits = await resolvePlanLimitsForPlanKey(ctx, {
-        plan_key: "free",
-        now_ms: args.now_ms,
-    });
-    const currentWindow = getRequiredAnchoredMonthlyWindow(
-        args.free_period_anchor_at_ms,
-        args.now_ms
-    );
-    const targetQuotaPeriods = await listQuotaPeriodsByUserId(ctx, args.user_id);
-    const preferredQuotaPeriod = await getMostRelevantQuotaPeriodForWindow(
-        ctx,
-        targetQuotaPeriods.filter(isFreeQuotaPeriodDoc),
-        currentWindow
-    );
-    const currentQuotaPeriod = await upsertOpenQuotaPeriodDoc(ctx, {
-        user_id: args.user_id,
-        source: buildFreeQuotaPeriodSyncSource(currentWindow),
-        planLimits,
-        preferred_quota_period_id: preferredQuotaPeriod?._id,
-        now_ms: args.now_ms,
-    });
-    const nextState = buildFreeMergedSubscriptionStateDocument({
-        user_id: args.user_id,
-        sourceState: args.sourceState,
-        targetState: args.targetState,
-        currentQuotaPeriod,
-        free_period_anchor_at_ms: args.free_period_anchor_at_ms,
-        mergedRevenueCatAppUserId: args.mergedRevenueCatAppUserId,
-        mergedLastRevenueCatEvent: args.mergedLastRevenueCatEvent,
-        now_ms: args.now_ms,
-    });
-
-    assertFreeMergedStateConsistency({
-        state: nextState,
-        currentQuotaPeriod,
-        free_period_anchor_at_ms: args.free_period_anchor_at_ms,
-        now_ms: args.now_ms,
-    });
-
-    await replaceMergedSubscriptionStateDocument(ctx, {
-        sourceState: args.sourceState,
-        targetState: args.targetState,
-        nextState,
-    });
-
-    return currentQuotaPeriod;
-}
-
-function resolveAnonymousQuotaLinkStatus(args: {
-    sourceState: Doc<"subscription_states"> | null;
-    targetState: Doc<"subscription_states"> | null;
-    targetQuotaPeriods: Doc<"quota_periods">[];
-    targetUsageEvents: Doc<"usage_events">[];
-}) {
-    return args.targetState || args.targetQuotaPeriods.length > 0 || args.targetUsageEvents.length > 0
-        ? (args.sourceState || args.targetState ? "merged" : "quota_transferred")
-        : "transferred";
-}
-
-function getQuotaPeriodMergeIdentity(
-    quotaPeriod: Pick<Doc<"quota_periods">, "window_key" | "store_subscription_period_id">
-) {
-    return quotaPeriod.store_subscription_period_id ?? quotaPeriod.window_key;
-}
-
-function doesQuotaPeriodMatchPreferredStatePeriod(
-    quotaPeriod: Pick<Doc<"quota_periods">, "window_key" | "store_subscription_period_id">,
-    preferredWindowKey: string | undefined,
-    preferredStoreSubscriptionPeriodId: string | undefined
-) {
-    if (preferredStoreSubscriptionPeriodId && quotaPeriod.store_subscription_period_id) {
-        return quotaPeriod.store_subscription_period_id === preferredStoreSubscriptionPeriodId;
-    }
-
-    return quotaPeriod.window_key === preferredWindowKey;
 }
 
 async function resolveCurrentSubscriptionQuotaContext(
@@ -1513,6 +1268,17 @@ async function upsertOpenQuotaPeriodDoc(
             planLimits: args.planLimits,
             now_ms: args.now_ms,
         });
+
+        if (
+            args.initial_counter_source_quota_period_id &&
+            args.initial_counter_source_quota_period_id !== currentQuotaPeriod._id
+        ) {
+            await mergeQuotaPeriodCountersIntoTarget(ctx, {
+                source_quota_period_id: args.initial_counter_source_quota_period_id,
+                target_quota_period_id: currentQuotaPeriod._id,
+                now_ms: args.now_ms,
+            });
+        }
 
         await closeNonCurrentOpenQuotaPeriodsById(ctx, {
             user_id: args.user_id,
@@ -2362,6 +2128,31 @@ export const ingestRevenueCatEvent = mutation({
             .first();
 
         if (existingEvent) {
+            const targetUserIds = resolveTargetUserIdsFromRevenueCatEvent(existingEvent);
+            const existingEventUsers = await listRevenueCatEventUsersByEventDocId(ctx, existingEvent._id);
+            const existingLinkedUserIds = new Set(
+                existingEventUsers.map((eventUser) => eventUser.user_id)
+            );
+
+            for (const userId of targetUserIds) {
+                if (existingLinkedUserIds.has(userId)) {
+                    continue;
+                }
+
+                await ctx.db.insert("revenue_cat_event_users", {
+                    event_doc_id: existingEvent._id,
+                    user_id: userId,
+                    status:
+                        existingEvent.status === "processed"
+                            ? "processed"
+                            : existingEvent.status === "ignored" || existingEvent.status === "dead_letter"
+                              ? "ignored"
+                              : "pending",
+                    created_at_ms: args.received_at_ms,
+                    updated_at_ms: args.received_at_ms,
+                });
+            }
+
             return {
                 event_doc_id: existingEvent._id,
                 already_exists: true,
@@ -2454,6 +2245,7 @@ export const getRevenueCatEventForProcessing = query({
         return {
             event_id: eventDoc.event_id,
             event_type: eventDoc.event_type,
+            event_at_ms: eventDoc.event_at_ms,
             status: eventDoc.status,
             user_id: eventDoc.user_id,
             transaction_id: eventDoc.transaction_id,
@@ -2469,8 +2261,8 @@ export const acquireRevenueCatEventProcessingLeases = mutation({
     args: {
         event_doc_id: v.id("revenue_cat_events"),
         user_ids: v.array(v.string()),
-        now_ms: v.number(),
-        lease_expires_at_ms: v.number(),
+        processing_attempt_id: v.string(),
+        lease_duration_ms: v.number(),
     },
     handler: async (ctx, args) => {
         const eventDoc = await ctx.db.get(args.event_doc_id);
@@ -2490,6 +2282,8 @@ export const acquireRevenueCatEventProcessingLeases = mutation({
         const acquiredUserIds: string[] = [];
         const activeProcessingUserIds: string[] = [];
         const blockedUserIds: string[] = [];
+        const acquisitionNowMs = Date.now();
+        const leaseExpiresAtMs = acquisitionNowMs + Math.max(0, args.lease_duration_ms);
 
         for (const userId of requestedUserIds) {
             const eventUser = eventUsersByUserId.get(userId);
@@ -2503,7 +2297,7 @@ export const acquireRevenueCatEventProcessingLeases = mutation({
 
             if (
                 typeof eventUserProcessingExpiresAtMs === "number" &&
-                eventUserProcessingExpiresAtMs > args.now_ms
+                eventUserProcessingExpiresAtMs > acquisitionNowMs
             ) {
                 activeProcessingUserIds.push(userId);
                 continue;
@@ -2517,9 +2311,10 @@ export const acquireRevenueCatEventProcessingLeases = mutation({
             }
 
             await ctx.db.patch(eventUser._id, {
-                processing_started_at_ms: args.now_ms,
-                processing_expires_at_ms: args.lease_expires_at_ms,
-                updated_at_ms: args.now_ms,
+                processing_attempt_id: args.processing_attempt_id,
+                processing_started_at_ms: acquisitionNowMs,
+                processing_expires_at_ms: leaseExpiresAtMs,
+                updated_at_ms: acquisitionNowMs,
             } as Record<string, unknown>);
 
             acquiredUserIds.push(userId);
@@ -2534,6 +2329,32 @@ export const acquireRevenueCatEventProcessingLeases = mutation({
     },
 });
 
+async function getActiveRevenueCatEventProcessingForUserDeletionSnapshot(
+    ctx: DbReaderCtx,
+    args: {
+        user_id: string;
+        now_ms: number;
+        limit: number;
+    }
+) {
+    const safeLimit = Math.max(1, args.limit);
+    const activeProcessingEventUsers = await ctx.db
+        .query("revenue_cat_event_users")
+        .withIndex("by_user_id_status_and_processing_expires_at_ms", (query) =>
+            query
+                .eq("user_id", args.user_id)
+                .eq("status", "pending")
+                .gt("processing_expires_at_ms", args.now_ms)
+        )
+        .take(safeLimit);
+
+    return {
+        active_processing_count: activeProcessingEventUsers.length,
+        has_more: activeProcessingEventUsers.length >= safeLimit,
+        processing_expires_at_ms: activeProcessingEventUsers[0]?.processing_expires_at_ms,
+    };
+}
+
 export const getActiveRevenueCatEventProcessingForUserDeletion = query({
     args: {
         user_id: v.string(),
@@ -2541,28 +2362,14 @@ export const getActiveRevenueCatEventProcessingForUserDeletion = query({
         limit: v.number(),
     },
     handler: async (ctx, args) => {
-        const safeLimit = Math.max(1, args.limit);
-        const activeProcessingEventUsers = await ctx.db
-            .query("revenue_cat_event_users")
-            .withIndex("by_user_id_status_and_processing_expires_at_ms", (query) =>
-                query
-                    .eq("user_id", args.user_id)
-                    .eq("status", "pending")
-                    .gt("processing_expires_at_ms", args.now_ms)
-            )
-            .take(safeLimit);
-
-        return {
-            active_processing_count: activeProcessingEventUsers.length,
-            has_more: activeProcessingEventUsers.length >= safeLimit,
-            processing_expires_at_ms: activeProcessingEventUsers[0]?.processing_expires_at_ms,
-        };
+        return getActiveRevenueCatEventProcessingForUserDeletionSnapshot(ctx, args);
     },
 });
 
 export const recordRevenueCatEventProcessingProgress = mutation({
     args: {
         event_doc_id: v.id("revenue_cat_events"),
+        processing_attempt_id: v.optional(v.string()),
         now_ms: v.number(),
         processed_user_ids: v.array(v.string()),
         ignored_user_ids: v.array(v.string()),
@@ -2592,16 +2399,53 @@ export const recordRevenueCatEventProcessingProgress = mutation({
         );
         const allEventUsers = await listRevenueCatEventUsersByEventDocId(ctx, eventDoc._id);
         const eventUsersByUserId = new Map(allEventUsers.map((eventUser) => [eventUser.user_id, eventUser]));
+        const ownershipCheckNowMs = Date.now();
+        const touchedPendingUserIds = normalizeRevenueCatEventUserIds([
+            ...processedUserIds,
+            ...ignoredUserIds,
+            ...releasedUserIds,
+        ]).filter((userId) => eventUsersByUserId.get(userId)?.status === "pending");
+
+        for (const userId of touchedPendingUserIds) {
+            const eventUser = eventUsersByUserId.get(userId);
+
+            if (!eventUser) {
+                continue;
+            }
+
+            const ownershipFailure = getRevenueCatEventProcessingOwnershipFailure({
+                event_user: eventUser as Record<string, unknown>,
+                processing_attempt_id: args.processing_attempt_id,
+                now_ms: ownershipCheckNowMs,
+            });
+
+            if (ownershipFailure) {
+                const userSummary = summarizeRevenueCatEventUserState(eventDoc, allEventUsers);
+
+                return {
+                    status: eventDoc.status,
+                    pending_user_ids: userSummary.pending_user_ids,
+                    processed_user_ids: userSummary.processed_user_ids,
+                    ignored_user_ids: userSummary.ignored_user_ids,
+                    owner_mismatch:
+                        ownershipFailure === "owner_required" ||
+                        ownershipFailure === "owner_mismatch",
+                    lease_expired: ownershipFailure === "lease_expired",
+                    ownership_failure: ownershipFailure,
+                };
+            }
+        }
 
         for (const userId of processedUserIds) {
             const eventUser = eventUsersByUserId.get(userId);
 
-            if (!eventUser || eventUser.status === "processed") {
+            if (!eventUser || eventUser.status !== "pending") {
                 continue;
             }
 
             await ctx.db.patch(eventUser._id, {
                 status: "processed",
+                processing_attempt_id: undefined,
                 processing_started_at_ms: undefined,
                 processing_expires_at_ms: undefined,
                 updated_at_ms: args.now_ms,
@@ -2611,12 +2455,13 @@ export const recordRevenueCatEventProcessingProgress = mutation({
         for (const userId of ignoredUserIds) {
             const eventUser = eventUsersByUserId.get(userId);
 
-            if (!eventUser || eventUser.status === "ignored") {
+            if (!eventUser || eventUser.status !== "pending") {
                 continue;
             }
 
             await ctx.db.patch(eventUser._id, {
                 status: "ignored",
+                processing_attempt_id: undefined,
                 processing_started_at_ms: undefined,
                 processing_expires_at_ms: undefined,
                 updated_at_ms: args.now_ms,
@@ -2631,6 +2476,7 @@ export const recordRevenueCatEventProcessingProgress = mutation({
             }
 
             await ctx.db.patch(eventUser._id, {
+                processing_attempt_id: undefined,
                 processing_started_at_ms: undefined,
                 processing_expires_at_ms: undefined,
                 updated_at_ms: args.now_ms,
@@ -2806,19 +2652,17 @@ export const deleteFrozenQuotaPeriodsEligibleForRetentionPurge = mutation({
         const safeLimit = Math.max(1, Math.min(args.limit, 500));
         const quotaPeriods = await ctx.db
             .query("quota_periods")
-            .withIndex("by_status_and_period_end_at_ms", (query) =>
-                query.eq("status", "frozen").lte("period_end_at_ms", args.older_than_ms)
+            .withIndex("by_status_user_id_and_period_end_at_ms", (query) =>
+                query
+                    .eq("status", "frozen")
+                    .eq("user_id", null)
+                    .lte("period_end_at_ms", args.older_than_ms)
             )
             .take(safeLimit);
         let deletedCount = 0;
         let retainedLinkedCount = 0;
 
         for (const quotaPeriod of quotaPeriods) {
-            if (quotaPeriod.user_id !== null) {
-                retainedLinkedCount += 1;
-                continue;
-            }
-
             await deleteQuotaPeriodCountersByQuotaPeriodId(ctx, quotaPeriod._id);
             await ctx.db.delete(quotaPeriod._id);
             deletedCount += 1;
@@ -2828,6 +2672,111 @@ export const deleteFrozenQuotaPeriodsEligibleForRetentionPurge = mutation({
             scanned_count: quotaPeriods.length,
             deleted_count: deletedCount,
             retained_linked_count: retainedLinkedCount,
+        };
+    },
+});
+
+export const consumeRefreshRateLimit = mutation({
+    args: {
+        user_id: v.string(),
+        expects_active_subscription: v.boolean(),
+        now_ms: v.number(),
+        config: refreshRateLimitConfigValidator,
+    },
+    handler: async (ctx, args) => {
+        const requestBucket: RefreshRateLimitBucketPlan = args.expects_active_subscription
+            ? {
+                  kind: "refresh_purchase",
+                  window_ms: args.config.purchase_window_ms,
+                  max_count: args.config.purchase_max_count,
+              }
+            : {
+                  kind: "refresh_normal",
+                  window_ms: args.config.normal_window_ms,
+                  max_count: args.config.normal_max_count,
+              };
+        const bucketPlans: RefreshRateLimitBucketPlan[] = [
+            requestBucket,
+            {
+                kind: "refresh_daily",
+                window_ms: args.config.daily_window_ms,
+                max_count: args.config.daily_max_count,
+            },
+        ];
+        const bucketStates: RefreshRateLimitBucketState[] = [];
+
+        for (const plan of bucketPlans) {
+            bucketStates.push(
+                await getRefreshRateLimitBucketState(ctx, args.user_id, plan, args.now_ms)
+            );
+        }
+
+        const limitedBuckets = bucketStates.filter((state) => state.count >= state.max_count);
+
+        if (limitedBuckets.length > 0) {
+            for (const bucketState of bucketStates) {
+                await persistRefreshRateLimitBucketState(
+                    ctx,
+                    args.user_id,
+                    bucketState,
+                    bucketState.count,
+                    args.now_ms
+                );
+            }
+
+            const retryAfterMs = Math.max(
+                0,
+                ...limitedBuckets.map((state) => state.window_end_ms - args.now_ms)
+            );
+            const limitedBucket = limitedBuckets.sort(
+                (left, right) => right.window_end_ms - left.window_end_ms
+            )[0];
+
+            return {
+                allowed: false as const,
+                limited_kind: limitedBucket.kind,
+                retry_after_ms: retryAfterMs,
+                window_end_ms: limitedBucket.window_end_ms,
+            };
+        }
+
+        for (const bucketState of bucketStates) {
+            await persistRefreshRateLimitBucketState(
+                ctx,
+                args.user_id,
+                bucketState,
+                bucketState.count + 1,
+                args.now_ms
+            );
+        }
+
+        return {
+            allowed: true as const,
+        };
+    },
+});
+
+export const deleteRefreshRateLimitsEligibleForRetentionPurge = mutation({
+    args: {
+        older_than_ms: v.number(),
+        limit: v.number(),
+    },
+    handler: async (ctx, args) => {
+        const safeLimit = Math.max(1, Math.min(args.limit, 500));
+        const docs = await ctx.db
+            .query("refresh_rate_limits")
+            .withIndex("by_updated_at_ms", (query) =>
+                query.lte("updated_at_ms", args.older_than_ms)
+            )
+            .take(safeLimit);
+
+        for (const doc of docs) {
+            await ctx.db.delete(doc._id);
+        }
+
+        return {
+            scanned_count: docs.length,
+            deleted_count: docs.length,
         };
     },
 });
@@ -2843,6 +2792,8 @@ export const getSubscriptionStateByUserId = query({
             return null;
         }
 
+        const stateRecord = state as Record<string, unknown>;
+
         return {
             user_id: state.user_id,
             revenuecat_app_user_id: state.revenuecat_app_user_id,
@@ -2851,8 +2802,232 @@ export const getSubscriptionStateByUserId = query({
             store_subscription_id: state.store_subscription_id,
             store_subscription_period_id: state.store_subscription_period_id,
             billing_cycle_end_at_ms: state.billing_cycle_end_at_ms,
+            last_revenuecat_event_id: state.last_revenuecat_event_id,
+            last_revenuecat_event_at_ms: state.last_revenuecat_event_at_ms,
+            sync_attempt_id:
+                typeof stateRecord.sync_attempt_id === "string"
+                    ? stateRecord.sync_attempt_id
+                    : undefined,
+            sync_started_at_ms:
+                typeof stateRecord.sync_started_at_ms === "number"
+                    ? stateRecord.sync_started_at_ms
+                    : undefined,
+            sync_expires_at_ms:
+                typeof stateRecord.sync_expires_at_ms === "number"
+                    ? stateRecord.sync_expires_at_ms
+                    : undefined,
+            pending_active_signal_at_ms:
+                typeof stateRecord.pending_active_signal_at_ms === "number"
+                    ? stateRecord.pending_active_signal_at_ms
+                    : undefined,
+            pending_active_expires_at_ms:
+                typeof stateRecord.pending_active_expires_at_ms === "number"
+                    ? stateRecord.pending_active_expires_at_ms
+                    : undefined,
             last_synced_at_ms: state.last_synced_at_ms,
             stale_after_at_ms: state.stale_after_at_ms,
+        };
+    },
+});
+
+export const beginSubscriptionStateReconciliation = mutation({
+    args: {
+        user_id: v.string(),
+        revenuecat_app_user_id: v.string(),
+        signup_at_ms: v.optional(v.number()),
+        sync_attempt_id: v.string(),
+        now_ms: v.number(),
+        lease_duration_ms: v.number(),
+        expects_active_subscription: v.optional(v.boolean()),
+        trusted_active_signal: v.optional(v.boolean()),
+        active_signal_at_ms: v.optional(v.number()),
+        active_signal_ttl_ms: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const existingState = await getLatestSubscriptionStateByUserId(ctx, args.user_id);
+        const existingStateRecord = existingState as Record<string, unknown> | null;
+        const nowMs = args.now_ms;
+        const safeLeaseDurationMs = Math.max(
+            1,
+            Math.min(args.lease_duration_ms, SUBSCRIPTION_SYNC_LEASE_MAX_MS)
+        );
+        const leaseExpiresAtMs = nowMs + safeLeaseDurationMs;
+        const activeSignalTtlMs = Math.min(
+            Math.max(0, args.active_signal_ttl_ms ?? 0),
+            PENDING_ACTIVE_SIGNAL_MAX_TTL_MS
+        );
+        const signalAtMs = Math.min(args.active_signal_at_ms ?? nowMs, nowMs);
+        const activeSignalExpiresAtMs = signalAtMs + activeSignalTtlMs;
+        const shouldRecordActiveSignal =
+            args.expects_active_subscription === true &&
+            activeSignalExpiresAtMs > nowMs &&
+            (args.trusted_active_signal === true || existingState?.has_active_subscription !== true);
+        const existingPendingExpiresAtMs =
+            typeof existingStateRecord?.pending_active_expires_at_ms === "number"
+                ? existingStateRecord.pending_active_expires_at_ms
+                : undefined;
+        const existingPendingIsLive =
+            typeof existingPendingExpiresAtMs === "number" && existingPendingExpiresAtMs > nowMs;
+        const nextPendingActiveSignalAtMs = shouldRecordActiveSignal
+            ? Math.max(
+                  typeof existingStateRecord?.pending_active_signal_at_ms === "number"
+                      ? existingStateRecord.pending_active_signal_at_ms
+                      : 0,
+                  signalAtMs
+              )
+            : existingPendingIsLive
+              ? typeof existingStateRecord?.pending_active_signal_at_ms === "number"
+                  ? existingStateRecord.pending_active_signal_at_ms
+                  : undefined
+              : undefined;
+        const nextPendingActiveExpiresAtMs = shouldRecordActiveSignal
+            ? Math.max(
+                  existingPendingIsLive ? existingPendingExpiresAtMs : 0,
+                  signalAtMs + activeSignalTtlMs
+              )
+            : existingPendingIsLive
+              ? existingPendingExpiresAtMs
+              : undefined;
+        const pendingActivePatch = {
+            ...(typeof nextPendingActiveSignalAtMs === "number"
+                ? { pending_active_signal_at_ms: nextPendingActiveSignalAtMs }
+                : { pending_active_signal_at_ms: undefined }),
+            ...(typeof nextPendingActiveExpiresAtMs === "number"
+                ? { pending_active_expires_at_ms: nextPendingActiveExpiresAtMs }
+                : { pending_active_expires_at_ms: undefined }),
+        } as Record<string, unknown>;
+
+        if (existingState) {
+            const currentSyncAttemptId =
+                typeof existingStateRecord?.sync_attempt_id === "string"
+                    ? existingStateRecord.sync_attempt_id
+                    : undefined;
+            const currentSyncExpiresAtMs =
+                typeof existingStateRecord?.sync_expires_at_ms === "number"
+                    ? existingStateRecord.sync_expires_at_ms
+                    : undefined;
+            const isOwnedByAnotherLiveAttempt =
+                typeof currentSyncAttemptId === "string" &&
+                currentSyncAttemptId !== args.sync_attempt_id &&
+                typeof currentSyncExpiresAtMs === "number" &&
+                currentSyncExpiresAtMs > nowMs;
+
+            if (isOwnedByAnotherLiveAttempt) {
+                if (shouldRecordActiveSignal || !existingPendingIsLive) {
+                    await ctx.db.patch(existingState._id, {
+                        ...pendingActivePatch,
+                        updated_at_ms: nowMs,
+                    });
+                }
+
+                return {
+                    status: "in_progress" as const,
+                    revenuecat_app_user_id:
+                        existingState.revenuecat_app_user_id ?? args.revenuecat_app_user_id,
+                    retry_at_ms: currentSyncExpiresAtMs,
+                    has_active_subscription: existingState.has_active_subscription,
+                    plan_key: existingState.plan_key,
+                    last_synced_at_ms: existingState.last_synced_at_ms,
+                    ...(typeof existingState.billing_cycle_end_at_ms === "number"
+                        ? { billing_cycle_end_at_ms: existingState.billing_cycle_end_at_ms }
+                        : {}),
+                };
+            }
+
+            await ctx.db.patch(existingState._id, {
+                revenuecat_app_user_id:
+                    existingState.revenuecat_app_user_id ?? args.revenuecat_app_user_id,
+                sync_attempt_id: args.sync_attempt_id,
+                sync_started_at_ms: nowMs,
+                sync_expires_at_ms: leaseExpiresAtMs,
+                ...pendingActivePatch,
+                updated_at_ms: nowMs,
+            });
+
+            return {
+                status: "acquired" as const,
+                revenuecat_app_user_id:
+                    existingState.revenuecat_app_user_id ?? args.revenuecat_app_user_id,
+                has_active_subscription: existingState.has_active_subscription,
+                plan_key: existingState.plan_key,
+                last_synced_at_ms: existingState.last_synced_at_ms,
+                ...(typeof existingState.billing_cycle_end_at_ms === "number"
+                    ? { billing_cycle_end_at_ms: existingState.billing_cycle_end_at_ms }
+                    : {}),
+            };
+        }
+
+        const freePeriodAnchorAtMs = args.signup_at_ms ?? nowMs;
+        const resolvedWindow = getRequiredAnchoredMonthlyWindow(freePeriodAnchorAtMs, nowMs);
+        const stateDoc = {
+            user_id: args.user_id,
+            revenuecat_app_user_id: args.revenuecat_app_user_id,
+            plan_key: "free" as const,
+            has_active_subscription: false,
+            free_period_anchor_at_ms: freePeriodAnchorAtMs,
+            window_type: resolvedWindow.window_type,
+            window_key: resolvedWindow.window_key,
+            window_start_at_ms: resolvedWindow.window_start_at_ms,
+            window_end_at_ms: resolvedWindow.window_end_at_ms,
+            sync_attempt_id: args.sync_attempt_id,
+            sync_started_at_ms: nowMs,
+            sync_expires_at_ms: leaseExpiresAtMs,
+            ...pendingActivePatch,
+            last_synced_at_ms: 0,
+            stale_after_at_ms: nowMs,
+            created_at_ms: nowMs,
+            updated_at_ms: nowMs,
+        };
+
+        await ctx.db.insert("subscription_states", stateDoc as any);
+
+        return {
+            status: "acquired" as const,
+            revenuecat_app_user_id: args.revenuecat_app_user_id,
+            has_active_subscription: false,
+            plan_key: "free" as const,
+            last_synced_at_ms: 0,
+        };
+    },
+});
+
+export const releaseSubscriptionStateReconciliation = mutation({
+    args: {
+        user_id: v.string(),
+        sync_attempt_id: v.string(),
+        now_ms: v.number(),
+        next_attempt_at_ms: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const existingState = await getLatestSubscriptionStateByUserId(ctx, args.user_id);
+        const ownershipFailure = getSubscriptionSyncOwnershipFailure({
+            state: existingState as Record<string, unknown> | null,
+            sync_attempt_id: args.sync_attempt_id,
+            now_ms: args.now_ms,
+        });
+
+        if (!existingState || ownershipFailure) {
+            return {
+                status: existingState ? ("not_owner" as const) : ("missing" as const),
+                owner_mismatch:
+                    ownershipFailure === "owner_required" || ownershipFailure === "owner_mismatch",
+                lease_expired: ownershipFailure === "lease_expired",
+                ownership_failure: ownershipFailure,
+            };
+        }
+
+        await ctx.db.patch(existingState._id, {
+            sync_attempt_id: undefined,
+            sync_started_at_ms: undefined,
+            sync_expires_at_ms: undefined,
+            ...(typeof args.next_attempt_at_ms === "number"
+                ? { stale_after_at_ms: args.next_attempt_at_ms }
+                : {}),
+            updated_at_ms: Math.max(existingState.updated_at_ms, args.now_ms),
+        } as Record<string, unknown>);
+
+        return {
+            status: "released" as const,
         };
     },
 });
@@ -2878,13 +3053,18 @@ export const ensureUserDeletionPreservedQuotaPeriod = mutation({
             return getUserDeletionSnapshotRecordByUserId(ctx, args.user_id);
         }
 
-        const quotaPeriods = await listQuotaPeriodsByUserId(ctx, args.user_id);
+        const currentWindow = getSubscriptionWindowFromQuotaPeriodSyncSource(
+            buildQuotaPeriodSyncSourceFromSubscriptionState(state)
+        );
+        const quotaPeriods = await listQuotaPeriodsByUserIdAndWindowKey(
+            ctx,
+            args.user_id,
+            currentWindow.window_key
+        );
         const currentQuotaPeriod = await getMostRelevantQuotaPeriodForWindow(
             ctx,
             quotaPeriods,
-            getSubscriptionWindowFromQuotaPeriodSyncSource(
-                buildQuotaPeriodSyncSourceFromSubscriptionState(state)
-            )
+            currentWindow
         );
 
         if (currentQuotaPeriod) {
@@ -2934,9 +3114,14 @@ export const getUserDeletionOperationState = query({
             started_at_ms: operation?.started_at_ms,
             prepared_at_ms: operation?.prepared_at_ms,
             auth_deleted_at_ms: operation?.auth_deleted_at_ms,
+            revenuecat_deleted_at_ms: operation?.revenuecat_deleted_at_ms,
             next_retry_at_ms: operation?.next_retry_at_ms,
             retry_count: operation?.retry_count,
             force_stop_after_at_ms: operation?.force_stop_after_at_ms,
+            cleanup_attempt_id: operation?.cleanup_attempt_id,
+            cleanup_step: operation?.cleanup_step,
+            cleanup_step_started_at_ms: operation?.cleanup_step_started_at_ms,
+            cleanup_lease_expires_at_ms: operation?.cleanup_lease_expires_at_ms,
             updated_at_ms: operation?.updated_at_ms,
             revenuecat_app_user_id: operation?.revenuecat_app_user_id,
             has_active_subscription: operation?.has_active_subscription,
@@ -2954,11 +3139,19 @@ export const listDueUserDeletionOperations = query({
     },
     handler: async (ctx, args) => {
         const safeLimit = Math.max(1, Math.min(args.limit, 50));
-        const candidateEntries = await ctx.db
-            .query("user_deletion_queue")
-            .withIndex("by_next_retry_at_ms", (query) => query.lte("next_retry_at_ms", args.now_ms))
-            .take(safeLimit * 5);
-        const entriesByUserId = new Map<string, Doc<"user_deletion_queue">>();
+        const candidateEntries = (
+            await Promise.all(
+                AUTOMATIC_USER_DELETION_RETRY_STATUSES.map((status) =>
+                    ctx.db
+                        .query("user_deletion_queue")
+                        .withIndex("by_status_and_next_retry_at_ms", (query) =>
+                            query.eq("status", status).lte("next_retry_at_ms", args.now_ms)
+                        )
+                        .take(safeLimit)
+                )
+            )
+        ).flat();
+        const entriesByUserId = new Map<string, UserDeletionQueueEntryDoc>();
 
         for (const entry of candidateEntries) {
             const existingEntry = entriesByUserId.get(entry.user_id) ?? null;
@@ -3030,12 +3223,87 @@ export const listAuthDeleteDeadLetterUserDeletionOperations = query({
     },
 });
 
+export const listCleanupDeadLetterUserDeletionOperations = query({
+    args: {
+        limit: v.number(),
+        now_ms: v.optional(v.number()),
+        user_id: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const safeLimit = Math.max(1, Math.min(args.limit, 50));
+        const mapEntry = (entry: Doc<"user_deletion_queue">) => ({
+            user_id: entry.user_id,
+            status: entry.status,
+            retry_count: entry.retry_count,
+            next_retry_at_ms: entry.next_retry_at_ms,
+            last_error: entry.last_error,
+            updated_at_ms: entry.updated_at_ms,
+        });
+
+        if (typeof args.user_id === "string") {
+            const entry = await getLatestUserDeletionQueueEntryByUserId(ctx, args.user_id);
+
+            if (!entry || entry.status !== USER_DELETION_CLEANUP_DEAD_LETTER_STATUS) {
+                return [];
+            }
+
+            if (typeof args.now_ms === "number" && entry.next_retry_at_ms > args.now_ms) {
+                return [];
+            }
+
+            return [mapEntry(entry)];
+        }
+
+        const dueOnlyNowMs = args.now_ms;
+        const entries = typeof dueOnlyNowMs === "number"
+            ? await ctx.db
+                  .query("user_deletion_queue")
+                  .withIndex("by_status_and_next_retry_at_ms", (query) =>
+                      query
+                          .eq("status", USER_DELETION_CLEANUP_DEAD_LETTER_STATUS)
+                          .lte("next_retry_at_ms", dueOnlyNowMs)
+                  )
+                  .order("asc")
+                  .take(safeLimit * 3)
+            : await ctx.db
+                  .query("user_deletion_queue")
+                  .withIndex("by_status_and_updated_at_ms", (query) =>
+                      query.eq("status", USER_DELETION_CLEANUP_DEAD_LETTER_STATUS)
+                  )
+                  .order("asc")
+                  .take(safeLimit * 3);
+        const entriesByUserId = new Map<string, Doc<"user_deletion_queue">>();
+
+        for (const entry of entries) {
+            const existingEntry = entriesByUserId.get(entry.user_id) ?? null;
+
+            if (
+                !existingEntry ||
+                entry.updated_at_ms > existingEntry.updated_at_ms ||
+                (entry.updated_at_ms === existingEntry.updated_at_ms &&
+                    entry._creationTime > existingEntry._creationTime)
+            ) {
+                entriesByUserId.set(entry.user_id, entry);
+            }
+        }
+
+        return [...entriesByUserId.values()]
+            .filter(
+                (entry) =>
+                    typeof args.now_ms !== "number" || entry.next_retry_at_ms <= args.now_ms
+            )
+            .sort((left, right) => left.updated_at_ms - right.updated_at_ms)
+            .slice(0, safeLimit)
+            .map(mapEntry);
+    },
+});
+
 export const getActiveUserDeletionUsageEventCount = query({
     args: {
         user_id: v.string(),
     },
     handler: async (ctx, args) => {
-        const activeUsageEvents = await listActiveUsageEventsByUserId(ctx, args.user_id);
+        const activeUsageEvents = await listActiveUsageEventsByUserIdBatch(ctx, args.user_id, 1);
 
         return {
             active_usage_event_count: activeUsageEvents.length,
@@ -3071,9 +3339,16 @@ export const applyReconciledSubscriptionState = mutation({
         revenuecat_app_user_id: v.string(),
         signup_at_ms: v.optional(v.number()),
         synced_at_ms: v.number(),
+        sync_attempt_id: v.string(),
         expiration_reconciliation_delay_ms: v.number(),
         store_subscription_id_hint: v.optional(v.string()),
         allow_user_deletion_in_progress: v.optional(v.boolean()),
+        expects_active_subscription: v.optional(v.boolean()),
+        trusted_active_signal: v.optional(v.boolean()),
+        active_signal_at_ms: v.optional(v.number()),
+        active_signal_ttl_ms: v.optional(v.number()),
+        revenuecat_event_id: v.optional(v.string()),
+        revenuecat_event_at_ms: v.optional(v.number()),
         snapshot: reconciliationSnapshotValidator,
     },
     handler: async (ctx, args) => {
@@ -3086,6 +3361,117 @@ export const applyReconciledSubscriptionState = mutation({
         }
 
         const existingState = await getLatestSubscriptionStateByUserId(ctx, args.user_id);
+        const existingStateRecord = existingState as Record<string, unknown> | null;
+        const ownershipCheckNowMs = Date.now();
+
+        const ownershipFailure = getSubscriptionSyncOwnershipFailure({
+            state: existingStateRecord,
+            sync_attempt_id: args.sync_attempt_id,
+            now_ms: ownershipCheckNowMs,
+        });
+
+        if (ownershipFailure) {
+            return {
+                status: "unchanged" as const,
+                plan_key: existingState?.plan_key ?? ("free" as const),
+                has_active_subscription: existingState?.has_active_subscription ?? false,
+                last_synced_at_ms: existingState?.last_synced_at_ms ?? 0,
+                owner_mismatch:
+                    ownershipFailure === "owner_required" || ownershipFailure === "owner_mismatch",
+                lease_expired: ownershipFailure === "lease_expired",
+                ownership_failure: ownershipFailure,
+                ...(typeof existingState?.billing_cycle_end_at_ms === "number"
+                    ? { billing_cycle_end_at_ms: existingState.billing_cycle_end_at_ms }
+                    : {}),
+            };
+        }
+
+        if (existingState && shouldIgnoreStaleReconciledSubscriptionState(existingState, args.synced_at_ms)) {
+            await ctx.db.patch(existingState._id, {
+                sync_attempt_id: undefined,
+                sync_started_at_ms: undefined,
+                sync_expires_at_ms: undefined,
+                updated_at_ms: Math.max(existingState.updated_at_ms, args.synced_at_ms),
+            } as Record<string, unknown>);
+
+            return {
+                status: "unchanged" as const,
+                plan_key: existingState.plan_key,
+                has_active_subscription: existingState.has_active_subscription,
+                last_synced_at_ms: existingState.last_synced_at_ms,
+                owner_mismatch: false,
+                lease_expired: false,
+                ...(typeof existingState.billing_cycle_end_at_ms === "number"
+                    ? { billing_cycle_end_at_ms: existingState.billing_cycle_end_at_ms }
+                    : {}),
+            };
+        }
+
+        const safeActiveSignalAtMs = Math.min(
+            args.active_signal_at_ms ?? args.synced_at_ms,
+            args.synced_at_ms
+        );
+        const activeSignalTtlMs = Math.min(
+            Math.max(0, args.active_signal_ttl_ms ?? 0),
+            PENDING_ACTIVE_SIGNAL_MAX_TTL_MS
+        );
+        const activeSignalExpiresAtMs = safeActiveSignalAtMs + activeSignalTtlMs;
+        const activeSignalCanHoldInactive =
+            args.expects_active_subscription === true &&
+            activeSignalExpiresAtMs > args.synced_at_ms &&
+            (args.trusted_active_signal === true || existingState?.has_active_subscription !== true);
+        const shouldHoldInactiveForActiveSignal =
+            !args.snapshot.has_active_subscription &&
+            (activeSignalCanHoldInactive ||
+                hasUnexpiredPendingActiveSignal(existingStateRecord, args.synced_at_ms));
+
+        if (shouldHoldInactiveForActiveSignal && existingState) {
+            const existingPendingSignalAtMs =
+                typeof existingStateRecord?.pending_active_signal_at_ms === "number"
+                    ? existingStateRecord.pending_active_signal_at_ms
+                    : undefined;
+            const existingPendingExpiresAtMs =
+                typeof existingStateRecord?.pending_active_expires_at_ms === "number"
+                    ? existingStateRecord.pending_active_expires_at_ms
+                    : undefined;
+            const signalAtMs = activeSignalCanHoldInactive
+                ? Math.max(
+                      existingPendingSignalAtMs ?? 0,
+                      safeActiveSignalAtMs
+                  )
+                : existingPendingSignalAtMs ?? args.synced_at_ms;
+            const nextPendingActiveExpiresAtMs = activeSignalCanHoldInactive
+                ? Math.max(
+                      typeof existingPendingExpiresAtMs === "number" &&
+                          existingPendingExpiresAtMs > args.synced_at_ms
+                          ? existingPendingExpiresAtMs
+                          : 0,
+                      signalAtMs + activeSignalTtlMs
+                  )
+                : existingPendingExpiresAtMs ?? args.synced_at_ms;
+
+            await ctx.db.patch(existingState._id, {
+                sync_attempt_id: undefined,
+                sync_started_at_ms: undefined,
+                sync_expires_at_ms: undefined,
+                pending_active_signal_at_ms: signalAtMs,
+                pending_active_expires_at_ms: nextPendingActiveExpiresAtMs,
+                updated_at_ms: args.synced_at_ms,
+            } as Record<string, unknown>);
+
+            return {
+                status: "pending_active" as const,
+                plan_key: existingState.plan_key,
+                has_active_subscription: existingState.has_active_subscription,
+                last_synced_at_ms: existingState.last_synced_at_ms,
+                pending_active_expires_at_ms: nextPendingActiveExpiresAtMs,
+                owner_mismatch: false,
+                lease_expired: false,
+                ...(typeof existingState.billing_cycle_end_at_ms === "number"
+                    ? { billing_cycle_end_at_ms: existingState.billing_cycle_end_at_ms }
+                    : {}),
+            };
+        }
 
         const hasActiveSubscription = args.snapshot.has_active_subscription;
         const planKey: "free" | "polyglot" = hasActiveSubscription ? "polyglot" : "free";
@@ -3170,12 +3556,32 @@ export const applyReconciledSubscriptionState = mutation({
 
         const nextState = {
             ...nextStateBase,
-            ...(existingState?.last_revenuecat_event_id
-                ? { last_revenuecat_event_id: existingState.last_revenuecat_event_id }
-                : {}),
-            ...(typeof existingState?.last_revenuecat_event_at_ms === "number"
-                ? { last_revenuecat_event_at_ms: existingState.last_revenuecat_event_at_ms }
-                : {}),
+            ...(() => {
+                const existingEventAtMs = existingState?.last_revenuecat_event_at_ms;
+                const shouldApplyIncomingEvent =
+                    typeof args.revenuecat_event_id === "string" &&
+                    (typeof existingEventAtMs !== "number" ||
+                        typeof args.revenuecat_event_at_ms !== "number" ||
+                        args.revenuecat_event_at_ms >= existingEventAtMs);
+
+                if (shouldApplyIncomingEvent) {
+                    return {
+                        last_revenuecat_event_id: args.revenuecat_event_id,
+                        ...(typeof args.revenuecat_event_at_ms === "number"
+                            ? { last_revenuecat_event_at_ms: args.revenuecat_event_at_ms }
+                            : {}),
+                    };
+                }
+
+                return {
+                    ...(existingState?.last_revenuecat_event_id
+                        ? { last_revenuecat_event_id: existingState.last_revenuecat_event_id }
+                        : {}),
+                    ...(typeof existingEventAtMs === "number"
+                        ? { last_revenuecat_event_at_ms: existingEventAtMs }
+                        : {}),
+                };
+            })(),
             ...(args.snapshot.entitlement_id ? { entitlement_id: args.snapshot.entitlement_id } : {}),
             ...(args.snapshot.product_id ? { product_id: args.snapshot.product_id } : {}),
             ...(args.snapshot.store ? { store: args.snapshot.store } : {}),
@@ -3241,6 +3647,8 @@ export const applyReconciledSubscriptionState = mutation({
             has_active_subscription: nextState.has_active_subscription,
             billing_cycle_end_at_ms: nextState.billing_cycle_end_at_ms,
             last_synced_at_ms: nextState.last_synced_at_ms,
+            owner_mismatch: false,
+            lease_expired: false,
         };
     },
 });
@@ -3274,9 +3682,41 @@ export const startUserDeletionOperation = mutation({
 export const clearUserDeletionOperation = mutation({
     args: {
         user_id: v.string(),
+        cleanup_attempt_id: v.optional(v.string()),
+        now_ms: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
         const operations = await listUserDeletionQueueEntriesByUserId(ctx, args.user_id);
+        const latestOperation = getLatestUserDeletionQueueEntry(operations);
+
+        if (
+            typeof args.cleanup_attempt_id !== "string" &&
+            latestOperation?.status === "cleanup_in_progress" &&
+            typeof latestOperation.cleanup_attempt_id === "string"
+        ) {
+            return {
+                deleted_count: 0,
+                owner_mismatch: true,
+                lease_expired: false,
+                ownership_failure: "owner_required" as const,
+            };
+        }
+
+        const ownershipFailure = getUserDeletionCleanupOwnershipFailure({
+            operation: latestOperation,
+            cleanup_attempt_id: args.cleanup_attempt_id,
+            now_ms: args.now_ms,
+        });
+
+        if (ownershipFailure) {
+            return {
+                deleted_count: 0,
+                owner_mismatch:
+                    ownershipFailure === "owner_mismatch" || ownershipFailure === "not_in_progress",
+                lease_expired: ownershipFailure === "lease_expired",
+                ownership_failure: ownershipFailure,
+            };
+        }
 
         for (const operation of operations) {
             await ctx.db.delete(operation._id);
@@ -3284,6 +3724,8 @@ export const clearUserDeletionOperation = mutation({
 
         return {
             deleted_count: operations.length,
+            owner_mismatch: false,
+            lease_expired: false,
         };
     },
 });
@@ -3297,25 +3739,78 @@ export const upsertUserDeletionPreparation = mutation({
         store_subscription_id: v.optional(v.string()),
         store_subscription_period_id: v.optional(v.string()),
         prepared_at_ms: v.number(),
+        now_ms: v.optional(v.number()),
+        cleanup_attempt_id: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
+        assertRequiredPreservedQuotaPeriod({
+            user_id: args.user_id,
+            has_active_subscription: args.has_active_subscription,
+            preserved_quota_period_id: args.preserved_quota_period_id,
+        });
+
         const latestOperation = await getLatestUserDeletionQueueEntryByUserId(ctx, args.user_id);
+        const preserveCleanupLease = latestOperation?.status === "cleanup_in_progress";
+        const ownerRequired =
+            preserveCleanupLease &&
+            typeof latestOperation.cleanup_attempt_id === "string" &&
+            typeof args.cleanup_attempt_id !== "string";
+        const ownershipFailure = preserveCleanupLease
+            ? getUserDeletionCleanupOwnershipFailure({
+                  operation: latestOperation,
+                  cleanup_attempt_id: args.cleanup_attempt_id,
+                  now_ms: args.now_ms ?? args.prepared_at_ms,
+              })
+            : null;
+
+        if (ownerRequired || ownershipFailure) {
+            return {
+                updated: false,
+                owner_mismatch:
+                    ownerRequired ||
+                    ownershipFailure === "owner_mismatch" ||
+                    ownershipFailure === "not_in_progress",
+                lease_expired: ownershipFailure === "lease_expired",
+                ownership_failure: ownerRequired ? "owner_required" : ownershipFailure,
+                has_active_subscription: latestOperation?.has_active_subscription,
+                revenuecat_app_user_id: latestOperation?.revenuecat_app_user_id,
+                preserved_quota_period_id: latestOperation?.preserved_quota_period_id,
+                store_subscription_id: latestOperation?.store_subscription_id,
+                store_subscription_period_id: latestOperation?.store_subscription_period_id,
+            };
+        }
+
         const nextPreparation = buildUserDeletionQueueEntry({
             user_id: args.user_id,
-            status: latestOperation?.auth_deleted_at_ms ? "ready_for_cleanup" : "awaiting_auth_delete",
+            status: preserveCleanupLease
+                ? "cleanup_in_progress"
+                : latestOperation?.auth_deleted_at_ms
+                  ? "ready_for_cleanup"
+                  : "awaiting_auth_delete",
             started_at_ms: latestOperation?.started_at_ms ?? args.prepared_at_ms,
             prepared_at_ms: args.prepared_at_ms,
             auth_deleted_at_ms: latestOperation?.auth_deleted_at_ms,
+            revenuecat_deleted_at_ms: latestOperation?.revenuecat_deleted_at_ms,
             next_retry_at_ms: latestOperation?.next_retry_at_ms ?? args.prepared_at_ms,
             retry_count: latestOperation?.retry_count ?? 0,
             force_stop_after_at_ms: latestOperation?.force_stop_after_at_ms,
+            cleanup_attempt_id: preserveCleanupLease
+                ? latestOperation.cleanup_attempt_id
+                : undefined,
+            cleanup_step: preserveCleanupLease ? latestOperation.cleanup_step : undefined,
+            cleanup_step_started_at_ms: preserveCleanupLease
+                ? latestOperation.cleanup_step_started_at_ms
+                : undefined,
+            cleanup_lease_expires_at_ms: preserveCleanupLease
+                ? latestOperation.cleanup_lease_expires_at_ms
+                : undefined,
             revenuecat_app_user_id:
                 args.revenuecat_app_user_id ?? latestOperation?.revenuecat_app_user_id,
             has_active_subscription: args.has_active_subscription,
             preserved_quota_period_id: args.preserved_quota_period_id,
             store_subscription_id: args.store_subscription_id,
             store_subscription_period_id: args.store_subscription_period_id,
-            updated_at_ms: args.prepared_at_ms,
+            updated_at_ms: args.now_ms ?? args.prepared_at_ms,
         });
 
         await replaceUserDeletionQueueEntry(ctx, args.user_id, nextPreparation);
@@ -3353,6 +3848,12 @@ export const markUserDeletionAuthDeleted = mutation({
         });
 
         if (!latestOperation) {
+            assertRequiredPreservedQuotaPeriod({
+                user_id: args.user_id,
+                has_active_subscription: nextContext.has_active_subscription,
+                preserved_quota_period_id: nextContext.preserved_quota_period_id,
+            });
+
             const nextOperation = buildUserDeletionQueueEntry({
                 user_id: args.user_id,
                 status: "ready_for_cleanup",
@@ -3390,16 +3891,40 @@ export const markUserDeletionAuthDeleted = mutation({
         }
 
         const shouldRefreshContext = typeof latestOperation.auth_deleted_at_ms !== "number";
+        const preserveCleanupLease = latestOperation.status === "cleanup_in_progress";
+        assertRequiredPreservedQuotaPeriod({
+            user_id: args.user_id,
+            has_active_subscription: shouldRefreshContext
+                ? nextContext.has_active_subscription
+                : latestOperation.has_active_subscription === true,
+            preserved_quota_period_id: shouldRefreshContext
+                ? nextContext.preserved_quota_period_id
+                : latestOperation.preserved_quota_period_id,
+        });
+
         const nextOperation = buildUserDeletionQueueEntry({
             user_id: latestOperation.user_id,
-            status: "ready_for_cleanup",
+            status: preserveCleanupLease ? "cleanup_in_progress" : "ready_for_cleanup",
             started_at_ms: latestOperation.started_at_ms,
             prepared_at_ms: latestOperation.prepared_at_ms ?? args.now_ms,
             auth_deleted_at_ms: latestOperation.auth_deleted_at_ms ?? args.now_ms,
-            next_retry_at_ms: args.now_ms,
+            revenuecat_deleted_at_ms: latestOperation.revenuecat_deleted_at_ms,
+            next_retry_at_ms: preserveCleanupLease
+                ? latestOperation.next_retry_at_ms
+                : args.now_ms,
             retry_count: latestOperation.retry_count,
             force_stop_after_at_ms:
                 latestOperation.force_stop_after_at_ms ?? args.force_stop_after_at_ms,
+            cleanup_attempt_id: preserveCleanupLease
+                ? latestOperation.cleanup_attempt_id
+                : undefined,
+            cleanup_step: preserveCleanupLease ? latestOperation.cleanup_step : undefined,
+            cleanup_step_started_at_ms: preserveCleanupLease
+                ? latestOperation.cleanup_step_started_at_ms
+                : undefined,
+            cleanup_lease_expires_at_ms: preserveCleanupLease
+                ? latestOperation.cleanup_lease_expires_at_ms
+                : undefined,
             revenuecat_app_user_id: shouldRefreshContext
                 ? nextContext.revenuecat_app_user_id
                 : latestOperation.revenuecat_app_user_id,
@@ -3435,6 +3960,8 @@ export const acquireUserDeletionOperation = mutation({
         user_id: v.string(),
         now_ms: v.number(),
         lease_expires_at_ms: v.number(),
+        cleanup_attempt_id: v.string(),
+        cleanup_step: v.optional(userDeletionCleanupStepValidator),
         allow_terminal_recovery: v.optional(v.boolean()),
     },
     handler: async (ctx, args) => {
@@ -3451,13 +3978,20 @@ export const acquireUserDeletionOperation = mutation({
             status: latestOperation.status,
             next_retry_at_ms: latestOperation.next_retry_at_ms,
             now_ms: args.now_ms,
+            cleanup_lease_expires_at_ms: latestOperation.cleanup_lease_expires_at_ms,
             allow_terminal_recovery: args.allow_terminal_recovery,
         })) {
+            const nextRetryAtMs = getUserDeletionCleanupLeaseRetryAtMs({
+                status: latestOperation.status,
+                next_retry_at_ms: latestOperation.next_retry_at_ms,
+                cleanup_lease_expires_at_ms: latestOperation.cleanup_lease_expires_at_ms,
+            });
+
             return {
                 acquired: false,
                 missing: false,
                 status: latestOperation.status,
-                next_retry_at_ms: latestOperation.next_retry_at_ms,
+                next_retry_at_ms: nextRetryAtMs,
             };
         }
 
@@ -3467,9 +4001,14 @@ export const acquireUserDeletionOperation = mutation({
             started_at_ms: latestOperation.started_at_ms,
             prepared_at_ms: latestOperation.prepared_at_ms,
             auth_deleted_at_ms: latestOperation.auth_deleted_at_ms,
+            revenuecat_deleted_at_ms: latestOperation.revenuecat_deleted_at_ms,
             next_retry_at_ms: args.lease_expires_at_ms,
             retry_count: latestOperation.retry_count,
             force_stop_after_at_ms: latestOperation.force_stop_after_at_ms,
+            cleanup_attempt_id: args.cleanup_attempt_id,
+            cleanup_step: args.cleanup_step ?? "acquired",
+            cleanup_step_started_at_ms: args.now_ms,
+            cleanup_lease_expires_at_ms: args.lease_expires_at_ms,
             revenuecat_app_user_id: latestOperation.revenuecat_app_user_id,
             has_active_subscription: latestOperation.has_active_subscription,
             preserved_quota_period_id: latestOperation.preserved_quota_period_id,
@@ -3489,9 +4028,14 @@ export const acquireUserDeletionOperation = mutation({
                 started_at_ms: nextOperation.started_at_ms,
                 prepared_at_ms: nextOperation.prepared_at_ms,
                 auth_deleted_at_ms: nextOperation.auth_deleted_at_ms,
+                revenuecat_deleted_at_ms: nextOperation.revenuecat_deleted_at_ms,
                 next_retry_at_ms: nextOperation.next_retry_at_ms,
                 retry_count: nextOperation.retry_count,
                 force_stop_after_at_ms: nextOperation.force_stop_after_at_ms,
+                cleanup_attempt_id: nextOperation.cleanup_attempt_id,
+                cleanup_step: nextOperation.cleanup_step,
+                cleanup_step_started_at_ms: nextOperation.cleanup_step_started_at_ms,
+                cleanup_lease_expires_at_ms: nextOperation.cleanup_lease_expires_at_ms,
                 revenuecat_app_user_id: nextOperation.revenuecat_app_user_id,
                 has_active_subscription: nextOperation.has_active_subscription,
                 preserved_quota_period_id: nextOperation.preserved_quota_period_id,
@@ -3499,6 +4043,76 @@ export const acquireUserDeletionOperation = mutation({
                 store_subscription_period_id: nextOperation.store_subscription_period_id,
                 updated_at_ms: nextOperation.updated_at_ms,
             },
+        };
+    },
+});
+
+export const renewUserDeletionOperationCleanupLease = mutation({
+    args: {
+        user_id: v.string(),
+        cleanup_attempt_id: v.string(),
+        cleanup_step: userDeletionCleanupStepValidator,
+        now_ms: v.number(),
+        lease_expires_at_ms: v.number(),
+    },
+    handler: async (ctx, args) => {
+        const latestOperation = await getLatestUserDeletionQueueEntryByUserId(ctx, args.user_id);
+        const ownershipFailure = getUserDeletionCleanupOwnershipFailure({
+            operation: latestOperation,
+            cleanup_attempt_id: args.cleanup_attempt_id,
+            now_ms: args.now_ms,
+        });
+
+        if (!latestOperation || ownershipFailure) {
+            return {
+                renewed: false,
+                missing: ownershipFailure === "missing" || !latestOperation,
+                owner_mismatch:
+                    ownershipFailure === "owner_mismatch" || ownershipFailure === "not_in_progress",
+                lease_expired: ownershipFailure === "lease_expired",
+                ownership_failure: ownershipFailure ?? "missing",
+                status: latestOperation?.status,
+                next_retry_at_ms: latestOperation?.next_retry_at_ms,
+                cleanup_lease_expires_at_ms: latestOperation?.cleanup_lease_expires_at_ms,
+            };
+        }
+
+        const nextOperation = buildUserDeletionQueueEntry({
+            user_id: latestOperation.user_id,
+            status: "cleanup_in_progress",
+            started_at_ms: latestOperation.started_at_ms,
+            prepared_at_ms: latestOperation.prepared_at_ms,
+            auth_deleted_at_ms: latestOperation.auth_deleted_at_ms,
+            revenuecat_deleted_at_ms: latestOperation.revenuecat_deleted_at_ms,
+            next_retry_at_ms: args.lease_expires_at_ms,
+            retry_count: latestOperation.retry_count,
+            last_error: latestOperation.last_error,
+            force_stop_after_at_ms: latestOperation.force_stop_after_at_ms,
+            cleanup_attempt_id: args.cleanup_attempt_id,
+            cleanup_step: args.cleanup_step,
+            cleanup_step_started_at_ms: getNextUserDeletionCleanupStepStartedAtMs({
+                operation: latestOperation,
+                cleanup_step: args.cleanup_step,
+                now_ms: args.now_ms,
+            }),
+            cleanup_lease_expires_at_ms: args.lease_expires_at_ms,
+            revenuecat_app_user_id: latestOperation.revenuecat_app_user_id,
+            has_active_subscription: latestOperation.has_active_subscription,
+            preserved_quota_period_id: latestOperation.preserved_quota_period_id,
+            store_subscription_id: latestOperation.store_subscription_id,
+            store_subscription_period_id: latestOperation.store_subscription_period_id,
+            updated_at_ms: args.now_ms,
+        });
+
+        await replaceUserDeletionQueueEntry(ctx, args.user_id, nextOperation);
+
+        return {
+            renewed: true,
+            status: nextOperation.status,
+            next_retry_at_ms: nextOperation.next_retry_at_ms,
+            cleanup_step: nextOperation.cleanup_step,
+            cleanup_step_started_at_ms: nextOperation.cleanup_step_started_at_ms,
+            cleanup_lease_expires_at_ms: nextOperation.cleanup_lease_expires_at_ms,
         };
     },
 });
@@ -3513,6 +4127,10 @@ export const rescheduleUserDeletionOperation = mutation({
         last_error: v.optional(v.union(v.string(), v.null())),
         auth_deleted_at_ms: v.optional(v.number()),
         force_stop_after_at_ms: v.optional(v.number()),
+        cleanup_attempt_id: v.optional(v.string()),
+        cleanup_step: v.optional(userDeletionCleanupStepValidator),
+        cleanup_lease_expires_at_ms: v.optional(v.number()),
+        revenuecat_deleted_at_ms: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
         const latestOperation = await getLatestUserDeletionQueueEntryByUserId(ctx, args.user_id);
@@ -3523,12 +4141,52 @@ export const rescheduleUserDeletionOperation = mutation({
             };
         }
 
+        if (
+            typeof args.cleanup_attempt_id !== "string" &&
+            latestOperation.status === "cleanup_in_progress" &&
+            typeof latestOperation.cleanup_attempt_id === "string"
+        ) {
+            return {
+                updated: false,
+                owner_mismatch: true,
+                lease_expired: false,
+                ownership_failure: "owner_required" as const,
+                status: latestOperation.status,
+                next_retry_at_ms: latestOperation.next_retry_at_ms,
+                cleanup_lease_expires_at_ms: latestOperation.cleanup_lease_expires_at_ms,
+            };
+        }
+
+        const ownershipFailure = getUserDeletionCleanupOwnershipFailure({
+            operation: latestOperation,
+            cleanup_attempt_id: args.cleanup_attempt_id,
+            now_ms: args.now_ms,
+        });
+
+        if (ownershipFailure) {
+            return {
+                updated: false,
+                owner_mismatch:
+                    ownershipFailure === "owner_mismatch" || ownershipFailure === "not_in_progress",
+                lease_expired: ownershipFailure === "lease_expired",
+                ownership_failure: ownershipFailure,
+                status: latestOperation.status,
+                next_retry_at_ms: latestOperation.next_retry_at_ms,
+                cleanup_lease_expires_at_ms: latestOperation.cleanup_lease_expires_at_ms,
+            };
+        }
+
+        const remainsInProgress = args.status === "cleanup_in_progress";
+        const cleanupStep = args.cleanup_step ?? latestOperation.cleanup_step ?? "acquired";
+
         const nextOperation = buildUserDeletionQueueEntry({
             user_id: latestOperation.user_id,
             status: args.status,
             started_at_ms: latestOperation.started_at_ms,
             prepared_at_ms: latestOperation.prepared_at_ms,
             auth_deleted_at_ms: args.auth_deleted_at_ms ?? latestOperation.auth_deleted_at_ms,
+            revenuecat_deleted_at_ms:
+                args.revenuecat_deleted_at_ms ?? latestOperation.revenuecat_deleted_at_ms,
             next_retry_at_ms: args.next_retry_at_ms,
             retry_count: latestOperation.retry_count + Math.max(0, args.retry_count_increment ?? 0),
             last_error:
@@ -3537,6 +4195,20 @@ export const rescheduleUserDeletionOperation = mutation({
                     : (args.last_error ?? latestOperation.last_error),
             force_stop_after_at_ms:
                 args.force_stop_after_at_ms ?? latestOperation.force_stop_after_at_ms,
+            cleanup_attempt_id: remainsInProgress
+                ? args.cleanup_attempt_id ?? latestOperation.cleanup_attempt_id
+                : undefined,
+            cleanup_step: remainsInProgress ? cleanupStep : undefined,
+            cleanup_step_started_at_ms: remainsInProgress
+                ? getNextUserDeletionCleanupStepStartedAtMs({
+                      operation: latestOperation,
+                      cleanup_step: cleanupStep,
+                      now_ms: args.now_ms,
+                  })
+                : undefined,
+            cleanup_lease_expires_at_ms: remainsInProgress
+                ? args.cleanup_lease_expires_at_ms ?? args.next_retry_at_ms
+                : undefined,
             revenuecat_app_user_id: latestOperation.revenuecat_app_user_id,
             has_active_subscription: latestOperation.has_active_subscription,
             preserved_quota_period_id: latestOperation.preserved_quota_period_id,
@@ -3564,19 +4236,36 @@ export const deleteUserSubscriptionData = mutation({
         now_ms: v.number(),
     },
     handler: async (ctx, args) => {
-        const preservedQuotaPeriod = args.preserved_quota_period_id
-            ? await ctx.db.get(args.preserved_quota_period_id)
-            : null;
+        const [latestOperation, latestState, preservedQuotaPeriod] = await Promise.all([
+            getLatestUserDeletionQueueEntryByUserId(ctx, args.user_id),
+            getLatestSubscriptionStateByUserId(ctx, args.user_id),
+            args.preserved_quota_period_id ? ctx.db.get(args.preserved_quota_period_id) : null,
+        ]);
+        const deletionRequiresPreservedQuotaPeriod =
+            latestOperation?.has_active_subscription === true ||
+            latestState?.has_active_subscription === true;
+
+        assertPreservedQuotaPeriodBelongsToDeletionUser({
+            user_id: args.user_id,
+            has_active_subscription: deletionRequiresPreservedQuotaPeriod,
+            preserved_quota_period_id: args.preserved_quota_period_id,
+            preservedQuotaPeriod,
+        });
+
         const preservedQuotaWindow = preservedQuotaPeriod
             ? getLogicalQuotaPeriodWindow(preservedQuotaPeriod)
             : null;
 
         let remainingDeletes = USER_DELETION_BATCH_LIMIT;
-        const usageEventsToDelete = await listUsageEventsByUserIdBatch(
+        const usageEventCandidates = await listUsageEventsByUserIdBatch(
             ctx,
             args.user_id,
-            remainingDeletes
+            remainingDeletes + 1
         );
+        const usageEventsToDelete = usageEventCandidates.slice(0, remainingDeletes);
+        const hasMoreUsageEvents = usageEventCandidates.length > usageEventsToDelete.length;
+
+        let deletedQuotaRecoveries = 0;
 
         for (const usageEvent of usageEventsToDelete) {
             const linkedQuotaPeriod = preservedQuotaWindow
@@ -3606,20 +4295,40 @@ export const deleteUserSubscriptionData = mutation({
                 }
             }
 
+            deletedQuotaRecoveries += await deleteQuotaFinalizationRecoveriesByUsageEventId(
+                ctx,
+                usageEvent._id
+            );
             await ctx.db.delete(usageEvent._id);
         }
         remainingDeletes -= usageEventsToDelete.length;
 
         let deletedRevenueCatEvents = 0;
+        let hasMoreRevenueCatEvents = false;
 
         if (remainingDeletes > 0) {
+            const activeRevenueCatEventProcessing =
+                await getActiveRevenueCatEventProcessingForUserDeletionSnapshot(ctx, {
+                    user_id: args.user_id,
+                    now_ms: args.now_ms,
+                    limit: 1,
+                });
+
+            if (activeRevenueCatEventProcessing.active_processing_count > 0) {
+                throw new Error(
+                    "Cannot delete RevenueCat event data while webhook processing is active for the deleted user"
+                );
+            }
+
             const revenueCatEventsToDelete = await listRevenueCatEventsForUserDeletionBatch(ctx, {
                 user_id: args.user_id,
                 revenuecat_app_user_id: args.revenuecat_app_user_id,
-                limit: remainingDeletes,
+                limit: remainingDeletes + 1,
             });
+            const revenueCatEventBatch = revenueCatEventsToDelete.slice(0, remainingDeletes);
+            hasMoreRevenueCatEvents = revenueCatEventsToDelete.length > revenueCatEventBatch.length;
 
-            for (const eventDoc of revenueCatEventsToDelete) {
+            for (const eventDoc of revenueCatEventBatch) {
                 await deleteOrPruneRevenueCatEventForDeletedUser(ctx, {
                     event_doc: eventDoc,
                     user_id: args.user_id,
@@ -3631,6 +4340,7 @@ export const deleteUserSubscriptionData = mutation({
         remainingDeletes -= deletedRevenueCatEvents;
 
         let deletedQuotaPeriods = 0;
+        let hasMoreQuotaPeriods = false;
 
         if (remainingDeletes > 0) {
             const quotaPeriodCandidates = await listQuotaPeriodsByUserIdBatch(
@@ -3641,6 +4351,9 @@ export const deleteUserSubscriptionData = mutation({
             const quotaPeriodsToDelete = quotaPeriodCandidates
                 .filter((quotaPeriod) => quotaPeriod._id !== args.preserved_quota_period_id)
                 .slice(0, remainingDeletes);
+            hasMoreQuotaPeriods = quotaPeriodCandidates
+                .filter((quotaPeriod) => quotaPeriod._id !== args.preserved_quota_period_id)
+                .length > quotaPeriodsToDelete.length;
 
             for (const quotaPeriod of quotaPeriodsToDelete) {
                 await deleteQuotaPeriodCountersByQuotaPeriodId(ctx, quotaPeriod._id);
@@ -3653,9 +4366,10 @@ export const deleteUserSubscriptionData = mutation({
             preserved_quota_period_id: args.preserved_quota_period_id ?? null,
             deleted_quota_periods: deletedQuotaPeriods,
             deleted_usage_events: usageEventsToDelete.length,
+            deleted_quota_recoveries: deletedQuotaRecoveries,
             deleted_revenue_cat_events: deletedRevenueCatEvents,
             has_remaining:
-                usageEventsToDelete.length + deletedRevenueCatEvents + deletedQuotaPeriods > 0,
+                hasMoreUsageEvents || hasMoreRevenueCatEvents || hasMoreQuotaPeriods,
         };
     },
 });
@@ -3698,6 +4412,23 @@ export const finalizeDeletedUserSubscriptionData = mutation({
         now_ms: v.number(),
     },
     handler: async (ctx, args) => {
+        assertRequiredPreservedQuotaPeriod({
+            user_id: args.user_id,
+            has_active_subscription: args.has_active_subscription,
+            preserved_quota_period_id: args.preserved_quota_period_id,
+        });
+
+        const preservedQuotaPeriod = args.preserved_quota_period_id
+            ? await ctx.db.get(args.preserved_quota_period_id)
+            : null;
+
+        assertPreservedQuotaPeriodBelongsToDeletionUser({
+            user_id: args.user_id,
+            has_active_subscription: args.has_active_subscription,
+            preserved_quota_period_id: args.preserved_quota_period_id,
+            preservedQuotaPeriod,
+        });
+
         const [stateDocs, quotaPeriodCandidates, usageEvents, revenueCatEvents] = await Promise.all([
             listSubscriptionStatesByUserId(ctx, args.user_id),
             listQuotaPeriodsByUserIdBatch(ctx, args.user_id, 2),
@@ -3726,45 +4457,53 @@ export const finalizeDeletedUserSubscriptionData = mutation({
 
         let frozenQuotaPeriodId: Doc<"quota_periods">["_id"] | null = null;
 
-        if (args.has_active_subscription && args.preserved_quota_period_id) {
-            const preservedQuotaPeriod = await ctx.db.get(args.preserved_quota_period_id);
+        if (args.has_active_subscription && preservedQuotaPeriod) {
+            const wasAlreadyRestored = typeof preservedQuotaPeriod.restored_at_ms === "number";
 
-            if (!preservedQuotaPeriod) {
-                console.error(
-                    JSON.stringify({
-                        event: "user_deletion_preserved_quota_period_missing_at_finalize",
-                        user_id: args.user_id,
-                        preserved_quota_period_id: args.preserved_quota_period_id,
-                    })
-                );
-            } else {
-                await ctx.db.patch(preservedQuotaPeriod._id, {
-                    user_id: null,
-                    status: "frozen",
-                    ...(args.store_subscription_id
-                        ? { store_subscription_id: args.store_subscription_id }
-                        : {}),
-                    ...(args.store_subscription_period_id
-                        ? {
-                              store_subscription_period_id: args.store_subscription_period_id,
+            await ctx.db.patch(preservedQuotaPeriod._id, {
+                user_id: null,
+                status: "frozen",
+                ...(args.store_subscription_id
+                    ? { store_subscription_id: args.store_subscription_id }
+                    : {}),
+                ...(args.store_subscription_period_id
+                    ? {
+                          store_subscription_period_id: args.store_subscription_period_id,
                           }
-                        : {}),
-                    frozen_at_ms: args.now_ms,
-                    closed_at_ms: preservedQuotaPeriod.closed_at_ms ?? args.now_ms,
-                    restored_at_ms: undefined,
-                    restored_to_quota_period_id: undefined,
-                    updated_at_ms: args.now_ms,
+                    : {}),
+                frozen_at_ms: preservedQuotaPeriod.frozen_at_ms ?? args.now_ms,
+                closed_at_ms: preservedQuotaPeriod.closed_at_ms ?? args.now_ms,
+                updated_at_ms: args.now_ms,
+            });
+
+            frozenQuotaPeriodId = preservedQuotaPeriod._id;
+
+            if (!wasAlreadyRestored) {
+                const restorationTarget = await getQuotaPeriodRestorationTargetForDeletedUser(ctx, {
+                    deleted_user_id: args.user_id,
+                    frozen_quota_period_id: preservedQuotaPeriod._id,
+                    store_subscription_period_id:
+                        args.store_subscription_period_id ?? preservedQuotaPeriod.store_subscription_period_id,
+                    store_subscription_id:
+                        args.store_subscription_id ?? preservedQuotaPeriod.store_subscription_id,
+                    store: preservedQuotaPeriod.store,
+                    period_start_at_ms: preservedQuotaPeriod.period_start_at_ms,
+                    period_end_at_ms: preservedQuotaPeriod.period_end_at_ms,
                 });
 
-                frozenQuotaPeriodId = preservedQuotaPeriod._id;
+                if (restorationTarget) {
+                    await mergeQuotaPeriodCountersIntoTarget(ctx, {
+                        source_quota_period_id: preservedQuotaPeriod._id,
+                        target_quota_period_id: restorationTarget._id,
+                        now_ms: args.now_ms,
+                    });
+                    await ctx.db.patch(preservedQuotaPeriod._id, {
+                        restored_at_ms: args.now_ms,
+                        restored_to_quota_period_id: restorationTarget._id,
+                        updated_at_ms: args.now_ms,
+                    });
+                }
             }
-        } else if (args.has_active_subscription) {
-            console.error(
-                JSON.stringify({
-                    event: "user_deletion_completed_without_preserved_quota_period",
-                    user_id: args.user_id,
-                })
-            );
         }
 
         for (const stateDoc of stateDocs) {
@@ -3775,524 +4514,6 @@ export const finalizeDeletedUserSubscriptionData = mutation({
             frozen_quota_period_id: frozenQuotaPeriodId,
             deleted_subscription_states: stateDocs.length,
         };
-    },
-});
-
-function shouldUseTimelineSafeFreeAnonymousMerge(args: {
-    sourceState: Doc<"subscription_states"> | null;
-    targetState: Doc<"subscription_states"> | null;
-    sourceQuotaPeriods: Doc<"quota_periods">[];
-}) {
-    const sourceHasPaidState = args.sourceState?.has_active_subscription === true;
-    const targetHasActivePaidState = args.targetState?.has_active_subscription === true;
-    const sourceHasPaidQuotaPeriods = args.sourceQuotaPeriods.some(
-        (quotaPeriod) => quotaPeriod.active_subscription
-    );
-
-    return !sourceHasPaidState && !targetHasActivePaidState && !sourceHasPaidQuotaPeriods;
-}
-
-async function mergeAnonymousFreeQuotaDataPreservingSourceTimeline(
-    ctx: MutationCtx,
-    args: {
-        anonymous_user_id: string;
-        user_id: string;
-        now_ms: number;
-        sourceState: Doc<"subscription_states"> | null;
-        targetState: Doc<"subscription_states"> | null;
-        sourceQuotaPeriods: Doc<"quota_periods">[];
-        targetQuotaPeriods: Doc<"quota_periods">[];
-        sourceUsageEvents: Doc<"usage_events">[];
-        targetUsageEvents: Doc<"usage_events">[];
-    }
-) {
-    const sourceFreePeriodAnchorAtMs = resolveCanonicalFreeAnchorAtMs({
-        authority: "source",
-        sourceState: args.sourceState,
-        targetState: args.targetState,
-        sourceQuotaPeriods: args.sourceQuotaPeriods,
-        targetQuotaPeriods: args.targetQuotaPeriods,
-    });
-
-    if (!isFiniteTimestampMs(sourceFreePeriodAnchorAtMs ?? undefined)) {
-        throw new Error("Cannot preserve anonymous free timeline without a canonical free anchor");
-    }
-    const resolvedSourceFreePeriodAnchorAtMs = sourceFreePeriodAnchorAtMs as number;
-
-    await assertFreeStateUsageIntegrity(ctx, {
-        state: args.sourceState,
-        quotaPeriods: args.sourceQuotaPeriods,
-        usageEvents: args.sourceUsageEvents,
-        free_period_anchor_at_ms: resolvedSourceFreePeriodAnchorAtMs,
-        now_ms: args.now_ms,
-    });
-
-    for (const sourceQuotaPeriod of args.sourceQuotaPeriods) {
-        await ctx.db.patch(sourceQuotaPeriod._id, {
-            user_id: args.user_id,
-            updated_at_ms: args.now_ms,
-        });
-    }
-
-    for (const sourceUsageEvent of args.sourceUsageEvents) {
-        await ctx.db.patch(sourceUsageEvent._id, {
-            user_id: args.user_id,
-            updated_at_ms: args.now_ms,
-        });
-    }
-
-    const mergedRevenueCatAppUserId = resolveMergedRevenueCatAppUserId(
-        args.sourceState,
-        args.targetState
-    );
-    const mergedLastRevenueCatEvent = resolveMergedLastRevenueCatEventMetadata(
-        args.sourceState,
-        args.targetState
-    );
-
-    await persistMergedFreeSubscriptionState(ctx, {
-        sourceState: args.sourceState,
-        targetState: args.targetState,
-        user_id: args.user_id,
-        free_period_anchor_at_ms: resolvedSourceFreePeriodAnchorAtMs,
-        mergedRevenueCatAppUserId,
-        mergedLastRevenueCatEvent,
-        now_ms: args.now_ms,
-    });
-
-    return {
-        status: resolveAnonymousQuotaLinkStatus({
-            sourceState: args.sourceState,
-            targetState: args.targetState,
-            targetQuotaPeriods: args.targetQuotaPeriods,
-            targetUsageEvents: args.targetUsageEvents,
-        }),
-        merge_strategy: "preserved_source_free_timeline" as const,
-    };
-}
-
-async function mergeAnonymousFreeQuotaDataIntoTargetTimeline(
-    ctx: MutationCtx,
-    args: {
-        anonymous_user_id: string;
-        user_id: string;
-        now_ms: number;
-        sourceState: Doc<"subscription_states"> | null;
-        targetState: Doc<"subscription_states"> | null;
-        sourceQuotaPeriods: Doc<"quota_periods">[];
-        targetQuotaPeriods: Doc<"quota_periods">[];
-        sourceUsageEvents: Doc<"usage_events">[];
-        targetUsageEvents: Doc<"usage_events">[];
-    }
-) {
-    const targetFreePeriodAnchorAtMs = resolvePreferredFreeAnchorAtMs({
-        state: args.targetState,
-        quotaPeriods: args.targetQuotaPeriods,
-    });
-
-    if (!isFiniteTimestampMs(targetFreePeriodAnchorAtMs ?? undefined)) {
-        throw new Error("Cannot preserve target free timeline without a canonical target free anchor");
-    }
-    const resolvedTargetFreePeriodAnchorAtMs = targetFreePeriodAnchorAtMs as number;
-
-    const sourceFreePeriodAnchorAtMs = resolvePreferredFreeAnchorAtMs({
-        state: args.sourceState,
-        quotaPeriods: args.sourceQuotaPeriods,
-    });
-
-    if (isFreeSubscriptionState(args.sourceState)) {
-        if (!isFiniteTimestampMs(sourceFreePeriodAnchorAtMs ?? undefined)) {
-            throw new Error("Cannot safely rebucket anonymous free usage without a canonical source free anchor");
-        }
-        const resolvedSourceFreePeriodAnchorAtMs = sourceFreePeriodAnchorAtMs as number;
-
-        await assertFreeStateUsageIntegrity(ctx, {
-            state: args.sourceState,
-            quotaPeriods: args.sourceQuotaPeriods,
-            usageEvents: args.sourceUsageEvents,
-            free_period_anchor_at_ms: resolvedSourceFreePeriodAnchorAtMs,
-            now_ms: args.now_ms,
-        });
-    }
-
-    const sourceUsageEventsByQuotaPeriodId = buildUsageEventsByQuotaPeriodId(args.sourceUsageEvents);
-
-    for (const sourceQuotaPeriod of args.sourceQuotaPeriods.filter(isFreeQuotaPeriodDoc)) {
-        await assertQuotaPeriodAppliedUsageIntegrity(ctx, {
-            quotaPeriod: sourceQuotaPeriod,
-            usageEvents:
-                sourceUsageEventsByQuotaPeriodId.get(String(sourceQuotaPeriod._id)) ?? [],
-        });
-    }
-
-    const freePlanLimits = await resolvePlanLimitsForPlanKey(ctx, {
-        plan_key: "free",
-        now_ms: args.now_ms,
-    });
-    const currentTargetWindow = getRequiredAnchoredMonthlyWindow(
-        resolvedTargetFreePeriodAnchorAtMs,
-        args.now_ms
-    );
-    const mutableTargetQuotaPeriods = [...args.targetQuotaPeriods];
-    const targetQuotaPeriodsById = new Map<string, Doc<"quota_periods">>(
-        mutableTargetQuotaPeriods.map((quotaPeriod) => [String(quotaPeriod._id), quotaPeriod])
-    );
-    const targetQuotaPeriodsByWindowKey = new Map<string, Doc<"quota_periods">>();
-    const appliedUsageDeltasByCounterKey = new Map<string, AppliedUsageDelta>();
-
-    for (const sourceUsageEvent of [...args.sourceUsageEvents].sort(
-        (left, right) => left.reserved_at_ms - right.reserved_at_ms
-    )) {
-        const targetWindow = resolveRebucketedFreeUsageWindow({
-            free_period_anchor_at_ms: resolvedTargetFreePeriodAnchorAtMs,
-            event: sourceUsageEvent,
-        });
-        const targetQuotaPeriod = await resolveOrCreateFreeQuotaPeriodForWindow(ctx, {
-            user_id: args.user_id,
-            window: targetWindow,
-            currentWindow: currentTargetWindow,
-            planLimits: freePlanLimits,
-            quotaPeriods: mutableTargetQuotaPeriods,
-            quotaPeriodsById: targetQuotaPeriodsById,
-            quotaPeriodsByWindowKey: targetQuotaPeriodsByWindowKey,
-            now_ms: args.now_ms,
-        });
-        const usageEventPatch: MutableUsageEventFields = {
-            user_id: args.user_id,
-            updated_at_ms: args.now_ms,
-        };
-
-        if (targetQuotaPeriod._id !== sourceUsageEvent.quota_period_id) {
-            usageEventPatch.quota_period_id = targetQuotaPeriod._id;
-        }
-
-        await ctx.db.patch(sourceUsageEvent._id, usageEventPatch);
-        accumulateAppliedUsageDelta(
-            appliedUsageDeltasByCounterKey,
-            sourceUsageEvent,
-            targetQuotaPeriod._id
-        );
-    }
-
-    await applyAppliedUsageDeltasToQuotaPeriodCounters(ctx, {
-        quotaPeriodsById: targetQuotaPeriodsById,
-        appliedUsageDeltasByCounterKey,
-        planLimits: freePlanLimits,
-        now_ms: args.now_ms,
-    });
-
-    for (const sourceQuotaPeriod of args.sourceQuotaPeriods) {
-        await deleteQuotaPeriodCountersByQuotaPeriodId(ctx, sourceQuotaPeriod._id);
-        await ctx.db.delete(sourceQuotaPeriod._id);
-    }
-
-    const mergedRevenueCatAppUserId = resolveMergedRevenueCatAppUserId(
-        args.sourceState,
-        args.targetState
-    );
-    const mergedLastRevenueCatEvent = resolveMergedLastRevenueCatEventMetadata(
-        args.sourceState,
-        args.targetState
-    );
-
-    await persistMergedFreeSubscriptionState(ctx, {
-        sourceState: args.sourceState,
-        targetState: args.targetState,
-        user_id: args.user_id,
-        free_period_anchor_at_ms: resolvedTargetFreePeriodAnchorAtMs,
-        mergedRevenueCatAppUserId,
-        mergedLastRevenueCatEvent,
-        now_ms: args.now_ms,
-    });
-
-    return {
-        status: resolveAnonymousQuotaLinkStatus({
-            sourceState: args.sourceState,
-            targetState: args.targetState,
-            targetQuotaPeriods: args.targetQuotaPeriods,
-            targetUsageEvents: args.targetUsageEvents,
-        }),
-        merge_strategy: "rebucketed_into_target_free_timeline" as const,
-        rebucketed_usage_events: args.sourceUsageEvents.length,
-    };
-}
-
-async function mergeAnonymousQuotaDataIntoUser(
-    ctx: MutationCtx,
-    args: {
-        anonymous_user_id: string;
-        user_id: string;
-        now_ms: number;
-    }
-) {
-    const [sourceState, targetState, sourceQuotaPeriods, targetQuotaPeriods, sourceUsageEvents, targetUsageEvents] =
-        await Promise.all([
-            getLatestSubscriptionStateByUserId(ctx, args.anonymous_user_id),
-            getLatestSubscriptionStateByUserId(ctx, args.user_id),
-            listQuotaPeriodsByUserId(ctx, args.anonymous_user_id),
-            listQuotaPeriodsByUserId(ctx, args.user_id),
-            listUsageEventsByUserId(ctx, args.anonymous_user_id),
-            listUsageEventsByUserId(ctx, args.user_id),
-        ]);
-
-    const hasSourceData =
-        sourceState !== null || sourceQuotaPeriods.length > 0 || sourceUsageEvents.length > 0;
-
-    if (!hasSourceData) {
-        return {
-            status: "missing_source_data" as const,
-        };
-    }
-
-    if (
-        shouldUseTimelineSafeFreeAnonymousMerge({
-            sourceState,
-            targetState,
-            sourceQuotaPeriods,
-        })
-    ) {
-        const freeMergeAuthority = resolveAnonymousFreeMergeAuthority({
-            targetState,
-            targetQuotaPeriods,
-            targetUsageEvents,
-        });
-
-        if (freeMergeAuthority === "source") {
-            return mergeAnonymousFreeQuotaDataPreservingSourceTimeline(ctx, {
-                ...args,
-                sourceState,
-                targetState,
-                sourceQuotaPeriods,
-                targetQuotaPeriods,
-                sourceUsageEvents,
-                targetUsageEvents,
-            });
-        }
-
-        return mergeAnonymousFreeQuotaDataIntoTargetTimeline(ctx, {
-            ...args,
-            sourceState,
-            targetState,
-            sourceQuotaPeriods,
-            targetQuotaPeriods,
-            sourceUsageEvents,
-            targetUsageEvents,
-        });
-    }
-
-    const targetQuotaPeriodsByIdentity = new Map<string, Doc<"quota_periods">>();
-    for (const targetQuotaPeriod of [...targetQuotaPeriods].sort(
-        (left, right) => right.updated_at_ms - left.updated_at_ms
-    )) {
-        if (!isReusableQuotaPeriod(targetQuotaPeriod)) {
-            continue;
-        }
-
-        const identity = getQuotaPeriodMergeIdentity(targetQuotaPeriod);
-
-        if (!targetQuotaPeriodsByIdentity.has(identity)) {
-            targetQuotaPeriodsByIdentity.set(identity, targetQuotaPeriod);
-        }
-    }
-
-    const sourceQuotaPeriodIdRemap = new Map<Doc<"quota_periods">["_id"], Doc<"quota_periods">["_id"]>();
-
-    for (const sourceQuotaPeriod of sourceQuotaPeriods) {
-        const sourceIdentity = getQuotaPeriodMergeIdentity(sourceQuotaPeriod);
-        const matchingTargetQuotaPeriod = targetQuotaPeriodsByIdentity.get(sourceIdentity);
-
-        if (!matchingTargetQuotaPeriod) {
-            await ctx.db.patch(sourceQuotaPeriod._id, {
-                user_id: args.user_id,
-                updated_at_ms: args.now_ms,
-            });
-            sourceQuotaPeriodIdRemap.set(sourceQuotaPeriod._id, sourceQuotaPeriod._id);
-            targetQuotaPeriodsByIdentity.set(sourceIdentity, {
-                ...sourceQuotaPeriod,
-                user_id: args.user_id,
-                updated_at_ms: args.now_ms,
-            });
-            continue;
-        }
-
-        sourceQuotaPeriodIdRemap.set(sourceQuotaPeriod._id, matchingTargetQuotaPeriod._id);
-
-        const quotaPeriodPatch: MutableQuotaPeriodFields = {
-            updated_at_ms: args.now_ms,
-        };
-
-        if (sourceQuotaPeriod.status === "open" && matchingTargetQuotaPeriod.status !== "open") {
-            quotaPeriodPatch.status = "open";
-            quotaPeriodPatch.closed_at_ms = undefined;
-        }
-
-        await ctx.db.patch(matchingTargetQuotaPeriod._id, quotaPeriodPatch);
-        await mergeQuotaPeriodCountersIntoTarget(ctx, {
-            source_quota_period_id: sourceQuotaPeriod._id,
-            target_quota_period_id: matchingTargetQuotaPeriod._id,
-            now_ms: args.now_ms,
-        });
-
-        targetQuotaPeriodsByIdentity.set(sourceIdentity, {
-            ...matchingTargetQuotaPeriod,
-            ...quotaPeriodPatch,
-        });
-        await deleteQuotaPeriodCountersByQuotaPeriodId(ctx, sourceQuotaPeriod._id);
-        await ctx.db.delete(sourceQuotaPeriod._id);
-    }
-
-    const seenUsageEventIds = new Set<string>();
-    for (const usageEvent of [...sourceUsageEvents, ...targetUsageEvents]) {
-        const usageEventId = String(usageEvent._id);
-        if (seenUsageEventIds.has(usageEventId)) {
-            continue;
-        }
-        seenUsageEventIds.add(usageEventId);
-
-        if (usageEvent.user_id !== args.anonymous_user_id) {
-            continue;
-        }
-
-        const nextQuotaPeriodId = sourceQuotaPeriodIdRemap.get(usageEvent.quota_period_id) ?? usageEvent.quota_period_id;
-        const usageEventPatch: MutableUsageEventFields = {
-            user_id: args.user_id,
-            updated_at_ms: args.now_ms,
-        };
-
-        if (nextQuotaPeriodId !== usageEvent.quota_period_id) {
-            usageEventPatch.quota_period_id = nextQuotaPeriodId;
-        }
-
-        await ctx.db.patch(usageEvent._id, usageEventPatch);
-    }
-
-    const mergedTargetQuotaPeriods = await listQuotaPeriodsByUserId(ctx, args.user_id);
-
-    if (sourceState || targetState) {
-        const preferredState = selectPreferredLinkedSubscriptionState(sourceState, targetState);
-        const fallbackQuotaPeriodForStateSummary =
-            preferredState?.has_active_subscription === true
-                ? getMostRelevantQuotaPeriodForStateSummary(
-                      mergedTargetQuotaPeriods.filter(
-                          (quotaPeriod) =>
-                              doesQuotaPeriodMatchPreferredStatePeriod(
-                                  quotaPeriod,
-                                  preferredState.window_key,
-                                  preferredState.store_subscription_period_id
-                              )
-                      )
-                  )
-                : getMostRelevantQuotaPeriodForStateSummary(mergedTargetQuotaPeriods);
-        const mergedFreePeriodAnchorAtMs = resolveMergedFreePeriodAnchorAtMs(sourceState, targetState);
-        const mergedRevenueCatAppUserId = resolveMergedRevenueCatAppUserId(sourceState, targetState);
-        const mergedLastRevenueCatEvent = resolveMergedLastRevenueCatEventMetadata(sourceState, targetState);
-
-        if (preferredState) {
-            const nextState = {
-                ...preferredState,
-                user_id: args.user_id,
-                ...(fallbackQuotaPeriodForStateSummary && preferredState?.has_active_subscription !== true
-                    ? {
-                          window_type: fallbackQuotaPeriodForStateSummary.window_type,
-                          window_key: fallbackQuotaPeriodForStateSummary.window_key,
-                          window_start_at_ms: fallbackQuotaPeriodForStateSummary.period_start_at_ms,
-                          window_end_at_ms: fallbackQuotaPeriodForStateSummary.period_end_at_ms,
-                          plan_key: fallbackQuotaPeriodForStateSummary.plan_key,
-                          has_active_subscription: fallbackQuotaPeriodForStateSummary.active_subscription,
-                          ...(fallbackQuotaPeriodForStateSummary.active_subscription
-                              ? {
-                                    billing_cycle_start_at_ms:
-                                        fallbackQuotaPeriodForStateSummary.period_start_at_ms,
-                                    billing_cycle_end_at_ms:
-                                        fallbackQuotaPeriodForStateSummary.period_end_at_ms,
-                                }
-                              : {}),
-                          ...(fallbackQuotaPeriodForStateSummary.store_subscription_id
-                              ? {
-                                    store_subscription_id:
-                                        fallbackQuotaPeriodForStateSummary.store_subscription_id,
-                                }
-                              : {}),
-                          ...(fallbackQuotaPeriodForStateSummary.store_subscription_period_id
-                              ? {
-                                    store_subscription_period_id:
-                                        fallbackQuotaPeriodForStateSummary.store_subscription_period_id,
-                                }
-                              : {}),
-                          ...(fallbackQuotaPeriodForStateSummary.entitlement_id
-                              ? { entitlement_id: fallbackQuotaPeriodForStateSummary.entitlement_id }
-                              : {}),
-                          ...(fallbackQuotaPeriodForStateSummary.product_id
-                              ? { product_id: fallbackQuotaPeriodForStateSummary.product_id }
-                              : {}),
-                          ...(fallbackQuotaPeriodForStateSummary.store
-                              ? { store: fallbackQuotaPeriodForStateSummary.store }
-                              : {}),
-                          ...(fallbackQuotaPeriodForStateSummary.environment
-                              ? { environment: fallbackQuotaPeriodForStateSummary.environment }
-                              : {}),
-                      }
-                    : {}),
-                ...(mergedRevenueCatAppUserId
-                    ? { revenuecat_app_user_id: mergedRevenueCatAppUserId }
-                    : {}),
-                ...(isFiniteTimestampMs(mergedFreePeriodAnchorAtMs)
-                    ? { free_period_anchor_at_ms: mergedFreePeriodAnchorAtMs }
-                    : {}),
-                ...(mergedLastRevenueCatEvent.last_revenuecat_event_id
-                    ? { last_revenuecat_event_id: mergedLastRevenueCatEvent.last_revenuecat_event_id }
-                    : {}),
-                ...(typeof mergedLastRevenueCatEvent.last_revenuecat_event_at_ms === "number"
-                    ? {
-                          last_revenuecat_event_at_ms:
-                              mergedLastRevenueCatEvent.last_revenuecat_event_at_ms,
-                      }
-                    : {}),
-                created_at_ms: Math.min(
-                    sourceState?.created_at_ms ?? preferredState.created_at_ms,
-                    targetState?.created_at_ms ?? preferredState.created_at_ms
-                ),
-                updated_at_ms: args.now_ms,
-            };
-
-            if (targetState) {
-                const { _id: _, _creationTime: __, ...stateDocument } = nextState;
-                await ctx.db.replace(targetState._id, stateDocument);
-            } else if (sourceState) {
-                const { _id: _, _creationTime: __, ...stateDocument } = nextState;
-                await ctx.db.replace(sourceState._id, stateDocument);
-            }
-
-            if (sourceState && targetState && sourceState._id !== targetState._id) {
-                await ctx.db.delete(sourceState._id);
-            }
-        }
-    }
-
-    return {
-        status: resolveAnonymousQuotaLinkStatus({
-            sourceState,
-            targetState,
-            targetQuotaPeriods,
-            targetUsageEvents,
-        }),
-    } as const;
-}
-
-export const linkAnonymousSubscriptionStateToUser = mutation({
-    args: {
-        anonymous_user_id: v.string(),
-        user_id: v.string(),
-        now_ms: v.number(),
-    },
-    handler: async (ctx, args) => {
-        if (args.anonymous_user_id === args.user_id) {
-            return {
-                status: "skipped_same_user",
-            };
-        }
-
-        return mergeAnonymousQuotaDataIntoUser(ctx, args);
     },
 });
 
@@ -4313,7 +4534,7 @@ export const deferSubscriptionStateReconciliation = mutation({
         await ctx.db.patch(existingState._id, {
             stale_after_at_ms: args.next_attempt_at_ms,
             updated_at_ms: args.next_attempt_at_ms,
-        });
+        } as Record<string, unknown>);
 
         return {
             status: "deferred",

@@ -29,7 +29,11 @@ export function resolveForcedStoppedUsageEventTransition(args: {
     }
 
     if (!args.is_charged) {
-        return null;
+        return {
+            state: "user_stopped_before_charge",
+            stopped_at_ms: args.stopped_at_ms ?? args.now_ms,
+            updated_at_ms: args.now_ms,
+        };
     }
 
     return {

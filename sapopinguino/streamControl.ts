@@ -31,6 +31,20 @@ async function listUserStreamControls(
         .collect();
 }
 
+async function listLiveUserStreamControlsBatch(
+    ctx: Pick<MutationCtx, "db"> | Pick<QueryCtx, "db">,
+    userId: string,
+    nowMs: number,
+    limit: number
+) {
+    return ctx.db
+        .query("stream_controls")
+        .withIndex("by_user_id_and_lease_expires_at_ms", (query) =>
+            query.eq("user_id", userId).gt("lease_expires_at_ms", nowMs)
+        )
+        .take(Math.max(1, limit));
+}
+
 async function getStreamControlByOperation(
     ctx: Pick<MutationCtx, "db"> | Pick<QueryCtx, "db">,
     args: {
@@ -180,19 +194,22 @@ export const getUserStreamControlQuiescence = query({
         nowMs: v.number(),
     },
     handler: async (ctx, args) => {
-        const streamControls = await listUserStreamControls(ctx, args.userId);
-        let liveStreamControlCount = 0;
-
-        for (const streamControl of streamControls) {
-            if (isStreamControlLive(streamControl, args.nowMs)) {
-                liveStreamControlCount += 1;
-            }
-        }
+        const [streamControlSample, liveStreamControls] = await Promise.all([
+            ctx.db
+                .query("stream_controls")
+                .withIndex("by_user_id", (query) => query.eq("user_id", args.userId))
+                .take(500),
+            listLiveUserStreamControlsBatch(ctx, args.userId, args.nowMs, 1),
+        ]);
+        const liveStreamControlCount = liveStreamControls.length;
 
         return {
-            total_stream_control_count: streamControls.length,
+            total_stream_control_count: streamControlSample.length,
             live_stream_control_count: liveStreamControlCount,
-            orphaned_stream_control_count: streamControls.length - liveStreamControlCount,
+            orphaned_stream_control_count: Math.max(
+                0,
+                streamControlSample.length - liveStreamControlCount
+            ),
         };
     },
 });

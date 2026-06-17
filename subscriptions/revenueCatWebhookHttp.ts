@@ -1,3 +1,4 @@
+import { buildCorsResponseHeaders } from "../httpCors";
 import { parseString } from "../subscriptionsConfig";
 
 function normalizeBearerValue(value: string): string {
@@ -15,19 +16,28 @@ export function formatErrorMessage(error: unknown): string {
     return "Unknown error";
 }
 
-export function getRevenueCatWebhookResponseHeaders() {
-    return new Headers({
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+export function getRevenueCatWebhookResponseHeaders(request: Request) {
+    return buildCorsResponseHeaders(request, {
+        contentType: "application/json",
+        allowedMethods: "POST, OPTIONS",
     });
 }
 
-export function jsonRevenueCatWebhookResponse(status: number, payload: Record<string, unknown>) {
+export function jsonRevenueCatWebhookResponse(
+    request: Request,
+    status: number,
+    payload: Record<string, unknown>,
+    extraHeaders?: Record<string, string>
+) {
+    const headers = getRevenueCatWebhookResponseHeaders(request);
+
+    for (const [header, value] of Object.entries(extraHeaders ?? {})) {
+        headers.set(header, value);
+    }
+
     return new Response(JSON.stringify(payload), {
         status,
-        headers: getRevenueCatWebhookResponseHeaders(),
+        headers,
     });
 }
 

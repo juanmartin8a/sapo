@@ -6,14 +6,14 @@ import {
 } from "../subscriptionsWebhook";
 
 describe("RevenueCat webhook ingestion guards", () => {
-    it("prefers transferred users and ignores anonymous ids", () => {
+    it("prefers transferred users and ignores RevenueCat-generated ids", () => {
         expect(
             resolveRevenueCatWebhookTargetUserIds({
-                app_user_id: "$RCAnonymousID:anon",
+                app_user_id: "$RCAnonymousID:generated",
                 original_app_user_id: "user_original",
                 aliases: ["user_alias", "user_original"],
-                transferred_from: ["$RCAnonymousID:source_anon", "user_from"],
-                transferred_to: ["user_to", "$RCAnonymousID:target_anon"],
+                transferred_from: ["$RCAnonymousID:source_generated", "user_from"],
+                transferred_to: ["user_to", "$RCAnonymousID:target_generated"],
             })
         ).toEqual(["user_to", "user_from", "user_original", "user_alias"]);
     });

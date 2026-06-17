@@ -37,7 +37,7 @@ describe("user deletion usage event transitions", () => {
         });
     });
 
-    it("refuses to invent an after-charge stop for uncharged processing usage events", () => {
+    it("forces uncharged processing usage events into the before-charge stopped state", () => {
         expect(
             resolveForcedStoppedUsageEventTransition({
                 state: "processing",
@@ -45,6 +45,10 @@ describe("user deletion usage event transitions", () => {
                 is_charged: false,
                 now_ms: 1_000,
             })
-        ).toBeNull();
+        ).toEqual({
+            state: "user_stopped_before_charge",
+            stopped_at_ms: 1_000,
+            updated_at_ms: 1_000,
+        });
     });
 });

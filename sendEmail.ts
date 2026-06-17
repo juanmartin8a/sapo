@@ -19,3 +19,17 @@ export async function sendEmail(
         template: template,
     });
 }
+
+export async function sendOperationalAlertEmail(
+    ctx: any,
+    to: string,
+    subject: string,
+    text: string
+) {
+    await resend.sendEmail(ctx, {
+        from: "S A P O <donotreply@sapo.surf>",
+        to,
+        subject,
+        text,
+    });
+}

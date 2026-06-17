@@ -33,11 +33,16 @@ type SapopinguinoQuotaRecoveryEntry = {
     terminal_state: SapopinguinoQuotaRecoveryTerminalState;
     attempt_count: number;
     next_retry_at_ms: number;
+    lease_attempt_id: string;
+    lease_expires_at_ms: number;
     last_error?: string;
     status: "pending" | "dead_letter";
 };
 
 type SapopinguinoWorkerCtx = Pick<ActionCtx, "runQuery" | "runMutation">;
+
+const subscriptionsQuotaRecovery = (components.subscriptions as Record<string, unknown>)
+    .quotaRecovery as Record<string, unknown>;
 
 function formatErrorMessage(error: unknown): string {
     if (typeof error === "object" && error && "message" in error) {
@@ -50,6 +55,57 @@ function formatErrorMessage(error: unknown): string {
     return "Unknown error";
 }
 
+function createSapopinguinoQuotaRecoveryLeaseAttemptId(usageEventId: string) {
+    const randomSuffix = Math.random().toString(36).slice(2);
+
+    return `${usageEventId}:${Date.now().toString(36)}:${randomSuffix}`;
+}
+
+function getSapopinguinoQuotaRecoveryLeaseLostResult(args: {
+    attempt: number;
+    ownership_failure?: string;
+    next_retry_at_ms?: number;
+    lease_expires_at_ms?: number;
+}) {
+    return {
+        status: "lease_lost" as const,
+        attempt: args.attempt,
+        ownership_failure: args.ownership_failure,
+        next_retry_at_ms: args.next_retry_at_ms,
+        lease_expires_at_ms: args.lease_expires_at_ms,
+    };
+}
+
+function getSapopinguinoQuotaRecoveryMutationFailureResult(
+    result: {
+        missing?: boolean;
+        owner_mismatch?: boolean;
+        lease_expired?: boolean;
+        ownership_failure?: string;
+        next_retry_at_ms?: number;
+        lease_expires_at_ms?: number;
+    },
+    attempt: number
+) {
+    if (result.owner_mismatch || result.lease_expired || result.ownership_failure) {
+        return getSapopinguinoQuotaRecoveryLeaseLostResult({
+            attempt,
+            ownership_failure: result.ownership_failure,
+            next_retry_at_ms: result.next_retry_at_ms,
+            lease_expires_at_ms: result.lease_expires_at_ms,
+        });
+    }
+
+    if (result.missing) {
+        return {
+            status: "missing" as const,
+            attempt,
+        };
+    }
+
+    return null;
+}
+
 async function listDueSapopinguinoQuotaRecoveryUsageEventIds(
     ctx: SapopinguinoWorkerCtx,
     args: {
@@ -58,8 +114,7 @@ async function listDueSapopinguinoQuotaRecoveryUsageEventIds(
     }
 ) {
     return (await (ctx as any).runQuery(
-        ((components.sapopinguino as Record<string, unknown>).quotaRecovery as Record<string, unknown>)
-            .listDueQuotaFinalizationRecoveries,
+        subscriptionsQuotaRecovery.listDueQuotaFinalizationRecoveries,
         {
             nowMs: args.now_ms,
             limit: args.limit,
@@ -75,17 +130,16 @@ async function acquireSapopinguinoQuotaRecoveryByUsageEventId(
     ctx: SapopinguinoWorkerCtx,
     usageEventId: string,
     args: {
-        now_ms: number;
-        lease_expires_at_ms: number;
+        lease_attempt_id: string;
+        lease_duration_ms: number;
     }
 ) {
     return (await (ctx as any).runMutation(
-        ((components.sapopinguino as Record<string, unknown>).quotaRecovery as Record<string, unknown>)
-            .acquireQuotaFinalizationRecovery,
+        subscriptionsQuotaRecovery.acquireQuotaFinalizationRecovery,
         {
             usageEventId,
-            nowMs: args.now_ms,
-            leaseExpiresAtMs: args.lease_expires_at_ms,
+            leaseAttemptId: args.lease_attempt_id,
+            leaseDurationMs: args.lease_duration_ms,
         }
     )) as
         | {
@@ -113,8 +167,7 @@ async function enqueueSapopinguinoQuotaRecoveryByUsageEventId(
     }
 ) {
     return (await (ctx as any).runMutation(
-        ((components.sapopinguino as Record<string, unknown>).quotaRecovery as Record<string, unknown>)
-            .enqueueQuotaFinalizationRecovery,
+        subscriptionsQuotaRecovery.enqueueQuotaFinalizationRecovery,
         {
             usageEventId: args.usage_event_id,
             terminalState: args.terminal_state,
@@ -127,7 +180,8 @@ async function enqueueSapopinguinoQuotaRecoveryByUsageEventId(
     )) as {
         attempt_count: number;
         next_retry_at_ms: number;
-        status: "pending" | "dead_letter";
+        lease_expires_at_ms?: number;
+        status: "pending" | "dead_letter" | "missing_usage_event" | "lease_active";
     };
 }
 
@@ -135,6 +189,7 @@ async function updateSapopinguinoQuotaRecoveryByUsageEventId(
     ctx: SapopinguinoWorkerCtx,
     args: {
         usage_event_id: string;
+        lease_attempt_id: string;
         now_ms: number;
         status: "pending" | "dead_letter";
         attempt_count: number;
@@ -143,10 +198,10 @@ async function updateSapopinguinoQuotaRecoveryByUsageEventId(
     }
 ) {
     return (await (ctx as any).runMutation(
-        ((components.sapopinguino as Record<string, unknown>).quotaRecovery as Record<string, unknown>)
-            .updateQuotaFinalizationRecovery,
+        subscriptionsQuotaRecovery.updateQuotaFinalizationRecovery,
         {
             usageEventId: args.usage_event_id,
+            leaseAttemptId: args.lease_attempt_id,
             nowMs: args.now_ms,
             status: args.status,
             attemptCount: args.attempt_count,
@@ -161,21 +216,37 @@ async function updateSapopinguinoQuotaRecoveryByUsageEventId(
         status?: "pending" | "dead_letter";
         attempt_count?: number;
         next_retry_at_ms?: number;
+        lease_expires_at_ms?: number;
+        owner_mismatch?: boolean;
+        lease_expired?: boolean;
+        ownership_failure?: string;
     };
 }
 
 async function clearSapopinguinoQuotaRecoveryByUsageEventId(
     ctx: SapopinguinoWorkerCtx,
-    usageEventId: string
+    usageEventId: string,
+    args: {
+        lease_attempt_id: string;
+        now_ms: number;
+    }
 ) {
     return (await (ctx as any).runMutation(
-        ((components.sapopinguino as Record<string, unknown>).quotaRecovery as Record<string, unknown>)
-            .clearQuotaFinalizationRecovery,
+        subscriptionsQuotaRecovery.clearQuotaFinalizationRecovery,
         {
             usageEventId,
+            leaseAttemptId: args.lease_attempt_id,
+            nowMs: args.now_ms,
         }
     )) as {
         deleted_count: number;
+        missing?: boolean;
+        status?: "pending" | "dead_letter";
+        next_retry_at_ms?: number;
+        lease_expires_at_ms?: number;
+        owner_mismatch?: boolean;
+        lease_expired?: boolean;
+        ownership_failure?: string;
     };
 }
 
@@ -251,12 +322,13 @@ async function processSapopinguinoQuotaFinalizationRecoveryByUsageEventId(
         now_ms: number;
     }
 ) {
+    const leaseAttemptId = createSapopinguinoQuotaRecoveryLeaseAttemptId(args.usage_event_id);
     const acquiredRecovery = await acquireSapopinguinoQuotaRecoveryByUsageEventId(
         ctx,
         args.usage_event_id,
         {
-            now_ms: args.now_ms,
-            lease_expires_at_ms: args.now_ms + SAPOPINGUINO_QUOTA_RECOVERY_LEASE_MS,
+            lease_attempt_id: leaseAttemptId,
+            lease_duration_ms: SAPOPINGUINO_QUOTA_RECOVERY_LEASE_MS,
         }
     );
 
@@ -288,7 +360,22 @@ async function processSapopinguinoQuotaFinalizationRecoveryByUsageEventId(
         });
 
         if (recoveryDisposition.kind === "succeeded" || recoveryDisposition.kind === "missing") {
-            await clearSapopinguinoQuotaRecoveryByUsageEventId(ctx, args.usage_event_id);
+            const clearResult = await clearSapopinguinoQuotaRecoveryByUsageEventId(
+                ctx,
+                args.usage_event_id,
+                {
+                    lease_attempt_id: leaseAttemptId,
+                    now_ms: Date.now(),
+                }
+            );
+            const clearFailure = getSapopinguinoQuotaRecoveryMutationFailureResult(
+                clearResult,
+                recovery.attempt_count
+            );
+
+            if (clearFailure) {
+                return clearFailure;
+            }
 
             return {
                 status: recoveryDisposition.kind,
@@ -302,14 +389,23 @@ async function processSapopinguinoQuotaFinalizationRecoveryByUsageEventId(
         if (recoveryDisposition.kind === "terminal_mismatch") {
             const errorMessage = `terminal_mismatch:${recoveryDisposition.state}`;
 
-            await updateSapopinguinoQuotaRecoveryByUsageEventId(ctx, {
+            const updateResult = await updateSapopinguinoQuotaRecoveryByUsageEventId(ctx, {
                 usage_event_id: args.usage_event_id,
+                lease_attempt_id: leaseAttemptId,
                 now_ms: args.now_ms,
                 status: "dead_letter",
                 attempt_count: nextAttemptCount,
                 next_retry_at_ms: args.now_ms,
                 last_error: errorMessage,
             });
+            const updateFailure = getSapopinguinoQuotaRecoveryMutationFailureResult(
+                updateResult,
+                nextAttemptCount
+            );
+
+            if (updateFailure) {
+                return updateFailure;
+            }
 
             console.error("Sapopinguino quota recovery reached a different terminal state", {
                 usageEventId: args.usage_event_id,
@@ -328,14 +424,23 @@ async function processSapopinguinoQuotaFinalizationRecoveryByUsageEventId(
         const errorMessage = recoveryDisposition.reason;
 
         if (hasReachedSapopinguinoQuotaRecoveryAttemptLimit(nextAttemptCount)) {
-            await updateSapopinguinoQuotaRecoveryByUsageEventId(ctx, {
+            const updateResult = await updateSapopinguinoQuotaRecoveryByUsageEventId(ctx, {
                 usage_event_id: args.usage_event_id,
+                lease_attempt_id: leaseAttemptId,
                 now_ms: args.now_ms,
                 status: "dead_letter",
                 attempt_count: nextAttemptCount,
                 next_retry_at_ms: args.now_ms,
                 last_error: errorMessage,
             });
+            const updateFailure = getSapopinguinoQuotaRecoveryMutationFailureResult(
+                updateResult,
+                nextAttemptCount
+            );
+
+            if (updateFailure) {
+                return updateFailure;
+            }
 
             console.error("Sapopinguino quota recovery exhausted retry attempts", {
                 usageEventId: args.usage_event_id,
@@ -367,14 +472,23 @@ async function processSapopinguinoQuotaFinalizationRecoveryByUsageEventId(
         });
         const nextRetryAtMs = args.now_ms + getSapopinguinoQuotaRecoveryDelayMs(nextAttemptCount);
 
-        await updateSapopinguinoQuotaRecoveryByUsageEventId(ctx, {
+        const updateResult = await updateSapopinguinoQuotaRecoveryByUsageEventId(ctx, {
             usage_event_id: args.usage_event_id,
+            lease_attempt_id: leaseAttemptId,
             now_ms: args.now_ms,
             status: "pending",
             attempt_count: nextAttemptCount,
             next_retry_at_ms: nextRetryAtMs,
             last_error: errorMessage,
         });
+        const updateFailure = getSapopinguinoQuotaRecoveryMutationFailureResult(
+            updateResult,
+            nextAttemptCount
+        );
+
+        if (updateFailure) {
+            return updateFailure;
+        }
 
         console.warn("Scheduled sapopinguino quota recovery retry", {
             usageEventId: args.usage_event_id,
@@ -400,14 +514,23 @@ async function processSapopinguinoQuotaFinalizationRecoveryByUsageEventId(
         const errorMessage = formatErrorMessage(error);
 
         if (hasReachedSapopinguinoQuotaRecoveryAttemptLimit(nextAttemptCount)) {
-            await updateSapopinguinoQuotaRecoveryByUsageEventId(ctx, {
+            const updateResult = await updateSapopinguinoQuotaRecoveryByUsageEventId(ctx, {
                 usage_event_id: args.usage_event_id,
+                lease_attempt_id: leaseAttemptId,
                 now_ms: args.now_ms,
                 status: "dead_letter",
                 attempt_count: nextAttemptCount,
                 next_retry_at_ms: args.now_ms,
                 last_error: errorMessage,
             });
+            const updateFailure = getSapopinguinoQuotaRecoveryMutationFailureResult(
+                updateResult,
+                nextAttemptCount
+            );
+
+            if (updateFailure) {
+                return updateFailure;
+            }
 
             console.error("Sapopinguino quota recovery attempt dead-lettered after exception", {
                 usageEventId: args.usage_event_id,
@@ -438,14 +561,23 @@ async function processSapopinguinoQuotaFinalizationRecoveryByUsageEventId(
         });
         const nextRetryAtMs = args.now_ms + getSapopinguinoQuotaRecoveryDelayMs(nextAttemptCount);
 
-        await updateSapopinguinoQuotaRecoveryByUsageEventId(ctx, {
+        const updateResult = await updateSapopinguinoQuotaRecoveryByUsageEventId(ctx, {
             usage_event_id: args.usage_event_id,
+            lease_attempt_id: leaseAttemptId,
             now_ms: args.now_ms,
             status: "pending",
             attempt_count: nextAttemptCount,
             next_retry_at_ms: nextRetryAtMs,
             last_error: errorMessage,
         });
+        const updateFailure = getSapopinguinoQuotaRecoveryMutationFailureResult(
+            updateResult,
+            nextAttemptCount
+        );
+
+        if (updateFailure) {
+            return updateFailure;
+        }
 
         console.error("Sapopinguino quota recovery attempt failed", {
             usageEventId: args.usage_event_id,
@@ -488,18 +620,32 @@ export const processQueuedSapopinguinoQuotaFinalizationRecoveries = internalActi
             now_ms: startedAtMs,
             limit: SAPOPINGUINO_QUOTA_RECOVERY_BATCH_LIMIT,
         });
-        const results: { usage_event_id: string; status: string }[] = [];
+        const results: { usage_event_id: string; status: string; error?: string }[] = [];
 
         for (const dueRecovery of dueRecoveries) {
-            const result = await processSapopinguinoQuotaFinalizationRecoveryByUsageEventId(ctx, {
-                usage_event_id: dueRecovery.usage_event_id,
-                now_ms: Date.now(),
-            });
+            try {
+                const result = await processSapopinguinoQuotaFinalizationRecoveryByUsageEventId(ctx, {
+                    usage_event_id: dueRecovery.usage_event_id,
+                    now_ms: Date.now(),
+                });
 
-            results.push({
-                usage_event_id: dueRecovery.usage_event_id,
-                status: result.status,
-            });
+                results.push({
+                    usage_event_id: dueRecovery.usage_event_id,
+                    status: result.status,
+                });
+            } catch (error) {
+                const errorMessage = formatErrorMessage(error);
+
+                console.warn("Failed to process queued sapopinguino quota recovery", {
+                    usage_event_id: dueRecovery.usage_event_id,
+                    error: errorMessage,
+                });
+                results.push({
+                    usage_event_id: dueRecovery.usage_event_id,
+                    status: "failed",
+                    error: errorMessage,
+                });
+            }
         }
 
         return {
@@ -521,12 +667,20 @@ export const reconcileUsageEventQuotaApplication = internalAction({
         const nowMs = Date.now();
 
         if (args.terminal_state) {
-            await enqueueSapopinguinoQuotaRecoveryByUsageEventId(ctx, {
+            const enqueueResult = await enqueueSapopinguinoQuotaRecoveryByUsageEventId(ctx, {
                 usage_event_id: args.usage_event_id,
                 terminal_state: args.terminal_state,
                 now_ms: nowMs,
                 next_retry_at_ms: nowMs,
             });
+
+            if (enqueueResult.status === "lease_active") {
+                return {
+                    status: "lease_active" as const,
+                    next_retry_at_ms: enqueueResult.next_retry_at_ms,
+                    lease_expires_at_ms: enqueueResult.lease_expires_at_ms,
+                };
+            }
 
             return processSapopinguinoQuotaFinalizationRecoveryByUsageEventId(ctx, {
                 usage_event_id: args.usage_event_id,

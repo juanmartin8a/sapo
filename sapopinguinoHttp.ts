@@ -1,6 +1,7 @@
 import { components, internal } from "./_generated/api";
 import { httpAction } from "./_generated/server";
-import { authenticatedOrAnonymousHttpAction } from "./httpAuth";
+import { buildCorsResponseHeaders, isAllowedCorsRequest } from "./httpCors";
+import { authenticatedHttpAction } from "./httpAuth";
 import {
     STREAM_REGISTRATION_DELETION_ERROR,
     STREAM_REGISTRATION_MISSING_USER_ERROR,
@@ -50,15 +51,19 @@ function isSapopinguinoStreamOperation(value: unknown): value is SapopinguinoStr
     return value === "translate" || value === "respell";
 }
 
-function responseHeaders(contentType = "text/plain; charset=utf-8") {
-    return new Headers({
-        "Content-Type": contentType,
-        "Cache-Control": "no-cache, no-transform",
-        Connection: "keep-alive",
-        "Access-Control-Allow-Origin": process.env.CLIENT_ORIGIN ?? "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        Vary: "Origin",
+function responseHeaders(
+    request: Request,
+    contentType = "text/plain; charset=utf-8",
+    extraHeaders: Record<string, string> = {}
+) {
+    return buildCorsResponseHeaders(request, {
+        contentType,
+        cacheControl: "no-cache, no-transform",
+        allowedMethods: "POST, OPTIONS",
+        extraHeaders: {
+            Connection: "keep-alive",
+            ...extraHeaders,
+        },
     });
 }
 
@@ -75,7 +80,7 @@ function getQuotaErrorMessage(reason: string) {
     }
 }
 
-export function sapopinguinoQuotaErrorResponse(status: number, reason: string) {
+export function sapopinguinoQuotaErrorResponse(request: Request, status: number, reason: string) {
     const payload: SapopinguinoQuotaErrorPayload = {
         error: reason,
         message: getQuotaErrorMessage(reason),
@@ -83,7 +88,7 @@ export function sapopinguinoQuotaErrorResponse(status: number, reason: string) {
 
     return new Response(JSON.stringify(payload), {
         status,
-        headers: responseHeaders("application/json; charset=utf-8"),
+        headers: responseHeaders(request, "application/json; charset=utf-8"),
     });
 }
 
@@ -91,25 +96,41 @@ function enqueueLine(controller: ReadableStreamDefaultController<Uint8Array>, en
     controller.enqueue(encoder.encode(`${line}\n`));
 }
 
-export const sapopinguinoOptions = httpAction(async () => {
+export const sapopinguinoOptions = httpAction(async (_ctx, request) => {
+    if (!isAllowedCorsRequest(request)) {
+        return new Response(null, {
+            status: 403,
+            headers: responseHeaders(request),
+        });
+    }
+
     return new Response(null, {
         status: 204,
-        headers: responseHeaders(),
+        headers: responseHeaders(request),
     });
 });
 
-export const sapopinguinoStopOptions = httpAction(async () => {
+export const sapopinguinoStopOptions = httpAction(async (_ctx, request) => {
+    if (!isAllowedCorsRequest(request)) {
+        return new Response(null, {
+            status: 403,
+            headers: responseHeaders(request, "application/json; charset=utf-8"),
+        });
+    }
+
     return new Response(null, {
         status: 204,
-        headers: responseHeaders("application/json; charset=utf-8"),
+        headers: responseHeaders(request, "application/json; charset=utf-8"),
     });
 });
 
-export const sapopinguino = authenticatedOrAnonymousHttpAction(async (ctx, request, auth) => {
+export const sapopinguino = authenticatedHttpAction(async (ctx, request, auth) => {
     if (request.method !== "POST") {
         return new Response("Method not allowed", {
             status: 405,
-            headers: responseHeaders(),
+            headers: responseHeaders(request, "text/plain; charset=utf-8", {
+                Allow: "POST, OPTIONS",
+            }),
         });
     }
 
@@ -117,7 +138,7 @@ export const sapopinguino = authenticatedOrAnonymousHttpAction(async (ctx, reque
     if (!bodyResult.ok) {
         return new Response(STREAM_ERROR_MARKER, {
             status: bodyResult.status,
-            headers: responseHeaders(),
+            headers: responseHeaders(request),
         });
     }
 
@@ -126,7 +147,7 @@ export const sapopinguino = authenticatedOrAnonymousHttpAction(async (ctx, reque
     if (typeof body.input !== "string" || body.input.length === 0) {
         return new Response(STREAM_ERROR_MARKER, {
             status: 400,
-            headers: responseHeaders(),
+            headers: responseHeaders(request),
         });
     }
 
@@ -135,42 +156,47 @@ export const sapopinguino = authenticatedOrAnonymousHttpAction(async (ctx, reque
     if (!sanitizedInput) {
         return new Response(STREAM_ERROR_MARKER, {
             status: 400,
-            headers: responseHeaders(),
+            headers: responseHeaders(request),
         });
     }
 
     if (typeof body.streamId !== "string" || !isValidSapopinguinoStreamId(body.streamId)) {
         return new Response(STREAM_ERROR_MARKER, {
             status: 400,
-            headers: responseHeaders(),
+            headers: responseHeaders(request),
         });
     }
 
-    if (!auth.isAnonymous) {
-        const refreshResult = await ctx.runAction(
-            internal.subscriptionsWorkers.refreshSubscriptionStateFromRevenueCat,
-            {
-                user_id: auth.userId,
-            }
-        );
-
-        if (refreshResult.status === "refresh_failed" && refreshResult.should_block_requests) {
-            return new Response(STREAM_ERROR_MARKER, {
-                status: 503,
-                headers: responseHeaders(),
-            });
+    const refreshResult = await ctx.runAction(
+        internal.subscriptionsWorkers.refreshSubscriptionStateFromRevenueCat,
+        {
+            user_id: auth.userId,
         }
+    );
 
-        if (refreshResult.status === "deletion_in_progress") {
-            return sapopinguinoQuotaErrorResponse(409, "user_deletion_in_progress");
-        }
+    if (refreshResult.status === "refresh_failed" && refreshResult.should_block_requests) {
+        return new Response(STREAM_ERROR_MARKER, {
+            status: 503,
+            headers: responseHeaders(request),
+        });
+    }
 
-        if (refreshResult.status === "user_missing") {
-            return new Response(STREAM_ERROR_MARKER, {
-                status: 409,
-                headers: responseHeaders(),
-            });
-        }
+    if (refreshResult.status === "deletion_in_progress") {
+        return sapopinguinoQuotaErrorResponse(request, 409, "user_deletion_in_progress");
+    }
+
+    if (refreshResult.status === "user_missing") {
+        return new Response(STREAM_ERROR_MARKER, {
+            status: 409,
+            headers: responseHeaders(request),
+        });
+    }
+
+    if (refreshResult.status === "pending_active" || refreshResult.status === "sync_in_progress") {
+        return new Response(STREAM_ERROR_MARKER, {
+            status: 425,
+            headers: responseHeaders(request),
+        });
     }
 
     let usageEventId: Id<"usage_events"> | null = null;
@@ -187,6 +213,7 @@ export const sapopinguino = authenticatedOrAnonymousHttpAction(async (ctx, reque
 
         if (quotaReservation.status === "blocked") {
             return sapopinguinoQuotaErrorResponse(
+                request,
                 quotaReservation.httpStatus,
                 quotaReservation.reason
             );
@@ -195,7 +222,7 @@ export const sapopinguino = authenticatedOrAnonymousHttpAction(async (ctx, reque
         if (quotaReservation.status === "error") {
             return new Response(STREAM_ERROR_MARKER, {
                 status: 500,
-                headers: responseHeaders(),
+                headers: responseHeaders(request),
             });
         }
 
@@ -203,7 +230,7 @@ export const sapopinguino = authenticatedOrAnonymousHttpAction(async (ctx, reque
     } catch {
         return new Response(STREAM_ERROR_MARKER, {
             status: 500,
-            headers: responseHeaders(),
+            headers: responseHeaders(request),
         });
     }
 
@@ -229,12 +256,12 @@ export const sapopinguino = authenticatedOrAnonymousHttpAction(async (ctx, reque
         }
 
         if (isDeletionBlockedError) {
-            return sapopinguinoQuotaErrorResponse(409, "user_deletion_in_progress");
+            return sapopinguinoQuotaErrorResponse(request, 409, "user_deletion_in_progress");
         }
 
         return new Response(STREAM_ERROR_MARKER, {
             status: isMissingUserError ? 409 : 500,
-            headers: responseHeaders(),
+            headers: responseHeaders(request),
         });
     }
 
@@ -264,19 +291,17 @@ export const sapopinguino = authenticatedOrAnonymousHttpAction(async (ctx, reque
             }).catch((error) => {
                 console.error("Failed to maintain sapopinguino stream control lease:", error);
             });
-            const stopMonitor = auth.isAnonymous
-                ? null
-                : monitorSapopinguinoStreamStopSignal(ctx, {
-                      streamId,
-                      userId: auth.userId,
-                      operation,
-                      upstreamAbortController,
-                      onStopRequested: () => {
-                          stopRequested = true;
-                      },
-                  }).catch((error) => {
-                      console.error("Failed to monitor sapopinguino stream stop state:", error);
-                  });
+            const stopMonitor = monitorSapopinguinoStreamStopSignal(ctx, {
+                streamId,
+                userId: auth.userId,
+                operation,
+                upstreamAbortController,
+                onStopRequested: () => {
+                    stopRequested = true;
+                },
+            }).catch((error) => {
+                console.error("Failed to monitor sapopinguino stream stop state:", error);
+            });
 
             if (request.signal.aborted) {
                 abortUpstream();
@@ -405,15 +430,17 @@ export const sapopinguino = authenticatedOrAnonymousHttpAction(async (ctx, reque
 
     return new Response(stream, {
         status: 200,
-        headers: responseHeaders(),
+        headers: responseHeaders(request),
     });
 }, responseHeaders);
 
-export const sapopinguinoStop = authenticatedOrAnonymousHttpAction(async (ctx, request, auth) => {
+export const sapopinguinoStop = authenticatedHttpAction(async (ctx, request, auth) => {
     if (request.method !== "POST") {
         return new Response(JSON.stringify({ ok: false }), {
             status: 405,
-            headers: responseHeaders("application/json; charset=utf-8"),
+            headers: responseHeaders(request, "application/json; charset=utf-8", {
+                Allow: "POST, OPTIONS",
+            }),
         });
     }
 
@@ -421,7 +448,7 @@ export const sapopinguinoStop = authenticatedOrAnonymousHttpAction(async (ctx, r
     if (!bodyResult.ok) {
         return new Response(JSON.stringify({ ok: false }), {
             status: bodyResult.status,
-            headers: responseHeaders("application/json; charset=utf-8"),
+            headers: responseHeaders(request, "application/json; charset=utf-8"),
         });
     }
 
@@ -430,14 +457,14 @@ export const sapopinguinoStop = authenticatedOrAnonymousHttpAction(async (ctx, r
     if (typeof body.streamId !== "string" || !isValidSapopinguinoStreamId(body.streamId)) {
         return new Response(JSON.stringify({ ok: false }), {
             status: 400,
-            headers: responseHeaders("application/json; charset=utf-8"),
+            headers: responseHeaders(request, "application/json; charset=utf-8"),
         });
     }
 
     if (!isSapopinguinoStreamOperation(body.operation)) {
         return new Response(JSON.stringify({ ok: false }), {
             status: 400,
-            headers: responseHeaders("application/json; charset=utf-8"),
+            headers: responseHeaders(request, "application/json; charset=utf-8"),
         });
     }
 
@@ -452,19 +479,19 @@ export const sapopinguinoStop = authenticatedOrAnonymousHttpAction(async (ctx, r
         if (!result.accepted) {
             return new Response(JSON.stringify({ ok: false }), {
                 status: 409,
-                headers: responseHeaders("application/json; charset=utf-8"),
+                headers: responseHeaders(request, "application/json; charset=utf-8"),
             });
         }
     } catch (error) {
         console.error("Failed to request sapopinguino stop:", error);
         return new Response(JSON.stringify({ ok: false }), {
             status: 500,
-            headers: responseHeaders("application/json; charset=utf-8"),
+            headers: responseHeaders(request, "application/json; charset=utf-8"),
         });
     }
 
     return new Response(JSON.stringify({ ok: true }), {
         status: 202,
-        headers: responseHeaders("application/json; charset=utf-8"),
+        headers: responseHeaders(request, "application/json; charset=utf-8"),
     });
-}, () => responseHeaders("application/json; charset=utf-8"));
+}, (request) => responseHeaders(request, "application/json; charset=utf-8"));

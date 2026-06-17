@@ -1,5 +1,7 @@
 import { components, internal } from "./_generated/api";
 import { httpAction, type ActionCtx } from "./_generated/server";
+import { isAllowedCorsRequest } from "./httpCors";
+import { readBoundedJsonRequestBody } from "./httpRequestBody";
 
 import {
     buildRevenueCatWebhookEventForIngestion,
@@ -19,6 +21,8 @@ import {
     jsonRevenueCatWebhookResponse,
 } from "./subscriptions/revenueCatWebhookHttp";
 import type { UserDeletionQueueStatus } from "./userDeletionQueue";
+
+const MAX_REVENUECAT_WEBHOOK_REQUEST_BODY_BYTES = 256 * 1024;
 
 export {
     resolveRevenueCatWebhookTargetUserIds,
@@ -75,44 +79,66 @@ async function resolveEligibleRevenueCatWebhookUserIds(
     };
 }
 
-export const revenueCatWebhookOptions = httpAction(async () => {
+export const revenueCatWebhookOptions = httpAction(async (_ctx, request) => {
+    if (!isAllowedCorsRequest(request)) {
+        return new Response(null, {
+            status: 403,
+            headers: getRevenueCatWebhookResponseHeaders(request),
+        });
+    }
+
     return new Response(null, {
         status: 204,
-        headers: getRevenueCatWebhookResponseHeaders(),
+        headers: getRevenueCatWebhookResponseHeaders(request),
     });
 });
 
 export const revenueCatWebhook = httpAction(async (ctx, request) => {
+    if (!isAllowedCorsRequest(request)) {
+        return jsonRevenueCatWebhookResponse(request, 403, {
+            ok: false,
+            error: "Forbidden origin",
+        });
+    }
+
     if (request.method !== "POST") {
-        return jsonRevenueCatWebhookResponse(405, {
+        return jsonRevenueCatWebhookResponse(request, 405, {
             ok: false,
             error: "Method not allowed",
+        }, {
+            Allow: "POST, OPTIONS",
         });
     }
 
     if (!isAuthorizedRevenueCatWebhookRequest(request)) {
-        return jsonRevenueCatWebhookResponse(401, {
+        return jsonRevenueCatWebhookResponse(request, 401, {
             ok: false,
             error: "Unauthorized webhook",
         });
     }
 
     let payload: unknown;
+    const payloadResult = await readBoundedJsonRequestBody<unknown>(request, {
+        maxBytes: MAX_REVENUECAT_WEBHOOK_REQUEST_BODY_BYTES,
+    });
 
-    try {
-        payload = await request.json();
-    } catch {
-        return jsonRevenueCatWebhookResponse(400, {
+    if (!payloadResult.ok) {
+        return jsonRevenueCatWebhookResponse(request, payloadResult.status, {
             ok: false,
-            error: "Invalid JSON payload",
+            error:
+                payloadResult.status === 413
+                    ? "Request body too large"
+                    : "Invalid JSON payload",
         });
     }
+
+    payload = payloadResult.body;
 
     const receivedAtMs = Date.now();
     const normalizedEvent = normalizeRevenueCatWebhookEvent(payload, receivedAtMs);
 
     if (!normalizedEvent) {
-        return jsonRevenueCatWebhookResponse(400, {
+        return jsonRevenueCatWebhookResponse(request, 400, {
             ok: false,
             error: "Invalid RevenueCat event payload",
         });
@@ -129,7 +155,7 @@ export const revenueCatWebhook = httpAction(async (ctx, request) => {
             })
         );
 
-        return jsonRevenueCatWebhookResponse(200, {
+        return jsonRevenueCatWebhookResponse(request, 200, {
             ok: true,
             skipped: true,
         });
@@ -166,7 +192,7 @@ export const revenueCatWebhook = httpAction(async (ctx, request) => {
         );
     }
 
-    return jsonRevenueCatWebhookResponse(200, {
+    return jsonRevenueCatWebhookResponse(request, 200, {
         ok: true,
     });
 });

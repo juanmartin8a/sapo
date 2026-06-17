@@ -1,6 +1,8 @@
 import { v } from "convex/values";
 
+import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { getExclusiveLeaseOwnershipFailure } from "./leaseOwnership";
 
 const quotaTerminalStateValidator = v.union(
     v.literal("completed"),
@@ -19,13 +21,15 @@ type QuotaTerminalState =
     | "user_stopped_after_charge";
 
 type QuotaRecoveryStatus = "pending" | "dead_letter";
+type UsageEventId = Id<"usage_events">;
 
 type QuotaRecoveryEntry = {
-    usage_event_id: string;
+    usage_event_id: UsageEventId;
     terminal_state: QuotaTerminalState;
     status: QuotaRecoveryStatus;
     attempt_count: number;
     next_retry_at_ms: number;
+    lease_attempt_id?: string;
     lease_expires_at_ms?: number;
     last_error?: string;
     created_at_ms: number;
@@ -34,7 +38,7 @@ type QuotaRecoveryEntry = {
 
 async function listQuotaRecoveriesByUsageEventId(
     ctx: Pick<MutationCtx, "db"> | Pick<QueryCtx, "db">,
-    usageEventId: string
+    usageEventId: UsageEventId
 ) {
     return ctx.db
         .query("quota_finalization_recoveries")
@@ -58,9 +62,26 @@ function getLatestQuotaRecoveryEntry<
     })[0] ?? null;
 }
 
+function getQuotaRecoveryLeaseOwnershipFailure(args: {
+    entry: QuotaRecoveryEntry;
+    leaseAttemptId: string;
+    nowMs: number;
+}) {
+    if (args.entry.status !== "pending") {
+        return "owner_mismatch" as const;
+    }
+
+    return getExclusiveLeaseOwnershipFailure({
+        current_attempt_id: args.entry.lease_attempt_id,
+        attempt_id: args.leaseAttemptId,
+        lease_expires_at_ms: args.entry.lease_expires_at_ms,
+        now_ms: args.nowMs,
+    });
+}
+
 async function replaceQuotaRecoveryEntry(
     ctx: MutationCtx,
-    usageEventId: string,
+    usageEventId: UsageEventId,
     nextEntry: QuotaRecoveryEntry
 ) {
     const existingEntries = await listQuotaRecoveriesByUsageEventId(ctx, usageEventId);
@@ -87,17 +108,56 @@ async function replaceQuotaRecoveryEntry(
     };
 }
 
+export async function deleteQuotaFinalizationRecoveriesByUsageEventId(
+    ctx: MutationCtx,
+    usageEventId: Doc<"usage_events">["_id"]
+) {
+    const entries = await listQuotaRecoveriesByUsageEventId(ctx, usageEventId);
+
+    for (const entry of entries) {
+        await ctx.db.delete(entry._id);
+    }
+
+    return entries.length;
+}
+
 export const enqueueQuotaFinalizationRecovery = mutation({
     args: {
-        usageEventId: v.string(),
+        usageEventId: v.id("usage_events"),
         terminalState: quotaTerminalStateValidator,
         nowMs: v.number(),
         nextRetryAtMs: v.optional(v.number()),
         lastError: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
+        const usageEvent = await ctx.db.get(args.usageEventId);
+
+        if (!usageEvent) {
+            return {
+                recovery_id: null,
+                attempt_count: 0,
+                next_retry_at_ms: args.nextRetryAtMs ?? args.nowMs,
+                status: "missing_usage_event" as const,
+            };
+        }
+
         const existingEntries = await listQuotaRecoveriesByUsageEventId(ctx, args.usageEventId);
         const latestEntry = getLatestQuotaRecoveryEntry(existingEntries);
+
+        if (
+            latestEntry?.status === "pending" &&
+            typeof latestEntry.lease_expires_at_ms === "number" &&
+            latestEntry.lease_expires_at_ms > Date.now()
+        ) {
+            return {
+                recovery_id: latestEntry._id,
+                attempt_count: latestEntry.attempt_count,
+                next_retry_at_ms: latestEntry.next_retry_at_ms,
+                lease_expires_at_ms: latestEntry.lease_expires_at_ms,
+                status: "lease_active" as const,
+            };
+        }
+
         const nextEntry: QuotaRecoveryEntry = {
             usage_event_id: args.usageEventId,
             terminal_state: args.terminalState,
@@ -147,16 +207,44 @@ export const listDueQuotaFinalizationRecoveries = query({
     },
 });
 
+export const listDeadLetterQuotaFinalizationRecoveries = query({
+    args: {
+        limit: v.number(),
+    },
+    handler: async (ctx, args) => {
+        const safeLimit = Math.max(1, Math.min(args.limit, 100));
+        const entries = await ctx.db
+            .query("quota_finalization_recoveries")
+            .withIndex("by_status_and_next_retry_at_ms", (query) =>
+                query.eq("status", "dead_letter")
+            )
+            .order("asc")
+            .take(safeLimit);
+
+        return entries.map((entry) => ({
+            usage_event_id: entry.usage_event_id,
+            terminal_state: entry.terminal_state,
+            attempt_count: entry.attempt_count,
+            next_retry_at_ms: entry.next_retry_at_ms,
+            last_error: entry.last_error,
+            created_at_ms: entry.created_at_ms,
+            updated_at_ms: entry.updated_at_ms,
+        }));
+    },
+});
+
 export const acquireQuotaFinalizationRecovery = mutation({
     args: {
-        usageEventId: v.string(),
-        nowMs: v.number(),
-        leaseExpiresAtMs: v.number(),
+        usageEventId: v.id("usage_events"),
+        leaseAttemptId: v.string(),
+        leaseDurationMs: v.number(),
     },
     handler: async (ctx, args) => {
         const latestEntry = getLatestQuotaRecoveryEntry(
             await listQuotaRecoveriesByUsageEventId(ctx, args.usageEventId)
         );
+        const acquisitionNowMs = Date.now();
+        const leaseExpiresAtMs = acquisitionNowMs + Math.max(0, args.leaseDurationMs);
 
         if (!latestEntry) {
             return {
@@ -173,7 +261,7 @@ export const acquireQuotaFinalizationRecovery = mutation({
             };
         }
 
-        if (latestEntry.next_retry_at_ms > args.nowMs) {
+        if (latestEntry.next_retry_at_ms > acquisitionNowMs) {
             return {
                 acquired: false,
                 missing: false,
@@ -184,7 +272,7 @@ export const acquireQuotaFinalizationRecovery = mutation({
 
         if (
             typeof latestEntry.lease_expires_at_ms === "number" &&
-            latestEntry.lease_expires_at_ms > args.nowMs
+            latestEntry.lease_expires_at_ms > acquisitionNowMs
         ) {
             return {
                 acquired: false,
@@ -196,8 +284,9 @@ export const acquireQuotaFinalizationRecovery = mutation({
         }
 
         await ctx.db.patch(latestEntry._id, {
-            lease_expires_at_ms: args.leaseExpiresAtMs,
-            updated_at_ms: args.nowMs,
+            lease_attempt_id: args.leaseAttemptId,
+            lease_expires_at_ms: leaseExpiresAtMs,
+            updated_at_ms: acquisitionNowMs,
         });
 
         return {
@@ -208,6 +297,8 @@ export const acquireQuotaFinalizationRecovery = mutation({
                 terminal_state: latestEntry.terminal_state,
                 attempt_count: latestEntry.attempt_count,
                 next_retry_at_ms: latestEntry.next_retry_at_ms,
+                lease_attempt_id: args.leaseAttemptId,
+                lease_expires_at_ms: leaseExpiresAtMs,
                 last_error: latestEntry.last_error,
                 status: latestEntry.status,
             },
@@ -217,7 +308,8 @@ export const acquireQuotaFinalizationRecovery = mutation({
 
 export const updateQuotaFinalizationRecovery = mutation({
     args: {
-        usageEventId: v.string(),
+        usageEventId: v.id("usage_events"),
+        leaseAttemptId: v.string(),
         nowMs: v.number(),
         status: quotaRecoveryStatusValidator,
         attemptCount: v.number(),
@@ -233,6 +325,28 @@ export const updateQuotaFinalizationRecovery = mutation({
             return {
                 updated: false,
                 missing: true,
+            };
+        }
+
+        const ownershipCheckNowMs = Date.now();
+        const ownershipFailure = getQuotaRecoveryLeaseOwnershipFailure({
+            entry: latestEntry as QuotaRecoveryEntry,
+            leaseAttemptId: args.leaseAttemptId,
+            nowMs: ownershipCheckNowMs,
+        });
+
+        if (ownershipFailure) {
+            return {
+                updated: false,
+                missing: false,
+                status: latestEntry.status,
+                next_retry_at_ms: latestEntry.next_retry_at_ms,
+                lease_expires_at_ms: latestEntry.lease_expires_at_ms,
+                owner_mismatch:
+                    ownershipFailure === "owner_required" ||
+                    ownershipFailure === "owner_mismatch",
+                lease_expired: ownershipFailure === "lease_expired",
+                ownership_failure: ownershipFailure,
             };
         }
 
@@ -263,17 +377,49 @@ export const updateQuotaFinalizationRecovery = mutation({
 
 export const clearQuotaFinalizationRecovery = mutation({
     args: {
-        usageEventId: v.string(),
+        usageEventId: v.id("usage_events"),
+        leaseAttemptId: v.string(),
+        nowMs: v.number(),
     },
     handler: async (ctx, args) => {
-        const entries = await listQuotaRecoveriesByUsageEventId(ctx, args.usageEventId);
+        const latestEntry = getLatestQuotaRecoveryEntry(
+            await listQuotaRecoveriesByUsageEventId(ctx, args.usageEventId)
+        );
 
-        for (const entry of entries) {
-            await ctx.db.delete(entry._id);
+        if (!latestEntry) {
+            return {
+                deleted_count: 0,
+                missing: true,
+            };
+        }
+
+        const ownershipCheckNowMs = Date.now();
+        const ownershipFailure = getQuotaRecoveryLeaseOwnershipFailure({
+            entry: latestEntry as QuotaRecoveryEntry,
+            leaseAttemptId: args.leaseAttemptId,
+            nowMs: ownershipCheckNowMs,
+        });
+
+        if (ownershipFailure) {
+            return {
+                deleted_count: 0,
+                missing: false,
+                status: latestEntry.status,
+                next_retry_at_ms: latestEntry.next_retry_at_ms,
+                lease_expires_at_ms: latestEntry.lease_expires_at_ms,
+                owner_mismatch:
+                    ownershipFailure === "owner_required" ||
+                    ownershipFailure === "owner_mismatch",
+                lease_expired: ownershipFailure === "lease_expired",
+                ownership_failure: ownershipFailure,
+            };
         }
 
         return {
-            deleted_count: entries.length,
+            deleted_count: await deleteQuotaFinalizationRecoveriesByUsageEventId(
+                ctx,
+                args.usageEventId
+            ),
         };
     },
 });

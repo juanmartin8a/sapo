@@ -9,7 +9,6 @@
  */
 
 import type * as openAiResponses from "../openAiResponses.js";
-import type * as quotaRecovery from "../quotaRecovery.js";
 import type * as streamControl from "../streamControl.js";
 import type * as streamControlRuntime from "../streamControlRuntime.js";
 import type * as tokenParser from "../tokenParser.js";
@@ -23,7 +22,6 @@ import { anyApi, componentsGeneric } from "convex/server";
 
 const fullApi: ApiFromModules<{
   openAiResponses: typeof openAiResponses;
-  quotaRecovery: typeof quotaRecovery;
   streamControl: typeof streamControl;
   streamControlRuntime: typeof streamControlRuntime;
   tokenParser: typeof tokenParser;

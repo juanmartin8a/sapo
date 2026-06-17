@@ -1,7 +1,9 @@
 import { describe, expect, it } from "@jest/globals";
 
 import {
+    assertRequiredPreservedQuotaPeriod,
     canAcquireUserDeletionOperation,
+    doesUserDeletionCleanupAttemptOwnOperation,
     doesUserDeletionStatusAllowAutomaticRetry,
     doesUserDeletionStatusBlockProcessing,
     doesUserDeletionStatusBlockRevenueCatReconciliation,
@@ -10,6 +12,7 @@ import {
     resolvePreparedUserDeletionContext,
     resolveUserDeletionAuthDeleteWaitStatus,
     USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS,
+    USER_DELETION_CLEANUP_DEAD_LETTER_STATUS,
     USER_DELETION_LATE_AUTH_WAIT_STATUS,
 } from "../userDeletionQueue";
 
@@ -22,6 +25,9 @@ describe("user deletion queue helpers", () => {
         );
         expect(
             doesUserDeletionStatusBlockProcessing(USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS)
+        ).toBe(true);
+        expect(
+            doesUserDeletionStatusBlockProcessing(USER_DELETION_CLEANUP_DEAD_LETTER_STATUS)
         ).toBe(true);
 
         expect(doesUserDeletionStatusBlockProcessing("preparing")).toBe(true);
@@ -43,6 +49,11 @@ describe("user deletion queue helpers", () => {
                 USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS
             )
         ).toBe(true);
+        expect(
+            doesUserDeletionStatusBlockRevenueCatReconciliation(
+                USER_DELETION_CLEANUP_DEAD_LETTER_STATUS
+            )
+        ).toBe(true);
 
         expect(doesUserDeletionStatusBlockRevenueCatReconciliation("preparing")).toBe(true);
         expect(doesUserDeletionStatusBlockRevenueCatReconciliation("awaiting_auth_delete")).toBe(
@@ -58,7 +69,7 @@ describe("user deletion queue helpers", () => {
         );
     });
 
-    it("stops automatic retry only for the auth-delete dead-letter state", () => {
+    it("stops automatic retry for terminal dead-letter states", () => {
         expect(doesUserDeletionStatusAllowAutomaticRetry(undefined)).toBe(true);
         expect(doesUserDeletionStatusAllowAutomaticRetry("awaiting_auth_delete")).toBe(true);
         expect(doesUserDeletionStatusAllowAutomaticRetry(USER_DELETION_LATE_AUTH_WAIT_STATUS)).toBe(
@@ -66,6 +77,9 @@ describe("user deletion queue helpers", () => {
         );
         expect(
             doesUserDeletionStatusAllowAutomaticRetry(USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS)
+        ).toBe(false);
+        expect(
+            doesUserDeletionStatusAllowAutomaticRetry(USER_DELETION_CLEANUP_DEAD_LETTER_STATUS)
         ).toBe(false);
     });
 
@@ -89,10 +103,62 @@ describe("user deletion queue helpers", () => {
 
         expect(
             canAcquireUserDeletionOperation({
+                status: USER_DELETION_CLEANUP_DEAD_LETTER_STATUS,
+                now_ms: 1_000,
+                next_retry_at_ms: 253402300799999,
+                allow_terminal_recovery: true,
+            })
+        ).toBe(true);
+
+        expect(
+            canAcquireUserDeletionOperation({
                 status: "awaiting_auth_delete",
                 now_ms: 1_000,
                 next_retry_at_ms: 2_000,
                 allow_terminal_recovery: true,
+            })
+        ).toBe(false);
+    });
+
+    it("uses cleanup lease expiry when acquiring in-progress cleanup", () => {
+        expect(
+            canAcquireUserDeletionOperation({
+                status: "cleanup_in_progress",
+                now_ms: 1_000,
+                next_retry_at_ms: 500,
+                cleanup_lease_expires_at_ms: 2_000,
+            })
+        ).toBe(false);
+
+        expect(
+            canAcquireUserDeletionOperation({
+                status: "cleanup_in_progress",
+                now_ms: 2_000,
+                next_retry_at_ms: 500,
+                cleanup_lease_expires_at_ms: 2_000,
+            })
+        ).toBe(true);
+    });
+
+    it("requires exact cleanup attempt ownership after acquisition", () => {
+        expect(
+            doesUserDeletionCleanupAttemptOwnOperation({
+                current_cleanup_attempt_id: "attempt_a",
+                cleanup_attempt_id: "attempt_a",
+            })
+        ).toBe(true);
+
+        expect(
+            doesUserDeletionCleanupAttemptOwnOperation({
+                current_cleanup_attempt_id: "attempt_a",
+                cleanup_attempt_id: "attempt_b",
+            })
+        ).toBe(false);
+
+        expect(
+            doesUserDeletionCleanupAttemptOwnOperation({
+                current_cleanup_attempt_id: undefined,
+                cleanup_attempt_id: "attempt_a",
             })
         ).toBe(false);
     });
@@ -201,7 +267,7 @@ describe("user deletion queue helpers", () => {
         });
     });
 
-    it("builds prepared deletion context from the local snapshot after refresh fallback", () => {
+    it("uses the refresh app user id when the deletion snapshot omits it", () => {
         expect(
             resolvePreparedUserDeletionContext({
                 snapshot: {
@@ -263,5 +329,23 @@ describe("user deletion queue helpers", () => {
                 preserved_quota_period_id: undefined,
             })
         ).toBe(true);
+    });
+
+    it("throws when active subscription cleanup lacks a preserved quota period", () => {
+        expect(() =>
+            assertRequiredPreservedQuotaPeriod({
+                user_id: "user_active",
+                has_active_subscription: true,
+                preserved_quota_period_id: undefined,
+            })
+        ).toThrow("Cannot continue paid-user deletion without a preserved quota period for user user_active");
+
+        expect(() =>
+            assertRequiredPreservedQuotaPeriod({
+                user_id: "user_active",
+                has_active_subscription: true,
+                preserved_quota_period_id: "quota_current",
+            })
+        ).not.toThrow();
     });
 });

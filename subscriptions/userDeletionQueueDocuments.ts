@@ -1,19 +1,39 @@
 import type { Doc } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
-import type { UserDeletionQueueStatus } from "../userDeletionQueue";
+import type { UserDeletionCleanupStep, UserDeletionQueueStatus } from "../userDeletionQueue";
 
 type DbReaderCtx = Pick<MutationCtx, "db"> | Pick<QueryCtx, "db">;
 
-export type UserDeletionQueueEntryFields = Omit<Doc<"user_deletion_queue">, "_id" | "_creationTime">;
+export type UserDeletionCleanupLeaseFields = {
+    cleanup_attempt_id?: string;
+    cleanup_step?: UserDeletionCleanupStep;
+    cleanup_step_started_at_ms?: number;
+    cleanup_lease_expires_at_ms?: number;
+};
+
+export type UserDeletionPersistentCleanupFields = {
+    revenuecat_deleted_at_ms?: number;
+};
+
+export type UserDeletionQueueEntryDoc = Doc<"user_deletion_queue"> &
+    UserDeletionCleanupLeaseFields &
+    UserDeletionPersistentCleanupFields;
+
+export type UserDeletionQueueEntryFields = Omit<
+    Doc<"user_deletion_queue">,
+    "_id" | "_creationTime"
+> &
+    UserDeletionCleanupLeaseFields &
+    UserDeletionPersistentCleanupFields;
 
 export async function listUserDeletionQueueEntriesByUserId(ctx: DbReaderCtx, userId: string) {
-    return ctx.db
+    return (await ctx.db
         .query("user_deletion_queue")
         .withIndex("by_user_id", (query) => query.eq("user_id", userId))
-        .collect();
+        .collect()) as UserDeletionQueueEntryDoc[];
 }
 
-export function getLatestUserDeletionQueueEntry(entries: Doc<"user_deletion_queue">[]) {
+export function getLatestUserDeletionQueueEntry(entries: UserDeletionQueueEntryDoc[]) {
     return (
         [...entries].sort((left, right) => {
             if (left.updated_at_ms !== right.updated_at_ms) {
@@ -38,8 +58,13 @@ export function buildUserDeletionQueueEntry(args: {
     updated_at_ms: number;
     prepared_at_ms?: number;
     auth_deleted_at_ms?: number;
+    revenuecat_deleted_at_ms?: number;
     last_error?: string;
     force_stop_after_at_ms?: number;
+    cleanup_attempt_id?: string;
+    cleanup_step?: UserDeletionCleanupStep;
+    cleanup_step_started_at_ms?: number;
+    cleanup_lease_expires_at_ms?: number;
     revenuecat_app_user_id?: string;
     has_active_subscription?: boolean;
     preserved_quota_period_id?: Doc<"user_deletion_queue">["preserved_quota_period_id"];
@@ -56,11 +81,24 @@ export function buildUserDeletionQueueEntry(args: {
         ...(typeof args.auth_deleted_at_ms === "number"
             ? { auth_deleted_at_ms: args.auth_deleted_at_ms }
             : {}),
+        ...(typeof args.revenuecat_deleted_at_ms === "number"
+            ? { revenuecat_deleted_at_ms: args.revenuecat_deleted_at_ms }
+            : {}),
         next_retry_at_ms: args.next_retry_at_ms,
         retry_count: args.retry_count,
         ...(typeof args.last_error === "string" ? { last_error: args.last_error.slice(0, 400) } : {}),
         ...(typeof args.force_stop_after_at_ms === "number"
             ? { force_stop_after_at_ms: args.force_stop_after_at_ms }
+            : {}),
+        ...(typeof args.cleanup_attempt_id === "string"
+            ? { cleanup_attempt_id: args.cleanup_attempt_id }
+            : {}),
+        ...(typeof args.cleanup_step === "string" ? { cleanup_step: args.cleanup_step } : {}),
+        ...(typeof args.cleanup_step_started_at_ms === "number"
+            ? { cleanup_step_started_at_ms: args.cleanup_step_started_at_ms }
+            : {}),
+        ...(typeof args.cleanup_lease_expires_at_ms === "number"
+            ? { cleanup_lease_expires_at_ms: args.cleanup_lease_expires_at_ms }
             : {}),
         ...(typeof args.revenuecat_app_user_id === "string"
             ? { revenuecat_app_user_id: args.revenuecat_app_user_id }

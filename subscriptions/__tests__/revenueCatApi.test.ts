@@ -3,15 +3,26 @@ import { afterEach, describe, expect, it, jest } from "@jest/globals";
 import {
     deleteRevenueCatSubscriber,
     fetchRevenueCatSubscriberSnapshot,
+    getRevenueCatApiErrorRetryDelayMs,
+    isRevenueCatApiErrorWithStatus,
+    RevenueCatApiError,
+    shouldIgnoreStaleReconciledSubscriptionState,
 } from "../revenueCatApi";
 
 const originalEnv = process.env;
 const originalFetch = globalThis.fetch;
 
-function jsonResponse(status: number, payload: unknown) {
+function jsonResponse(status: number, payload: unknown, headers: Record<string, string> = {}) {
+    const normalizedHeaders = new Map(
+        Object.entries(headers).map(([key, value]) => [key.toLowerCase(), value])
+    );
+
     return {
         ok: status >= 200 && status < 300,
         status,
+        headers: {
+            get: (name: string) => normalizedHeaders.get(name.toLowerCase()) ?? null,
+        },
         json: async () => payload,
     } as Response;
 }
@@ -100,6 +111,37 @@ describe("RevenueCat API reconciliation", () => {
             });
     });
 
+    it("ignores only older incoming reconciliation writes", () => {
+        expect(
+            shouldIgnoreStaleReconciledSubscriptionState(
+                { last_synced_at_ms: 2_000 },
+                1_000
+            )
+        ).toBe(true);
+
+        expect(
+            shouldIgnoreStaleReconciledSubscriptionState(
+                { last_synced_at_ms: 1_000 },
+                1_000
+            )
+        ).toBe(false);
+
+        expect(
+            shouldIgnoreStaleReconciledSubscriptionState(
+                { last_synced_at_ms: 1_000 },
+                2_000
+            )
+        ).toBe(false);
+
+        expect(shouldIgnoreStaleReconciledSubscriptionState(null, 1_000)).toBe(false);
+        expect(
+            shouldIgnoreStaleReconciledSubscriptionState(
+                { last_synced_at_ms: Number.POSITIVE_INFINITY },
+                1_000
+            )
+        ).toBe(false);
+    });
+
     it("deletes RevenueCat customers through v2 with the v2 delete key", async () => {
         configureRevenueCatEnv({
             REVENUECAT_CI_CUSTOMERS_RW_API_KEY: "rc_v2_delete_secret",
@@ -126,7 +168,9 @@ describe("RevenueCat API reconciliation", () => {
     });
 
     it("treats a missing RevenueCat v2 customer as already deleted", async () => {
-        configureRevenueCatEnv();
+        configureRevenueCatEnv({
+            REVENUECAT_CI_CUSTOMERS_RW_API_KEY: "rc_v2_delete_secret",
+        });
         globalThis.fetch = jest.fn(async () => jsonResponse(404, { type: "resource_missing" })) as typeof fetch;
 
         await expect(deleteRevenueCatSubscriber("missing_user"))
@@ -134,5 +178,82 @@ describe("RevenueCat API reconciliation", () => {
                 deleted: false,
                 already_missing: true,
             });
+    });
+
+    it("requires the v2 customers RW key for RevenueCat customer deletion", async () => {
+        configureRevenueCatEnv({
+            REVENUECAT_CI_CUSTOMERS_RW_API_KEY: undefined,
+        });
+        const fetchMock = jest.fn() as jest.MockedFunction<typeof fetch>;
+        globalThis.fetch = fetchMock;
+
+        await expect(deleteRevenueCatSubscriber("configured_with_read_key_only"))
+            .rejects.toThrow("Missing REVENUECAT_CI_CUSTOMERS_RW_API_KEY");
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("exposes RevenueCat backoff_ms on retryable delete errors", async () => {
+        configureRevenueCatEnv({
+            REVENUECAT_CI_CUSTOMERS_RW_API_KEY: "rc_v2_delete_secret",
+        });
+        globalThis.fetch = jest.fn(async () => jsonResponse(429, {
+            message: "Rate limited",
+            backoff_ms: 2_500,
+        })) as typeof fetch;
+
+        try {
+            await deleteRevenueCatSubscriber("rate_limited_user");
+            throw new Error("Expected RevenueCat delete to fail");
+        } catch (error) {
+            expect(error).toBeInstanceOf(RevenueCatApiError);
+            expect(error).toMatchObject({
+                status: 429,
+                retry_after_ms: 2_500,
+            });
+            expect(getRevenueCatApiErrorRetryDelayMs(error)).toBe(2_500);
+            expect(isRevenueCatApiErrorWithStatus(error, [429])).toBe(true);
+        }
+    });
+
+    it("parses Retry-After seconds from RevenueCat read errors", async () => {
+        configureRevenueCatEnv();
+        globalThis.fetch = jest.fn(async () => jsonResponse(
+            429,
+            { message: "Rate limited" },
+            { "Retry-After": "3" }
+        )) as typeof fetch;
+
+        try {
+            await fetchRevenueCatSubscriberSnapshot("rate_limited_user", Date.now());
+            throw new Error("Expected RevenueCat read to fail");
+        } catch (error) {
+            expect(error).toBeInstanceOf(RevenueCatApiError);
+            expect(error).toMatchObject({
+                status: 429,
+                retry_after_ms: 3_000,
+            });
+            expect(getRevenueCatApiErrorRetryDelayMs(error)).toBe(3_000);
+        }
+    });
+
+    it("classifies permanent RevenueCat delete authorization errors", async () => {
+        configureRevenueCatEnv({
+            REVENUECAT_CI_CUSTOMERS_RW_API_KEY: "rc_v2_delete_secret",
+        });
+        globalThis.fetch = jest.fn(async () => jsonResponse(403, {
+            message: "Forbidden",
+        })) as typeof fetch;
+
+        try {
+            await deleteRevenueCatSubscriber("forbidden_user");
+            throw new Error("Expected RevenueCat delete to fail");
+        } catch (error) {
+            expect(error).toBeInstanceOf(RevenueCatApiError);
+            expect(error).toMatchObject({
+                status: 403,
+            });
+            expect(getRevenueCatApiErrorRetryDelayMs(error)).toBeUndefined();
+            expect(isRevenueCatApiErrorWithStatus(error, [401, 403, 422])).toBe(true);
+        }
     });
 });

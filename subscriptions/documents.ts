@@ -10,15 +10,30 @@ export async function listSubscriptionStatesByUserId(ctx: DbReaderCtx, userId: s
 }
 
 export async function getLatestSubscriptionStateByUserId(ctx: DbReaderCtx, userId: string) {
-    const states = await listSubscriptionStatesByUserId(ctx, userId);
-
-    return [...states].sort((left, right) => right.updated_at_ms - left.updated_at_ms)[0] ?? null;
+    return ctx.db
+        .query("subscription_states")
+        .withIndex("by_user_id_and_updated_at_ms", (query) => query.eq("user_id", userId))
+        .order("desc")
+        .first();
 }
 
 export async function listQuotaPeriodsByUserId(ctx: DbReaderCtx, userId: string) {
     return ctx.db
         .query("quota_periods")
         .withIndex("by_user_id_and_period_start_at_ms", (query) => query.eq("user_id", userId))
+        .collect();
+}
+
+export async function listQuotaPeriodsByUserIdAndWindowKey(
+    ctx: DbReaderCtx,
+    userId: string,
+    windowKey: string
+) {
+    return ctx.db
+        .query("quota_periods")
+        .withIndex("by_user_id_and_window_key", (query) =>
+            query.eq("user_id", userId).eq("window_key", windowKey)
+        )
         .collect();
 }
 
@@ -70,4 +85,31 @@ export async function listActiveUsageEventsByUserId(ctx: DbReaderCtx, userId: st
     return [...reservedUsageEvents, ...processingUsageEvents].sort(
         (left, right) => left.created_at_ms - right.created_at_ms
     );
+}
+
+export async function listActiveUsageEventsByUserIdBatch(
+    ctx: DbReaderCtx,
+    userId: string,
+    limit: number
+) {
+    const safeLimit = Math.max(1, limit);
+    const perStateLimit = Math.max(1, Math.ceil(safeLimit / 2));
+    const [reservedUsageEvents, processingUsageEvents] = await Promise.all([
+        ctx.db
+            .query("usage_events")
+            .withIndex("by_user_id_and_state", (query) =>
+                query.eq("user_id", userId).eq("state", "reserved")
+            )
+            .take(perStateLimit),
+        ctx.db
+            .query("usage_events")
+            .withIndex("by_user_id_and_state", (query) =>
+                query.eq("user_id", userId).eq("state", "processing")
+            )
+            .take(perStateLimit),
+    ]);
+
+    return [...reservedUsageEvents, ...processingUsageEvents]
+        .sort((left, right) => left.created_at_ms - right.created_at_ms)
+        .slice(0, safeLimit);
 }

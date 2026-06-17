@@ -2,7 +2,10 @@ import { components, internal } from "./_generated/api";
 import type { ActionCtx } from "./_generated/server";
 import type { Id } from "./subscriptions/_generated/dataModel";
 
-import { getSapopinguinoQuotaRecoveryDelayMs } from "./sapopinguinoQuotaRecovery";
+import {
+    classifySapopinguinoQuotaRecoveryResult,
+    getSapopinguinoQuotaRecoveryDelayMs,
+} from "./sapopinguinoQuotaRecovery";
 
 export type SapopinguinoQuotaOperation = "translate" | "respell";
 export type SapopinguinoQuotaTerminalState =
@@ -23,7 +26,7 @@ type UntypedSchedulerRunner = {
 };
 
 const subscriptionsWebhook = components.subscriptions.webhook as Record<string, unknown>;
-const sapopinguinoQuotaRecovery = (components.sapopinguino as Record<string, unknown>)
+const subscriptionsQuotaRecovery = (components.subscriptions as Record<string, unknown>)
     .quotaRecovery as Record<string, unknown>;
 const QUOTA_FINALIZATION_RETRY_ATTEMPTS = 3;
 const QUOTA_FINALIZATION_RETRY_DELAY_MS = 150;
@@ -166,13 +169,10 @@ export async function completeSapopinguinoQuota(
     ctx: ActionCtx,
     usageEventId: Id<"usage_events">
 ) {
-    const mutationRunner = ctx as ActionCtx & UntypedMutationRunner;
-    const result = (await mutationRunner.runMutation(
-        subscriptionsWebhook.completeSubscriptionQuotaUsage,
-        {
-            usage_event_id: usageEventId,
-            now_ms: Date.now(),
-        }
+    const result = (await applySapopinguinoQuotaTerminalTransition(
+        ctx,
+        usageEventId,
+        "completed"
     )) as { status: string };
 
     if (result.status === "completed") {
@@ -188,17 +188,13 @@ export async function failSapopinguinoQuota(
     usageEventId: Id<"usage_events">,
     afterCharge: boolean
 ) {
-    const mutationRunner = ctx as ActionCtx & UntypedMutationRunner;
-    const result = (await mutationRunner.runMutation(
-        subscriptionsWebhook.markSubscriptionQuotaUsageFailed,
-        {
-            usage_event_id: usageEventId,
-            after_charge: afterCharge,
-            now_ms: Date.now(),
-        }
+    const expectedStatus = afterCharge ? "failed_after_charge" : "failed_before_charge";
+    const result = (await applySapopinguinoQuotaTerminalTransition(
+        ctx,
+        usageEventId,
+        expectedStatus
     )) as { status: string };
 
-    const expectedStatus = afterCharge ? "failed_after_charge" : "failed_before_charge";
     if (result.status === expectedStatus) {
         return true;
     }
@@ -212,19 +208,15 @@ export async function stopSapopinguinoQuota(
     usageEventId: Id<"usage_events">,
     afterCharge: boolean
 ) {
-    const mutationRunner = ctx as ActionCtx & UntypedMutationRunner;
-    const result = (await mutationRunner.runMutation(
-        subscriptionsWebhook.markSubscriptionQuotaUsageStopped,
-        {
-            usage_event_id: usageEventId,
-            after_charge: afterCharge,
-            now_ms: Date.now(),
-        }
-    )) as { status: string };
-
     const expectedStatus = afterCharge
         ? "user_stopped_after_charge"
         : "user_stopped_before_charge";
+    const result = (await applySapopinguinoQuotaTerminalTransition(
+        ctx,
+        usageEventId,
+        expectedStatus
+    )) as { status: string };
+
     if (result.status === expectedStatus) {
         return true;
     }
@@ -233,23 +225,58 @@ export async function stopSapopinguinoQuota(
     return false;
 }
 
+async function applySapopinguinoQuotaTerminalTransition(
+    ctx: ActionCtx,
+    usageEventId: Id<"usage_events">,
+    terminalState: SapopinguinoQuotaTerminalState
+) {
+    const mutationRunner = ctx as ActionCtx & UntypedMutationRunner;
+
+    switch (terminalState) {
+        case "completed":
+            return mutationRunner.runMutation(subscriptionsWebhook.completeSubscriptionQuotaUsage, {
+                usage_event_id: usageEventId,
+                now_ms: Date.now(),
+            });
+        case "failed_before_charge":
+            return mutationRunner.runMutation(subscriptionsWebhook.markSubscriptionQuotaUsageFailed, {
+                usage_event_id: usageEventId,
+                after_charge: false,
+                now_ms: Date.now(),
+            });
+        case "failed_after_charge":
+            return mutationRunner.runMutation(subscriptionsWebhook.markSubscriptionQuotaUsageFailed, {
+                usage_event_id: usageEventId,
+                after_charge: true,
+                now_ms: Date.now(),
+            });
+        case "user_stopped_before_charge":
+            return mutationRunner.runMutation(subscriptionsWebhook.markSubscriptionQuotaUsageStopped, {
+                usage_event_id: usageEventId,
+                after_charge: false,
+                now_ms: Date.now(),
+            });
+        case "user_stopped_after_charge":
+            return mutationRunner.runMutation(subscriptionsWebhook.markSubscriptionQuotaUsageStopped, {
+                usage_event_id: usageEventId,
+                after_charge: true,
+                now_ms: Date.now(),
+            });
+    }
+}
+
 async function applySapopinguinoQuotaTerminalState(
     ctx: ActionCtx,
     usageEventId: Id<"usage_events">,
     terminalState: SapopinguinoQuotaTerminalState
 ) {
-    switch (terminalState) {
-        case "completed":
-            return completeSapopinguinoQuota(ctx, usageEventId);
-        case "failed_before_charge":
-            return failSapopinguinoQuota(ctx, usageEventId, false);
-        case "failed_after_charge":
-            return failSapopinguinoQuota(ctx, usageEventId, true);
-        case "user_stopped_before_charge":
-            return stopSapopinguinoQuota(ctx, usageEventId, false);
-        case "user_stopped_after_charge":
-            return stopSapopinguinoQuota(ctx, usageEventId, true);
-    }
+    const result = await applySapopinguinoQuotaTerminalTransition(ctx, usageEventId, terminalState);
+    const disposition = classifySapopinguinoQuotaRecoveryResult({
+        terminalState,
+        result,
+    });
+
+    return disposition.kind === "succeeded" || disposition.kind === "missing";
 }
 
 async function enqueueSapopinguinoQuotaFinalizationRecovery(
@@ -263,7 +290,7 @@ async function enqueueSapopinguinoQuotaFinalizationRecovery(
     }
 ) {
     return (await (ctx as ActionCtx & UntypedMutationRunner).runMutation(
-        sapopinguinoQuotaRecovery.enqueueQuotaFinalizationRecovery,
+        subscriptionsQuotaRecovery.enqueueQuotaFinalizationRecovery,
         {
             usageEventId: args.usageEventId,
             terminalState: args.terminalState,
@@ -274,7 +301,8 @@ async function enqueueSapopinguinoQuotaFinalizationRecovery(
     )) as {
         attempt_count: number;
         next_retry_at_ms: number;
-        status: "pending" | "dead_letter";
+        lease_expires_at_ms?: number;
+        status: "pending" | "dead_letter" | "missing_usage_event" | "lease_active";
     };
 }
 
@@ -334,13 +362,39 @@ export async function finalizeSapopinguinoQuota(
             : `Unexpected sapopinguino quota terminal transition: ${args.terminalState}`;
 
     try {
-        await enqueueSapopinguinoQuotaFinalizationRecovery(ctx, {
+        const enqueueResult = await enqueueSapopinguinoQuotaFinalizationRecovery(ctx, {
             usageEventId: args.usageEventId,
             terminalState: args.terminalState,
             nowMs,
             nextRetryAtMs: nowMs + recoveryDelayMs,
             lastError: errorMessage,
         });
+
+        if (enqueueResult.status === "missing_usage_event") {
+            return true;
+        }
+
+        if (enqueueResult.status === "lease_active") {
+            try {
+                await scheduleSapopinguinoQuotaFinalizationRecoveryProcessing(ctx, {
+                    usageEventId: args.usageEventId,
+                    delayMs: Math.max(0, (enqueueResult.lease_expires_at_ms ?? nowMs) - Date.now()),
+                });
+            } catch (scheduleError) {
+                console.error(
+                    `Failed to schedule ${args.logContext} quota recovery after active lease:`,
+                    scheduleError
+                );
+            }
+
+            console.warn(`Skipped ${args.logContext} quota recovery enqueue because a lease is active`, {
+                terminalState: args.terminalState,
+                usageEventId: args.usageEventId,
+                leaseExpiresAtMs: enqueueResult.lease_expires_at_ms,
+            });
+
+            return false;
+        }
     } catch (enqueueError) {
         console.error(`Failed to enqueue ${args.logContext} quota finalization recovery:`, enqueueError);
         console.error(`Last ${args.logContext} quota finalization error:`, lastError);

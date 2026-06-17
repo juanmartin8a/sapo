@@ -8,11 +8,12 @@
  * @module
  */
 
-import type * as anonymousMerge from "../anonymousMerge.js";
 import type * as documents from "../documents.js";
+import type * as leaseOwnership from "../leaseOwnership.js";
 import type * as planLimits from "../planLimits.js";
 import type * as quotaAvailability from "../quotaAvailability.js";
 import type * as quotaPeriodCounters from "../quotaPeriodCounters.js";
+import type * as quotaRecovery from "../quotaRecovery.js";
 import type * as revenueCatApi from "../revenueCatApi.js";
 import type * as revenueCatEventUserDocuments from "../revenueCatEventUserDocuments.js";
 import type * as revenueCatEventUsers from "../revenueCatEventUsers.js";
@@ -36,11 +37,12 @@ import type {
 import { anyApi, componentsGeneric } from "convex/server";
 
 const fullApi: ApiFromModules<{
-  anonymousMerge: typeof anonymousMerge;
   documents: typeof documents;
+  leaseOwnership: typeof leaseOwnership;
   planLimits: typeof planLimits;
   quotaAvailability: typeof quotaAvailability;
   quotaPeriodCounters: typeof quotaPeriodCounters;
+  quotaRecovery: typeof quotaRecovery;
   revenueCatApi: typeof revenueCatApi;
   revenueCatEventUserDocuments: typeof revenueCatEventUserDocuments;
   revenueCatEventUsers: typeof revenueCatEventUsers;

@@ -1,7 +1,7 @@
 import { filterRevenueCatEventUserReferences } from "./revenueCatEventUsers";
 import type { NormalizedRevenueCatWebhookEvent } from "./revenueCatWebhookPayload";
 
-const ANONYMOUS_REVENUECAT_ID_PREFIX = "$RCAnonymousID:";
+const REVENUECAT_GENERATED_ID_PREFIX = "$RCAnonymousID:";
 
 type RevenueCatWebhookUserReferenceEvent = {
     app_user_id?: string;
@@ -15,8 +15,8 @@ export type RevenueCatWebhookEventForIngestion = NormalizedRevenueCatWebhookEven
     user_id?: string;
 };
 
-export function isAnonymousRevenueCatAppUserId(value: string) {
-    return value.startsWith(ANONYMOUS_REVENUECAT_ID_PREFIX);
+export function isRevenueCatGeneratedAppUserId(value: string) {
+    return value.startsWith(REVENUECAT_GENERATED_ID_PREFIX);
 }
 
 function appendUniqueUserIds(targets: string[], candidates: string[]) {
@@ -33,13 +33,13 @@ export function resolveRevenueCatWebhookTargetUserIds(event: RevenueCatWebhookUs
     appendUniqueUserIds(
         targetUserIds,
         (event.transferred_to ?? []).filter(
-            (candidate): candidate is string => !isAnonymousRevenueCatAppUserId(candidate)
+            (candidate): candidate is string => !isRevenueCatGeneratedAppUserId(candidate)
         )
     );
     appendUniqueUserIds(
         targetUserIds,
         (event.transferred_from ?? []).filter(
-            (candidate): candidate is string => !isAnonymousRevenueCatAppUserId(candidate)
+            (candidate): candidate is string => !isRevenueCatGeneratedAppUserId(candidate)
         )
     );
     appendUniqueUserIds(
@@ -48,7 +48,7 @@ export function resolveRevenueCatWebhookTargetUserIds(event: RevenueCatWebhookUs
             (candidate): candidate is string =>
                 typeof candidate === "string" &&
                 candidate.trim().length > 0 &&
-                !isAnonymousRevenueCatAppUserId(candidate)
+                !isRevenueCatGeneratedAppUserId(candidate)
         )
     );
 

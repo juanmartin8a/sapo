@@ -1,4 +1,6 @@
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
+const OPENAI_RESPONSES_TOTAL_TIMEOUT_MS = 120_000;
+const OPENAI_RESPONSES_DELTA_IDLE_TIMEOUT_MS = 10_000;
 
 export const STREAM_END_MARKER = "<end:)>";
 export const STREAM_ERROR_MARKER = "<error:/>";
@@ -9,6 +11,7 @@ type OpenAIStreamEvent = {
 };
 
 type OpenAIStreamStep = "continue" | "completed" | "errored";
+type OpenAIAbortReason = "external" | "total_timeout" | "delta_idle_timeout";
 
 function sseEventsFromChunkBuffer(chunkBuffer: string): { events: string[]; remainder: string } {
     const normalized = chunkBuffer.replace(/\r\n/g, "\n");
@@ -62,104 +65,168 @@ export async function streamOpenAIResponses(args: {
         return "errored";
     }
 
-    const upstreamResponse = await fetch(OPENAI_RESPONSES_URL, {
-        method: "POST",
-        headers: {
-            Authorization: `Bearer ${openAIKey}`,
-            "Content-Type": "application/json",
-            Accept: "text/event-stream",
-        },
-        body: JSON.stringify({
-            prompt: {
-                id: args.promptId,
-                version: args.promptVersion,
-            },
-            input: args.input,
-            stream: true,
-        }),
-        signal: args.signal,
-    });
+    const streamAbortController = new AbortController();
+    let abortReason: OpenAIAbortReason | null = null;
+    let totalTimeout: ReturnType<typeof setTimeout> | null = null;
+    let deltaIdleTimeout: ReturnType<typeof setTimeout> | null = null;
 
-    if (!upstreamResponse.ok || upstreamResponse.body === null) {
-        await args.onErrored();
-        return "errored";
+    const abortStream = (reason: OpenAIAbortReason) => {
+        if (streamAbortController.signal.aborted) {
+            return;
+        }
+
+        abortReason = reason;
+        streamAbortController.abort();
+    };
+
+    const clearTotalTimeout = () => {
+        if (totalTimeout !== null) {
+            clearTimeout(totalTimeout);
+            totalTimeout = null;
+        }
+    };
+
+    const clearDeltaIdleTimeout = () => {
+        if (deltaIdleTimeout !== null) {
+            clearTimeout(deltaIdleTimeout);
+            deltaIdleTimeout = null;
+        }
+    };
+
+    const refreshDeltaIdleTimeout = () => {
+        clearDeltaIdleTimeout();
+
+        if (!streamAbortController.signal.aborted) {
+            deltaIdleTimeout = setTimeout(
+                () => abortStream("delta_idle_timeout"),
+                OPENAI_RESPONSES_DELTA_IDLE_TIMEOUT_MS
+            );
+        }
+    };
+
+    const abortFromExternalSignal = () => abortStream("external");
+
+    if (args.signal.aborted) {
+        abortFromExternalSignal();
+    } else {
+        args.signal.addEventListener("abort", abortFromExternalSignal, { once: true });
     }
 
-    const reader = upstreamResponse.body.getReader();
-    const textDecoder = new TextDecoder();
-    let eventBuffer = "";
+    totalTimeout = setTimeout(() => abortStream("total_timeout"), OPENAI_RESPONSES_TOTAL_TIMEOUT_MS);
+    refreshDeltaIdleTimeout();
 
-    const handleDataPayload = async (dataPayload: string): Promise<OpenAIStreamStep> => {
-        if (dataPayload === "[DONE]") {
-            await args.onCompleted();
-            return "completed";
-        }
+    try {
+        const upstreamResponse = await fetch(OPENAI_RESPONSES_URL, {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${openAIKey}`,
+                "Content-Type": "application/json",
+                Accept: "text/event-stream",
+            },
+            body: JSON.stringify({
+                prompt: {
+                    id: args.promptId,
+                    version: args.promptVersion,
+                },
+                input: args.input,
+                stream: true,
+            }),
+            signal: streamAbortController.signal,
+        });
 
-        let parsedEvent: OpenAIStreamEvent;
-        try {
-            parsedEvent = JSON.parse(dataPayload) as OpenAIStreamEvent;
-        } catch {
-            return "continue";
-        }
-
-        if (
-            parsedEvent.type === "error" ||
-            parsedEvent.type?.endsWith(".error") ||
-            parsedEvent.type === "response.failed" ||
-            parsedEvent.type?.endsWith(".failed") ||
-            parsedEvent.type === "response.incomplete"
-        ) {
+        if (!upstreamResponse.ok || upstreamResponse.body === null) {
             await args.onErrored();
             return "errored";
         }
 
-        if (parsedEvent.type === "response.completed") {
-            await args.onCompleted();
-            return "completed";
-        }
+        const reader = upstreamResponse.body.getReader();
+        const textDecoder = new TextDecoder();
+        let eventBuffer = "";
 
-        if (parsedEvent.type !== "response.output_text.delta" || typeof parsedEvent.delta !== "string") {
-            return "continue";
-        }
-
-        return args.onDelta(parsedEvent.delta);
-    };
-
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-            break;
-        }
-
-        eventBuffer += textDecoder.decode(value, { stream: true });
-        const { events, remainder } = sseEventsFromChunkBuffer(eventBuffer);
-        eventBuffer = remainder;
-
-        for (const rawEvent of events) {
-            const dataPayload = readSSEDataLines(rawEvent);
-            if (dataPayload === null) {
-                continue;
+        const handleDataPayload = async (dataPayload: string): Promise<OpenAIStreamStep> => {
+            if (dataPayload === "[DONE]") {
+                await args.onCompleted();
+                return "completed";
             }
 
-            const nextStep = await handleDataPayload(dataPayload);
-            if (nextStep !== "continue") {
-                return nextStep;
+            let parsedEvent: OpenAIStreamEvent;
+            try {
+                parsedEvent = JSON.parse(dataPayload) as OpenAIStreamEvent;
+            } catch {
+                return "continue";
+            }
+
+            if (
+                parsedEvent.type === "error" ||
+                parsedEvent.type?.endsWith(".error") ||
+                parsedEvent.type === "response.failed" ||
+                parsedEvent.type?.endsWith(".failed") ||
+                parsedEvent.type === "response.incomplete"
+            ) {
+                await args.onErrored();
+                return "errored";
+            }
+
+            if (parsedEvent.type === "response.completed") {
+                await args.onCompleted();
+                return "completed";
+            }
+
+            if (parsedEvent.type !== "response.output_text.delta" || typeof parsedEvent.delta !== "string") {
+                return "continue";
+            }
+
+            refreshDeltaIdleTimeout();
+            return args.onDelta(parsedEvent.delta);
+        };
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+                break;
+            }
+
+            eventBuffer += textDecoder.decode(value, { stream: true });
+            const { events, remainder } = sseEventsFromChunkBuffer(eventBuffer);
+            eventBuffer = remainder;
+
+            for (const rawEvent of events) {
+                const dataPayload = readSSEDataLines(rawEvent);
+                if (dataPayload === null) {
+                    continue;
+                }
+
+                const nextStep = await handleDataPayload(dataPayload);
+                if (nextStep !== "continue") {
+                    return nextStep;
+                }
             }
         }
+
+        eventBuffer += textDecoder.decode();
+
+        if (eventBuffer.trim().length > 0) {
+            const trailingPayload = readSSEDataLines(eventBuffer);
+            if (trailingPayload !== null) {
+                const nextStep = await handleDataPayload(trailingPayload);
+                if (nextStep !== "continue") {
+                    return nextStep;
+                }
+            }
+        }
+
+        await args.onErrored();
+        return "errored";
+    } catch (error) {
+        if ((error as Error).name === "AbortError" && abortReason !== "external") {
+            await args.onErrored();
+            return "errored";
+        }
+
+        throw error;
+    } finally {
+        args.signal.removeEventListener("abort", abortFromExternalSignal);
+        clearTotalTimeout();
+        clearDeltaIdleTimeout();
     }
-
-    eventBuffer += textDecoder.decode();
-
-    if (eventBuffer.trim().length > 0) {
-        const trailingPayload = readSSEDataLines(eventBuffer);
-        if (trailingPayload !== null) {
-            const nextStep = await handleDataPayload(trailingPayload);
-            if (nextStep !== "continue") {
-                return nextStep;
-            }
-        }
-    }
-
-    await args.onErrored();
-    return "errored";
 }

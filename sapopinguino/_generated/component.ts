@@ -23,61 +23,6 @@ import type { FunctionReference } from "convex/server";
  */
 export type ComponentApi<Name extends string | undefined = string | undefined> =
   {
-    quotaRecovery: {
-      acquireQuotaFinalizationRecovery: FunctionReference<
-        "mutation",
-        "internal",
-        { leaseExpiresAtMs: number; nowMs: number; usageEventId: string },
-        any,
-        Name
-      >;
-      clearQuotaFinalizationRecovery: FunctionReference<
-        "mutation",
-        "internal",
-        { usageEventId: string },
-        any,
-        Name
-      >;
-      enqueueQuotaFinalizationRecovery: FunctionReference<
-        "mutation",
-        "internal",
-        {
-          lastError?: string;
-          nextRetryAtMs?: number;
-          nowMs: number;
-          terminalState:
-            | "completed"
-            | "failed_before_charge"
-            | "failed_after_charge"
-            | "user_stopped_before_charge"
-            | "user_stopped_after_charge";
-          usageEventId: string;
-        },
-        any,
-        Name
-      >;
-      listDueQuotaFinalizationRecoveries: FunctionReference<
-        "query",
-        "internal",
-        { limit: number; nowMs: number },
-        any,
-        Name
-      >;
-      updateQuotaFinalizationRecovery: FunctionReference<
-        "mutation",
-        "internal",
-        {
-          attemptCount: number;
-          lastError?: string | null;
-          nextRetryAtMs: number;
-          nowMs: number;
-          status: "pending" | "dead_letter";
-          usageEventId: string;
-        },
-        any,
-        Name
-      >;
-    };
     streamControl: {
       clearStreamControl: FunctionReference<
         "mutation",

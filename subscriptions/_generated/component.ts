@@ -23,14 +23,81 @@ import type { FunctionReference } from "convex/server";
  */
 export type ComponentApi<Name extends string | undefined = string | undefined> =
   {
+    quotaRecovery: {
+      acquireQuotaFinalizationRecovery: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          leaseAttemptId: string;
+          leaseDurationMs: number;
+          usageEventId: string;
+        },
+        any,
+        Name
+      >;
+      clearQuotaFinalizationRecovery: FunctionReference<
+        "mutation",
+        "internal",
+        { leaseAttemptId: string; nowMs: number; usageEventId: string },
+        any,
+        Name
+      >;
+      enqueueQuotaFinalizationRecovery: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          lastError?: string;
+          nextRetryAtMs?: number;
+          nowMs: number;
+          terminalState:
+            | "completed"
+            | "failed_before_charge"
+            | "failed_after_charge"
+            | "user_stopped_before_charge"
+            | "user_stopped_after_charge";
+          usageEventId: string;
+        },
+        any,
+        Name
+      >;
+      listDeadLetterQuotaFinalizationRecoveries: FunctionReference<
+        "query",
+        "internal",
+        { limit: number },
+        any,
+        Name
+      >;
+      listDueQuotaFinalizationRecoveries: FunctionReference<
+        "query",
+        "internal",
+        { limit: number; nowMs: number },
+        any,
+        Name
+      >;
+      updateQuotaFinalizationRecovery: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          attemptCount: number;
+          lastError?: string | null;
+          leaseAttemptId: string;
+          nextRetryAtMs: number;
+          nowMs: number;
+          status: "pending" | "dead_letter";
+          usageEventId: string;
+        },
+        any,
+        Name
+      >;
+    };
     webhook: {
       acquireRevenueCatEventProcessingLeases: FunctionReference<
         "mutation",
         "internal",
         {
           event_doc_id: string;
-          lease_expires_at_ms: number;
-          now_ms: number;
+          lease_duration_ms: number;
+          processing_attempt_id: string;
           user_ids: Array<string>;
         },
         any,
@@ -41,6 +108,14 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "internal",
         {
           allow_terminal_recovery?: boolean;
+          cleanup_attempt_id: string;
+          cleanup_step?:
+            | "acquired"
+            | "waiting_for_quiescence"
+            | "deleting_subscription_data"
+            | "deleting_stream_controls"
+            | "finalizing_subscription_data"
+            | "deleting_revenuecat_subscriber";
           lease_expires_at_ms: number;
           now_ms: number;
           user_id: string;
@@ -52,9 +127,14 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "mutation",
         "internal",
         {
+          active_signal_at_ms?: number;
+          active_signal_ttl_ms?: number;
           allow_user_deletion_in_progress?: boolean;
+          expects_active_subscription?: boolean;
           expiration_reconciliation_delay_ms: number;
           revenuecat_app_user_id: string;
+          revenuecat_event_at_ms?: number;
+          revenuecat_event_id?: string;
           signup_at_ms?: number;
           snapshot: {
             entitlement_id?: string;
@@ -67,7 +147,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             store_subscription_id?: string;
           };
           store_subscription_id_hint?: string;
+          sync_attempt_id: string;
           synced_at_ms: number;
+          trusted_active_signal?: boolean;
           user_id: string;
         },
         any,
@@ -77,6 +159,24 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "mutation",
         "internal",
         { now_ms: number; usage_event_id: string },
+        any,
+        Name
+      >;
+      beginSubscriptionStateReconciliation: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          active_signal_at_ms?: number;
+          active_signal_ttl_ms?: number;
+          expects_active_subscription?: boolean;
+          lease_duration_ms: number;
+          now_ms: number;
+          revenuecat_app_user_id: string;
+          signup_at_ms?: number;
+          sync_attempt_id: string;
+          trusted_active_signal?: boolean;
+          user_id: string;
+        },
         any,
         Name
       >;
@@ -90,7 +190,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       clearUserDeletionOperation: FunctionReference<
         "mutation",
         "internal",
-        { user_id: string },
+        { cleanup_attempt_id?: string; now_ms?: number; user_id: string },
         any,
         Name
       >;
@@ -98,6 +198,25 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "mutation",
         "internal",
         { now_ms: number; usage_event_id: string },
+        any,
+        Name
+      >;
+      consumeRefreshRateLimit: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          config: {
+            daily_max_count: number;
+            daily_window_ms: number;
+            normal_max_count: number;
+            normal_window_ms: number;
+            purchase_max_count: number;
+            purchase_window_ms: number;
+          };
+          expects_active_subscription: boolean;
+          now_ms: number;
+          user_id: string;
+        },
         any,
         Name
       >;
@@ -109,6 +228,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Name
       >;
       deleteFrozenQuotaPeriodsEligibleForRetentionPurge: FunctionReference<
+        "mutation",
+        "internal",
+        { limit: number; older_than_ms: number },
+        any,
+        Name
+      >;
+      deleteRefreshRateLimitsEligibleForRetentionPurge: FunctionReference<
         "mutation",
         "internal",
         { limit: number; older_than_ms: number },
@@ -226,17 +352,17 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         any,
         Name
       >;
-      linkAnonymousSubscriptionStateToUser: FunctionReference<
-        "mutation",
-        "internal",
-        { anonymous_user_id: string; now_ms: number; user_id: string },
-        any,
-        Name
-      >;
       listAuthDeleteDeadLetterUserDeletionOperations: FunctionReference<
         "query",
         "internal",
         { limit: number },
+        any,
+        Name
+      >;
+      listCleanupDeadLetterUserDeletionOperations: FunctionReference<
+        "query",
+        "internal",
+        { limit: number; now_ms?: number; user_id?: string },
         any,
         Name
       >;
@@ -334,6 +460,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           next_retry_at_ms?: number;
           now_ms: number;
           processed_user_ids: Array<string>;
+          processing_attempt_id?: string;
           released_user_ids?: Array<string>;
           retry_config?: {
             max_retry_count: number;
@@ -345,21 +472,63 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         any,
         Name
       >;
+      releaseSubscriptionStateReconciliation: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          next_attempt_at_ms?: number;
+          now_ms: number;
+          sync_attempt_id: string;
+          user_id: string;
+        },
+        any,
+        Name
+      >;
+      renewUserDeletionOperationCleanupLease: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          cleanup_attempt_id: string;
+          cleanup_step:
+            | "acquired"
+            | "waiting_for_quiescence"
+            | "deleting_subscription_data"
+            | "deleting_stream_controls"
+            | "finalizing_subscription_data"
+            | "deleting_revenuecat_subscriber";
+          lease_expires_at_ms: number;
+          now_ms: number;
+          user_id: string;
+        },
+        any,
+        Name
+      >;
       rescheduleUserDeletionOperation: FunctionReference<
         "mutation",
         "internal",
         {
           auth_deleted_at_ms?: number;
+          cleanup_attempt_id?: string;
+          cleanup_lease_expires_at_ms?: number;
+          cleanup_step?:
+            | "acquired"
+            | "waiting_for_quiescence"
+            | "deleting_subscription_data"
+            | "deleting_stream_controls"
+            | "finalizing_subscription_data"
+            | "deleting_revenuecat_subscriber";
           force_stop_after_at_ms?: number;
           last_error?: string | null;
           next_retry_at_ms: number;
           now_ms: number;
           retry_count_increment?: number;
+          revenuecat_deleted_at_ms?: number;
           status:
             | "preparing"
             | "awaiting_auth_delete"
             | "awaiting_auth_delete_late"
             | "auth_delete_dead_letter"
+            | "cleanup_dead_letter"
             | "ready_for_cleanup"
             | "waiting_for_quiescence"
             | "retryable_error"
@@ -412,7 +581,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "mutation",
         "internal",
         {
+          cleanup_attempt_id?: string;
           has_active_subscription: boolean;
+          now_ms?: number;
           prepared_at_ms: number;
           preserved_quota_period_id?: string;
           revenuecat_app_user_id?: string;

@@ -7,6 +7,14 @@ const DEFAULT_RETRY_BATCH_LIMIT = 20;
 const DEFAULT_RECONCILIATION_BATCH_LIMIT = 10;
 const DEFAULT_RECONCILIATION_FAILURE_BACKOFF_MS = 30 * 60 * 1000;
 const DEFAULT_FROZEN_QUOTA_PERIOD_RETENTION_MS = 60 * 24 * 60 * 60 * 1000;
+const DEFAULT_REVENUECAT_EVENTS_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
+const DEFAULT_OPERATIONAL_ALERTS_RESOLVED_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
+const DEFAULT_REFRESH_RATE_LIMIT_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+const DEFAULT_REFRESH_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const DEFAULT_REFRESH_RATE_LIMIT_MAX_COUNT = 10;
+const DEFAULT_PURCHASE_REFRESH_RATE_LIMIT_MAX_COUNT = 20;
+const DEFAULT_DAILY_REFRESH_RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000;
+const DEFAULT_DAILY_REFRESH_RATE_LIMIT_MAX_COUNT = 100;
 
 function parseNumber(value: unknown): number | null {
     if (typeof value === "number" && Number.isFinite(value)) {
@@ -41,10 +49,10 @@ function parseIntegerEnvValue(value: string | undefined, defaultValue: number) {
     return Math.floor(parsed);
 }
 
-function parseRequiredPositiveIntegerEnvValue(value: string | undefined) {
+function parsePositiveIntegerEnvValue(value: string | undefined, defaultValue: number) {
     const parsed = parseNumber(value);
     if (parsed === null || parsed <= 0) {
-        return null;
+        return defaultValue;
     }
 
     return Math.floor(parsed);
@@ -55,6 +63,27 @@ export function getPolyglotEntitlementId() {
         parseString(process.env.REVENUECAT_POLYGLOT_ENTITLEMENT_ID) ??
         parseString(process.env.EXPO_PUBLIC_REVENUE_CAT_ENTITLEMENT_ID) ??
         ""
+    );
+}
+
+export function getPolyglotProductIds() {
+    const configured = [
+        parseString(process.env.REVENUECAT_POLYGLOT_PRODUCT_ID),
+        parseString(process.env.EXPO_PUBLIC_IOS_SUBSCRIPTION_PRODUCT_ID),
+        parseString(process.env.EXPO_PUBLIC_ANDR_SUBSCRIPTION_PRODUCT_ID),
+    ];
+    const commaSeparated = parseString(process.env.REVENUECAT_POLYGLOT_PRODUCT_IDS);
+
+    if (commaSeparated) {
+        configured.push(
+            ...commaSeparated
+                .split(",")
+                .map((value) => parseString(value))
+        );
+    }
+
+    return Array.from(
+        new Set(configured.filter((value): value is string => typeof value === "string"))
     );
 }
 
@@ -77,7 +106,7 @@ export function getSubscriptionProcessingConfig() {
 }
 
 export function hasPolyglotSubscriptionFilters() {
-    return getPolyglotEntitlementId().length > 0;
+    return getPolyglotEntitlementId().length > 0 || getPolyglotProductIds().length > 0;
 }
 
 export function getOnDemandSubscriptionRefreshIntervalMs() {
@@ -135,5 +164,51 @@ export function getFrozenQuotaPeriodRetentionMs() {
 }
 
 export function getRevenueCatEventsRetentionMs() {
-    return parseRequiredPositiveIntegerEnvValue(process.env.REVENUECAT_EVENTS_RETENTION_MS);
+    return parsePositiveIntegerEnvValue(
+        process.env.REVENUECAT_EVENTS_RETENTION_MS,
+        DEFAULT_REVENUECAT_EVENTS_RETENTION_MS
+    );
+}
+
+export function getOperationalAlertsResolvedRetentionMs() {
+    return parsePositiveIntegerEnvValue(
+        process.env.OPERATIONAL_ALERTS_RESOLVED_RETENTION_MS,
+        DEFAULT_OPERATIONAL_ALERTS_RESOLVED_RETENTION_MS
+    );
+}
+
+export function getRefreshRateLimitRetentionMs() {
+    return parsePositiveIntegerEnvValue(
+        process.env.REFRESH_RATE_LIMIT_RETENTION_MS,
+        DEFAULT_REFRESH_RATE_LIMIT_RETENTION_MS
+    );
+}
+
+export function getRefreshRateLimitConfig() {
+    return {
+        normal_window_ms: parsePositiveIntegerEnvValue(
+            process.env.REFRESH_RATE_LIMIT_WINDOW_MS,
+            DEFAULT_REFRESH_RATE_LIMIT_WINDOW_MS
+        ),
+        normal_max_count: parsePositiveIntegerEnvValue(
+            process.env.REFRESH_RATE_LIMIT_MAX_COUNT,
+            DEFAULT_REFRESH_RATE_LIMIT_MAX_COUNT
+        ),
+        purchase_window_ms: parsePositiveIntegerEnvValue(
+            process.env.PURCHASE_REFRESH_RATE_LIMIT_WINDOW_MS,
+            DEFAULT_REFRESH_RATE_LIMIT_WINDOW_MS
+        ),
+        purchase_max_count: parsePositiveIntegerEnvValue(
+            process.env.PURCHASE_REFRESH_RATE_LIMIT_MAX_COUNT,
+            DEFAULT_PURCHASE_REFRESH_RATE_LIMIT_MAX_COUNT
+        ),
+        daily_window_ms: parsePositiveIntegerEnvValue(
+            process.env.REFRESH_RATE_LIMIT_DAILY_WINDOW_MS,
+            DEFAULT_DAILY_REFRESH_RATE_LIMIT_WINDOW_MS
+        ),
+        daily_max_count: parsePositiveIntegerEnvValue(
+            process.env.REFRESH_RATE_LIMIT_DAILY_MAX_COUNT,
+            DEFAULT_DAILY_REFRESH_RATE_LIMIT_MAX_COUNT
+        ),
+    };
 }

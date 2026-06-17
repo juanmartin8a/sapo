@@ -1,6 +1,7 @@
 import {
     getOnDemandSubscriptionRefreshIntervalMs,
     getPolyglotEntitlementId,
+    getPolyglotProductIds,
     getRevenueCatProjectId,
     getRevenueCatEventsRetentionMs,
     hasPolyglotSubscriptionFilters,
@@ -11,6 +12,27 @@ const REVENUECAT_API_V2_BASE_URL = "https://api.revenuecat.com/v2";
 const REVENUECAT_READ_REQUEST_TIMEOUT_MS = 5_000;
 const REVENUECAT_DELETE_REQUEST_TIMEOUT_MS = 5_000;
 const REVENUECAT_SUBSCRIPTIONS_MAX_PAGES = 10;
+
+type RevenueCatErrorDetails = {
+    message?: string;
+    retry_after_ms?: number;
+};
+
+export class RevenueCatApiError extends Error {
+    readonly status: number;
+    readonly retry_after_ms?: number;
+
+    constructor(args: {
+        message: string;
+        status: number;
+        retry_after_ms?: number;
+    }) {
+        super(args.message);
+        this.name = "RevenueCatApiError";
+        this.status = args.status;
+        this.retry_after_ms = args.retry_after_ms;
+    }
+}
 
 type RevenueCatReconciliationSnapshot = {
     has_active_subscription: boolean;
@@ -31,9 +53,28 @@ export type CurrentSubscriptionState = {
     store_subscription_id?: string;
     store_subscription_period_id?: string;
     billing_cycle_end_at_ms?: number;
+    last_revenuecat_event_id?: string;
+    last_revenuecat_event_at_ms?: number;
+    sync_attempt_id?: string;
+    sync_started_at_ms?: number;
+    sync_expires_at_ms?: number;
+    pending_active_signal_at_ms?: number;
+    pending_active_expires_at_ms?: number;
     last_synced_at_ms: number;
     stale_after_at_ms: number;
 };
+
+export function shouldIgnoreStaleReconciledSubscriptionState(
+    state: Pick<CurrentSubscriptionState, "last_synced_at_ms"> | null | undefined,
+    incomingSyncedAtMs: number
+) {
+    return (
+        !!state &&
+        Number.isFinite(state.last_synced_at_ms) &&
+        Number.isFinite(incomingSyncedAtMs) &&
+        state.last_synced_at_ms > incomingSyncedAtMs
+    );
+}
 
 type ParsedRevenueCatSubscription = {
     product_id?: string;
@@ -93,10 +134,7 @@ function getRevenueCatReadApiV2Key() {
 }
 
 function getRevenueCatDeleteApiV2Key() {
-    return (
-        parseString(process.env.REVENUECAT_CI_CUSTOMERS_RW_API_KEY) ??
-        getRevenueCatReadApiV2Key()
-    );
+    return parseString(process.env.REVENUECAT_CI_CUSTOMERS_RW_API_KEY);
 }
 
 function getRevenueCatReadApiV2Config() {
@@ -141,7 +179,7 @@ export function getMissingRevenueCatReadApiV2ConfigMessage() {
 
 function getMissingRevenueCatDeleteApiV2ConfigMessage() {
     if (!getRevenueCatDeleteApiV2Key()) {
-        return "Missing REVENUECAT_CI_CUSTOMERS_RW_API_KEY or REVENUECAT_CI_SUBSCRIPTIONS_R_API_KEY";
+        return "Missing REVENUECAT_CI_CUSTOMERS_RW_API_KEY";
     }
 
     if (getRevenueCatProjectId().length === 0) {
@@ -168,6 +206,65 @@ function parseNumber(value: unknown): number | null {
     }
 
     return null;
+}
+
+function parseRetryAfterHeaderMs(response: Response) {
+    const retryAfterHeader = response.headers?.get?.("Retry-After");
+
+    if (!retryAfterHeader) {
+        return undefined;
+    }
+
+    const seconds = parseNumber(retryAfterHeader);
+    if (seconds !== null) {
+        return Math.max(0, Math.floor(seconds * 1000));
+    }
+
+    const retryAfterTimestampMs = Date.parse(retryAfterHeader);
+    if (Number.isNaN(retryAfterTimestampMs)) {
+        return undefined;
+    }
+
+    return Math.max(0, retryAfterTimestampMs - Date.now());
+}
+
+async function readRevenueCatErrorDetails(response: Response): Promise<RevenueCatErrorDetails> {
+    let payload: unknown = null;
+
+    try {
+        payload = await response.json();
+    } catch {
+        payload = null;
+    }
+
+    if (!isRecord(payload)) {
+        return {
+            retry_after_ms: parseRetryAfterHeaderMs(response),
+        };
+    }
+
+    const backoffMs = parseNumber(payload.backoff_ms);
+
+    return {
+        message: parseString(payload.message) ?? parseString(payload.type) ?? undefined,
+        retry_after_ms: backoffMs !== null
+            ? Math.max(0, Math.floor(backoffMs))
+            : parseRetryAfterHeaderMs(response),
+    };
+}
+
+function buildRevenueCatHttpError(args: {
+    operation: string;
+    status: number;
+    details: RevenueCatErrorDetails;
+}) {
+    const detailMessage = args.details.message ? `: ${args.details.message}` : "";
+
+    return new RevenueCatApiError({
+        message: `${args.operation} failed with status ${args.status}${detailMessage}`,
+        status: args.status,
+        retry_after_ms: args.details.retry_after_ms,
+    });
 }
 
 function parseTimestampMs(value: unknown): number | null {
@@ -308,7 +405,11 @@ async function fetchRevenueCatSubscriptions(
         }
 
         if (!response.ok) {
-            throw new Error(`RevenueCat v2 subscriptions request failed with status ${response.status}`);
+            throw buildRevenueCatHttpError({
+                operation: "RevenueCat v2 subscriptions request",
+                status: response.status,
+                details: await readRevenueCatErrorDetails(response),
+            });
         }
 
         const payload = (await response.json()) as unknown;
@@ -415,14 +516,18 @@ export function formatErrorMessage(error: unknown): string {
     return "Unknown error";
 }
 
+export function getRevenueCatApiErrorRetryDelayMs(error: unknown) {
+    return error instanceof RevenueCatApiError ? error.retry_after_ms : undefined;
+}
+
+export function isRevenueCatApiErrorWithStatus(error: unknown, statuses: number[]) {
+    return error instanceof RevenueCatApiError && statuses.includes(error.status);
+}
+
 export function getRevenueCatEventsRetentionCutoffMs(
     nowMs: number,
     retentionMs = getRevenueCatEventsRetentionMs()
 ) {
-    if (retentionMs === null) {
-        return null;
-    }
-
     return nowMs - retentionMs;
 }
 
@@ -430,15 +535,18 @@ export async function fetchRevenueCatSubscriberSnapshot(
     appUserId: string,
     currentTimeMs: number
 ): Promise<RevenueCatReconciliationSnapshot> {
+    const configuredEntitlementId = getPolyglotEntitlementId();
+    const configuredProductIds = getPolyglotProductIds();
+    const configuredProductIdSet = new Set(configuredProductIds);
+
     if (!hasPolyglotSubscriptionFilters()) {
-        console.error("Missing RevenueCat Polyglot entitlement ID");
+        console.error("Missing RevenueCat Polyglot entitlement or product ID");
 
         return {
             has_active_subscription: false,
         };
     }
 
-    const configuredEntitlementId = getPolyglotEntitlementId();
     const parsedSubscriptions = await fetchRevenueCatSubscriptions(appUserId);
     const candidates = buildRevenueCatReconciliationCandidates(
         [],
@@ -447,7 +555,11 @@ export async function fetchRevenueCatSubscriberSnapshot(
     );
 
     const matchingCandidates = candidates.filter((candidate) => {
-        return candidate.entitlement_ids.includes(configuredEntitlementId);
+        if (configuredEntitlementId.length > 0) {
+            return candidate.entitlement_ids.includes(configuredEntitlementId);
+        }
+
+        return typeof candidate.product_id === "string" && configuredProductIdSet.has(candidate.product_id);
     });
 
     const selectedCandidate = [...matchingCandidates].sort((left, right) => {
@@ -499,7 +611,7 @@ export async function deleteRevenueCatSubscriber(appUserId: string) {
     if (!config) {
         throw new Error(
             getMissingRevenueCatDeleteApiV2ConfigMessage() ??
-            "Missing REVENUECAT_CI_CUSTOMERS_RW_API_KEY or REVENUECAT_CI_SUBSCRIPTIONS_R_API_KEY"
+            "Missing RevenueCat customer delete configuration"
         );
     }
 
@@ -525,7 +637,11 @@ export async function deleteRevenueCatSubscriber(appUserId: string) {
     }
 
     if (!response.ok) {
-        throw new Error(`RevenueCat subscriber delete failed with status ${response.status}`);
+        throw buildRevenueCatHttpError({
+            operation: "RevenueCat subscriber delete",
+            status: response.status,
+            details: await readRevenueCatErrorDetails(response),
+        });
     }
 
     return {
