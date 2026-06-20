@@ -261,6 +261,12 @@ async function readStreamErrorMessage(response: Response) {
 }
 
 const useSseStore = create<SseState>((set, get) => {
+    let activeSendMessageId: string | null = null;
+
+    const clearActiveSendMessage = () => {
+        activeSendMessageId = null;
+    };
+
     const setTranslateButtonState = (nextState: translateButtonState) => {
         const { state, switchState } = useTranslateButtonStateNotifier.getState();
         if (state !== nextState) {
@@ -359,6 +365,8 @@ const useSseStore = create<SseState>((set, get) => {
         disconnectStream: () => {
             const streamSnapshot = getActiveStreamStopSnapshot();
 
+            clearActiveSendMessage();
+            setIdleTranslateButtonState();
             set({
                 abortController: null,
                 activeStreamId: null,
@@ -372,6 +380,10 @@ const useSseStore = create<SseState>((set, get) => {
         },
 
         sendMessage: async (input: string) => {
+            if (activeSendMessageId !== null || get().isStreaming || get().abortController !== null) {
+                return;
+            }
+
             const selectedInputIndex = useLanguageSelectorBottomSheetNotifier.getState().selectedIndex0;
             const selectedTargetIndex = useLanguageSelectorBottomSheetNotifier.getState().selectedIndex1;
 
@@ -389,13 +401,10 @@ const useSseStore = create<SseState>((set, get) => {
             const convexSiteUrl = process.env.EXPO_PUBLIC_CONVEX_SITE_URL;
             const streamId = globalThis.crypto?.randomUUID?.()
                 ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+            const isLatestSendMessage = () => activeSendMessageId === streamId;
 
+            activeSendMessageId = streamId;
             setTranslateButtonState("loading");
-
-            const previousStreamSnapshot = getActiveStreamStopSnapshot();
-            if (previousStreamSnapshot.abortController) {
-                requestStopThenAbortStream(previousStreamSnapshot);
-            }
 
             if (operation === "translate") {
                 const localModelState = useLocalModelStore.getState();
@@ -405,11 +414,37 @@ const useSseStore = create<SseState>((set, get) => {
                     let readyLocalModelState = localModelState;
 
                     if (!readyLocalModelState.selectedModelId || !readyLocalModelState.isDownloaded) {
-                        await useLocalModelStore.getState().refreshDownloadedStatus();
-                        readyLocalModelState = useLocalModelStore.getState();
+                        try {
+                            await useLocalModelStore.getState().refreshDownloadedStatus();
+
+                            if (!isLatestSendMessage()) {
+                                return;
+                            }
+
+                            readyLocalModelState = useLocalModelStore.getState();
+                        } catch (error) {
+                            if (!isLatestSendMessage()) {
+                                return;
+                            }
+
+                            clearActiveSendMessage();
+                            setIdleTranslateButtonState();
+                            set({ streamError: false, streamErrorMessage: null });
+
+                            if (__DEV__) {
+                                console.warn("Unable to refresh local model status", error);
+                            }
+
+                            Alert.alert(
+                                "Unable to check local model",
+                                "Unable to check the local model status. Please try again."
+                            );
+                            return;
+                        }
                     }
 
                     if (!readyLocalModelState.selectedModelId || !readyLocalModelState.isDownloaded) {
+                        clearActiveSendMessage();
                         setIdleTranslateButtonState();
                         set({ streamError: false, streamErrorMessage: null });
                         Alert.alert(LOCAL_MODEL_SELECTION_ALERT_TITLE, LOCAL_MODEL_SELECTION_ALERT_MESSAGE);
@@ -422,8 +457,18 @@ const useSseStore = create<SseState>((set, get) => {
                     ) {
                         try {
                             await useLocalModelStore.getState().loadModel();
+
+                            if (!isLatestSendMessage()) {
+                                return;
+                            }
+
                             readyLocalModelState = useLocalModelStore.getState();
                         } catch (error) {
+                            if (!isLatestSendMessage()) {
+                                return;
+                            }
+
+                            clearActiveSendMessage();
                             setIdleTranslateButtonState();
                             set({ streamError: false, streamErrorMessage: null });
 
@@ -534,6 +579,10 @@ const useSseStore = create<SseState>((set, get) => {
                                 isStreaming: false,
                             });
                         }
+
+                        if (activeSendMessageId === streamId) {
+                            clearActiveSendMessage();
+                        }
                     }
 
                     return;
@@ -542,6 +591,7 @@ const useSseStore = create<SseState>((set, get) => {
 
             if (!convexSiteUrl) {
                 console.error("Missing EXPO_PUBLIC_CONVEX_SITE_URL for SSE request");
+                clearActiveSendMessage();
                 set({
                     streamError: true,
                     streamErrorMessage: "An error occurred",
@@ -904,6 +954,10 @@ const useSseStore = create<SseState>((set, get) => {
                         isStreaming: false,
                     });
                 }
+
+                if (activeSendMessageId === streamId) {
+                    clearActiveSendMessage();
+                }
             }
         },
 
@@ -917,6 +971,7 @@ const useSseStore = create<SseState>((set, get) => {
         stopStream: () => {
             const streamSnapshot = getActiveStreamStopSnapshot();
 
+            clearActiveSendMessage();
             setIdleTranslateButtonState();
             set({
                 streamError: false,
@@ -933,6 +988,8 @@ const useSseStore = create<SseState>((set, get) => {
         reset: () => {
             const streamSnapshot = getActiveStreamStopSnapshot();
 
+            clearActiveSendMessage();
+            setIdleTranslateButtonState();
             set({
                 tokens: new Map<number, Token>(),
                 streamError: false,
