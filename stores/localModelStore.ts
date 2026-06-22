@@ -1,8 +1,12 @@
 import {
+    createLocalModelDownload,
     DEFAULT_LOCAL_TRANSLATION_MODEL_ID,
     LOCAL_TRANSLATION_MODELS,
+    getLocalTranslationModelById,
     isLocalModelDownloaded,
     setSelectedLocalTranslationModelId,
+    type LocalModelDownloadProgress,
+    type LocalModelStatus,
     type LocalTranslationModelId,
     type SelectedLocalTranslationModelId,
 } from "@/clients/local-model";
@@ -12,6 +16,8 @@ import { create } from "zustand";
 interface LocalModelStoreState {
     selectedModelId: SelectedLocalTranslationModelId;
     downloadedModelIds: LocalTranslationModelId[];
+    downloadProgressByModelId: Partial<Record<LocalTranslationModelId, LocalModelDownloadProgress>>;
+    downloadingModelId: LocalTranslationModelId | null;
     hasUserSelectedModel: boolean;
     isDownloaded: boolean;
     isEnabled: boolean;
@@ -19,15 +25,20 @@ interface LocalModelStoreState {
     isLoading: boolean;
     loadedModelId: SelectedLocalTranslationModelId;
     isRefreshing: boolean;
+    cancelDownload: () => Promise<void>;
     selectModel: (modelId: SelectedLocalTranslationModelId) => Promise<void>;
     refreshDownloadedStatus: () => Promise<boolean>;
     setDownloaded: (isDownloaded: boolean) => void;
     setDownloadedModelIds: (downloadedModelIds: LocalTranslationModelId[]) => Promise<void>;
     setLoaded: (isLoaded: boolean) => void;
     setLoading: (isLoading: boolean) => void;
+    startDownload: (modelId: LocalTranslationModelId) => Promise<LocalModelStatus | null>;
     loadModel: () => Promise<void>;
     toggleEnabled: () => Promise<void>;
 }
+
+let activeDownload: ReturnType<typeof createLocalModelDownload> | null = null;
+let activeDownloadPromise: Promise<LocalModelStatus> | null = null;
 
 const getDownloadedModelIds = async () => {
     const downloadStatuses = await Promise.all(
@@ -62,6 +73,8 @@ const getSelectionState = (
 const useLocalModelStore = create<LocalModelStoreState>((set, get) => ({
     selectedModelId: DEFAULT_LOCAL_TRANSLATION_MODEL_ID,
     downloadedModelIds: [],
+    downloadProgressByModelId: {},
+    downloadingModelId: null,
     hasUserSelectedModel: false,
     isDownloaded: false,
     isEnabled: false,
@@ -69,6 +82,25 @@ const useLocalModelStore = create<LocalModelStoreState>((set, get) => ({
     isLoading: false,
     loadedModelId: null,
     isRefreshing: false,
+    cancelDownload: async () => {
+        const download = activeDownload;
+
+        if (!download) {
+            return;
+        }
+
+        await download.cancel();
+
+        if (activeDownload === download) {
+            activeDownload = null;
+            activeDownloadPromise = null;
+        }
+
+        set({
+            downloadProgressByModelId: {},
+            downloadingModelId: null,
+        });
+    },
     selectModel: async (modelId) => {
         const { selectedModelId } = get();
 
@@ -160,6 +192,71 @@ const useLocalModelStore = create<LocalModelStoreState>((set, get) => ({
     },
     setLoading: (isLoading) => {
         set({ isLoading });
+    },
+    startDownload: async (modelId) => {
+        const { downloadingModelId } = get();
+
+        if (downloadingModelId) {
+            return downloadingModelId === modelId ? activeDownloadPromise : null;
+        }
+
+        const model = getLocalTranslationModelById(modelId);
+        const download = createLocalModelDownload((progress) => {
+            set((state) => ({
+                downloadProgressByModelId: {
+                    ...state.downloadProgressByModelId,
+                    [modelId]: progress,
+                },
+            }));
+        }, modelId);
+
+        activeDownload = download;
+
+        set((state) => ({
+            downloadProgressByModelId: {
+                ...state.downloadProgressByModelId,
+                [modelId]: {
+                    downloadedBytes: 0,
+                    expectedBytes: model.sizeBytes,
+                    phase: "downloading",
+                    progress: 0,
+                },
+            },
+            downloadingModelId: modelId,
+        }));
+
+        const downloadPromise = (async () => {
+            try {
+                const nextStatus = await download.start();
+                await get().setDownloadedModelIds(Array.from(new Set([...get().downloadedModelIds, modelId])));
+                set((state) => ({
+                    downloadProgressByModelId: {
+                        ...state.downloadProgressByModelId,
+                        [modelId]: undefined,
+                    },
+                }));
+
+                return nextStatus;
+            } catch (error) {
+                set((state) => ({
+                    downloadProgressByModelId: {
+                        ...state.downloadProgressByModelId,
+                        [modelId]: undefined,
+                    },
+                }));
+                throw error;
+            } finally {
+                if (activeDownload === download) {
+                    activeDownload = null;
+                    activeDownloadPromise = null;
+                    set({ downloadingModelId: null });
+                }
+            }
+        })();
+
+        activeDownloadPromise = downloadPromise;
+
+        return downloadPromise;
     },
     loadModel: async () => {
         const { selectedModelId, loadedModelId, isDownloaded, isLoading } = get();

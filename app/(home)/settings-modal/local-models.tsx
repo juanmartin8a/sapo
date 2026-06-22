@@ -5,7 +5,6 @@ import DownloadIcon from "@/assets/icons/download.svg";
 import SquareIcon from "@/assets/icons/square.svg";
 import TrashIcon from "@/assets/icons/trash.svg";
 import {
-    createLocalModelDownload,
     deleteLocalModel,
     formatBytes,
     getLocalModelStatus,
@@ -13,7 +12,6 @@ import {
     LOCAL_TRANSLATION_MODELS,
     type LocalTranslationModel,
     type LocalTranslationModelId,
-    type LocalModelDownloadProgress,
     type LocalModelStatus,
 } from "@/clients/local-model";
 import { releaseLocalTranslationModel } from "@/clients/local-translation";
@@ -29,19 +27,19 @@ const colors = {
 };
 
 type ModelStatusById = Partial<Record<LocalTranslationModelId, LocalModelStatus>>;
-type DownloadProgressById = Partial<Record<LocalTranslationModelId, LocalModelDownloadProgress>>;
 
 export default function LocalModelScreen() {
     const [statusByModelId, setStatusByModelId] = useState<ModelStatusById>({});
-    const [downloadProgressByModelId, setDownloadProgressByModelId] = useState<DownloadProgressById>({});
     const [isRefreshing, setIsRefreshing] = useState(true);
-    const [downloadingModelId, setDownloadingModelId] = useState<LocalTranslationModelId | null>(null);
     const [deletingModelId, setDeletingModelId] = useState<LocalTranslationModelId | null>(null);
     const mountedRef = useRef(true);
-    const activeDownloadRef = useRef<ReturnType<typeof createLocalModelDownload> | null>(null);
+    const cancelDownload = useLocalModelStore((state) => state.cancelDownload);
+    const downloadProgressByModelId = useLocalModelStore((state) => state.downloadProgressByModelId);
+    const downloadingModelId = useLocalModelStore((state) => state.downloadingModelId);
     const setDownloadedModelIds = useLocalModelStore((state) => state.setDownloadedModelIds);
     const selectedModelId = useLocalModelStore((state) => state.selectedModelId);
     const loadedModelId = useLocalModelStore((state) => state.loadedModelId);
+    const startDownload = useLocalModelStore((state) => state.startDownload);
 
     const refreshStatus = useCallback(async () => {
         try {
@@ -91,43 +89,17 @@ export default function LocalModelScreen() {
             return;
         }
 
-        const download = createLocalModelDownload((progress) => {
-            if (mountedRef.current) {
-                setDownloadProgressByModelId((current) => ({
-                    ...current,
-                    [model.id]: progress,
-                }));
-            }
-        }, model.id);
-
-        activeDownloadRef.current = download;
-
         try {
-            setDownloadingModelId(model.id);
-            setDownloadProgressByModelId((current) => ({
-                ...current,
-                [model.id]: { downloadedBytes: 0, expectedBytes: model.sizeBytes, progress: 0 },
-            }));
+            const nextStatus = await startDownload(model.id);
 
-            const nextStatus = await download.start();
+            if (!nextStatus) {
+                return;
+            }
 
             if (mountedRef.current) {
                 setStatusByModelId((current) => ({
                     ...current,
                     [model.id]: nextStatus,
-                }));
-                await setDownloadedModelIds(
-                    LOCAL_TRANSLATION_MODELS
-                        .filter((localModel) => {
-                            const status = localModel.id === model.id ? nextStatus : statusByModelId[localModel.id];
-
-                            return status?.isDownloaded;
-                        })
-                        .map((localModel) => localModel.id)
-                );
-                setDownloadProgressByModelId((current) => ({
-                    ...current,
-                    [model.id]: undefined,
                 }));
                 Alert.alert(
                     "Local model ready",
@@ -147,34 +119,13 @@ export default function LocalModelScreen() {
             }
 
             await refreshStatus();
-        } finally {
-            if (activeDownloadRef.current === download) {
-                activeDownloadRef.current = null;
-            }
-
-            if (mountedRef.current) {
-                setDownloadingModelId(null);
-            }
         }
-    }, [deletingModelId, downloadingModelId, refreshStatus, setDownloadedModelIds, statusByModelId]);
+    }, [deletingModelId, downloadingModelId, refreshStatus, startDownload]);
 
     const handleCancelDownload = useCallback(async () => {
-        const activeDownload = activeDownloadRef.current;
-
-        if (!activeDownload) {
-            return;
-        }
-
-        await activeDownload.cancel();
-        activeDownloadRef.current = null;
-
-        if (mountedRef.current) {
-            setDownloadingModelId(null);
-            setDownloadProgressByModelId({});
-        }
-
+        await cancelDownload();
         await refreshStatus();
-    }, [refreshStatus]);
+    }, [cancelDownload, refreshStatus]);
 
     const handleDeleteModel = useCallback((model: LocalTranslationModel) => {
         if (deletingModelId || downloadingModelId || !statusByModelId[model.id]?.isDownloaded) {
@@ -219,7 +170,9 @@ export default function LocalModelScreen() {
         const isModelActionDisabled = isRefreshing || !status?.supported || (isBusy && !isDownloading);
         const modelProgress = downloadProgressByModelId[model.id];
         const modelSizeText = isDownloading
-            ? `${formatBytes(modelProgress?.downloadedBytes ?? status?.downloadedBytes ?? 0)} of ${formatBytes(modelProgress?.expectedBytes ?? status?.expectedBytes ?? model.sizeBytes)}`
+            ? modelProgress?.phase === "finalizing"
+                ? "Finalizing..."
+                : `${formatBytes(modelProgress?.downloadedBytes ?? status?.downloadedBytes ?? 0)} of ${formatBytes(modelProgress?.expectedBytes ?? status?.expectedBytes ?? model.sizeBytes)}`
             : formatBytes(model.sizeBytes);
 
         return (
