@@ -1,8 +1,12 @@
+import { File } from "expo-file-system";
 import * as FileSystem from "expo-file-system/legacy";
 import { Platform } from "react-native";
 
+import { Sha256 } from "@/utils/sha256";
+
 const MODEL_DIRECTORY_NAME = "local-models";
 const PARTIAL_DOWNLOAD_SUFFIX = ".download";
+const VERIFICATION_FILE_SUFFIX = ".verified.json";
 const LOW_STORAGE_BUFFER_BYTES = 512 * 1024 * 1024;
 
 export const LOCAL_TRANSLATION_MODELS = [
@@ -14,9 +18,11 @@ export const LOCAL_TRANSLATION_MODELS = [
         baseModel: "google/gemma-4-E2B-it",
         repository: "litert-community/gemma-4-E2B-it-litert-lm",
         fileName: "gemma-4-E2B-it.litertlm",
+        revision: "361a4010ad6d88fc5c86e148e333c0342b99763d",
         sizeBytes: 2_588_147_712,
+        sha256: "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
         downloadUrl:
-            "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm",
+            "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/361a4010ad6d88fc5c86e148e333c0342b99763d/gemma-4-E2B-it.litertlm",
     },
     {
         id: "gemma4-e4b-it",
@@ -26,9 +32,11 @@ export const LOCAL_TRANSLATION_MODELS = [
         baseModel: "google/gemma-4-E4B-it",
         repository: "litert-community/gemma-4-E4B-it-litert-lm",
         fileName: "gemma-4-E4B-it.litertlm",
+        revision: "f7ad3343bd6ebc9607f4dc3bc4f2398bd5749bc5",
         sizeBytes: 3_659_530_240,
+        sha256: "0b2a8980ce155fd97673d8e820b4d29d9c7d99b8fa6806f425d969b145bd52e0",
         downloadUrl:
-            "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm",
+            "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/f7ad3343bd6ebc9607f4dc3bc4f2398bd5749bc5/gemma-4-E4B-it.litertlm",
     },
 ] as const;
 
@@ -76,6 +84,16 @@ export type LocalModelDownloadProgress = {
     progress: number;
 };
 
+type LocalModelVerificationRecord = {
+    modelId: LocalTranslationModelId;
+    fileName: string;
+    revision: string;
+    sizeBytes: number;
+    sha256: string;
+    fileModificationTime: number;
+    verifiedAtMs: number;
+};
+
 const createAbortError = (message: string) => {
     const error = new Error(message);
     error.name = "AbortError";
@@ -84,6 +102,10 @@ const createAbortError = (message: string) => {
 
 const getFileSize = (fileInfo: Awaited<ReturnType<typeof FileSystem.getInfoAsync>>) => {
     return fileInfo.exists && !fileInfo.isDirectory ? fileInfo.size ?? 0 : 0;
+};
+
+const getFileModificationTime = (fileInfo: Awaited<ReturnType<typeof FileSystem.getInfoAsync>>) => {
+    return fileInfo.exists && !fileInfo.isDirectory ? fileInfo.modificationTime : null;
 };
 
 export const isLocalModelSupported = () => {
@@ -112,6 +134,14 @@ export const formatBytes = (bytes: number) => {
 };
 
 export const getLocalModelDirectoryUri = () => {
+    if (!FileSystem.cacheDirectory) {
+        return null;
+    }
+
+    return `${FileSystem.cacheDirectory}${MODEL_DIRECTORY_NAME}/`;
+};
+
+const getLegacyDocumentLocalModelDirectoryUri = () => {
     if (!FileSystem.documentDirectory) {
         return null;
     }
@@ -139,11 +169,147 @@ const getPartialLocalModelFileUri = (modelId: SelectedLocalTranslationModelId = 
     return `${modelFileUri}${PARTIAL_DOWNLOAD_SUFFIX}`;
 };
 
+const getLocalModelVerificationFileUri = (
+    modelId: SelectedLocalTranslationModelId = selectedLocalModelId
+) => {
+    const modelFileUri = getLocalModelFileUri(modelId);
+
+    if (!modelFileUri) {
+        return null;
+    }
+
+    return `${modelFileUri}${VERIFICATION_FILE_SUFFIX}`;
+};
+
+const getLegacyDocumentLocalModelUris = () => {
+    const legacyDocumentDirectoryUri = getLegacyDocumentLocalModelDirectoryUri();
+
+    if (!legacyDocumentDirectoryUri) {
+        return [] as string[];
+    }
+
+    return [
+        ...LOCAL_TRANSLATION_MODELS.flatMap((model) => [
+            `${legacyDocumentDirectoryUri}${model.fileName}`,
+            `${legacyDocumentDirectoryUri}${model.fileName}${PARTIAL_DOWNLOAD_SUFFIX}`,
+            `${legacyDocumentDirectoryUri}${model.fileName}${VERIFICATION_FILE_SUFFIX}`,
+        ]),
+        ...LEGACY_LOCAL_MODEL_FILE_NAMES.flatMap((fileName) => [
+            `${legacyDocumentDirectoryUri}${fileName}`,
+            `${legacyDocumentDirectoryUri}${fileName}${PARTIAL_DOWNLOAD_SUFFIX}`,
+        ]),
+    ];
+};
+
 const getFreeDiskStorage = async () => {
     try {
         return await FileSystem.getFreeDiskStorageAsync();
     } catch {
         return null;
+    }
+};
+
+const readLocalModelVerificationRecord = async (
+    model: LocalTranslationModel
+): Promise<LocalModelVerificationRecord | null> => {
+    const verificationUri = getLocalModelVerificationFileUri(model.id);
+
+    if (!verificationUri) {
+        return null;
+    }
+
+    try {
+        const verificationText = await FileSystem.readAsStringAsync(verificationUri);
+        const parsedRecord = JSON.parse(verificationText) as Partial<LocalModelVerificationRecord>;
+
+        if (
+            parsedRecord.modelId === model.id &&
+            parsedRecord.fileName === model.fileName &&
+            parsedRecord.revision === model.revision &&
+            parsedRecord.sizeBytes === model.sizeBytes &&
+            parsedRecord.sha256 === model.sha256
+        ) {
+            return parsedRecord as LocalModelVerificationRecord;
+        }
+    } catch {
+        return null;
+    }
+
+    return null;
+};
+
+const hasVerifiedLocalModelFile = async (
+    model: LocalTranslationModel,
+    modelInfo?: Awaited<ReturnType<typeof FileSystem.getInfoAsync>>
+) => {
+    const modelUri = getLocalModelFileUri(model.id);
+
+    if (!modelUri) {
+        return false;
+    }
+
+    const resolvedModelInfo = modelInfo ?? (await FileSystem.getInfoAsync(modelUri));
+    if (getFileSize(resolvedModelInfo) !== model.sizeBytes) {
+        return false;
+    }
+
+    const verificationRecord = await readLocalModelVerificationRecord(model);
+    return verificationRecord?.fileModificationTime === getFileModificationTime(resolvedModelInfo);
+};
+
+const writeLocalModelVerificationRecord = async (
+    model: LocalTranslationModel,
+    modelInfo: Awaited<ReturnType<typeof FileSystem.getInfoAsync>>
+) => {
+    const verificationUri = getLocalModelVerificationFileUri(model.id);
+    const fileModificationTime = getFileModificationTime(modelInfo);
+
+    if (!verificationUri || fileModificationTime === null) {
+        throw new Error("Unable to write local model verification record.");
+    }
+
+    const verificationRecord: LocalModelVerificationRecord = {
+        modelId: model.id,
+        fileName: model.fileName,
+        revision: model.revision,
+        sizeBytes: model.sizeBytes,
+        sha256: model.sha256,
+        fileModificationTime,
+        verifiedAtMs: Date.now(),
+    };
+
+    await FileSystem.writeAsStringAsync(verificationUri, JSON.stringify(verificationRecord));
+};
+
+const calculateLocalFileSha256 = async (fileUri: string) => {
+    const file = new File(fileUri);
+    const reader = file.readableStream().getReader();
+    const hash = new Sha256();
+
+    try {
+        while (true) {
+            const { done, value } = await reader.read();
+
+            if (done) {
+                break;
+            }
+
+            if (value.byteLength > 0) {
+                hash.update(value);
+            }
+        }
+    } finally {
+        reader.releaseLock();
+    }
+
+    return hash.digestHex();
+};
+
+const verifyLocalModelFile = async (model: LocalTranslationModel, fileUri: string) => {
+    const actualSha256 = await calculateLocalFileSha256(fileUri);
+
+    if (actualSha256 !== model.sha256) {
+        throw new Error("The downloaded model failed integrity verification. Please try again.");
     }
 };
 
@@ -192,7 +358,7 @@ export const getLocalModelStatus = async (
     ]);
     const modelBytes = getFileSize(modelInfo);
     const partialBytes = getFileSize(partialModelInfo);
-    const isDownloaded = modelBytes === model.sizeBytes;
+    const isDownloaded = await hasVerifiedLocalModelFile(model, modelInfo);
     const downloadedBytes = isDownloaded ? modelBytes : partialBytes;
 
     return {
@@ -219,8 +385,7 @@ export const isLocalModelDownloaded = async (modelId: SelectedLocalTranslationMo
         return false;
     }
 
-    const modelInfo = await FileSystem.getInfoAsync(modelUri);
-    return getFileSize(modelInfo) === model.sizeBytes;
+    return hasVerifiedLocalModelFile(model);
 };
 
 export const deleteLocalModel = async (modelId: SelectedLocalTranslationModelId = selectedLocalModelId) => {
@@ -231,6 +396,7 @@ export const deleteLocalModel = async (modelId: SelectedLocalTranslationModelId 
     const model = getLocalTranslationModelById(modelId);
     const modelUri = getLocalModelFileUri(model.id);
     const partialModelUri = getPartialLocalModelFileUri(model.id);
+    const verificationModelUri = getLocalModelVerificationFileUri(model.id);
     const modelDirectoryUri = getLocalModelDirectoryUri();
     const legacyModelUris = modelDirectoryUri
         ? LEGACY_LOCAL_MODEL_FILE_NAMES.flatMap((fileName) => [
@@ -238,11 +404,14 @@ export const deleteLocalModel = async (modelId: SelectedLocalTranslationModelId 
             `${modelDirectoryUri}${fileName}${PARTIAL_DOWNLOAD_SUFFIX}`,
         ])
         : [];
+    const legacyDocumentModelUris = getLegacyDocumentLocalModelUris();
 
     await Promise.all([
         modelUri ? FileSystem.deleteAsync(modelUri, { idempotent: true }) : Promise.resolve(),
         partialModelUri ? FileSystem.deleteAsync(partialModelUri, { idempotent: true }) : Promise.resolve(),
+        verificationModelUri ? FileSystem.deleteAsync(verificationModelUri, { idempotent: true }) : Promise.resolve(),
         ...legacyModelUris.map((uri) => FileSystem.deleteAsync(uri, { idempotent: true })),
+        ...legacyDocumentModelUris.map((uri) => FileSystem.deleteAsync(uri, { idempotent: true })),
     ]);
 };
 
@@ -322,7 +491,21 @@ export const createLocalModelDownload = (
             throw new Error("The downloaded model file was incomplete. Please try again.");
         }
 
+        try {
+            await verifyLocalModelFile(model, partialModelUri);
+        } catch (error) {
+            await FileSystem.deleteAsync(partialModelUri, { idempotent: true }).catch(() => undefined);
+            throw error;
+        }
+
+        if (isCancelled) {
+            await FileSystem.deleteAsync(partialModelUri, { idempotent: true }).catch(() => undefined);
+            throw createAbortError("Local model download cancelled.");
+        }
+
         await FileSystem.moveAsync({ from: partialModelUri, to: modelUri });
+        const modelInfo = await FileSystem.getInfoAsync(modelUri);
+        await writeLocalModelVerificationRecord(model, modelInfo);
 
         return await getLocalModelStatus(model.id);
     };
