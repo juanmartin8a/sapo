@@ -1,6 +1,6 @@
 import useTextToTranslate from "@/stores/textToTranslateStore"
 import useTranslateButtonStateNotifier from "@/stores/translateButtonStateNotifier"
-import { View } from "react-native"
+import { Alert, View } from "react-native"
 import ArrowRightIcon from "@/assets/icons/arrow-right.svg";
 import RepeatIcon from "@/assets/icons/repeat.svg";
 import SquareIcon from "@/assets/icons/square.svg";
@@ -9,14 +9,23 @@ import usePagerPos from "@/stores/pagerPosStore";
 import useSseStore from "@/stores/sseStore";
 import { Pressable } from "react-native-gesture-handler";
 import { useCallback } from "react";
+import { authClient } from "@/clients/auth-client";
+import { getSessionUserAuthState } from "@/utils/auth";
+import { useTransformationOperationStore } from "@/stores";
+import useLocalModelStore from "@/stores/localModelStore";
 
 const TranslateButton = () => {
     const translateButtonState = useTranslateButtonStateNotifier((state) => state.state)
     const lastTranslation = useSseStore.getState().lastTranslation
     const text = useTextToTranslate((state) => state.text)
+    const { data: session, isPending: isAuthPending } = authClient.useSession()
+    const authState = getSessionUserAuthState(session?.user)
+    const isAuthenticatedUser = authState === 'authenticated'
 
     const goToPage = usePagerPos((state) => state.goToPage)
     const offset = usePagerPos((state) => state.offset)
+    const operation = useTransformationOperationStore((state) => state.operation)
+    const isLocalModelEnabled = useLocalModelStore((state) => state.isEnabled)
 
     const sendMessage = useSseStore((state) => state.sendMessage)
     const stopStream = useSseStore((state) => state.stopStream)
@@ -27,22 +36,42 @@ const TranslateButton = () => {
     const loadingOpacity = offset;
 
     const next = useCallback(() => {
-        if (translateButtonState !== 'loading') {
-            if (translateButtonState === 'repeat') {
-                repeatLastTranslation();
-            } else if (translateButtonState === 'stop') {
-                stopStream();
-            } else if (text.trim().length === 0) {
+        if (translateButtonState === 'loading') {
+            return;
+        }
+
+        if (translateButtonState === 'stop') {
+            stopStream();
+            goToPage(1);
+            return;
+        }
+
+        if (translateButtonState !== 'repeat' && text.trim().length === 0) {
+            return;
+        }
+
+        const requiresOnlineAuth = operation !== 'translate' || !isLocalModelEnabled;
+
+        if (!isAuthenticatedUser && requiresOnlineAuth) {
+            if (isAuthPending) {
                 return;
-            } else {
-                sendMessage(
-                    text
-                )
             }
 
-            goToPage(1);
+            Alert.alert(
+                "Sign in required",
+                "Sign in to use online translations or respellings, or download a local model and enable local translation."
+            );
+            return;
         }
-    }, [repeatLastTranslation, sendMessage, stopStream, translateButtonState, text, goToPage]);
+
+        if (translateButtonState === 'repeat') {
+            repeatLastTranslation();
+        } else {
+            sendMessage(text)
+        }
+
+        goToPage(1);
+    }, [goToPage, isAuthPending, isAuthenticatedUser, isLocalModelEnabled, operation, repeatLastTranslation, sendMessage, stopStream, text, translateButtonState]);
 
 
     return (

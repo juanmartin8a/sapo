@@ -24,6 +24,7 @@ type RefreshCooldownKind = "refresh_normal" | "refresh_purchase" | "refresh_dail
 
 const REVENUECAT_UPDATE_REFRESH_RETRY_DELAYS_MS = [1_000, 2_000, 4_000] as const;
 const REVENUECAT_UPDATE_BACKGROUND_REFRESH_RETRY_DELAYS_MS = [15_000] as const;
+const REFRESH_REQUEST_TIMEOUT_MS = 10_000;
 const REFRESH_SINGLE_FLIGHT_STALE_MS = 45_000;
 
 class SubscriptionRefreshError extends Error {
@@ -181,17 +182,33 @@ async function requestSubscriptionStateRefresh(
           })
         : null;
 
-    const response = await fetch(getRefreshUrl(), {
-        method: "POST",
-        headers: {
-            Accept: "application/json",
-            ...(requestBody ? { "Content-Type": "application/json" } : {}),
-            Authorization: `Bearer ${convexToken}`,
-        },
-        ...(requestBody ? { body: requestBody } : {}),
-    });
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => abortController.abort(), REFRESH_REQUEST_TIMEOUT_MS);
+    let response: Response;
+    let responseText: string;
 
-    const responseText = await response.text();
+    try {
+        response = await fetch(getRefreshUrl(), {
+            method: "POST",
+            headers: {
+                Accept: "application/json",
+                ...(requestBody ? { "Content-Type": "application/json" } : {}),
+                Authorization: `Bearer ${convexToken}`,
+            },
+            ...(requestBody ? { body: requestBody } : {}),
+            signal: abortController.signal,
+        });
+        responseText = await response.text();
+    } catch (error) {
+        if ((error as Error).name === "AbortError") {
+            throw new SubscriptionRefreshError("Subscription refresh timed out", 408);
+        }
+
+        throw error;
+    } finally {
+        clearTimeout(timeoutId);
+    }
+
     let parsedResponse: RefreshSubscriptionResponse | null = null;
 
     if (responseText.length > 0) {

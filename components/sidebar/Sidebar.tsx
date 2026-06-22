@@ -43,7 +43,6 @@ const SideBar = ({ translationX }: SideBarProps) => {
     const hasInternetConnection = networkState.isInternetReachable ?? networkState.isConnected ?? false;
     const isLocalModeSelected = isLocalModelEnabled;
     const isLocalModelBusy = isLocalModelLoading || isLocalModelRefreshing;
-    const canOpenLocalModelSelector = downloadedLocalModelIds.length > 1;
     const shouldShowLoadModelButton = isLocalModelDownloaded && !isLocalModelLoaded;
     const [isLoadModelButtonVisible, setIsLoadModelButtonVisible] = useState(shouldShowLoadModelButton);
     const loadModelButtonTransitionValue = useRef(new RNAnimated.Value(shouldShowLoadModelButton ? 1 : 0)).current;
@@ -116,6 +115,10 @@ const SideBar = ({ translationX }: SideBarProps) => {
             requestBottomSheet('local_model_selector');
         }
     }, [downloadedLocalModelIds.length, requestBottomSheet, router]);
+
+    const handleManageModelsPress = useCallback(() => {
+        router.push("/settings-modal/local-models");
+    }, [router]);
 
     // Update the displayed languages when indices change in the store
     useEffect(() => {
@@ -336,9 +339,7 @@ const SideBar = ({ translationX }: SideBarProps) => {
                                         />
                                     ) : null}
                                 </View>
-                                {canOpenLocalModelSelector ? (
-                                    <ChevronRightIcon width={22} height={22} stroke="black" />
-                                ) : null}
+                                <ChevronRightIcon width={22} height={22} stroke="black" />
                             </View>
                         </TouchableOpacity>
                     </View>
@@ -362,6 +363,17 @@ const SideBar = ({ translationX }: SideBarProps) => {
                             </TouchableOpacity>
                         </RNAnimated.View>
                     )}
+                    <TouchableOpacity
+                        onPress={handleManageModelsPress}
+                        activeOpacity={0.78}
+                        style={[styles.localModelActionButton, styles.manageModelsButton]}
+                    >
+                        <View style={styles.localModelActionButtonContent}>
+                            <Text style={[styles.localModelActionButtonText, styles.manageModelsButtonText]}>
+                                Manage models
+                            </Text>
+                        </View>
+                    </TouchableOpacity>
                 </View>
             </View>
             <SideBarFooter />
@@ -409,6 +421,13 @@ const styles = StyleSheet.create({
     },
     localModelSelectorContainer: {
         paddingTop: 32,
+    },
+    manageModelsButton: {
+        marginTop: 32,
+        backgroundColor: '#f2f2f2',
+    },
+    manageModelsButtonText: {
+        color: '#000',
     },
     localModelSelectorLabel: {
         color: "#aaa",

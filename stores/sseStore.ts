@@ -8,15 +8,10 @@ import {
     stopActiveLocalTranslation,
     translateWithLocalModel,
 } from "@/clients/local-translation";
-import {
-    getSubscriptionRefreshErrorStatus,
-    refreshSubscriptionState,
-} from "@/clients/subscription-refresh";
 import { languages, languagesPlusAutoDetect } from "@/constants/languages";
 import useLanguageSelectorBottomSheetNotifier from "./languageSelectionNotifierStore";
 import useLocalModelStore from "./localModelStore";
 import usePagerPos from "./pagerPosStore";
-import useSubscriptionStatusStore from "./subscriptionStatusStore";
 import useTransformationOperationStore, {
     TransformationOperation,
 } from "./transformationOperationStore";
@@ -27,6 +22,9 @@ const STREAM_ERROR_MARKER = "<error:/>";
 const STREAM_STOP_ENDPOINT_PATH = "/sapopinguino-stop";
 const STOP_ABORT_GRACE_MS = 350;
 const STOP_REQUEST_RETRY_MS = 75;
+const STREAM_RESPONSE_TIMEOUT_MS = 15_000;
+const STREAM_IDLE_TIMEOUT_MS = 20_000;
+const STREAM_TOTAL_TIMEOUT_MS = 135_000;
 const LOCAL_MODEL_SELECTION_ALERT_TITLE = "Select a local model";
 const LOCAL_MODEL_SELECTION_ALERT_MESSAGE = "A local model must be selected before using offline translations.";
 
@@ -681,12 +679,60 @@ const useSseStore = create<SseState>((set, get) => {
                 return "continue";
             };
 
+            type StreamTimeoutReason = "response" | "idle" | "total";
+            let streamTimeoutReason: StreamTimeoutReason | null = null;
+            let responseTimeoutId: ReturnType<typeof setTimeout> | null = null;
+            let idleTimeoutId: ReturnType<typeof setTimeout> | null = null;
+            let totalTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
+            const clearResponseTimeout = () => {
+                if (responseTimeoutId !== null) {
+                    clearTimeout(responseTimeoutId);
+                    responseTimeoutId = null;
+                }
+            };
+
+            const clearIdleTimeout = () => {
+                if (idleTimeoutId !== null) {
+                    clearTimeout(idleTimeoutId);
+                    idleTimeoutId = null;
+                }
+            };
+
+            const clearTotalTimeout = () => {
+                if (totalTimeoutId !== null) {
+                    clearTimeout(totalTimeoutId);
+                    totalTimeoutId = null;
+                }
+            };
+
+            const abortStreamForTimeout = (reason: StreamTimeoutReason) => {
+                if (abortController.signal.aborted) {
+                    return;
+                }
+
+                streamTimeoutReason = reason;
+                abortController.abort();
+            };
+
+            const refreshIdleTimeout = () => {
+                clearIdleTimeout();
+                idleTimeoutId = setTimeout(
+                    () => abortStreamForTimeout("idle"),
+                    STREAM_IDLE_TIMEOUT_MS
+                );
+            };
+
             try {
+                totalTimeoutId = setTimeout(
+                    () => abortStreamForTimeout("total"),
+                    STREAM_TOTAL_TIMEOUT_MS
+                );
+
                 const authContext = await getConvexAccessTokenWithUserId();
                 const convexToken = authContext?.token ?? null;
-                const userId = authContext?.userId ?? null;
 
-                if (!convexToken || !userId || !isActiveRequest()) {
+                if (!convexToken || !authContext?.userId || !isActiveRequest()) {
                     if (isActiveRequest()) {
                         console.error("[sseStore] Failed to get Convex auth token for stream request");
                         markStreamError();
@@ -695,58 +741,29 @@ const useSseStore = create<SseState>((set, get) => {
                     return;
                 }
 
-                if (useSubscriptionStatusStore.getState().hasActiveSubscription === true) {
-                    let refreshFailureMessage: string | null = null;
-
-                    await refreshSubscriptionState({
-                        accessToken: convexToken,
-                        userId,
-                        expectActiveSubscription: true,
-                    }).catch((error) => {
-                        const errorStatus = getSubscriptionRefreshErrorStatus(error);
-
-                        if (__DEV__) {
-                            console.warn("Failed to refresh subscription state before stream request", error);
-                        }
-
-                        if (errorStatus === 401 || errorStatus === 409) {
-                            refreshFailureMessage = "Please sign in again.";
-                            return;
-                        }
-
-                        if (errorStatus === 425) {
-                            refreshFailureMessage = "Your subscription is still syncing. Please try again.";
-                            return;
-                        }
-
-                        refreshFailureMessage = "Unable to verify your subscription. Please try again.";
-                    });
-
-                    if (refreshFailureMessage) {
-                        if (isActiveRequest()) {
-                            markStreamError(refreshFailureMessage);
-                        }
-
-                        return;
-                    }
-
-                    if (!isActiveRequest()) {
-                        return;
-                    }
-                }
-
                 set({ activeConvexToken: convexToken });
 
-                const response = await expoFetch(streamUrl, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Accept: "text/event-stream",
-                        Authorization: `Bearer ${convexToken}`,
-                    },
-                    body: JSON.stringify({ input: requestInput, streamId }),
-                    signal: abortController.signal,
-                });
+                responseTimeoutId = setTimeout(
+                    () => abortStreamForTimeout("response"),
+                    STREAM_RESPONSE_TIMEOUT_MS
+                );
+
+                let response: Response;
+
+                try {
+                    response = await expoFetch(streamUrl, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Accept: "text/event-stream",
+                            Authorization: `Bearer ${convexToken}`,
+                        },
+                        body: JSON.stringify({ input: requestInput, streamId }),
+                        signal: abortController.signal,
+                    });
+                } finally {
+                    clearResponseTimeout();
+                }
 
                 if (!response.ok) {
                     if (isActiveRequest()) {
@@ -841,12 +858,15 @@ const useSseStore = create<SseState>((set, get) => {
 
                 if (contentType.includes("text/event-stream")) {
                     let eventBuffer = "";
+                    refreshIdleTimeout();
 
                     while (true) {
                         const { done, value } = await reader.read();
                         if (done) {
                             break;
                         }
+
+                        refreshIdleTimeout();
 
                         if (!isActiveRequest()) {
                             return;
@@ -900,12 +920,15 @@ const useSseStore = create<SseState>((set, get) => {
                     }
                 } else {
                     let lineBuffer = "";
+                    refreshIdleTimeout();
 
                     while (true) {
                         const { done, value } = await reader.read();
                         if (done) {
                             break;
                         }
+
+                        refreshIdleTimeout();
 
                         if (!isActiveRequest()) {
                             return;
@@ -939,11 +962,26 @@ const useSseStore = create<SseState>((set, get) => {
                     setIdleTranslateButtonState();
                 }
             } catch (error) {
-                if ((error as Error).name !== "AbortError" && isActiveRequest()) {
+                if ((error as Error).name === "AbortError") {
+                    if (streamTimeoutReason !== null && isActiveRequest()) {
+                        console.error(
+                            `[sseStore] Stream request timed out reason=${streamTimeoutReason} endpoint=${endpointPath}`
+                        );
+                        markStreamError("The request timed out. Please try again.");
+                    }
+
+                    return;
+                }
+
+                if (isActiveRequest()) {
                     console.error("SSE stream request failed:", error);
                     markStreamError();
                 }
             } finally {
+                clearResponseTimeout();
+                clearIdleTimeout();
+                clearTotalTimeout();
+
                 if (isActiveRequest()) {
                     set({
                         abortController: null,
