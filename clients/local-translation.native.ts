@@ -7,6 +7,8 @@ import {
 } from "@/clients/local-model";
 import type { LiteRTLMInstance } from "react-native-litert-lm";
 
+declare const require: (moduleName: string) => unknown;
+
 type LocalTranslationArgs = {
     inputLanguage: string;
     targetLanguage: string;
@@ -49,6 +51,17 @@ type LiteRTLMModule = {
     default?: {
         createLLM?: () => LiteRTLMInstance;
     };
+};
+
+const loadLiteRTLMModule = () => {
+    try {
+        return require("react-native-litert-lm") as LiteRTLMModule;
+    } catch (error) {
+        console.error("Unable to require react-native-litert-lm:", error);
+        throw new Error(
+            "Offline translations require a rebuilt iOS development build with react-native-litert-lm and react-native-nitro-modules linked. Rebuild the app, then try again."
+        );
+    }
 };
 
 const createAbortError = () => {
@@ -136,12 +149,7 @@ const loadLocalTranslationModel = async (modelId?: LocalTranslationModelId | nul
         throw new Error("Download the local model before using offline translations.");
     }
 
-    const litertModule = await import("react-native-litert-lm").catch((error) => {
-        console.error("Unable to import react-native-litert-lm:", error);
-        throw new Error(
-            "Offline translations require a rebuilt iOS development build with react-native-litert-lm and react-native-nitro-modules linked. Rebuild the app, then try again."
-        );
-    }) as LiteRTLMModule;
+    const litertModule = loadLiteRTLMModule();
     const createLLM = litertModule.createLLM ?? litertModule.default?.createLLM;
 
     if (!createLLM) {
@@ -151,7 +159,15 @@ const loadLocalTranslationModel = async (modelId?: LocalTranslationModelId | nul
         );
     }
 
-    const model = createLLM();
+    let model: LiteRTLMInstance;
+    try {
+        model = createLLM();
+    } catch (error) {
+        console.error("Unable to create LiteRT-LM engine:", error);
+        throw new Error(
+            "Offline translations require a rebuilt iOS development build with react-native-litert-lm and react-native-nitro-modules linked. Rebuild the app, then try again."
+        );
+    }
 
     try {
         await model.loadModel(getNativeModelPath(modelUri), {

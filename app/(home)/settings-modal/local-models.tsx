@@ -70,9 +70,12 @@ export default function LocalModelScreen() {
 
     useEffect(() => {
         mountedRef.current = true;
-        void refreshStatus();
+        const refreshTimeout = setTimeout(() => {
+            void refreshStatus();
+        }, 0);
 
         return () => {
+            clearTimeout(refreshTimeout);
             mountedRef.current = false;
         };
     }, [refreshStatus]);

@@ -160,7 +160,7 @@ export default function DeleteAccountConfirmationScreen() {
     const [status, setStatus] = useState<ConfirmationStatus>("checking");
     const [visibleStatus, setVisibleStatus] = useState<ConfirmationStatus>("checking");
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
-    const cardTransitionValue = useRef(new Animated.Value(1)).current;
+    const [cardTransitionValue] = useState(() => new Animated.Value(1));
     const cardTransitionRunRef = useRef(0);
 
     const handleReturnHome = useCallback(() => {
@@ -168,18 +168,18 @@ export default function DeleteAccountConfirmationScreen() {
     }, [router]);
 
     useEffect(() => {
-        if (status === "home") {
-            setVisibleStatus(status);
-            return;
-        }
-
-        if (status === visibleStatus) {
+        if (status === "home" || status === visibleStatus) {
             return;
         }
 
         if (!shouldAnimateStatusChange(visibleStatus, status)) {
-            setVisibleStatus(status);
-            return;
+            const timeout = setTimeout(() => {
+                setVisibleStatus(status);
+            }, 0);
+
+            return () => {
+                clearTimeout(timeout);
+            };
         }
 
         const transitionRun = cardTransitionRunRef.current + 1;
@@ -229,29 +229,58 @@ export default function DeleteAccountConfirmationScreen() {
 
     useEffect(() => {
         let didCancel = false;
+        let statusTimeout: ReturnType<typeof setTimeout> | null = null;
+
+        const scheduleStatus = (nextStatus: ConfirmationStatus) => {
+            if (statusTimeout) {
+                clearTimeout(statusTimeout);
+            }
+
+            statusTimeout = setTimeout(() => {
+                if (!didCancel) {
+                    setStatus(nextStatus);
+                }
+            }, 0);
+        };
+
+        const clearScheduledStatus = () => {
+            if (statusTimeout) {
+                clearTimeout(statusTimeout);
+                statusTimeout = null;
+            }
+        };
+
+        const cleanup = () => {
+            didCancel = true;
+            clearScheduledStatus();
+        };
 
         if (!token) {
-            setStatus("home");
-            return;
+            scheduleStatus("home");
+            return cleanup;
         }
 
         if (completedDeleteAccountTokens.has(token)) {
-            setStatus("completed");
-            return;
+            scheduleStatus("completed");
+            return cleanup;
         }
 
         const activeRequest = deleteAccountTokenRequests.get(token);
 
         if (activeRequest) {
-            setStatus("processing");
+            scheduleStatus("processing");
 
             activeRequest
                 .then(() => {
+                    clearScheduledStatus();
+
                     if (!didCancel) {
                         setStatus("completed");
                     }
                 })
                 .catch((error) => {
+                    clearScheduledStatus();
+
                     if (didCancel) {
                         return;
                     }
@@ -264,14 +293,12 @@ export default function DeleteAccountConfirmationScreen() {
                     setStatus("failed");
                 });
 
-            return () => {
-                didCancel = true;
-            };
+            return cleanup;
         }
 
         if (isPending) {
-            setStatus("checking");
-            return;
+            scheduleStatus("checking");
+            return cleanup;
         }
 
         void (async () => {
@@ -309,9 +336,7 @@ export default function DeleteAccountConfirmationScreen() {
             setStatus("failed");
         });
 
-        return () => {
-            didCancel = true;
-        };
+        return cleanup;
     }, [isPending, token]);
 
     if (status === "home") {

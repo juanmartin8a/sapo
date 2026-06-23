@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, StyleSheet, View } from 'react-native';
 import SocialSignInButton, { type SocialProvider } from '@/components/auth/SocialSignInButton';
 import SapoIcon from '@/assets/icons/sapo.svg';
@@ -13,7 +13,7 @@ const TITLE_FADE_EASING = Easing.out(Easing.cubic);
 const AuthScreen = () => {
     const insets = useSafeAreaInsets();
     const [pendingProvider, setPendingProvider] = useState<SocialProvider | null>(null);
-    const titleTransitionProgress = useRef(new Animated.Value(0)).current;
+    const [titleTransitionProgress] = useState(() => new Animated.Value(0));
 
     const handleSignInEnd = useCallback((provider: SocialProvider) => {
         setPendingProvider((currentProvider) => currentProvider === provider ? null : currentProvider);
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
         opacity: 0,
     },
     titleLayer: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         textAlign: 'center',
     },
     titleLoader: {

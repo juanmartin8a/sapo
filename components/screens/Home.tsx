@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/immutability -- Reanimated shared values are intentionally mutated in worklets. */
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { StyleSheet, View, Keyboard, Text, TouchableWithoutFeedback } from "react-native";
 import { GestureHandlerRootView, GestureDetector, Gesture } from "react-native-gesture-handler";

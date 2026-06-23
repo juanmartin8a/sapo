@@ -23,7 +23,7 @@ export default function Translate() {
     const sapoHeight = sapoWidth * (800 / 929);
     const sapoBocaAbiertaHeight = sapoWidth * (914 / 929);
     const [sapoMouthOpen, setSapoMouthOpen] = useState<boolean>(false)
-    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         if (!tokens) return;
@@ -37,13 +37,22 @@ export default function Translate() {
                 clearTimeout(timeoutRef.current);
             }
 
-            setSapoMouthOpen(true);
-
             timeoutRef.current = setTimeout(() => {
-                setSapoMouthOpen(false);
-                timeoutRef.current = null;
-            }, 100);
+                setSapoMouthOpen(true);
+
+                timeoutRef.current = setTimeout(() => {
+                    setSapoMouthOpen(false);
+                    timeoutRef.current = null;
+                }, 100);
+            }, 0);
         }
+
+        return () => {
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+                timeoutRef.current = null;
+            }
+        };
     }, [tokens]);
 
     useEffect(() => {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { StyleSheet, Dimensions, Text, View, TouchableOpacity, Alert, ActivityIndicator, Animated as RNAnimated, Easing } from 'react-native';
+import { StyleSheet, Dimensions, Text, View, TouchableOpacity, Alert, ActivityIndicator, Animated as RNAnimated, Easing, LayoutChangeEvent } from 'react-native';
 import { useNetworkState } from 'expo-network';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { SharedValue, useAnimatedStyle } from 'react-native-reanimated';
@@ -23,8 +23,6 @@ type SideBarProps = {
 const SideBar = ({ translationX }: SideBarProps) => {
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    const [inputLanguage, setInputLanguage] = useState<string>(languagesPlusAutoDetect[0]);
-    const [targetLanguage, setTargetLanguage] = useState<string>(languages[1]);
     const operation = useTransformationOperationStore((state) => state.operation);
     const setOperation = useTransformationOperationStore((state) => state.setOperation);
     const isLocalModelDownloaded = useLocalModelStore((state) => state.isDownloaded);
@@ -45,12 +43,24 @@ const SideBar = ({ translationX }: SideBarProps) => {
     const isLocalModelBusy = isLocalModelLoading || isLocalModelRefreshing;
     const shouldShowLoadModelButton = isLocalModelDownloaded && !isLocalModelLoaded;
     const [isLoadModelButtonVisible, setIsLoadModelButtonVisible] = useState(shouldShowLoadModelButton);
-    const loadModelButtonTransitionValue = useRef(new RNAnimated.Value(shouldShowLoadModelButton ? 1 : 0)).current;
+    const [loadModelButtonLayoutHeight, setLoadModelButtonLayoutHeight] = useState(0);
+    const [loadModelButtonTransitionValue] = useState(
+        () => new RNAnimated.Value(shouldShowLoadModelButton ? 1 : 0)
+    );
+    const [loadModelButtonSpaceValue] = useState(
+        () => new RNAnimated.Value(shouldShowLoadModelButton ? 1 : 0)
+    );
     const loadModelButtonTransitionRunRef = useRef(0);
 
     // Get individual values from the store to avoid unnecessary re-renders
     const selectedIndex0 = useLanguageSelectorBottomSheetNotifier(state => state.selectedIndex0);
     const selectedIndex1 = useLanguageSelectorBottomSheetNotifier(state => state.selectedIndex1);
+    const inputLanguage =
+        languagesPlusAutoDetect[selectedIndex0 as keyof typeof languagesPlusAutoDetect]
+        ?? languagesPlusAutoDetect[0];
+    const targetLanguage =
+        languages[selectedIndex1 as keyof typeof languages]
+        ?? languages[1];
 
     const requestBottomSheet = useCallback((sheet: HomeBottomSheetKey) => {
         const { bottomSheet, loading } = useHomeBottomSheetNotifier.getState();
@@ -120,20 +130,17 @@ const SideBar = ({ translationX }: SideBarProps) => {
         router.push("/settings-modal/local-models");
     }, [router]);
 
-    // Update the displayed languages when indices change in the store
-    useEffect(() => {
-        const newInputLang =
-            languagesPlusAutoDetect[selectedIndex0 as keyof typeof languagesPlusAutoDetect]
-            ?? languagesPlusAutoDetect[0];
-        setInputLanguage(newInputLang);
-    }, [selectedIndex0]);
+    const handleLoadModelButtonLayout = useCallback((event: LayoutChangeEvent) => {
+        if (!shouldShowLoadModelButton) {
+            return;
+        }
 
-    useEffect(() => {
-        const newTargetLang =
-            languages[selectedIndex1 as keyof typeof languages]
-            ?? languages[1];
-        setTargetLanguage(newTargetLang);
-    }, [selectedIndex1]);
+        const nextHeight = Math.ceil(event.nativeEvent.layout.height);
+
+        setLoadModelButtonLayoutHeight((currentHeight) => (
+            currentHeight === nextHeight ? currentHeight : nextHeight
+        ));
+    }, [shouldShowLoadModelButton]);
 
     useEffect(() => {
         void refreshLocalModelStatus();
@@ -147,17 +154,24 @@ const SideBar = ({ translationX }: SideBarProps) => {
         const transitionRun = loadModelButtonTransitionRunRef.current + 1;
         loadModelButtonTransitionRunRef.current = transitionRun;
         loadModelButtonTransitionValue.stopAnimation();
+        loadModelButtonSpaceValue.stopAnimation();
 
         if (shouldShowLoadModelButton) {
-            setIsLoadModelButtonVisible(true);
-            loadModelButtonTransitionValue.setValue(0);
-            RNAnimated.timing(loadModelButtonTransitionValue, {
-                toValue: 1,
-                duration: 180,
-                easing: Easing.out(Easing.cubic),
-                useNativeDriver: true,
-            }).start();
-            return;
+            const timeout = setTimeout(() => {
+                setIsLoadModelButtonVisible(true);
+                loadModelButtonSpaceValue.setValue(1);
+                loadModelButtonTransitionValue.setValue(0);
+                RNAnimated.timing(loadModelButtonTransitionValue, {
+                    toValue: 1,
+                    duration: 180,
+                    easing: Easing.out(Easing.cubic),
+                    useNativeDriver: true,
+                }).start();
+            }, 0);
+
+            return () => {
+                clearTimeout(timeout);
+            };
         }
 
         RNAnimated.timing(loadModelButtonTransitionValue, {
@@ -170,15 +184,42 @@ const SideBar = ({ translationX }: SideBarProps) => {
                 return;
             }
 
-            setIsLoadModelButtonVisible(false);
+            if (loadModelButtonLayoutHeight === 0) {
+                loadModelButtonSpaceValue.setValue(0);
+                setIsLoadModelButtonVisible(false);
+                return;
+            }
+
+            RNAnimated.timing(loadModelButtonSpaceValue, {
+                toValue: 0,
+                duration: 440,
+                easing: Easing.out(Easing.cubic),
+                useNativeDriver: false,
+            }).start(({ finished: spaceFinished }) => {
+                if (!spaceFinished || loadModelButtonTransitionRunRef.current !== transitionRun) {
+                    return;
+                }
+
+                setIsLoadModelButtonVisible(false);
+            });
         });
-    }, [isLoadModelButtonVisible, loadModelButtonTransitionValue, shouldShowLoadModelButton]);
+    }, [isLoadModelButtonVisible, loadModelButtonLayoutHeight, loadModelButtonSpaceValue, loadModelButtonTransitionValue, shouldShowLoadModelButton]);
 
     const animatedStyle = useAnimatedStyle(() => {
         return {
             transform: [{ translateX: translationX.value - SIDEBAR_WIDTH }],
         };
     });
+
+    const loadModelButtonSpaceAnimatedStyle = loadModelButtonLayoutHeight > 0
+        ? {
+            height: loadModelButtonSpaceValue.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, loadModelButtonLayoutHeight],
+            }),
+            overflow: 'hidden' as const,
+        }
+        : null;
 
     const loadModelButtonAnimatedStyle = {
         opacity: loadModelButtonTransitionValue,
@@ -344,23 +385,27 @@ const SideBar = ({ translationX }: SideBarProps) => {
                         </TouchableOpacity>
                     </View>
                     {isLoadModelButtonVisible && (
-                        <RNAnimated.View style={loadModelButtonAnimatedStyle}>
-                            <TouchableOpacity
-                                onPress={handleLocalModelAction}
-                                disabled={isLocalModelBusy}
-                                activeOpacity={0.78}
-                                style={[
-                                    styles.localModelActionButton,
-                                    isLocalModelBusy && styles.localModelActionButtonDisabled,
-                                ]}
-                            >
-                                <View style={styles.localModelActionButtonContent}>
-                                    <Text style={styles.localModelActionButtonText}>Load model</Text>
-                                    {isLocalModelLoading && (
-                                        <ActivityIndicator color="#fff" size="small" />
-                                    )}
-                                </View>
-                            </TouchableOpacity>
+                        <RNAnimated.View onLayout={handleLoadModelButtonLayout} style={loadModelButtonSpaceAnimatedStyle}>
+                            <RNAnimated.View style={loadModelButtonAnimatedStyle}>
+                                <TouchableOpacity
+                                    onPress={handleLocalModelAction}
+                                    disabled={isLocalModelBusy}
+                                    activeOpacity={0.78}
+                                    style={[
+                                        styles.localModelActionButton,
+                                        isLocalModelBusy && styles.localModelActionButtonDisabled,
+                                    ]}
+                                >
+                                    <View style={styles.localModelActionButtonContent}>
+                                        <Text style={styles.localModelActionButtonText}>Load model</Text>
+                                        {isLocalModelLoading && (
+                                            <View style={styles.localModelActionSpinner} pointerEvents="none">
+                                                <ActivityIndicator color="#fff" size="small" />
+                                            </View>
+                                        )}
+                                    </View>
+                                </TouchableOpacity>
+                            </RNAnimated.View>
                         </RNAnimated.View>
                     )}
                     <TouchableOpacity
@@ -494,6 +539,14 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: 12,
+        position: 'relative',
+    },
+    localModelActionSpinner: {
+        position: 'absolute',
+        right: 0,
+        top: 0,
+        bottom: 0,
+        justifyContent: 'center',
     },
     operationSection: {
         width: '100%',

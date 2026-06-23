@@ -63,13 +63,7 @@ const SocialSignInButton = ({
     const isDisabled = disabled || loading;
 
     useEffect(() => {
-        if (!isApple) {
-            setIsNativeAppleAuthAvailable(false);
-            return;
-        }
-
-        if (Platform.OS !== 'ios') {
-            setIsNativeAppleAuthAvailable(false);
+        if (!isApple || Platform.OS !== 'ios') {
             return;
         }
 
