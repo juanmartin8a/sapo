@@ -6,6 +6,7 @@ import React from "react";
 import { BottomSheetMethods } from "@gorhom/bottom-sheet/lib/typescript/types";
 
 interface LangugeSelectorBottomSheetUIProps {
+    ref: React.RefObject<BottomSheetMethods | null>;
     data: ([string, string])[];
     selectedKey: string;
     onClose: () => void;
@@ -15,7 +16,7 @@ interface LangugeSelectorBottomSheetUIProps {
 
 // UI component for SourceLanguageSelectorBottomSheet.tsx and targetLanguageSelectorBottomSheet.tsx
 
-const LangugeSelectorBottomSheetUI = React.forwardRef<BottomSheetMethods, LangugeSelectorBottomSheetUIProps>(({ data, selectedKey, onClose, onChange, onLanguageSelected }, ref) => {
+const LangugeSelectorBottomSheetUI = ({ ref, data, selectedKey, onClose, onChange, onLanguageSelected }: LangugeSelectorBottomSheetUIProps) => {
     const insets = useSafeAreaInsets();
     // console.log(ref.current)
 
@@ -56,9 +57,7 @@ const LangugeSelectorBottomSheetUI = React.forwardRef<BottomSheetMethods, Langug
 
         </BottomSheet>
     );
-})
-
-LangugeSelectorBottomSheetUI.displayName = "LangugeSelectorBottomSheetUI";
+}
 
 const styles = StyleSheet.create({
     contentContainer: {

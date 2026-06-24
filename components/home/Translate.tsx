@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, NativeSyntheticEvent, TextLayoutEventData, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, NativeSyntheticEvent, TextLayoutEventData } from 'react-native';
 import useSseStore from '../../stores/sseStore';
 import SapoIcon from "../../assets/icons/sapo.svg"
 import SapoBocaAbiertaIcon from "../../assets/icons/sapo_boca_abierta.svg"
+import { SCREEN_WIDTH } from '@gorhom/bottom-sheet';
 
 interface CursorPos {
     x: number;
@@ -10,7 +11,6 @@ interface CursorPos {
 }
 
 export default function Translate() {
-    const { width: screenWidth } = useWindowDimensions();
     const {
         tokens,
         streamError,
@@ -19,7 +19,7 @@ export default function Translate() {
     } = useSseStore();
 
     const [cursorPos, setCursorPos] = useState<CursorPos>({ x: 0, y: 0 });
-    const sapoWidth = screenWidth * 0.4;
+    const sapoWidth = SCREEN_WIDTH * 0.4;
     const sapoHeight = sapoWidth * (800 / 929);
     const sapoBocaAbiertaHeight = sapoWidth * (914 / 929);
     const [sapoMouthOpen, setSapoMouthOpen] = useState<boolean>(false)
@@ -72,7 +72,7 @@ export default function Translate() {
             .slice(0, newLines.length - 1)
             .reduce((sum, l) => sum + l.height, 0);
 
-        if (last.width < (screenWidth - sapoWidth)) {
+        if (last.width < (SCREEN_WIDTH - sapoWidth)) {
             setCursorPos({ x: last.width, y: y })
         } else {
             setCursorPos({ x: last.width, y: y + last.height })
@@ -107,7 +107,7 @@ export default function Translate() {
                     justifyContent: 'flex-end',
                     height: sapoBocaAbiertaHeight,
                     transform: [
-                        { translateX: screenWidth - (sapoWidth - (sapoWidth * 0.23)) },
+                        { translateX: SCREEN_WIDTH - (sapoWidth - (sapoWidth * 0.23)) },
                         { translateY: cursorPos.y },
                         { scaleX: -1 }
                     ]
