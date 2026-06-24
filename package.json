@@ -21,7 +21,7 @@
     "@convex-dev/resend": "^0.2.3",
     "@expo/metro-runtime": "56.0.15",
     "@expo/ui": "56.0.18",
-    "@gorhom/bottom-sheet": "^5.2.6",
+    "@gorhom/bottom-sheet": "^5.2.14",
     "better-auth": "~1.6.18",
     "convex": "^1.41.0",
     "expo": "56.0.12",

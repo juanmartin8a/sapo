@@ -16,8 +16,12 @@ export default function LocalModelSelectorBottomSheet() {
     const initSnapSuccess = useRef<boolean>(false);
     const isCheckingModelRef = useRef<boolean>(false);
     const selectedModelId = useLocalModelStore((state) => state.selectedModelId);
+    const downloadedModelIds = useLocalModelStore((state) => state.downloadedModelIds);
     const selectModel = useLocalModelStore((state) => state.selectModel);
     const sidebarIsOpen = useSidebarIsOpenNotifier(state => state.isOpen);
+    const downloadedModelData = LOCAL_TRANSLATION_MODELS
+        .filter((model) => downloadedModelIds.includes(model.id))
+        .map((model) => [model.id, model.displayName] as [string, string]);
 
     useEffect(() => {
         const unsub = useHomeBottomSheetNotifier.subscribe((state) => {
@@ -100,7 +104,6 @@ export default function LocalModelSelectorBottomSheet() {
             }
 
             if (modelId === selectedModelId) {
-                await selectModel(null);
                 return;
             }
 
@@ -117,7 +120,7 @@ export default function LocalModelSelectorBottomSheet() {
             onLanguageSelected={handleModelSelect}
             onClose={handleSheetClose}
             onChange={handleSheetChange}
-            data={LOCAL_TRANSLATION_MODELS.map((model) => [model.id, model.displayName] as [string, string])}
+            data={downloadedModelData}
         />
     );
 }

@@ -38,6 +38,8 @@ const SideBar = ({ translationX }: SideBarProps) => {
     const networkState = useNetworkState();
     const selectedLocalModel = LOCAL_TRANSLATION_MODELS.find((model) => model.id === selectedLocalModelId)
         ?? null;
+    const downloadedLocalModelCount = downloadedLocalModelIds.length;
+    const hasSingleDownloadedLocalModel = downloadedLocalModelCount === 1;
     const hasInternetConnection = networkState.isInternetReachable ?? networkState.isConnected ?? false;
     const isLocalModeSelected = isLocalModelEnabled;
     const isLocalModelBusy = isLocalModelLoading || isLocalModelRefreshing;
@@ -116,15 +118,15 @@ const SideBar = ({ translationX }: SideBarProps) => {
     }, [isLocalModelDownloaded, isLocalModelLoaded, isLocalModelBusy, loadLocalModel]);
 
     const handleLocalModelSelectorPress = useCallback(() => {
-        if (downloadedLocalModelIds.length === 0) {
+        if (downloadedLocalModelCount === 0) {
             router.push("/settings-modal/local-models");
             return;
         }
 
-        if (downloadedLocalModelIds.length > 1) {
+        if (downloadedLocalModelCount > 1) {
             requestBottomSheet('local_model_selector');
         }
-    }, [downloadedLocalModelIds.length, requestBottomSheet, router]);
+    }, [downloadedLocalModelCount, requestBottomSheet, router]);
 
     const handleManageModelsPress = useCallback(() => {
         router.push("/settings-modal/local-models");
@@ -360,6 +362,7 @@ const SideBar = ({ translationX }: SideBarProps) => {
                         <Text style={styles.localModelSelectorLabel}>Local model:</Text>
                         <TouchableOpacity
                             onPress={handleLocalModelSelectorPress}
+                            disabled={hasSingleDownloadedLocalModel}
                             activeOpacity={0.7}
                         >
                             <View style={styles.localModelSelectorField}>
@@ -380,7 +383,9 @@ const SideBar = ({ translationX }: SideBarProps) => {
                                         />
                                     ) : null}
                                 </View>
-                                <ChevronRightIcon width={22} height={22} stroke="black" />
+                                {!hasSingleDownloadedLocalModel && (
+                                    <ChevronRightIcon width={22} height={22} stroke="black" />
+                                )}
                             </View>
                         </TouchableOpacity>
                     </View>
