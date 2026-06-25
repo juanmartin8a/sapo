@@ -342,7 +342,7 @@ const useSseStore = create<SseState>((set, get) => {
 
         const parsed = JSON.parse(payload) as Token;
         if (typeof parsed !== "object" || parsed === null || typeof parsed.type !== "string") {
-            throw new Error("Invalid transliteration token payload");
+            throw new Error("Invalid respell token payload");
         }
 
         return parsed;
