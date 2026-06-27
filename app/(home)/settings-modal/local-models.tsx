@@ -34,6 +34,7 @@ export default function LocalModelScreen() {
     const [deletingModelId, setDeletingModelId] = useState<LocalTranslationModelId | null>(null);
     const mountedRef = useRef(true);
     const cancelDownload = useLocalModelStore((state) => state.cancelDownload);
+    const downloadedModelIds = useLocalModelStore((state) => state.downloadedModelIds);
     const downloadProgressByModelId = useLocalModelStore((state) => state.downloadProgressByModelId);
     const downloadingModelId = useLocalModelStore((state) => state.downloadingModelId);
     const setDownloadedModelIds = useLocalModelStore((state) => state.setDownloadedModelIds);
@@ -84,8 +85,11 @@ export default function LocalModelScreen() {
     const firstStatus = LOCAL_TRANSLATION_MODELS.map((model) => statusByModelId[model.id]).find(Boolean);
     const availableBytes = selectedStatus?.availableBytes ?? firstStatus?.availableBytes;
     const localModelsSupported = Object.values(statusByModelId).some((status) => status?.supported);
-    const downloadedModels = LOCAL_TRANSLATION_MODELS.filter((model) => statusByModelId[model.id]?.isDownloaded);
-    const availableModels = LOCAL_TRANSLATION_MODELS.filter((model) => !statusByModelId[model.id]?.isDownloaded);
+    const isModelDownloaded = useCallback((modelId: LocalTranslationModelId) => {
+        return statusByModelId[modelId]?.isDownloaded === true || downloadedModelIds.includes(modelId);
+    }, [downloadedModelIds, statusByModelId]);
+    const downloadedModels = LOCAL_TRANSLATION_MODELS.filter((model) => isModelDownloaded(model.id));
+    const availableModels = LOCAL_TRANSLATION_MODELS.filter((model) => !isModelDownloaded(model.id));
 
     const handleDownload = useCallback(async (model: LocalTranslationModel) => {
         if (downloadingModelId || deletingModelId) {
@@ -131,7 +135,7 @@ export default function LocalModelScreen() {
     }, [cancelDownload, refreshStatus]);
 
     const handleDeleteModel = useCallback((model: LocalTranslationModel) => {
-        if (deletingModelId || downloadingModelId || !statusByModelId[model.id]?.isDownloaded) {
+        if (deletingModelId || downloadingModelId || !isModelDownloaded(model.id)) {
             return;
         }
 
@@ -163,10 +167,11 @@ export default function LocalModelScreen() {
                 },
             ]
         );
-    }, [deletingModelId, downloadingModelId, loadedModelId, refreshStatus, statusByModelId]);
+    }, [deletingModelId, downloadingModelId, isModelDownloaded, loadedModelId, refreshStatus]);
 
     const renderModelCard = (model: LocalTranslationModel) => {
         const status = statusByModelId[model.id];
+        const isDownloaded = isModelDownloaded(model.id);
         const isDownloading = downloadingModelId === model.id;
         const isDeleting = deletingModelId === model.id;
         const isBusy = !!downloadingModelId || !!deletingModelId;
@@ -185,7 +190,7 @@ export default function LocalModelScreen() {
                     <Text style={styles.modelSize}>{modelSizeText}</Text>
                 </View>
                 <TouchableOpacity
-                    accessibilityLabel={isDownloading ? "Cancel download" : status?.isDownloaded ? "Delete local model" : "Download local model"}
+                    accessibilityLabel={isDownloading ? "Cancel download" : isDownloaded ? "Delete local model" : "Download local model"}
                     activeOpacity={0.8}
                     disabled={isModelActionDisabled}
                     onPress={() => {
@@ -194,7 +199,7 @@ export default function LocalModelScreen() {
                             return;
                         }
 
-                        if (status?.isDownloaded) {
+                        if (isDownloaded) {
                             handleDeleteModel(model);
                             return;
                         }
@@ -203,7 +208,7 @@ export default function LocalModelScreen() {
                     }}
                     style={[
                         styles.iconButton,
-                        status?.isDownloaded && styles.deleteIconButton,
+                        isDownloaded && styles.deleteIconButton,
                         isModelActionDisabled && styles.disabledButton,
                     ]}
                 >
@@ -211,7 +216,7 @@ export default function LocalModelScreen() {
                         <SquareIcon width={18} height={18} stroke="black" fill="black" />
                     ) : isDeleting ? (
                         <ActivityIndicator color={colors.primaryText} size="small" />
-                    ) : status?.isDownloaded ? (
+                    ) : isDownloaded ? (
                         <TrashIcon width={20} height={20} stroke={colors.destructiveText} />
                     ) : (
                         <DownloadIcon width={20} height={20} stroke={colors.primaryText} />
