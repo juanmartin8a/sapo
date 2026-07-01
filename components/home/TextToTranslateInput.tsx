@@ -51,7 +51,8 @@ const TextToTranslateInput = () => {
                 multiline
                 value={text}
                 onChangeText={setText}
-                maxLength={1000}
+                maxLength={inputLimit}
+                // maxLength={1000}
                 placeholder="Type something..."
                 placeholderTextColor="#aaa"
                 returnKeyType="done"
