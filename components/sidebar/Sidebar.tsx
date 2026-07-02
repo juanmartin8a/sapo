@@ -13,6 +13,9 @@ import useLocalModelStore from '@/stores/localModelStore';
 import { HomeBottomSheetKey } from '@/types/bottomSheets';
 import { LOCAL_TRANSLATION_MODELS } from '@/clients/local-model';
 import SideBarFooter from './SidebarFooter';
+import useSubscriptionStatusStore from '@/stores/subscriptionStatusStore';
+import { authClient } from '@/clients/auth-client';
+import { getSessionUserAuthState } from '@/utils/auth';
 
 export const SIDEBAR_WIDTH = Dimensions.get("window").width * 0.7;
 
@@ -23,6 +26,10 @@ type SideBarProps = {
 const SideBar = ({ translationX }: SideBarProps) => {
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const { data: session, isPending: isAuthPending } = authClient.useSession();
+    const authState = getSessionUserAuthState(session?.user);
+    const isAuthenticatedUser = authState === 'authenticated';
+    const hasActiveSubscription = useSubscriptionStatusStore((state) => state.hasActiveSubscription);
     const operation = useTransformationOperationStore((state) => state.operation);
     const setOperation = useTransformationOperationStore((state) => state.setOperation);
     const isLocalModelDownloaded = useLocalModelStore((state) => state.isDownloaded);
@@ -34,6 +41,7 @@ const SideBar = ({ translationX }: SideBarProps) => {
     const downloadedLocalModelIds = useLocalModelStore((state) => state.downloadedModelIds);
     const refreshLocalModelStatus = useLocalModelStore((state) => state.refreshDownloadedStatus);
     const loadLocalModel = useLocalModelStore((state) => state.loadModel);
+    const setLocalModelEnabled = useLocalModelStore((state) => state.setEnabled);
     const toggleLocalModel = useLocalModelStore((state) => state.toggleEnabled);
     const networkState = useNetworkState();
     const selectedLocalModel = LOCAL_TRANSLATION_MODELS.find((model) => model.id === selectedLocalModelId)
@@ -43,6 +51,8 @@ const SideBar = ({ translationX }: SideBarProps) => {
     const hasInternetConnection = networkState.isInternetReachable ?? networkState.isConnected ?? false;
     const isLocalModeSelected = isLocalModelEnabled;
     const isLocalModelBusy = isLocalModelLoading || isLocalModelRefreshing;
+    const canUseRespell = hasActiveSubscription === true;
+    const shouldShowLocalModeToggle = isAuthPending || isAuthenticatedUser;
     const shouldShowLoadModelButton = isLocalModelDownloaded && !isLocalModelLoaded;
     const [isLoadModelButtonVisible, setIsLoadModelButtonVisible] = useState(shouldShowLoadModelButton);
     const [loadModelButtonLayoutHeight, setLoadModelButtonLayoutHeight] = useState(0);
@@ -132,6 +142,26 @@ const SideBar = ({ translationX }: SideBarProps) => {
         router.push("/settings-modal/local-models");
     }, [router]);
 
+    const handleRespellPress = useCallback(() => {
+        if (canUseRespell) {
+            setOperation('respell');
+            return;
+        }
+
+        const title = isAuthenticatedUser
+            ? "Subscription required"
+            : "Sign in required";
+
+        const message = isAuthenticatedUser
+            ? "Respell is more expensive to run, so it cannot be included for free."
+            : "Respell is available to signed-in users with an active subscription.";
+
+        Alert.alert(
+            title,
+            message
+        );
+    }, [canUseRespell, isAuthenticatedUser, setOperation]);
+
     const handleLoadModelButtonLayout = useCallback((event: LayoutChangeEvent) => {
         if (!shouldShowLoadModelButton) {
             return;
@@ -147,6 +177,18 @@ const SideBar = ({ translationX }: SideBarProps) => {
     useEffect(() => {
         void refreshLocalModelStatus();
     }, [refreshLocalModelStatus]);
+
+    useEffect(() => {
+        if (!canUseRespell && operation === 'respell') {
+            setOperation('translate');
+        }
+    }, [canUseRespell, operation, setOperation]);
+
+    useEffect(() => {
+        if (!shouldShowLocalModeToggle && !isLocalModelEnabled) {
+            setLocalModelEnabled(true);
+        }
+    }, [isLocalModelEnabled, setLocalModelEnabled, shouldShowLocalModeToggle]);
 
     useEffect(() => {
         if (shouldShowLoadModelButton === isLoadModelButtonVisible) {
@@ -267,17 +309,19 @@ const SideBar = ({ translationX }: SideBarProps) => {
                             </Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                            onPress={() => setOperation('respell')}
+                            onPress={handleRespellPress}
                             activeOpacity={0.7}
                             style={[
                                 styles.operationOption,
                                 operation === 'respell' && styles.operationOptionActive,
+                                !canUseRespell && styles.operationOptionDisabled,
                             ]}
                         >
                             <Text
                                 style={[
                                     styles.operationOptionText,
                                     operation === 'respell' && styles.operationOptionTextActive,
+                                    !canUseRespell && styles.operationOptionTextDisabled,
                                 ]}
                             >
                                 Respell
@@ -314,116 +358,121 @@ const SideBar = ({ translationX }: SideBarProps) => {
                     </TouchableOpacity>
                 </View>
                 <View style={styles.localModelContainer}>
-                    <View style={styles.localModeToggleContainer}>
-                        <TouchableOpacity
-                            onPress={handleSelectOnlineMode}
-                            activeOpacity={0.7}
-                            style={[
-                                styles.localModeOption,
-                                !isLocalModeSelected && styles.localModeOptionActive,
-                            ]}
-                        >
-                            <View style={styles.localModeOnlineLabel}>
+                    {shouldShowLocalModeToggle && (
+                        <View style={styles.localModeToggleContainer}>
+                            <TouchableOpacity
+                                onPress={handleSelectOnlineMode}
+                                activeOpacity={0.7}
+                                style={[
+                                    styles.localModeOption,
+                                    !isLocalModeSelected && styles.localModeOptionActive,
+                                ]}
+                            >
+                                <View style={styles.localModeOnlineLabel}>
+                                    <Text
+                                        style={[
+                                            styles.localModeOptionText,
+                                            !isLocalModeSelected && styles.localModeOptionTextActive,
+                                        ]}
+                                    >
+                                        Online
+                                    </Text>
+                                    <View
+                                        style={[
+                                            styles.connectionDot,
+                                            hasInternetConnection ? styles.connectionDotOnline : styles.connectionDotOffline,
+                                        ]}
+                                    />
+                                </View>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={handleSelectLocalMode}
+                                activeOpacity={0.7}
+                                style={[
+                                    styles.localModeOption,
+                                    isLocalModeSelected && styles.localModeOptionActive,
+                                ]}
+                            >
                                 <Text
                                     style={[
                                         styles.localModeOptionText,
-                                        !isLocalModeSelected && styles.localModeOptionTextActive,
+                                        isLocalModeSelected && styles.localModeOptionTextActive,
                                     ]}
                                 >
-                                    Online
+                                    Local
                                 </Text>
-                                <View
-                                    style={[
-                                        styles.connectionDot,
-                                        hasInternetConnection ? styles.connectionDotOnline : styles.connectionDotOffline,
-                                    ]}
-                                />
-                            </View>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            onPress={handleSelectLocalMode}
-                            activeOpacity={0.7}
-                            style={[
-                                styles.localModeOption,
-                                isLocalModeSelected && styles.localModeOptionActive,
-                            ]}
-                        >
-                            <Text
-                                style={[
-                                    styles.localModeOptionText,
-                                    isLocalModeSelected && styles.localModeOptionTextActive,
-                                ]}
-                            >
-                                Local
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
-                    <View style={styles.localModelSelectorContainer}>
-                        <Text style={styles.localModelSelectorLabel}>Local model:</Text>
-                        <TouchableOpacity
-                            onPress={handleLocalModelSelectorPress}
-                            disabled={hasSingleDownloadedLocalModel}
-                            activeOpacity={0.7}
-                        >
-                            <View style={styles.localModelSelectorField}>
-                                <View style={styles.localModelNameContainer}>
-                                    <Text style={styles.localModelSelectorText} numberOfLines={1}>
-                                        {selectedLocalModel?.displayName ?? "None"}
-                                    </Text>
-                                    {selectedLocalModel ? (
-                                        <View
-                                            style={[
-                                                styles.localModelStatusDot,
-                                                isLocalModelLoading
-                                                    ? styles.localModelStatusDotLoading
-                                                    : isLocalModelLoaded
-                                                        ? styles.localModelStatusDotLoaded
-                                                        : styles.localModelStatusDotIdle,
-                                            ]}
-                                        />
-                                    ) : null}
-                                </View>
-                                {!hasSingleDownloadedLocalModel && (
-                                    <ChevronRightIcon width={22} height={22} stroke="black" />
-                                )}
-                            </View>
-                        </TouchableOpacity>
-                    </View>
-                    {isLoadModelButtonVisible && (
-                        <RNAnimated.View onLayout={handleLoadModelButtonLayout} style={loadModelButtonSpaceAnimatedStyle}>
-                            <RNAnimated.View style={loadModelButtonAnimatedStyle}>
-                                <TouchableOpacity
-                                    onPress={handleLocalModelAction}
-                                    disabled={isLocalModelBusy}
-                                    activeOpacity={0.78}
-                                    style={[
-                                        styles.localModelActionButton,
-                                        isLocalModelBusy && styles.localModelActionButtonDisabled,
-                                    ]}
-                                >
-                                    <View style={styles.localModelActionButtonContent}>
-                                        <Text style={styles.localModelActionButtonText}>Load model</Text>
-                                        {isLocalModelLoading && (
-                                            <View style={styles.localModelActionSpinner} pointerEvents="none">
-                                                <ActivityIndicator color="#fff" size="small" />
-                                            </View>
-                                        )}
-                                    </View>
-                                </TouchableOpacity>
-                            </RNAnimated.View>
-                        </RNAnimated.View>
-                    )}
-                    <TouchableOpacity
-                        onPress={handleManageModelsPress}
-                        activeOpacity={0.78}
-                        style={[styles.localModelActionButton, styles.manageModelsButton]}
-                    >
-                        <View style={styles.localModelActionButtonContent}>
-                            <Text style={[styles.localModelActionButtonText, styles.manageModelsButtonText]}>
-                                Manage models
-                            </Text>
+                            </TouchableOpacity>
                         </View>
-                    </TouchableOpacity>
+                    )}
+                        <View style={[
+                            styles.localModelSelectorContainer,
+                            !shouldShowLocalModeToggle && styles.localModelSelectorContainerNoToggle,
+                        ]}>
+                            <Text style={styles.localModelSelectorLabel}>Local model:</Text>
+                            <TouchableOpacity
+                                onPress={handleLocalModelSelectorPress}
+                                disabled={hasSingleDownloadedLocalModel}
+                                activeOpacity={0.7}
+                            >
+                                <View style={styles.localModelSelectorField}>
+                                    <View style={styles.localModelNameContainer}>
+                                        <Text style={styles.localModelSelectorText} numberOfLines={1}>
+                                            {selectedLocalModel?.displayName ?? "None"}
+                                        </Text>
+                                        {selectedLocalModel ? (
+                                            <View
+                                                style={[
+                                                    styles.localModelStatusDot,
+                                                    isLocalModelLoading
+                                                        ? styles.localModelStatusDotLoading
+                                                        : isLocalModelLoaded
+                                                            ? styles.localModelStatusDotLoaded
+                                                            : styles.localModelStatusDotIdle,
+                                                ]}
+                                            />
+                                        ) : null}
+                                    </View>
+                                    {!hasSingleDownloadedLocalModel && (
+                                        <ChevronRightIcon width={22} height={22} stroke="black" />
+                                    )}
+                                </View>
+                            </TouchableOpacity>
+                        </View>
+                        {isLoadModelButtonVisible && (
+                            <RNAnimated.View onLayout={handleLoadModelButtonLayout} style={loadModelButtonSpaceAnimatedStyle}>
+                                <RNAnimated.View style={loadModelButtonAnimatedStyle}>
+                                    <TouchableOpacity
+                                        onPress={handleLocalModelAction}
+                                        disabled={isLocalModelBusy}
+                                        activeOpacity={0.78}
+                                        style={[
+                                            styles.localModelActionButton,
+                                            isLocalModelBusy && styles.localModelActionButtonDisabled,
+                                        ]}
+                                    >
+                                        <View style={styles.localModelActionButtonContent}>
+                                            <Text style={styles.localModelActionButtonText}>Load model</Text>
+                                            {isLocalModelLoading && (
+                                                <View style={styles.localModelActionSpinner} pointerEvents="none">
+                                                    <ActivityIndicator color="#fff" size="small" />
+                                                </View>
+                                            )}
+                                        </View>
+                                    </TouchableOpacity>
+                                </RNAnimated.View>
+                            </RNAnimated.View>
+                        )}
+                        <TouchableOpacity
+                            onPress={handleManageModelsPress}
+                            activeOpacity={0.78}
+                            style={[styles.localModelActionButton, styles.manageModelsButton]}
+                        >
+                            <View style={styles.localModelActionButtonContent}>
+                                <Text style={[styles.localModelActionButtonText, styles.manageModelsButtonText]}>
+                                    Manage models
+                                </Text>
+                            </View>
+                        </TouchableOpacity>
                 </View>
             </View>
             <SideBarFooter />
@@ -471,6 +520,9 @@ const styles = StyleSheet.create({
     },
     localModelSelectorContainer: {
         paddingTop: 32,
+    },
+    localModelSelectorContainerNoToggle: {
+        paddingTop: 0,
     },
     manageModelsButton: {
         marginTop: 32,
@@ -580,6 +632,9 @@ const styles = StyleSheet.create({
     operationOptionActive: {
         backgroundColor: '#000',
     },
+    operationOptionDisabled: {
+        opacity: 0.45,
+    },
     operationOptionText: {
         fontSize: 14,
         fontWeight: '600',
@@ -587,6 +642,9 @@ const styles = StyleSheet.create({
     },
     operationOptionTextActive: {
         color: '#fff',
+    },
+    operationOptionTextDisabled: {
+        color: '#888',
     },
     localModeToggleContainer: {
         width: '100%',

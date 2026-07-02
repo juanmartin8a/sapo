@@ -3,5 +3,9 @@ export function getSessionUserAuthState(user: unknown) {
         return "signed_out" as const;
     }
 
+    if ((user as { isAnonymous?: unknown }).isAnonymous === true) {
+        return "anonymous" as const;
+    }
+
     return "authenticated" as const;
 }
