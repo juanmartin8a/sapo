@@ -30,7 +30,6 @@ const LangugeSelectorBottomSheetUI = ({ ref, data, selectedKey, onClose, onChang
             handleIndicatorStyle={styles.handleIndicator}
             onClose={onClose}
             onChange={onChange}
-            style={styles.bottomSheet}
             backgroundStyle={styles.bottomSheetBackground}
         >
             <BottomSheetFlatList
@@ -62,12 +61,6 @@ const LangugeSelectorBottomSheetUI = ({ ref, data, selectedKey, onClose, onChang
 const styles = StyleSheet.create({
     contentContainer: {
         paddingHorizontal: 24,
-    },
-    bottomSheet: {
-        shadowColor: "#aaa",
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.25,
-        shadowRadius: 10,
     },
     handleIndicator: {
         backgroundColor: 'white',

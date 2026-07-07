@@ -5,6 +5,7 @@ import BottomSheet from "@gorhom/bottom-sheet";
 import { useCallback, useEffect, useRef } from "react";
 import useHomeBottomSheetNotifier from "@/stores/homeBottomSheetNotifierStore";
 import LangugeSelectorBottomSheetUI from "./LanguageSelectorBottomSheetUI";
+import { triggerSelectionHaptic } from "@/utils/haptics";
 
 // Separated Component from TargetLanguageSelectorBottomSheet.tsx for simplicity
 // Single component would require more logic which would make the code harder to understand and debug.
@@ -90,6 +91,11 @@ export default function SourceLangugeSelectorBottomSheet() {
 
     const handleLanguageSelect = (key: string) => {
         const index = parseInt(key);
+
+        if (index !== selectedIndex) {
+            triggerSelectionHaptic();
+        }
+
         selectLanguage(
             true, // with auto detect (true) 
             index

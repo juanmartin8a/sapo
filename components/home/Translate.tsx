@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, NativeSyntheticEvent, TextLayoutEventData } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, NativeSyntheticEvent, TextLayoutEventData, Dimensions } from 'react-native';
 import useSseStore from '../../stores/sseStore';
 import SapoIcon from "../../assets/icons/sapo.svg"
 import SapoBocaAbiertaIcon from "../../assets/icons/sapo_boca_abierta.svg"
-import { SCREEN_WIDTH } from '@gorhom/bottom-sheet';
+import { triggerSoftSelectionHaptic } from '@/utils/haptics';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 interface CursorPos {
     x: number;
@@ -39,6 +41,7 @@ export default function Translate() {
 
             timeoutRef.current = setTimeout(() => {
                 setSapoMouthOpen(true);
+                triggerSoftSelectionHaptic();
 
                 timeoutRef.current = setTimeout(() => {
                     setSapoMouthOpen(false);

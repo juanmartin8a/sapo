@@ -27,6 +27,7 @@ import GroupedList from "@/components/settings-modal/GroupedList";
 import SettingsButton from "@/components/settings-modal/SettingsButton";
 import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
 import { getSessionUserAuthState } from "@/utils/auth";
+import { triggerErrorHaptic, triggerLightImpactHaptic, triggerStrongImpactHaptic, triggerWarningHaptic } from "@/utils/haptics";
 
 const colors = {
     screenBackground: "#E1ECDD",
@@ -124,6 +125,8 @@ export default function SettingsModalScreen() {
             return;
         }
 
+        triggerLightImpactHaptic();
+
         try {
             setIsRestoringPurchases(true);
 
@@ -159,6 +162,7 @@ export default function SettingsModalScreen() {
 
             if (refreshAuthMismatch) {
                 setHasActiveSubscription(false);
+                triggerWarningHaptic();
                 Alert.alert("Session changed", getSubscriptionSessionChangedMessage());
                 return;
             }
@@ -168,6 +172,8 @@ export default function SettingsModalScreen() {
             setHasActiveSubscription(isActive);
 
             if (isActive) {
+                triggerStrongImpactHaptic();
+
                 if (refreshFailed) {
                     retryRevenueCatUpdateSyncInBackground(userId);
                     Alert.alert("Purchases restored", getRestoreSyncPendingMessage());
@@ -178,10 +184,12 @@ export default function SettingsModalScreen() {
                 return;
             }
 
+            triggerWarningHaptic();
             Alert.alert("No purchases found", "No active subscriptions were found for this account.");
         } catch (error) {
             if (isReceiptAlreadyInUseRevenueCatError(error)) {
                 setHasActiveSubscription(false);
+                triggerWarningHaptic();
                 Alert.alert(
                     "Subscription linked elsewhere",
                     getSubscriptionLinkedElsewhereMessage(storeAccountLabel)
@@ -193,6 +201,7 @@ export default function SettingsModalScreen() {
                 console.warn("Restore purchases failed", error);
             }
 
+            triggerErrorHaptic();
             Alert.alert("Restore failed", RESTORE_PURCHASES_ERROR_MESSAGE);
         } finally {
             setIsRestoringPurchases(false);

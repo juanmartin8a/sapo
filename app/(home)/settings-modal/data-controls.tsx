@@ -11,6 +11,7 @@ import {
 } from "@/clients/revenuecat";
 import SettingsButton from "@/components/settings-modal/SettingsButton";
 import { getSessionUserAuthState } from "@/utils/auth";
+import { triggerErrorHaptic, triggerLightImpactHaptic, triggerStrongImpactHaptic } from "@/utils/haptics";
 
 const getDeleteAccountAlertMessage = (args: {
     hasActiveSubscription: boolean;
@@ -90,13 +91,16 @@ export default function DataControlsScreen() {
                     style: "destructive",
                     onPress: async () => {
                         try {
+                            triggerLightImpactHaptic();
                             setIsProcessing(true);
                             await requestAccountDeletion();
+                            triggerStrongImpactHaptic();
                             Alert.alert(
                                 "Check your email",
                                 "We sent a verification link to confirm account deletion."
                             );
                         } catch {
+                            triggerErrorHaptic();
                             Alert.alert("Something went wrong", "Unable to delete the account. Please try again.");
                         } finally {
                             setIsProcessing(false);

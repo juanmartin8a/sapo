@@ -17,6 +17,7 @@ import {
 
 import { authClient } from "@/clients/auth-client";
 import { getSessionUserAuthState } from "@/utils/auth";
+import { triggerErrorHaptic, triggerStrongImpactHaptic } from "@/utils/haptics";
 
 type ConfirmationStatus =
     | "checking"
@@ -162,6 +163,7 @@ export default function DeleteAccountConfirmationScreen() {
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [cardTransitionValue] = useState(() => new Animated.Value(1));
     const cardTransitionRunRef = useRef(0);
+    const lastHapticStatusRef = useRef<ConfirmationStatus | null>(null);
 
     const handleReturnHome = useCallback(() => {
         router.dismissTo("/");
@@ -226,6 +228,25 @@ export default function DeleteAccountConfirmationScreen() {
             nextNavigationState as Parameters<typeof rootNavigation.resetRoot>[0]
         );
     }, [rootNavigation, rootNavigationState]);
+
+    useEffect(() => {
+        if (status !== "completed" && status !== "failed") {
+            return;
+        }
+
+        if (lastHapticStatusRef.current === status) {
+            return;
+        }
+
+        lastHapticStatusRef.current = status;
+
+        if (status === "completed") {
+            triggerStrongImpactHaptic();
+            return;
+        }
+
+        triggerErrorHaptic();
+    }, [status]);
 
     useEffect(() => {
         let didCancel = false;

@@ -6,6 +6,7 @@ import BottomSheet from "@gorhom/bottom-sheet";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef } from "react";
 import LangugeSelectorBottomSheetUI from "./LanguageSelectorBottomSheetUI";
+import { triggerSelectionHaptic } from "@/utils/haptics";
 
 const SHEET_KEY = "local_model_selector";
 
@@ -107,6 +108,7 @@ export default function LocalModelSelectorBottomSheet() {
                 return;
             }
 
+            triggerSelectionHaptic();
             await selectModel(modelId);
         } finally {
             isCheckingModelRef.current = false;

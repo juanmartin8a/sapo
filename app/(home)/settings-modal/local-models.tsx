@@ -16,6 +16,7 @@ import {
 } from "@/clients/local-model";
 import { releaseLocalTranslationModel } from "@/clients/local-translation";
 import useLocalModelStore from "@/stores/localModelStore";
+import { triggerErrorHaptic, triggerLightImpactHaptic, triggerStrongImpactHaptic } from "@/utils/haptics";
 
 const colors = {
     screenBackground: "#E1ECDD",
@@ -60,6 +61,7 @@ export default function LocalModelScreen() {
             );
         } catch {
             if (mountedRef.current) {
+                triggerErrorHaptic();
                 Alert.alert("Unable to check model", "Please try again.");
             }
         } finally {
@@ -96,6 +98,8 @@ export default function LocalModelScreen() {
             return;
         }
 
+        triggerLightImpactHaptic();
+
         try {
             const nextStatus = await startDownload(model.id);
 
@@ -108,6 +112,7 @@ export default function LocalModelScreen() {
                     ...current,
                     [model.id]: nextStatus,
                 }));
+                triggerStrongImpactHaptic();
                 Alert.alert(
                     "Local model ready",
                     "Translations will use Gemma locally on this device. Respell still uses S A P O online."
@@ -119,6 +124,7 @@ export default function LocalModelScreen() {
                     console.warn("Local model download failed", error);
                 }
 
+                triggerErrorHaptic();
                 Alert.alert(
                     "Download failed",
                     "Unable to download the local model. Please try again."
@@ -149,6 +155,7 @@ export default function LocalModelScreen() {
                     style: "destructive",
                     onPress: async () => {
                         try {
+                            triggerLightImpactHaptic();
                             setDeletingModelId(model.id);
                             if (model.id === loadedModelId) {
                                 await releaseLocalTranslationModel();
@@ -156,7 +163,9 @@ export default function LocalModelScreen() {
                             }
                             await deleteLocalModel(model.id);
                             await refreshStatus();
+                            triggerStrongImpactHaptic();
                         } catch {
+                            triggerErrorHaptic();
                             Alert.alert("Unable to delete model", "Please try again.");
                         } finally {
                             if (mountedRef.current) {

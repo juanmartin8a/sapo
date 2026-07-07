@@ -32,6 +32,7 @@ import {
     refreshSubscriptionStateAfterRevenueCatUpdate,
     retrySubscriptionStateAfterRevenueCatUpdateInBackground,
 } from "@/clients/subscription-refresh";
+import { triggerErrorHaptic, triggerLightImpactHaptic, triggerStrongImpactHaptic, triggerWarningHaptic } from "@/utils/haptics";
 
 const TERMS_OF_USE_URL = "https://sapo.surf/terms-of-use";
 const PRIVACY_POLICY_URL = "https://sapo.surf/privacy-policy";
@@ -347,6 +348,8 @@ export default function SubscriptionScreen() {
             return;
         }
 
+        triggerLightImpactHaptic();
+
         try {
             setIsPurchasing(true);
 
@@ -380,6 +383,7 @@ export default function SubscriptionScreen() {
                 if (loginRefreshAuthMismatch) {
                     setIsSubscriptionLinkedElsewhere(false);
                     setHasActiveSubscription(false);
+                    triggerWarningHaptic();
                     Alert.alert("Session changed", getSubscriptionSessionChangedMessage());
                     return;
                 }
@@ -391,6 +395,8 @@ export default function SubscriptionScreen() {
                 setHasActiveSubscription(hasActiveAfterLogin);
 
                 if (hasActiveAfterLogin) {
+                    triggerStrongImpactHaptic();
+
                     if (loginRefreshFailed) {
                         retryRevenueCatUpdateSyncInBackground(userId);
                         Alert.alert("Subscription active", getSubscriptionSyncPendingMessage());
@@ -439,6 +445,7 @@ export default function SubscriptionScreen() {
             if (purchaseRefreshAuthMismatch) {
                 setIsSubscriptionLinkedElsewhere(false);
                 setHasActiveSubscription(false);
+                triggerWarningHaptic();
                 Alert.alert("Session changed", getSubscriptionSessionChangedMessage());
                 return;
             }
@@ -449,6 +456,8 @@ export default function SubscriptionScreen() {
             setHasActiveSubscription(isActive);
 
             if (isActive) {
+                triggerStrongImpactHaptic();
+
                 if (purchaseRefreshFailed) {
                     retryRevenueCatUpdateSyncInBackground(userId);
                     Alert.alert("Subscription active", getSubscriptionSyncPendingMessage());
@@ -459,6 +468,7 @@ export default function SubscriptionScreen() {
                 return;
             }
 
+            triggerStrongImpactHaptic();
             Alert.alert(
                 "Purchase pending",
                 "The purchase was completed but your subscription could not be verified yet. Please restore purchases from Settings."
@@ -470,6 +480,7 @@ export default function SubscriptionScreen() {
 
             if (isReceiptAlreadyInUseRevenueCatError(error)) {
                 setIsSubscriptionLinkedElsewhere(true);
+                triggerWarningHaptic();
                 showSubscriptionLinkedElsewhereAlert();
                 return;
             }
@@ -478,6 +489,7 @@ export default function SubscriptionScreen() {
                 console.warn("Purchase failed", error);
             }
 
+            triggerErrorHaptic();
             Alert.alert("Purchase failed", PURCHASE_ERROR_MESSAGE);
         } finally {
             setIsPurchasing(false);

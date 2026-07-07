@@ -16,6 +16,7 @@ import SideBarFooter from './SidebarFooter';
 import useSubscriptionStatusStore from '@/stores/subscriptionStatusStore';
 import { authClient } from '@/clients/auth-client';
 import { getSessionUserAuthState } from '@/utils/auth';
+import { triggerErrorHaptic, triggerLightImpactHaptic, triggerSelectionHaptic } from '@/utils/haptics';
 
 export const SIDEBAR_WIDTH = Dimensions.get("window").width * 0.7;
 
@@ -78,14 +79,15 @@ const SideBar = ({ translationX }: SideBarProps) => {
         const { bottomSheet, loading } = useHomeBottomSheetNotifier.getState();
 
         if (loading && bottomSheet !== sheet) {
-            return;
+            return false;
         }
 
         if (bottomSheet === sheet) {
-            return;
+            return false;
         }
 
         useHomeBottomSheetNotifier.getState().showBottomSheet(sheet, true);
+        return true;
     }, []);
 
     const handleToggleLocalModel = useCallback(async () => {
@@ -93,6 +95,8 @@ const SideBar = ({ translationX }: SideBarProps) => {
     }, [toggleLocalModel]);
 
     const handleSelectOnlineMode = useCallback(async () => {
+        triggerSelectionHaptic();
+
         if (!isLocalModelEnabled) {
             return;
         }
@@ -101,6 +105,8 @@ const SideBar = ({ translationX }: SideBarProps) => {
     }, [handleToggleLocalModel, isLocalModelEnabled]);
 
     const handleSelectLocalMode = useCallback(async () => {
+        triggerSelectionHaptic();
+
         if (isLocalModelEnabled) {
             return;
         }
@@ -113,6 +119,8 @@ const SideBar = ({ translationX }: SideBarProps) => {
             return;
         }
 
+        triggerLightImpactHaptic();
+
         try {
             await loadLocalModel();
         } catch (error) {
@@ -120,6 +128,7 @@ const SideBar = ({ translationX }: SideBarProps) => {
                 console.warn("Unable to load local model", error);
             }
 
+            triggerErrorHaptic();
             Alert.alert(
                 "Unable to load local model",
                 "Unable to load the local model. Please try again."
@@ -142,11 +151,19 @@ const SideBar = ({ translationX }: SideBarProps) => {
         router.push("/settings-modal/local-models");
     }, [router]);
 
+    const handleTranslatePress = useCallback(() => {
+        triggerSelectionHaptic();
+        setOperation('translate');
+    }, [setOperation]);
+
     const handleRespellPress = useCallback(() => {
         if (canUseRespell) {
+            triggerSelectionHaptic();
             setOperation('respell');
             return;
         }
+
+        triggerErrorHaptic();
 
         const title = isAuthenticatedUser
             ? "Subscription required"
@@ -161,6 +178,14 @@ const SideBar = ({ translationX }: SideBarProps) => {
             message
         );
     }, [canUseRespell, isAuthenticatedUser, setOperation]);
+
+    const handleInputLanguagePress = useCallback(() => {
+        requestBottomSheet('input_lang_selector');
+    }, [requestBottomSheet]);
+
+    const handleTargetLanguagePress = useCallback(() => {
+        requestBottomSheet('target_lang_selector');
+    }, [requestBottomSheet]);
 
     const handleLoadModelButtonLayout = useCallback((event: LayoutChangeEvent) => {
         if (!shouldShowLoadModelButton) {
@@ -292,7 +317,7 @@ const SideBar = ({ translationX }: SideBarProps) => {
                 <View style={styles.operationSection}>
                     <View style={styles.operationToggleContainer}>
                         <TouchableOpacity
-                            onPress={() => setOperation('translate')}
+                            onPress={handleTranslatePress}
                             activeOpacity={0.7}
                             style={[
                                 styles.operationOption,
@@ -331,7 +356,7 @@ const SideBar = ({ translationX }: SideBarProps) => {
                 </View>
                 <View style={styles.inputContainer}>
                     <TouchableOpacity
-                        onPress={() => requestBottomSheet('input_lang_selector')}
+                        onPress={handleInputLanguagePress}
                         activeOpacity={0.7}
                     >
                         <View style={styles.field}>
@@ -345,7 +370,7 @@ const SideBar = ({ translationX }: SideBarProps) => {
                 </View>
                 <View style={styles.inputContainer}>
                     <TouchableOpacity
-                        onPress={() => requestBottomSheet('target_lang_selector')}
+                        onPress={handleTargetLanguagePress}
                         activeOpacity={0.7}
                     >
                         <View style={styles.field}>

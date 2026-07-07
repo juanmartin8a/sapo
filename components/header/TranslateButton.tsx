@@ -13,6 +13,7 @@ import { authClient } from "@/clients/auth-client";
 import { getSessionUserAuthState } from "@/utils/auth";
 import { useTransformationOperationStore } from "@/stores";
 import useLocalModelStore from "@/stores/localModelStore";
+import { triggerErrorHaptic, triggerMediumImpactHaptic, triggerStopHaptic } from "@/utils/haptics";
 
 const TranslateButton = () => {
     const translateButtonState = useTranslateButtonStateNotifier((state) => state.state)
@@ -41,6 +42,7 @@ const TranslateButton = () => {
         }
 
         if (translateButtonState === 'stop') {
+            triggerStopHaptic();
             stopStream();
             goToPage(1);
             return;
@@ -57,12 +59,15 @@ const TranslateButton = () => {
                 return;
             }
 
+            triggerErrorHaptic();
             Alert.alert(
                 "Sign in required",
                 "Sign in to use online translations or respellings, or download a local model and enable local translation."
             );
             return;
         }
+
+        triggerMediumImpactHaptic();
 
         if (translateButtonState === 'repeat') {
             repeatLastTranslation();
