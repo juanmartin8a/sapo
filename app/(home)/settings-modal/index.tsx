@@ -8,6 +8,8 @@ import LogOutIcon from "@/assets/icons/log-out.svg";
 import RepeatIcon from "@/assets/icons/repeat.svg";
 import EarthIcon from "@/assets/icons/earth.svg";
 import SettingsIcon from "@/assets/icons/settings.svg";
+import BrainIcon from "@/assets/icons/brain.svg";
+import SlidersHorizontalIcon from "@/assets/icons/sliders-horizontal.svg";
 import { authClient } from "@/clients/auth-client";
 import {
     configureRevenueCat,
@@ -329,7 +331,7 @@ export default function SettingsModalScreen() {
                 <Text style={styles.sectionLabel}>Device</Text>
                 <SettingsButton
                     text="Local models"
-                    leftIcon={SettingsIcon}
+                    leftIcon={BrainIcon}
                     showChevron
                     backgroundColor={colors.accountButtonBackground}
                     borderRadius={22}
@@ -343,7 +345,7 @@ export default function SettingsModalScreen() {
             {shouldShowAuthenticatedActions ? (
                 <SettingsButton
                     text="Data controls"
-                    leftIcon={SettingsIcon}
+                    leftIcon={SlidersHorizontalIcon}
                     showChevron
                     backgroundColor={colors.accountButtonBackground}
                     borderRadius={22}
