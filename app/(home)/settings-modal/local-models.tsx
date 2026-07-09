@@ -279,6 +279,7 @@ const styles = StyleSheet.create({
         backgroundColor: colors.screenBackground,
     },
     contentContainer: {
+        flexGrow: 1,
         paddingHorizontal: 16,
         paddingBottom: 32,
         gap: 12,

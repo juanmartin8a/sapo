@@ -604,6 +604,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#E1ECDD",
     },
     contentContainer: {
+        flexGrow: 1,
         paddingHorizontal: 16,
         paddingBottom: 32,
     },

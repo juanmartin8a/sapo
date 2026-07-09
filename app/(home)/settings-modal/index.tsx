@@ -280,7 +280,10 @@ export default function SettingsModalScreen() {
 
     return (
         <View style={styles.container}>
-            <ScrollView contentContainerStyle={[styles.contentContainer, { paddingTop: headerHeight + 24 }]}>
+            <ScrollView
+                style={styles.scrollView}
+                contentContainerStyle={[styles.contentContainer, { paddingTop: headerHeight + 24 }]}
+            >
                 <View style={styles.sectionContainer}>
                     <Text style={styles.sectionLabel}>Account</Text>
                     <GroupedList backgroundColor="#C5D8C0" borderRadius={24} showDividers={true}>
@@ -391,7 +394,11 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.screenBackground,
     },
+    scrollView: {
+        flex: 1,
+    },
     contentContainer: {
+        flexGrow: 1,
         paddingHorizontal: 16,
         paddingBottom: 32,
         gap: 12,

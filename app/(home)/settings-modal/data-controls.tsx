@@ -115,7 +115,10 @@ export default function DataControlsScreen() {
 
     return (
         <View style={styles.container}>
-            <ScrollView contentContainerStyle={[styles.contentContainer, { paddingTop: headerHeight + 24 }]}>
+            <ScrollView
+                style={styles.scrollView}
+                contentContainerStyle={[styles.contentContainer, { paddingTop: headerHeight + 24 }]}
+            >
                 <SettingsButton
                     text={
                         !isAuthenticatedUser
@@ -133,8 +136,6 @@ export default function DataControlsScreen() {
                     disabled={isPending || isProcessing || !canDeleteAccount}
                     onPress={handleDeleteAccount}
                 />
-                <View style={{ height: 1000, backgroundColor: "green" }}>
-                </View>
             </ScrollView>
         </View>
     );
@@ -145,7 +146,11 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: "#E1ECDD",
     },
+    scrollView: {
+        flex: 1,
+    },
     contentContainer: {
+        flexGrow: 1,
         paddingHorizontal: 16,
     },
 });
