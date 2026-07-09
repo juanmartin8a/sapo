@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useHeaderHeight } from "expo-router/react-navigation";
 import {
     ActivityIndicator,
     Alert,
     Linking,
     Platform,
     Pressable,
+    ScrollView,
     StyleSheet,
     Text,
     View,
@@ -157,6 +159,7 @@ const retryRevenueCatUpdateSyncInBackground = (userId: string) => {
 };
 
 export default function SubscriptionScreen() {
+    const headerHeight = useHeaderHeight();
     const { data: session } = authClient.useSession();
     const user = session?.user;
     const userId = user?.id ?? null;
@@ -525,7 +528,10 @@ export default function SubscriptionScreen() {
     }, []);
 
     return (
-        <View style={styles.container}>
+        <ScrollView
+            style={styles.container}
+            contentContainerStyle={[styles.contentContainer, { paddingTop: headerHeight + 24 }]}
+        >
             <View style={styles.card}>
                 <View style={styles.planBadge}>
                     <Text style={styles.planBadgeText}>Polyglot</Text>
@@ -588,7 +594,7 @@ export default function SubscriptionScreen() {
                     </Text>
                 </View>
             </View>
-        </View>
+        </ScrollView>
     );
 }
 
@@ -596,8 +602,10 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: "#E1ECDD",
-        paddingTop: 24,
+    },
+    contentContainer: {
         paddingHorizontal: 16,
+        paddingBottom: 32,
     },
     card: {
         backgroundColor: "#fff",

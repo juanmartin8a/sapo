@@ -4,6 +4,7 @@ import { Platform, Pressable, StyleSheet } from "react-native";
 import XIcon from "../../../assets/icons/x.svg";
 
 const isIOS = Platform.OS === "ios";
+const settingsModalBackground = "#E1ECDD";
 
 export default function SettingsModalLayout() {
     const router = useRouter();
@@ -28,9 +29,10 @@ export default function SettingsModalLayout() {
         <Stack
             screenOptions={{
                 headerShown: true,
-                headerShadowVisible: false,
                 headerStyle: styles.header,
-                headerTintColor: "#1E3526",
+                contentStyle: styles.content,
+                headerTransparent: true,
+                headerShadowVisible: true,
                 headerRight: isIOS ? renderCloseButton : undefined,
             }}
         >
@@ -38,7 +40,6 @@ export default function SettingsModalLayout() {
                 name="index"
                 options={{
                     title: "Settings",
-                    contentStyle: { backgroundColor: "transparent" }
                 }}
             />
             <Stack.Screen
@@ -46,6 +47,8 @@ export default function SettingsModalLayout() {
                 options={{
                     title: "Data controls",
                     headerBackButtonDisplayMode: 'minimal',
+                    headerTransparent: true,
+                    headerShadowVisible: true,
                     headerRight: () => null,
                 }}
             />
@@ -54,6 +57,8 @@ export default function SettingsModalLayout() {
                 options={{
                     title: "Local models",
                     headerBackButtonDisplayMode: 'minimal',
+                    headerTransparent: true,
+                    headerShadowVisible: true,
                     headerRight: () => null,
                 }}
             />
@@ -62,8 +67,9 @@ export default function SettingsModalLayout() {
                 options={{
                     title: "Subscription",
                     headerBackButtonDisplayMode: 'minimal',
+                    headerTransparent: true,
+                    headerShadowVisible: true,
                     headerRight: () => null,
-                    // headerTintColor: "black"
                 }}
             />
         </Stack>
@@ -72,7 +78,11 @@ export default function SettingsModalLayout() {
 
 const styles = StyleSheet.create({
     header: {
-        backgroundColor: "#E1ECDD",
+        // backgroundColor: settingsModalBackground,
+        backgroundColor: "transparent",
+    },
+    content: {
+        backgroundColor: settingsModalBackground,
     },
     headerActionButton: {
         width: 36,

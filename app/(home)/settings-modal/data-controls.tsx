@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
-import { Alert, Platform, StyleSheet, View } from "react-native";
+import { useHeaderHeight } from "expo-router/react-navigation";
+import { Alert, Platform, ScrollView, StyleSheet, View } from "react-native";
 
 import TrashIcon from "@/assets/icons/trash.svg";
 import { authClient } from "@/clients/auth-client";
@@ -25,6 +26,7 @@ const getDeleteAccountAlertMessage = (args: {
 };
 
 export default function DataControlsScreen() {
+    const headerHeight = useHeaderHeight();
     const { data: session, isPending } = authClient.useSession();
     const user = session?.user;
     const authState = getSessionUserAuthState(user);
@@ -105,7 +107,7 @@ export default function DataControlsScreen() {
                         } finally {
                             setIsProcessing(false);
                         }
-                    },
+                    }
                 },
             ]
         );
@@ -113,23 +115,27 @@ export default function DataControlsScreen() {
 
     return (
         <View style={styles.container}>
-            <SettingsButton
-                text={
-                    !isAuthenticatedUser
-                        ? "Sign in to manage data"
-                        : isProcessing
-                          ? "Preparing deletion..."
-                          : "Delete account"
-                }
-                leftIcon={TrashIcon}
-                backgroundColor="#CDDEC8"
-                borderRadius={22}
-                textColor="#8B332A"
-                iconColor="#8B332A"
-                loading={isProcessing}
-                disabled={isPending || isProcessing || !canDeleteAccount}
-                onPress={handleDeleteAccount}
-            />
+            <ScrollView contentContainerStyle={[styles.contentContainer, { paddingTop: headerHeight + 24 }]}>
+                <SettingsButton
+                    text={
+                        !isAuthenticatedUser
+                            ? "Sign in to manage data"
+                            : isProcessing
+                              ? "Preparing deletion..."
+                              : "Delete account"
+                    }
+                    leftIcon={TrashIcon}
+                    backgroundColor="#CDDEC8"
+                    borderRadius={22}
+                    textColor="#8B332A"
+                    iconColor="#8B332A"
+                    loading={isProcessing}
+                    disabled={isPending || isProcessing || !canDeleteAccount}
+                    onPress={handleDeleteAccount}
+                />
+                <View style={{ height: 1000, backgroundColor: "green" }}>
+                </View>
+            </ScrollView>
         </View>
     );
 }
@@ -138,7 +144,8 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: "#E1ECDD",
-        paddingTop: 24,
+    },
+    contentContainer: {
         paddingHorizontal: 16,
     },
 });

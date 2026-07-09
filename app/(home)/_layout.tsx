@@ -1,5 +1,7 @@
 import { Stack } from "expo-router";
 
+const settingsModalBackground = "#E1ECDD";
+
 export const unstable_settings = {
     anchor: "index",
 };
@@ -13,6 +15,7 @@ export default function HomeLayout() {
                     presentation: "modal",
                     animation: "slide_from_bottom",
                     gestureEnabled: true,
+                    contentStyle: { backgroundColor: settingsModalBackground },
                 }}
             />
         </Stack>

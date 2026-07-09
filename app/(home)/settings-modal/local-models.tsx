@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useHeaderHeight } from "expo-router/react-navigation";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import DownloadIcon from "@/assets/icons/download.svg";
@@ -30,6 +31,7 @@ const colors = {
 type ModelStatusById = Partial<Record<LocalTranslationModelId, LocalModelStatus>>;
 
 export default function LocalModelScreen() {
+    const headerHeight = useHeaderHeight();
     const [statusByModelId, setStatusByModelId] = useState<ModelStatusById>({});
     const [isRefreshing, setIsRefreshing] = useState(true);
     const [deletingModelId, setDeletingModelId] = useState<LocalTranslationModelId | null>(null);
@@ -236,7 +238,10 @@ export default function LocalModelScreen() {
     };
 
     return (
-        <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+        <ScrollView
+            style={styles.container}
+            contentContainerStyle={[styles.contentContainer, { paddingTop: headerHeight + 24 }]}
+        >
             {downloadedModels.length > 0 ? (
                 <View style={styles.sectionContainer}>
                     <Text style={styles.sectionLabel}>Downloaded</Text>
@@ -274,7 +279,6 @@ const styles = StyleSheet.create({
         backgroundColor: colors.screenBackground,
     },
     contentContainer: {
-        paddingTop: 24,
         paddingHorizontal: 16,
         paddingBottom: 32,
         gap: 12,
