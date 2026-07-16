@@ -22,7 +22,6 @@
         "expo-dev-client": "56.0.20",
         "expo-file-system": "56.0.8",
         "expo-haptics": "~56.0.3",
-        "expo-iap": "^3.4.9",
         "expo-linking": "56.0.14",
         "expo-network": "56.0.5",
         "expo-router": "56.2.11",
@@ -1107,8 +1106,6 @@
     "expo-glass-effect": ["expo-glass-effect@56.0.4", "", { "peerDependencies": { "expo": "*", "react": "*", "react-native": "*" } }, "sha512-xI9rXtDwi7RW82uAlfyaXO6+k21ApWJ2tHAWYqPr/FjfmZbKsgNJ4Q0iZzGPCwboqjTGxaRZ61SZxBl8hDt5iA=="],
 
     "expo-haptics": ["expo-haptics@56.0.3", "", { "peerDependencies": { "expo": "*" } }, "sha512-ycoahZJnR9tWAVh/0mJYxbETtHRYaWjiWS8cHlP6aDGU6Q6Y8rZ5NKsuBwWw6HR2Pe30mfVFgbF2HrBR6gtYmw=="],
-
-    "expo-iap": ["expo-iap@3.4.9", "", { "peerDependencies": { "expo": "*", "react": "*", "react-native": "*" } }, "sha512-8cp7nrWIB00pCb9NlrjGklRVjZrYMHtVcWigO4mo2lZ2Qycjx3Q8X6AH+t6ub+JI8ulcc+oOWFUasc5dP4IyxA=="],
 
     "expo-json-utils": ["expo-json-utils@56.0.0", "", {}, "sha512-lUqyv9aIGDbYTQ5Nux2FnH2/Dz0w5uJ8Pr080eS0StXi2jr5OmuMNErpzUnpfnYOU55xKotd4AHv68PfV/ludg=="],
 

@@ -1,6 +1,7 @@
 import {
     createLocalModelDownload,
     DEFAULT_LOCAL_TRANSLATION_MODEL_ID,
+    deleteLocalModel,
     LOCAL_TRANSLATION_MODELS,
     getLocalTranslationModelById,
     isLocalModelDownloaded,
@@ -10,7 +11,11 @@ import {
     type LocalTranslationModelId,
     type SelectedLocalTranslationModelId,
 } from "@/clients/local-model";
-import { ensureLocalTranslationModelLoaded, getLoadedLocalTranslationModelId } from "@/clients/local-translation";
+import {
+    ensureLocalTranslationModelLoaded,
+    getLoadedLocalTranslationModelId,
+    runWithLocalTranslationModelReleased,
+} from "@/clients/local-translation";
 import { create } from "zustand";
 
 interface LocalModelStoreState {
@@ -18,20 +23,21 @@ interface LocalModelStoreState {
     downloadedModelIds: LocalTranslationModelId[];
     downloadProgressByModelId: Partial<Record<LocalTranslationModelId, LocalModelDownloadProgress>>;
     downloadingModelId: LocalTranslationModelId | null;
+    deletingModelId: LocalTranslationModelId | null;
     hasUserSelectedModel: boolean;
     isDownloaded: boolean;
     isEnabled: boolean;
     isLoaded: boolean;
     isLoading: boolean;
+    loadingModelId: SelectedLocalTranslationModelId;
     loadedModelId: SelectedLocalTranslationModelId;
     isRefreshing: boolean;
     cancelDownload: () => Promise<void>;
+    deleteModel: (modelId: LocalTranslationModelId) => Promise<void>;
     selectModel: (modelId: SelectedLocalTranslationModelId) => Promise<void>;
     refreshDownloadedStatus: () => Promise<boolean>;
-    setDownloaded: (isDownloaded: boolean) => void;
     setDownloadedModelIds: (downloadedModelIds: LocalTranslationModelId[]) => Promise<void>;
     setLoaded: (isLoaded: boolean) => void;
-    setLoading: (isLoading: boolean) => void;
     startDownload: (modelId: LocalTranslationModelId) => Promise<LocalModelStatus | null>;
     loadModel: () => Promise<void>;
     setEnabled: (isEnabled: boolean) => void;
@@ -40,6 +46,10 @@ interface LocalModelStoreState {
 
 let activeDownload: ReturnType<typeof createLocalModelDownload> | null = null;
 let activeDownloadPromise: Promise<LocalModelStatus> | null = null;
+let activeRefreshPromise: Promise<boolean> | null = null;
+let activeStatusOperationCount = 0;
+let selectionRequestId = 0;
+let modelLoadRequestId = 0;
 
 const getDownloadedModelIds = async () => {
     const downloadStatuses = await Promise.all(
@@ -76,11 +86,13 @@ const useLocalModelStore = create<LocalModelStoreState>((set, get) => ({
     downloadedModelIds: [],
     downloadProgressByModelId: {},
     downloadingModelId: null,
+    deletingModelId: null,
     hasUserSelectedModel: false,
     isDownloaded: false,
     isEnabled: false,
     isLoaded: false,
     isLoading: false,
+    loadingModelId: null,
     loadedModelId: null,
     isRefreshing: false,
     cancelDownload: async () => {
@@ -102,6 +114,34 @@ const useLocalModelStore = create<LocalModelStoreState>((set, get) => ({
             downloadingModelId: null,
         });
     },
+    deleteModel: async (modelId) => {
+        const { deletingModelId, downloadingModelId } = get();
+        if (deletingModelId || downloadingModelId) {
+            return;
+        }
+
+        set({ deletingModelId: modelId });
+
+        try {
+            await runWithLocalTranslationModelReleased(modelId, async () => {
+                await deleteLocalModel(modelId);
+            });
+
+            const downloadedModelIds = get().downloadedModelIds.filter(
+                (downloadedModelId) => downloadedModelId !== modelId
+            );
+            await get().setDownloadedModelIds(downloadedModelIds);
+            const nextLoadedModelId = getLoadedLocalTranslationModelId();
+            set((state) => ({
+                loadedModelId: nextLoadedModelId,
+                isLoaded: nextLoadedModelId === state.selectedModelId,
+            }));
+        } finally {
+            if (get().deletingModelId === modelId) {
+                set({ deletingModelId: null });
+            }
+        }
+    },
     selectModel: async (modelId) => {
         const { selectedModelId } = get();
 
@@ -109,22 +149,31 @@ const useLocalModelStore = create<LocalModelStoreState>((set, get) => ({
             return;
         }
 
+        const requestId = ++selectionRequestId;
+        activeStatusOperationCount += 1;
         setSelectedLocalTranslationModelId(modelId);
         set({
             selectedModelId: modelId,
             hasUserSelectedModel: true,
             isLoaded: get().loadedModelId === modelId,
-            isLoading: false,
             isRefreshing: true,
         });
 
         if (!modelId) {
-            set({ isDownloaded: false, isRefreshing: false });
+            activeStatusOperationCount -= 1;
+            set({
+                isDownloaded: false,
+                isRefreshing: activeStatusOperationCount > 0,
+            });
             return;
         }
 
         try {
             const isDownloaded = await isLocalModelDownloaded(modelId);
+
+            if (selectionRequestId !== requestId || get().selectedModelId !== modelId) {
+                return;
+            }
 
             set((state) => ({
                 downloadedModelIds: isDownloaded && !state.downloadedModelIds.includes(modelId)
@@ -133,40 +182,53 @@ const useLocalModelStore = create<LocalModelStoreState>((set, get) => ({
                 isDownloaded,
             }));
         } finally {
-            set({ isRefreshing: false });
+            activeStatusOperationCount = Math.max(0, activeStatusOperationCount - 1);
+            set({ isRefreshing: activeStatusOperationCount > 0 });
         }
     },
     refreshDownloadedStatus: async () => {
+        if (activeRefreshPromise) {
+            return activeRefreshPromise;
+        }
+
+        activeStatusOperationCount += 1;
         set({ isRefreshing: true });
 
-        try {
-            const { selectedModelId, hasUserSelectedModel } = get();
-            const downloadedModelIds = await getDownloadedModelIds();
-            const selectionState = getSelectionState(downloadedModelIds, selectedModelId, hasUserSelectedModel);
-            const didSelectionChange = selectionState.selectedModelId !== selectedModelId;
+        const refreshPromise = (async () => {
+            try {
+                const downloadedModelIds = await getDownloadedModelIds();
+                const { selectedModelId, hasUserSelectedModel } = get();
+                const selectionState = getSelectionState(downloadedModelIds, selectedModelId, hasUserSelectedModel);
+                const didSelectionChange = selectionState.selectedModelId !== selectedModelId;
 
-            if (didSelectionChange) {
-                setSelectedLocalTranslationModelId(selectionState.selectedModelId);
-            }
+                if (didSelectionChange) {
+                    selectionRequestId += 1;
+                    setSelectedLocalTranslationModelId(selectionState.selectedModelId);
+                }
 
-            set((state) => ({
+                set((state) => ({
                 ...selectionState,
                 downloadedModelIds,
                 isLoaded: state.loadedModelId === selectionState.selectedModelId,
-                isLoading: !didSelectionChange && selectionState.isDownloaded ? state.isLoading : false,
-            }));
+                isLoading: state.isLoading,
+                }));
 
-            return selectionState.isDownloaded;
+                return selectionState.isDownloaded;
+            } finally {
+                activeStatusOperationCount = Math.max(0, activeStatusOperationCount - 1);
+                set({ isRefreshing: activeStatusOperationCount > 0 });
+            }
+        })();
+
+        activeRefreshPromise = refreshPromise;
+
+        try {
+            return await refreshPromise;
         } finally {
-            set({ isRefreshing: false });
+            if (activeRefreshPromise === refreshPromise) {
+                activeRefreshPromise = null;
+            }
         }
-    },
-    setDownloaded: (isDownloaded) => {
-        set((state) => ({
-            isDownloaded,
-            isLoaded: isDownloaded ? state.isLoaded : false,
-            isLoading: isDownloaded ? state.isLoading : false,
-        }));
     },
     setDownloadedModelIds: async (downloadedModelIds) => {
         const { selectedModelId, hasUserSelectedModel } = get();
@@ -174,6 +236,7 @@ const useLocalModelStore = create<LocalModelStoreState>((set, get) => ({
         const didSelectionChange = selectionState.selectedModelId !== selectedModelId;
 
         if (didSelectionChange) {
+            selectionRequestId += 1;
             setSelectedLocalTranslationModelId(selectionState.selectedModelId);
         }
 
@@ -181,7 +244,7 @@ const useLocalModelStore = create<LocalModelStoreState>((set, get) => ({
             ...selectionState,
             downloadedModelIds,
             isLoaded: state.loadedModelId === selectionState.selectedModelId,
-            isLoading: !didSelectionChange && selectionState.isDownloaded ? state.isLoading : false,
+            isLoading: state.isLoading,
         }));
     },
     setLoaded: (isLoaded) => {
@@ -191,13 +254,10 @@ const useLocalModelStore = create<LocalModelStoreState>((set, get) => ({
             isLoaded: isLoaded && loadedModelId === state.selectedModelId,
         }));
     },
-    setLoading: (isLoading) => {
-        set({ isLoading });
-    },
     startDownload: async (modelId) => {
-        const { downloadingModelId } = get();
+        const { deletingModelId, downloadingModelId } = get();
 
-        if (downloadingModelId) {
+        if (deletingModelId || downloadingModelId) {
             return downloadingModelId === modelId ? activeDownloadPromise : null;
         }
 
@@ -260,30 +320,57 @@ const useLocalModelStore = create<LocalModelStoreState>((set, get) => ({
         return downloadPromise;
     },
     loadModel: async () => {
-        const { selectedModelId, loadedModelId, isDownloaded, isLoading } = get();
+        const {
+            deletingModelId,
+            selectedModelId,
+            loadedModelId,
+            isDownloaded,
+            isLoading,
+            loadingModelId,
+        } = get();
         const isSelectedModelLoaded = selectedModelId === loadedModelId;
 
-        if (isLoading || isSelectedModelLoaded) {
+        if (
+            deletingModelId ||
+            (isLoading && loadingModelId === selectedModelId) ||
+            isSelectedModelLoaded
+        ) {
             return;
         }
 
         if (!selectedModelId || !isDownloaded) {
-            set({ isLoaded: false, isLoading: false });
+            set({ isLoaded: false });
             return;
         }
 
-        set({ isLoading: true });
+        const requestId = ++modelLoadRequestId;
+        set({ isLoading: true, loadingModelId: selectedModelId });
 
         try {
             await ensureLocalTranslationModelLoaded(selectedModelId);
+
+            if (modelLoadRequestId !== requestId) {
+                return;
+            }
+
             const nextLoadedModelId = getLoadedLocalTranslationModelId();
             set({
                 loadedModelId: nextLoadedModelId,
                 isLoaded: nextLoadedModelId === get().selectedModelId,
                 isLoading: false,
+                loadingModelId: null,
             });
         } catch (error) {
-            set({ isLoaded: false, isLoading: false });
+            if (modelLoadRequestId !== requestId) {
+                return;
+            }
+
+            set({
+                loadedModelId: getLoadedLocalTranslationModelId(),
+                isLoaded: false,
+                isLoading: false,
+                loadingModelId: null,
+            });
             throw error;
         }
     },

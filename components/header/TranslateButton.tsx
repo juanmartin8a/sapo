@@ -13,15 +13,19 @@ import { authClient } from "@/clients/auth-client";
 import { getSessionUserAuthState } from "@/utils/auth";
 import { useTransformationOperationStore } from "@/stores";
 import useLocalModelStore from "@/stores/localModelStore";
+import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
 import { triggerErrorHaptic, triggerMediumImpactHaptic, triggerStopHaptic } from "@/utils/haptics";
+import { getCharacterCount, getInputLimit } from "@/utils/inputLimits";
 
 const TranslateButton = () => {
     const translateButtonState = useTranslateButtonStateNotifier((state) => state.state)
-    const lastTranslation = useSseStore.getState().lastTranslation
+    const lastInput = useSseStore((state) => state.lastInput)
     const text = useTextToTranslate((state) => state.text)
     const { data: session, isPending: isAuthPending } = authClient.useSession()
     const authState = getSessionUserAuthState(session?.user)
     const isAuthenticatedUser = authState === 'authenticated'
+    const subscriptionUserId = useSubscriptionStatusStore((state) => state.userId)
+    const hasActiveSubscription = useSubscriptionStatusStore((state) => state.hasActiveSubscription)
 
     const goToPage = usePagerPos((state) => state.goToPage)
     const offset = usePagerPos((state) => state.offset)
@@ -52,6 +56,33 @@ const TranslateButton = () => {
             return;
         }
 
+        const input = translateButtonState === 'repeat' ? lastInput : text;
+        if (!input) {
+            return;
+        }
+
+        const effectiveSubscriptionStatus = isAuthPending
+            ? null
+            : !isAuthenticatedUser
+              ? false
+              : subscriptionUserId === session?.user?.id
+                ? hasActiveSubscription
+                : null;
+        const inputLimit = getInputLimit(operation, effectiveSubscriptionStatus);
+
+        if (inputLimit === null) {
+            Alert.alert("Checking subscription", "Please wait a moment and try again.");
+            return;
+        }
+
+        if (getCharacterCount(input) > inputLimit) {
+            Alert.alert(
+                "Input limit exceeded",
+                `Shorten the input to ${inputLimit} characters before continuing.`
+            );
+            return;
+        }
+
         const requiresOnlineAuth = operation !== 'translate' || !isLocalModelEnabled;
 
         if (!isAuthenticatedUser && requiresOnlineAuth) {
@@ -76,18 +107,24 @@ const TranslateButton = () => {
         }
 
         goToPage(1);
-    }, [goToPage, isAuthPending, isAuthenticatedUser, isLocalModelEnabled, operation, repeatLastTranslation, sendMessage, stopStream, text, translateButtonState]);
+    }, [goToPage, hasActiveSubscription, isAuthPending, isAuthenticatedUser, isLocalModelEnabled, lastInput, operation, repeatLastTranslation, sendMessage, session?.user?.id, stopStream, subscriptionUserId, text, translateButtonState]);
 
 
     return (
-        <Pressable onPress={next} disabled={translateButtonState === 'next' && text.trim().length === 0}>
+        <Pressable
+            onPress={next}
+            disabled={
+                (translateButtonState === 'next' && text.trim().length === 0) ||
+                (translateButtonState === 'repeat' && lastInput === null)
+            }
+        >
             <View style={{ padding: 6 }}>
                 {(translateButtonState === 'next' || translateButtonState === 'repeat') &&
                     <View style={{ position: 'relative', width: 32, height: 32 }}>
                         <View style={{ position: 'absolute', opacity: arrowOpacity }}>
                             <ArrowRightIcon style={{ opacity: text !== "" ? 1.0 : 0.35 }} width={32} height={32} stroke="black" />
                         </View>
-                        {(lastTranslation !== null) &&
+                        {(lastInput !== null) &&
                             <View style={{ position: 'absolute', opacity: loadingOpacity }}>
                                 <RepeatIcon width={32} height={32} stroke="black" />
                             </View>

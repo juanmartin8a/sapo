@@ -74,9 +74,7 @@ export default function SettingsModalScreen() {
     const authState = getSessionUserAuthState(user);
     const isAuthenticatedUser = authState === "authenticated";
     const userId = isAuthenticatedUser ? user?.id ?? null : null;
-    const setHasActiveSubscription = useSubscriptionStatusStore(
-        (state) => state.setHasActiveSubscription
-    );
+    const setSubscriptionForUser = useSubscriptionStatusStore((state) => state.setForUser);
     const [isSigningOut, setIsSigningOut] = useState(false);
     const [isRestoringPurchases, setIsRestoringPurchases] = useState(false);
     const [isManagingSubscription, setIsManagingSubscription] = useState(false);
@@ -165,7 +163,7 @@ export default function SettingsModalScreen() {
             }
 
             if (refreshAuthMismatch) {
-                setHasActiveSubscription(false);
+                setSubscriptionForUser(userId, false);
                 triggerWarningHaptic();
                 Alert.alert("Session changed", getSubscriptionSessionChangedMessage());
                 return;
@@ -173,7 +171,11 @@ export default function SettingsModalScreen() {
 
             const isActive = hasActiveClientSubscription || hasActiveServerSubscription;
 
-            setHasActiveSubscription(isActive);
+            if (!setSubscriptionForUser(userId, isActive)) {
+                triggerWarningHaptic();
+                Alert.alert("Session changed", getSubscriptionSessionChangedMessage());
+                return;
+            }
 
             if (isActive) {
                 triggerStrongImpactHaptic();
@@ -192,7 +194,12 @@ export default function SettingsModalScreen() {
             Alert.alert("No purchases found", "No active subscriptions were found for this account.");
         } catch (error) {
             if (isReceiptAlreadyInUseRevenueCatError(error)) {
-                setHasActiveSubscription(false);
+                if (!setSubscriptionForUser(userId, false)) {
+                    triggerWarningHaptic();
+                    Alert.alert("Session changed", getSubscriptionSessionChangedMessage());
+                    return;
+                }
+
                 triggerWarningHaptic();
                 Alert.alert(
                     "Subscription linked elsewhere",
@@ -215,7 +222,7 @@ export default function SettingsModalScreen() {
         isPending,
         isSigningOut,
         isRestoringPurchases,
-        setHasActiveSubscription,
+        setSubscriptionForUser,
         storeAccountLabel,
         userId,
     ]);

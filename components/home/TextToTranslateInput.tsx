@@ -3,32 +3,48 @@ import { Alert, StyleSheet, TextInput } from "react-native"
 import useTextToTranslateStore from "@/stores/textToTranslateStore";
 import useTransformationOperationStore from "@/stores/transformationOperationStore";
 import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
+import { authClient } from "@/clients/auth-client";
+import { getSessionUserAuthState } from "@/utils/auth";
+import { getCharacterCount, getInputLimit } from "@/utils/inputLimits";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-const trimTextToLimit = (text: string, limit: number) => {
-    return Array.from(text).slice(0, limit).join("")
-}
 
 const TextToTranslateInput = () => {
     const text = useTextToTranslateStore((state) => state.text)
     const setText = useTextToTranslateStore((state) => state.setText)
     const operation = useTransformationOperationStore((state) => state.operation)
+    const subscriptionUserId = useSubscriptionStatusStore((state) => state.userId)
     const hasActiveSubscription = useSubscriptionStatusStore((state) => state.hasActiveSubscription)
+    const { data: session, isPending: isAuthPending } = authClient.useSession()
+    const authState = getSessionUserAuthState(session?.user)
+    const effectiveSubscriptionStatus = isAuthPending
+        ? null
+        : authState !== "authenticated"
+          ? false
+          : subscriptionUserId === session?.user?.id
+            ? hasActiveSubscription
+            : null
     const hasAlertedRef = useRef(false)
-    const inputLimit = hasActiveSubscription === false ? 10 : (operation === "respell" ? 300 : 1000)
-    const textLength = Array.from(text).length
-    const isLimitReached = textLength >= inputLimit
+    const inputLimit = getInputLimit(operation, effectiveSubscriptionStatus)
+    const textLength = getCharacterCount(text)
+    const isLimitReached = inputLimit !== null && textLength >= inputLimit
     const insets = useSafeAreaInsets();
 
-    // useEffect(() => {
-    //     if (textLength > inputLimit) {
-    //         setText(trimTextToLimit(text, inputLimit))
-    //     }
-    // }, [inputLimit, setText, text, textLength])
+    const handleTextChange = (nextText: string) => {
+        if (inputLimit !== null && getCharacterCount(nextText) > inputLimit) {
+            const operationLabel = operation === "respell" ? "respelling" : "translating"
+            Alert.alert(
+                "Input limit reached",
+                `You can use up to ${inputLimit} characters while ${operationLabel}.`
+            )
+            return
+        }
+
+        setText(nextText)
+    }
 
     useEffect(() => {
-        if (isLimitReached && !hasAlertedRef.current) {
+        if (inputLimit !== null && isLimitReached && !hasAlertedRef.current) {
             hasAlertedRef.current = true
             const operationLabel = operation === "respell" ? "respelling" : "translating"
             Alert.alert(
@@ -50,9 +66,7 @@ const TextToTranslateInput = () => {
                 style={styles.textInput}
                 multiline
                 value={text}
-                onChangeText={setText}
-                maxLength={inputLimit}
-                // maxLength={1000}
+                onChangeText={handleTextChange}
                 placeholder="Type something..."
                 placeholderTextColor="#aaa"
                 returnKeyType="done"

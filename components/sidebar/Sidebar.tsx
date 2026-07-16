@@ -30,6 +30,7 @@ const SideBar = ({ translationX }: SideBarProps) => {
     const { data: session, isPending: isAuthPending } = authClient.useSession();
     const authState = getSessionUserAuthState(session?.user);
     const isAuthenticatedUser = authState === 'authenticated';
+    const subscriptionUserId = useSubscriptionStatusStore((state) => state.userId);
     const hasActiveSubscription = useSubscriptionStatusStore((state) => state.hasActiveSubscription);
     const operation = useTransformationOperationStore((state) => state.operation);
     const setOperation = useTransformationOperationStore((state) => state.setOperation);
@@ -37,6 +38,8 @@ const SideBar = ({ translationX }: SideBarProps) => {
     const isLocalModelEnabled = useLocalModelStore((state) => state.isEnabled);
     const isLocalModelLoaded = useLocalModelStore((state) => state.isLoaded);
     const isLocalModelLoading = useLocalModelStore((state) => state.isLoading);
+    const loadingLocalModelId = useLocalModelStore((state) => state.loadingModelId);
+    const deletingLocalModelId = useLocalModelStore((state) => state.deletingModelId);
     const isLocalModelRefreshing = useLocalModelStore((state) => state.isRefreshing);
     const selectedLocalModelId = useLocalModelStore((state) => state.selectedModelId);
     const downloadedLocalModelIds = useLocalModelStore((state) => state.downloadedModelIds);
@@ -51,8 +54,14 @@ const SideBar = ({ translationX }: SideBarProps) => {
     const hasSingleDownloadedLocalModel = downloadedLocalModelCount === 1;
     const hasInternetConnection = networkState.isInternetReachable ?? networkState.isConnected ?? false;
     const isLocalModeSelected = isLocalModelEnabled;
-    const isLocalModelBusy = isLocalModelLoading || isLocalModelRefreshing;
-    const canUseRespell = hasActiveSubscription === true;
+    const isSelectedLocalModelLoading = isLocalModelLoading &&
+        loadingLocalModelId === selectedLocalModelId;
+    const isLocalModelBusy = isSelectedLocalModelLoading ||
+        isLocalModelRefreshing ||
+        deletingLocalModelId !== null;
+    const canUseRespell = isAuthenticatedUser &&
+        subscriptionUserId === session?.user?.id &&
+        hasActiveSubscription === true;
     const shouldShowLocalModeToggle = isAuthPending || isAuthenticatedUser;
     const shouldShowLoadModelButton = isLocalModelDownloaded && !isLocalModelLoaded;
     const [isLoadModelButtonVisible, setIsLoadModelButtonVisible] = useState(shouldShowLoadModelButton);
@@ -448,7 +457,7 @@ const SideBar = ({ translationX }: SideBarProps) => {
                                             <View
                                                 style={[
                                                     styles.localModelStatusDot,
-                                                    isLocalModelLoading
+                                                    isSelectedLocalModelLoading
                                                         ? styles.localModelStatusDotLoading
                                                         : isLocalModelLoaded
                                                             ? styles.localModelStatusDotLoaded
@@ -477,7 +486,7 @@ const SideBar = ({ translationX }: SideBarProps) => {
                                     >
                                         <View style={styles.localModelActionButtonContent}>
                                             <Text style={styles.localModelActionButtonText}>Load model</Text>
-                                            {isLocalModelLoading && (
+                                            {isSelectedLocalModelLoading && (
                                                 <View style={styles.localModelActionSpinner} pointerEvents="none">
                                                     <ActivityIndicator color="#fff" size="small" />
                                                 </View>

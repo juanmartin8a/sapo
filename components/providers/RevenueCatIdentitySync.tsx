@@ -25,23 +25,26 @@ export default function RevenueCatIdentitySync() {
     const isCheckingCurrentUser = Boolean(session) && currentUser === undefined;
     const isAuthPending = isPending || isCheckingCurrentUser;
     const userId = currentUser ? session?.user?.id ?? null : null;
-    const setHasActiveSubscription = useSubscriptionStatusStore(
-        (state) => state.setHasActiveSubscription
-    );
+    const setCurrentSubscriptionUser = useSubscriptionStatusStore((state) => state.setCurrentUser);
+    const setSubscriptionForUser = useSubscriptionStatusStore((state) => state.setForUser);
     const receiptConflictUserIdRef = useRef<string | null>(null);
     const authenticatedSessionUserIdRef = useRef<string | null>(null);
     const syncedRevenueCatUserIdRef = useRef<string | null>(null);
     const lastRevenueCatActiveRef = useRef<boolean | null>(null);
 
-    const fallbackSubscriptionStatusOnError = useCallback(() => {
-        if (useSubscriptionStatusStore.getState().hasActiveSubscription === null) {
-            setHasActiveSubscription(false);
+    const publishSubscriptionStatus = useCallback((hasActiveSubscription: boolean | null) => {
+        return userId ? setSubscriptionForUser(userId, hasActiveSubscription) : false;
+    }, [setSubscriptionForUser, userId]);
+
+    useEffect(() => {
+        if (!isAuthPending) {
+            setCurrentSubscriptionUser(userId);
         }
-    }, [setHasActiveSubscription]);
+    }, [isAuthPending, setCurrentSubscriptionUser, userId]);
 
     useEffect(() => {
         if (!isRevenueCatSupportedPlatform || !hasRevenueCatConfig()) {
-            setHasActiveSubscription(false);
+            publishSubscriptionStatus(false);
             return;
         }
 
@@ -64,7 +67,7 @@ export default function RevenueCatIdentitySync() {
         return () => {
             appStateSubscription.remove();
         };
-    }, [refetch, setHasActiveSubscription]);
+    }, [publishSubscriptionStatus, refetch]);
 
     useEffect(() => {
         if (isAuthPending) {
@@ -72,12 +75,11 @@ export default function RevenueCatIdentitySync() {
         }
 
         if (!isRevenueCatSupportedPlatform || !hasRevenueCatConfig()) {
-            setHasActiveSubscription(false);
+            publishSubscriptionStatus(false);
             return;
         }
 
         if (!userId) {
-            setHasActiveSubscription(false);
             return;
         }
 
@@ -91,7 +93,7 @@ export default function RevenueCatIdentitySync() {
 
             if (receiptConflictUserIdRef.current === userId) {
                 lastRevenueCatActiveRef.current = false;
-                setHasActiveSubscription(false);
+                publishSubscriptionStatus(false);
                 return;
             }
 
@@ -105,14 +107,16 @@ export default function RevenueCatIdentitySync() {
                 }
 
                 const previousHasActiveSubscription = lastRevenueCatActiveRef.current;
-                const previousStoredHasActiveSubscription =
-                    useSubscriptionStatusStore.getState().hasActiveSubscription;
+                const subscriptionState = useSubscriptionStatusStore.getState();
+                const previousStoredHasActiveSubscription = subscriptionState.userId === userId
+                    ? subscriptionState.hasActiveSubscription
+                    : null;
                 const shouldRefreshServerState = previousHasActiveSubscription === null
                     ? hasActiveSubscription || previousStoredHasActiveSubscription === true
                     : previousHasActiveSubscription !== hasActiveSubscription;
 
                 lastRevenueCatActiveRef.current = hasActiveSubscription;
-                setHasActiveSubscription(hasActiveSubscription);
+                publishSubscriptionStatus(hasActiveSubscription);
 
                 if (!shouldRefreshServerState) {
                     return;
@@ -137,7 +141,7 @@ export default function RevenueCatIdentitySync() {
 
                 if (!isConfigured || isCancelled) {
                     if (!isConfigured && !isCancelled) {
-                        setHasActiveSubscription(false);
+                        publishSubscriptionStatus(false);
                     }
 
                     return;
@@ -150,9 +154,7 @@ export default function RevenueCatIdentitySync() {
                     console.warn("RevenueCat customer info setup failed", error);
                 }
 
-                if (!isCancelled) {
-                    fallbackSubscriptionStatusOnError();
-                }
+                // Preserve an existing status; a transient setup error does not prove inactivity.
             }
         };
 
@@ -165,7 +167,7 @@ export default function RevenueCatIdentitySync() {
                 Purchases.removeCustomerInfoUpdateListener(handleCustomerInfoUpdate);
             }
         };
-    }, [fallbackSubscriptionStatusOnError, isAuthPending, setHasActiveSubscription, userId]);
+    }, [isAuthPending, publishSubscriptionStatus, userId]);
 
     useEffect(() => {
         if (isAuthPending) {
@@ -173,7 +175,7 @@ export default function RevenueCatIdentitySync() {
         }
 
         if (!isRevenueCatSupportedPlatform || !hasRevenueCatConfig()) {
-            setHasActiveSubscription(false);
+            publishSubscriptionStatus(false);
             return;
         }
 
@@ -185,7 +187,6 @@ export default function RevenueCatIdentitySync() {
             authenticatedSessionUserIdRef.current = null;
             syncedRevenueCatUserIdRef.current = null;
             lastRevenueCatActiveRef.current = null;
-            setHasActiveSubscription(false);
 
             if (previousRevenueCatUserId) {
                 void logOutRevenueCatIdentity(previousRevenueCatUserId).catch((error) => {
@@ -210,7 +211,7 @@ export default function RevenueCatIdentitySync() {
             try {
                 if (receiptConflictUserIdRef.current === userId) {
                     if (!isCancelled) {
-                        setHasActiveSubscription(false);
+                        publishSubscriptionStatus(false);
                     }
 
                     return;
@@ -220,7 +221,7 @@ export default function RevenueCatIdentitySync() {
 
                 if (!isConfigured || isCancelled) {
                     if (!isConfigured && !isCancelled) {
-                        setHasActiveSubscription(false);
+                        publishSubscriptionStatus(false);
                     }
 
                     return;
@@ -240,11 +241,13 @@ export default function RevenueCatIdentitySync() {
                     receiptConflictUserIdRef.current = null;
                     syncedRevenueCatUserIdRef.current = userId;
                     const hasActiveSubscription = hasActiveRevenueCatSubscription(customerInfo);
-                    const previousStoredHasActiveSubscription =
-                        useSubscriptionStatusStore.getState().hasActiveSubscription;
+                    const subscriptionState = useSubscriptionStatusStore.getState();
+                    const previousStoredHasActiveSubscription = subscriptionState.userId === userId
+                        ? subscriptionState.hasActiveSubscription
+                        : null;
 
                     lastRevenueCatActiveRef.current = hasActiveSubscription;
-                    setHasActiveSubscription(hasActiveSubscription);
+                    publishSubscriptionStatus(hasActiveSubscription);
 
                     if (hasActiveSubscription) {
                         void refreshSubscriptionStateAfterRevenueCatUpdate(userId).catch((error) => {
@@ -264,7 +267,7 @@ export default function RevenueCatIdentitySync() {
                 if (!isCancelled && isReceiptAlreadyInUseRevenueCatError(error)) {
                     receiptConflictUserIdRef.current = userId;
                     lastRevenueCatActiveRef.current = false;
-                    setHasActiveSubscription(false);
+                    publishSubscriptionStatus(false);
                     return;
                 }
 
@@ -272,9 +275,7 @@ export default function RevenueCatIdentitySync() {
                     console.warn("RevenueCat identity sync failed", error);
                 }
 
-                if (!isCancelled) {
-                    fallbackSubscriptionStatusOnError();
-                }
+                // Preserve an existing status; a transient sync error does not prove inactivity.
             }
         };
 
@@ -283,7 +284,7 @@ export default function RevenueCatIdentitySync() {
         return () => {
             isCancelled = true;
         };
-    }, [fallbackSubscriptionStatusOnError, isAuthPending, setHasActiveSubscription, userId]);
+    }, [isAuthPending, publishSubscriptionStatus, userId]);
 
     return null;
 }

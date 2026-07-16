@@ -74,7 +74,6 @@
       ],
       "expo-web-browser",
       "expo-secure-store",
-      "expo-iap",
       "react-native-litert-lm"
     ],
     "experiments": {

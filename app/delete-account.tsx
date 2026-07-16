@@ -394,7 +394,7 @@ export default function DeleteAccountConfirmationScreen() {
             <Animated.View style={[styles.card, cardAnimatedStyle]}>
                 <Text style={styles.title}>{title}</Text>
                 <Text style={styles.message}>{message}</Text>
-                {visibleStatus === "completed" ? (
+                {visibleStatus === "completed" || visibleStatus === "failed" ? (
                     <TouchableOpacity
                         activeOpacity={0.75}
                         style={styles.button}

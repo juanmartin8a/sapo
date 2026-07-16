@@ -39,11 +39,15 @@ const LOCAL_TRANSLATION_STOP_WORDS = [
     "<|turn>",
 ];
 
-let modelPromise: Promise<LiteRTLMInstance> | null = null;
+let modelCoordinatorPromise: Promise<void> | null = null;
+let modelLifecycleBarrier: Promise<void> | null = null;
+let queuedModelIdDuringBarrier: LocalTranslationModelId | null = null;
+let desiredModelId: LocalTranslationModelId | null = null;
 let loadedModel: LiteRTLMInstance | null = null;
 let loadedModelId: LocalTranslationModelId | null = null;
 let loadingModelId: LocalTranslationModelId | null = null;
 let activeModel: LiteRTLMInstance | null = null;
+let activeGenerationCompletion: Promise<void> | null = null;
 let activeGenerationId = 0;
 
 type LiteRTLMModule = {
@@ -136,13 +140,13 @@ const closeModel = (model: LiteRTLMInstance | null) => {
     }
 };
 
-const loadLocalTranslationModel = async (modelId?: LocalTranslationModelId | null) => {
+const loadLocalTranslationModelCandidate = async (modelId: LocalTranslationModelId) => {
     if (!isLocalModelSupported()) {
         throw new Error("Local translations are available on iOS and Android only.");
     }
 
-    const modelUri = getLocalModelFileUri(modelId ?? undefined);
-    if (!modelId || !modelUri || !(await isLocalModelDownloaded(modelId))) {
+    const modelUri = getLocalModelFileUri(modelId);
+    if (!modelUri || !(await isLocalModelDownloaded(modelId))) {
         throw new Error("Download the local model before using offline translations.");
     }
 
@@ -182,39 +186,176 @@ const loadLocalTranslationModel = async (modelId?: LocalTranslationModelId | nul
         throw new Error("The downloaded local model could not be loaded. Delete it and download it again.");
     }
 
-    if (loadedModel && loadedModel !== model) {
-        closeModel(loadedModel);
-    }
-
-    console.info("Local LiteRT-LM model loaded.");
-    loadedModel = model;
-    loadedModelId = modelId;
     return model;
 };
 
-const getLocalTranslationModel = async (modelId?: LocalTranslationModelId | null) => {
-    const targetModelId = modelId ?? getSelectedLocalTranslationModel()?.id;
+const invalidateActiveModel = () => {
+    activeGenerationId += 1;
+    activeModel = null;
+};
+
+const closeLoadedModel = () => {
+    const modelToClose = loadedModel;
+
+    invalidateActiveModel();
+    loadedModel = null;
+    loadedModelId = null;
+    closeModel(modelToClose);
+};
+
+const runModelCoordinator = async () => {
+    while (true) {
+        const targetModelId = desiredModelId;
+
+        if (!targetModelId) {
+            closeLoadedModel();
+            return;
+        }
+
+        if (loadedModel && loadedModelId === targetModelId) {
+            return;
+        }
+
+        if (loadedModel) {
+            if (activeGenerationCompletion) {
+                await activeGenerationCompletion;
+                continue;
+            }
+
+            closeLoadedModel();
+        }
+
+        loadingModelId = targetModelId;
+
+        let candidate: LiteRTLMInstance;
+        try {
+            candidate = await loadLocalTranslationModelCandidate(targetModelId);
+        } catch (error) {
+            if (loadingModelId === targetModelId) {
+                loadingModelId = null;
+            }
+
+            if (desiredModelId !== targetModelId) {
+                continue;
+            }
+
+            desiredModelId = null;
+            throw error;
+        }
+
+        if (loadingModelId === targetModelId) {
+            loadingModelId = null;
+        }
+
+        if (desiredModelId !== targetModelId) {
+            closeModel(candidate);
+            continue;
+        }
+
+        loadedModel = candidate;
+        loadedModelId = targetModelId;
+        console.info("Local LiteRT-LM model loaded.");
+        return;
+    }
+};
+
+const ensureModelCoordinatorRunning = () => {
+    if (!modelCoordinatorPromise) {
+        let trackedPromise: Promise<void>;
+        trackedPromise = runModelCoordinator().finally(() => {
+            if (modelCoordinatorPromise === trackedPromise) {
+                modelCoordinatorPromise = null;
+            }
+        });
+        modelCoordinatorPromise = trackedPromise;
+    }
+
+    return modelCoordinatorPromise;
+};
+
+const requestLocalTranslationModel = async (modelId: LocalTranslationModelId) => {
+    while (modelLifecycleBarrier) {
+        const activeBarrier = modelLifecycleBarrier;
+        queuedModelIdDuringBarrier = modelId;
+        await activeBarrier;
+
+        if (queuedModelIdDuringBarrier !== modelId) {
+            return;
+        }
+    }
+
+    if (queuedModelIdDuringBarrier === modelId) {
+        queuedModelIdDuringBarrier = null;
+    }
+
+    desiredModelId = modelId;
+
+    while (desiredModelId === modelId && loadedModelId !== modelId) {
+        await ensureModelCoordinatorRunning();
+    }
+};
+
+const runExclusiveModelLifecycleOperation = async <Result>(
+    modelId: LocalTranslationModelId | null,
+    operation: () => Promise<Result>
+) => {
+    while (modelLifecycleBarrier) {
+        await modelLifecycleBarrier;
+    }
+
+    let releaseBarrier: () => void = () => {};
+    const barrier = new Promise<void>((resolve) => {
+        releaseBarrier = resolve;
+    });
+    modelLifecycleBarrier = barrier;
+
+    try {
+        if (modelId === null || loadingModelId === modelId || loadedModelId === modelId) {
+            desiredModelId = null;
+
+            if (activeModel && loadedModel === activeModel) {
+                closeLoadedModel();
+            }
+
+            try {
+                await ensureModelCoordinatorRunning();
+            } catch {
+                // A failed candidate is already closed; the exclusive operation can continue.
+            }
+        } else if (modelCoordinatorPromise) {
+            try {
+                await modelCoordinatorPromise;
+            } catch {
+                // An unrelated failed load does not prevent the exclusive operation.
+            }
+
+            if (loadedModelId === modelId) {
+                desiredModelId = null;
+                await ensureModelCoordinatorRunning();
+            }
+        }
+
+        return await operation();
+    } finally {
+        if (modelLifecycleBarrier === barrier) {
+            modelLifecycleBarrier = null;
+        }
+        releaseBarrier();
+    }
+};
+
+const getLoadedLocalTranslationModel = () => {
+    const targetModelId = getSelectedLocalTranslationModel()?.id;
 
     if (!targetModelId) {
         throw new Error("A local model must be selected before using offline translations.");
     }
 
-    if (modelPromise && loadingModelId !== targetModelId) {
-        await releaseLocalTranslationModel();
+    if (!loadedModel || loadedModelId !== targetModelId) {
+        throw new Error("Load the selected local model before using offline translations.");
     }
 
-    if (!modelPromise) {
-        loadingModelId = targetModelId;
-        modelPromise = loadLocalTranslationModel(targetModelId).catch((error) => {
-            modelPromise = null;
-            loadedModel = null;
-            loadedModelId = null;
-            loadingModelId = null;
-            throw error;
-        });
-    }
-
-    return await modelPromise;
+    return loadedModel;
 };
 
 export const isLocalTranslationAbortError = (error: unknown) => {
@@ -226,37 +367,28 @@ export const stopActiveLocalTranslation = async () => {
         return;
     }
 
-    activeGenerationId += 1;
-
-    const modelToClose = activeModel;
-    if (loadedModel === modelToClose) {
-        loadedModel = null;
-        loadedModelId = null;
-        loadingModelId = null;
-        modelPromise = null;
-    }
-    activeModel = null;
-
-    closeModel(modelToClose);
+    await releaseLocalTranslationModel();
 };
 
 export const releaseLocalTranslationModel = async () => {
-    activeGenerationId += 1;
+    await runExclusiveModelLifecycleOperation(null, async () => undefined);
+};
 
-    const modelToClose = loadedModel ?? activeModel;
-    modelPromise = null;
-    loadedModel = null;
-    loadedModelId = null;
-    loadingModelId = null;
-    activeModel = null;
-
-    closeModel(modelToClose);
+export const runWithLocalTranslationModelReleased = async <Result>(
+    modelId: LocalTranslationModelId,
+    operation: () => Promise<Result>
+) => {
+    return runExclusiveModelLifecycleOperation(modelId, operation);
 };
 
 export const getLoadedLocalTranslationModelId = () => loadedModelId;
 
 export const ensureLocalTranslationModelLoaded = async (modelId?: LocalTranslationModelId | null) => {
-    await getLocalTranslationModel(modelId);
+    if (!modelId) {
+        throw new Error("A local model must be selected before it can be loaded.");
+    }
+
+    await requestLocalTranslationModel(modelId);
 };
 
 export const translateWithLocalModel = async (
@@ -265,13 +397,18 @@ export const translateWithLocalModel = async (
 ) => {
     throwIfAborted(options.signal);
 
-    const model = await getLocalTranslationModel();
+    const model = getLoadedLocalTranslationModel();
 
     throwIfAborted(options.signal);
 
     const generationId = activeGenerationId + 1;
     activeGenerationId = generationId;
     activeModel = model;
+    let resolveGenerationCompletion: () => void = () => {};
+    const generationCompletion = new Promise<void>((resolve) => {
+        resolveGenerationCompletion = resolve;
+    });
+    activeGenerationCompletion = generationCompletion;
 
     const handleAbort = () => {
         void stopActiveLocalTranslation();
@@ -322,5 +459,10 @@ export const translateWithLocalModel = async (
         if (activeModel === model) {
             activeModel = null;
         }
+
+        if (activeGenerationCompletion === generationCompletion) {
+            activeGenerationCompletion = null;
+        }
+        resolveGenerationCompletion();
     }
 };

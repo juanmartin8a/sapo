@@ -34,6 +34,8 @@ import {
     refreshSubscriptionStateAfterRevenueCatUpdate,
     retrySubscriptionStateAfterRevenueCatUpdateInBackground,
 } from "@/clients/subscription-refresh";
+import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
+import { getSessionUserAuthState } from "@/utils/auth";
 import { triggerErrorHaptic, triggerLightImpactHaptic, triggerStrongImpactHaptic, triggerWarningHaptic } from "@/utils/haptics";
 
 const TERMS_OF_USE_URL = "https://sapo.surf/terms-of-use";
@@ -98,9 +100,24 @@ const getAvailablePackagesFromOfferings = (
     };
 };
 
-const getPackageBillingPeriodLabel = (subscriptionPackage: PurchasesPackage | null) => {
+const getProductBillingPeriodLabel = (subscriptionProduct: PurchasesStoreProduct | null) => {
+    const match = subscriptionProduct?.subscriptionPeriod?.match(/^P(\d+)([WMY])$/);
+
+    if (!match) {
+        return null;
+    }
+
+    const count = Number(match[1]);
+    const unit = match[2] === "W" ? "week" : match[2] === "M" ? "month" : "year";
+    return `/ ${count === 1 ? unit : `${count} ${unit}s`}`;
+};
+
+const getPackageBillingPeriodLabel = (
+    subscriptionPackage: PurchasesPackage | null,
+    subscriptionProduct: PurchasesStoreProduct | null
+) => {
     if (!subscriptionPackage) {
-        return "/ month";
+        return getProductBillingPeriodLabel(subscriptionProduct) ?? "/ month";
     }
 
     switch (subscriptionPackage.packageType) {
@@ -118,6 +135,14 @@ const getPackageBillingPeriodLabel = (subscriptionPackage: PurchasesPackage | nu
         default:
             return "/ month";
     }
+};
+
+const getPackageRenewalPeriodLabel = (
+    subscriptionPackage: PurchasesPackage | null,
+    subscriptionProduct: PurchasesStoreProduct | null
+) => {
+    return getPackageBillingPeriodLabel(subscriptionPackage, subscriptionProduct)
+        .replace("/ ", "every ");
 };
 
 const PURCHASE_ERROR_MESSAGE = "Unable to complete the purchase. Please try again.";
@@ -162,13 +187,16 @@ export default function SubscriptionScreen() {
     const headerHeight = useHeaderHeight();
     const { data: session } = authClient.useSession();
     const user = session?.user;
-    const userId = user?.id ?? null;
+    const userId = getSessionUserAuthState(user) === "authenticated" ? user?.id ?? null : null;
     const [isLoadingSubscription, setIsLoadingSubscription] = useState(true);
     const [isPurchasing, setIsPurchasing] = useState(false);
-    const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
     const [isSubscriptionLinkedElsewhere, setIsSubscriptionLinkedElsewhere] = useState(false);
     const [subscriptionPackage, setSubscriptionPackage] = useState<PurchasesPackage | null>(null);
     const [subscriptionProduct, setSubscriptionProduct] = useState<PurchasesStoreProduct | null>(null);
+    const subscriptionUserId = useSubscriptionStatusStore((state) => state.userId);
+    const storedHasActiveSubscription = useSubscriptionStatusStore((state) => state.hasActiveSubscription);
+    const setSubscriptionForUser = useSubscriptionStatusStore((state) => state.setForUser);
+    const hasActiveSubscription = subscriptionUserId === userId && storedHasActiveSubscription === true;
     const canUseRevenueCat = hasRevenueCatConfig();
     const storeAccountLabel =
         Platform.OS === "android" ? "Google" : Platform.OS === "ios" ? "Apple" : "store";
@@ -179,6 +207,10 @@ export default function SubscriptionScreen() {
             getSubscriptionLinkedElsewhereMessage(storeAccountLabel)
         );
     }, [storeAccountLabel]);
+
+    const setCurrentSubscriptionStatus = useCallback((isActive: boolean | null) => {
+        return userId ? setSubscriptionForUser(userId, isActive) : false;
+    }, [setSubscriptionForUser, userId]);
 
     useEffect(() => {
         let isMounted = true;
@@ -191,7 +223,7 @@ export default function SubscriptionScreen() {
 
                 setSubscriptionPackage(null);
                 setSubscriptionProduct(null);
-                setHasActiveSubscription(false);
+                setCurrentSubscriptionStatus(false);
                 setIsSubscriptionLinkedElsewhere(false);
                 setIsLoadingSubscription(false);
                 return;
@@ -248,7 +280,7 @@ export default function SubscriptionScreen() {
 
                 setSubscriptionPackage(selectedPackage);
                 setSubscriptionProduct(fallbackProduct);
-                setHasActiveSubscription(
+                setCurrentSubscriptionStatus(
                     customerInfo ? hasActiveRevenueCatSubscription(customerInfo) : false
                 );
                 setIsSubscriptionLinkedElsewhere(isLinkedElsewhere);
@@ -272,7 +304,6 @@ export default function SubscriptionScreen() {
 
                 setSubscriptionPackage(null);
                 setSubscriptionProduct(null);
-                setHasActiveSubscription(false);
                 setIsSubscriptionLinkedElsewhere(false);
 
                 if (__DEV__) {
@@ -290,12 +321,15 @@ export default function SubscriptionScreen() {
         return () => {
             isMounted = false;
         };
-    }, [canUseRevenueCat, showSubscriptionLinkedElsewhereAlert, userId]);
+    }, [canUseRevenueCat, setCurrentSubscriptionStatus, showSubscriptionLinkedElsewhereAlert, userId]);
 
     const displayPrice = subscriptionPackage?.product.priceString ?? subscriptionProduct?.priceString ?? "--";
     const billingPeriodLabel = useMemo(() => {
-        return getPackageBillingPeriodLabel(subscriptionPackage);
-    }, [subscriptionPackage]);
+        return getPackageBillingPeriodLabel(subscriptionPackage, subscriptionProduct);
+    }, [subscriptionPackage, subscriptionProduct]);
+    const renewalPeriodLabel = useMemo(() => {
+        return getPackageRenewalPeriodLabel(subscriptionPackage, subscriptionProduct);
+    }, [subscriptionPackage, subscriptionProduct]);
 
     const buttonLabel = useMemo(() => {
         if (!isRevenueCatSupportedPlatform) {
@@ -385,7 +419,7 @@ export default function SubscriptionScreen() {
 
                 if (loginRefreshAuthMismatch) {
                     setIsSubscriptionLinkedElsewhere(false);
-                    setHasActiveSubscription(false);
+                    setCurrentSubscriptionStatus(false);
                     triggerWarningHaptic();
                     Alert.alert("Session changed", getSubscriptionSessionChangedMessage());
                     return;
@@ -395,7 +429,11 @@ export default function SubscriptionScreen() {
                     hasActiveClientSubscriptionAfterLogin || hasActiveServerSubscriptionAfterLogin;
 
                 setIsSubscriptionLinkedElsewhere(false);
-                setHasActiveSubscription(hasActiveAfterLogin);
+                if (!setCurrentSubscriptionStatus(hasActiveAfterLogin)) {
+                    triggerWarningHaptic();
+                    Alert.alert("Session changed", getSubscriptionSessionChangedMessage());
+                    return;
+                }
 
                 if (hasActiveAfterLogin) {
                     triggerStrongImpactHaptic();
@@ -447,7 +485,7 @@ export default function SubscriptionScreen() {
 
             if (purchaseRefreshAuthMismatch) {
                 setIsSubscriptionLinkedElsewhere(false);
-                setHasActiveSubscription(false);
+                setCurrentSubscriptionStatus(false);
                 triggerWarningHaptic();
                 Alert.alert("Session changed", getSubscriptionSessionChangedMessage());
                 return;
@@ -456,7 +494,11 @@ export default function SubscriptionScreen() {
             const isActive = hasActiveClientSubscription || hasActiveServerSubscription;
 
             setIsSubscriptionLinkedElsewhere(false);
-            setHasActiveSubscription(isActive);
+            if (!setCurrentSubscriptionStatus(isActive)) {
+                triggerWarningHaptic();
+                Alert.alert("Session changed", getSubscriptionSessionChangedMessage());
+                return;
+            }
 
             if (isActive) {
                 triggerStrongImpactHaptic();
@@ -482,6 +524,12 @@ export default function SubscriptionScreen() {
             }
 
             if (isReceiptAlreadyInUseRevenueCatError(error)) {
+                if (!setCurrentSubscriptionStatus(false)) {
+                    triggerWarningHaptic();
+                    Alert.alert("Session changed", getSubscriptionSessionChangedMessage());
+                    return;
+                }
+
                 setIsSubscriptionLinkedElsewhere(true);
                 triggerWarningHaptic();
                 showSubscriptionLinkedElsewhereAlert();
@@ -503,6 +551,7 @@ export default function SubscriptionScreen() {
         isLoadingSubscription,
         isPurchasing,
         isSubscriptionLinkedElsewhere,
+        setCurrentSubscriptionStatus,
         showSubscriptionLinkedElsewhereAlert,
         subscriptionPackage,
         subscriptionProduct,
@@ -574,7 +623,7 @@ export default function SubscriptionScreen() {
                 </Pressable>
 
                 <Text style={styles.footnote}>
-                    {`Auto-renews monthly. Cancel anytime from your ${storeAccountLabel} account subscriptions settings.`}
+                    {`Auto-renews ${renewalPeriodLabel}. Cancel anytime from your ${storeAccountLabel} account subscriptions settings.`}
                 </Text>
 
                 <View style={styles.legalLinksRow}>

@@ -133,7 +133,7 @@ const SocialSignInButton = ({
             if (provider === 'google') {
                 const result = await authClient.signIn.social({
                     provider: 'google',
-                    callbackURL: '/'
+                    callbackURL: '/auth'
                 })
 
                 assertSocialSignInSucceeded(result, provider);
@@ -186,7 +186,7 @@ const SocialSignInButton = ({
             if (provider === 'apple') {
                 const result = await authClient.signIn.social({
                     provider: 'apple',
-                    callbackURL: '/'
+                    callbackURL: '/auth'
                 })
 
                 assertSocialSignInSucceeded(result, provider);

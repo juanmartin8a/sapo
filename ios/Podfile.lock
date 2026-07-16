@@ -232,9 +232,8 @@ PODS:
     - ExpoModulesCore
   - ExpoGlassEffect (56.0.4):
     - ExpoModulesCore
-  - ExpoIap (3.4.9):
+  - ExpoHaptics (56.0.3):
     - ExpoModulesCore
-    - openiap (= 1.3.14)
   - ExpoKeepAwake (56.0.3):
     - ExpoModulesCore
   - ExpoLinking (56.0.14):
@@ -337,7 +336,6 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - openiap (1.3.14)
   - PurchasesHybridCommon (17.41.0):
     - RevenueCat (= 5.59.2)
   - PurchasesHybridCommonUI (17.41.0):
@@ -3407,7 +3405,7 @@ DEPENDENCIES:
   - ExpoFileSystem (from `../node_modules/expo-file-system/ios`)
   - ExpoFont (from `../node_modules/expo-font/ios`)
   - ExpoGlassEffect (from `../node_modules/expo-glass-effect/ios`)
-  - ExpoIap (from `../node_modules/expo-iap/ios`)
+  - ExpoHaptics (from `../node_modules/expo-haptics/ios`)
   - ExpoKeepAwake (from `../node_modules/expo-keep-awake/ios`)
   - ExpoLinking (from `../node_modules/expo-linking/ios`)
   - "ExpoLogBox (from `../node_modules/@expo/log-box`)"
@@ -3518,7 +3516,6 @@ DEPENDENCIES:
 
 SPEC REPOS:
   trunk:
-    - openiap
     - PurchasesHybridCommon
     - PurchasesHybridCommonUI
     - RevenueCat
@@ -3563,8 +3560,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-font/ios"
   ExpoGlassEffect:
     :path: "../node_modules/expo-glass-effect/ios"
-  ExpoIap:
-    :path: "../node_modules/expo-iap/ios"
+  ExpoHaptics:
+    :path: "../node_modules/expo-haptics/ios"
   ExpoKeepAwake:
     :path: "../node_modules/expo-keep-awake/ios"
   ExpoLinking:
@@ -3796,7 +3793,7 @@ SPEC CHECKSUMS:
   ExpoFileSystem: 9dc04ec1e11bc3c7b965d7feb2de12c789755c7b
   ExpoFont: 274487aa78f8c65d6551e2558eca3ec6ce3432ce
   ExpoGlassEffect: 7d4233dc0727ee2b28dd757eda70e1b6abf662fd
-  ExpoIap: 0343c404ea1cf215563778e05f985c3fc817cb48
+  ExpoHaptics: 89364cf3c3ca2cfd54cafed42f3be3169bab6d42
   ExpoKeepAwake: 359c47a1d9ccc3a3c519bca6e39562cce230c5bb
   ExpoLinking: f3d1883179d784e3d74c0eaf6ae8b03ec3571da3
   ExpoLogBox: 63977cf56b04547c713535d2d4e9bbf2f012e3c6
@@ -3818,7 +3815,6 @@ SPEC CHECKSUMS:
   glog: 5683914934d5b6e4240e497e0f4a3b42d1854183
   hermes-engine: 2626a02f437f6055653a879be4dbb3c690ccd7f2
   NitroModules: 8ab2b6936d6d3b6283d22b3e1394ab141c6cb8c2
-  openiap: ab2a58a26223bf7167dd47d42e0532f97ed7dae4
   PurchasesHybridCommon: 0fc10b0328a4dca5c607f845130e59f7427f4b69
   PurchasesHybridCommonUI: b75fac3473827c68f7c3456919e5a0e18d81e5f1
   RCT-Folly: b29feb752b08042c62badaef7d453f3bb5e6ae23

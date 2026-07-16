@@ -6,7 +6,6 @@ import DownloadIcon from "@/assets/icons/download.svg";
 import SquareIcon from "@/assets/icons/square.svg";
 import TrashIcon from "@/assets/icons/trash.svg";
 import {
-    deleteLocalModel,
     formatBytes,
     getLocalModelStatus,
     isLocalModelAbortError,
@@ -15,7 +14,6 @@ import {
     type LocalTranslationModelId,
     type LocalModelStatus,
 } from "@/clients/local-model";
-import { releaseLocalTranslationModel } from "@/clients/local-translation";
 import useLocalModelStore from "@/stores/localModelStore";
 import { triggerErrorHaptic, triggerLightImpactHaptic, triggerStrongImpactHaptic } from "@/utils/haptics";
 
@@ -34,18 +32,24 @@ export default function LocalModelScreen() {
     const headerHeight = useHeaderHeight();
     const [statusByModelId, setStatusByModelId] = useState<ModelStatusById>({});
     const [isRefreshing, setIsRefreshing] = useState(true);
-    const [deletingModelId, setDeletingModelId] = useState<LocalTranslationModelId | null>(null);
+    const [didStatusCheckFail, setDidStatusCheckFail] = useState(false);
     const mountedRef = useRef(true);
     const cancelDownload = useLocalModelStore((state) => state.cancelDownload);
     const downloadedModelIds = useLocalModelStore((state) => state.downloadedModelIds);
     const downloadProgressByModelId = useLocalModelStore((state) => state.downloadProgressByModelId);
     const downloadingModelId = useLocalModelStore((state) => state.downloadingModelId);
+    const deletingModelId = useLocalModelStore((state) => state.deletingModelId);
+    const deleteModel = useLocalModelStore((state) => state.deleteModel);
     const setDownloadedModelIds = useLocalModelStore((state) => state.setDownloadedModelIds);
     const selectedModelId = useLocalModelStore((state) => state.selectedModelId);
-    const loadedModelId = useLocalModelStore((state) => state.loadedModelId);
+    const isLocalModelLoading = useLocalModelStore((state) => state.isLoading);
     const startDownload = useLocalModelStore((state) => state.startDownload);
 
     const refreshStatus = useCallback(async () => {
+        if (mountedRef.current) {
+            setIsRefreshing(true);
+        }
+
         try {
             const nextStatuses = await Promise.all(
                 LOCAL_TRANSLATION_MODELS.map(async (model) => [model.id, await getLocalModelStatus(model.id)] as const)
@@ -54,6 +58,7 @@ export default function LocalModelScreen() {
 
             if (mountedRef.current) {
                 setStatusByModelId(nextStatusByModelId);
+                setDidStatusCheckFail(false);
             }
 
             await setDownloadedModelIds(
@@ -63,6 +68,7 @@ export default function LocalModelScreen() {
             );
         } catch {
             if (mountedRef.current) {
+                setDidStatusCheckFail(true);
                 triggerErrorHaptic();
                 Alert.alert("Unable to check model", "Please try again.");
             }
@@ -96,7 +102,7 @@ export default function LocalModelScreen() {
     const availableModels = LOCAL_TRANSLATION_MODELS.filter((model) => !isModelDownloaded(model.id));
 
     const handleDownload = useCallback(async (model: LocalTranslationModel) => {
-        if (downloadingModelId || deletingModelId) {
+        if (downloadingModelId || deletingModelId || isLocalModelLoading) {
             return;
         }
 
@@ -135,7 +141,7 @@ export default function LocalModelScreen() {
 
             await refreshStatus();
         }
-    }, [deletingModelId, downloadingModelId, refreshStatus, startDownload]);
+    }, [deletingModelId, downloadingModelId, isLocalModelLoading, refreshStatus, startDownload]);
 
     const handleCancelDownload = useCallback(async () => {
         await cancelDownload();
@@ -143,7 +149,7 @@ export default function LocalModelScreen() {
     }, [cancelDownload, refreshStatus]);
 
     const handleDeleteModel = useCallback((model: LocalTranslationModel) => {
-        if (deletingModelId || downloadingModelId || !isModelDownloaded(model.id)) {
+        if (deletingModelId || downloadingModelId || isLocalModelLoading || !isModelDownloaded(model.id)) {
             return;
         }
 
@@ -158,34 +164,25 @@ export default function LocalModelScreen() {
                     onPress: async () => {
                         try {
                             triggerLightImpactHaptic();
-                            setDeletingModelId(model.id);
-                            if (model.id === loadedModelId) {
-                                await releaseLocalTranslationModel();
-                                useLocalModelStore.getState().setLoaded(false);
-                            }
-                            await deleteLocalModel(model.id);
+                            await deleteModel(model.id);
                             await refreshStatus();
                             triggerStrongImpactHaptic();
                         } catch {
                             triggerErrorHaptic();
                             Alert.alert("Unable to delete model", "Please try again.");
-                        } finally {
-                            if (mountedRef.current) {
-                                setDeletingModelId(null);
-                            }
                         }
                     },
                 },
             ]
         );
-    }, [deletingModelId, downloadingModelId, isModelDownloaded, loadedModelId, refreshStatus]);
+    }, [deleteModel, deletingModelId, downloadingModelId, isLocalModelLoading, isModelDownloaded, refreshStatus]);
 
     const renderModelCard = (model: LocalTranslationModel) => {
         const status = statusByModelId[model.id];
         const isDownloaded = isModelDownloaded(model.id);
         const isDownloading = downloadingModelId === model.id;
         const isDeleting = deletingModelId === model.id;
-        const isBusy = !!downloadingModelId || !!deletingModelId;
+        const isBusy = !!downloadingModelId || !!deletingModelId || isLocalModelLoading;
         const isModelActionDisabled = isRefreshing || !status?.supported || (isBusy && !isDownloading);
         const modelProgress = downloadProgressByModelId[model.id];
         const modelSizeText = isDownloading
@@ -262,7 +259,11 @@ export default function LocalModelScreen() {
                 </Text>
             ) : null}
 
-            {!localModelsSupported ? (
+            {isRefreshing && Object.keys(statusByModelId).length === 0 ? (
+                <ActivityIndicator color={colors.primaryText} size="small" />
+            ) : didStatusCheckFail ? (
+                <Text style={styles.noteText}>Unable to determine local model support right now.</Text>
+            ) : !localModelsSupported ? (
                 <Text style={styles.noteText}>Local models are available in the iOS and Android apps.</Text>
             ) : (
                 <Text style={styles.noteText}>

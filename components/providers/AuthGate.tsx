@@ -43,7 +43,7 @@ export default function AuthGate() {
         signedOutSessionIdRef.current = null;
 
         if (pathname === "/auth") {
-            router.replace("/");
+            router.dismissTo("/");
         }
     }, [hasSignedInUser, hasUnsupportedSession, isCheckingCurrentUser, isPending, pathname, router, sessionUserId]);
 

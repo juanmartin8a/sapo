@@ -13,6 +13,7 @@ const SideBarFooter = () => {
     const { data: session } = authClient.useSession()
     const convexUser = useQuery(api.auth.getCurrentUser, session ? {} : "skip");
     const authState = getSessionUserAuthState(session?.user);
+    const subscriptionUserId = useSubscriptionStatusStore((state) => state.userId);
     const hasActiveSubscription = useSubscriptionStatusStore((state) => state.hasActiveSubscription);
     const isAuthenticatedSession = authState === 'authenticated';
     const email = useMemo(() => {
@@ -23,8 +24,10 @@ const SideBarFooter = () => {
         return convexUser?.email ?? session?.user?.email ?? null;
     }, [convexUser?.email, isAuthenticatedSession, session?.user?.email])
     const subscriptionLabel = useMemo(() => {
-        return hasActiveSubscription ? 'Polyglot' : 'free';
-    }, [hasActiveSubscription])
+        const isCurrentUserSubscribed = subscriptionUserId === session?.user?.id &&
+            hasActiveSubscription === true;
+        return isCurrentUserSubscribed ? 'Polyglot' : 'free';
+    }, [hasActiveSubscription, session?.user?.id, subscriptionUserId])
     const emailInitial = useMemo(() => {
         return email?.[0]?.toUpperCase();
     }, [email])

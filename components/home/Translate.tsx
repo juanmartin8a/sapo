@@ -13,12 +13,11 @@ interface CursorPos {
 }
 
 export default function Translate() {
-    const {
-        tokens,
-        streamError,
-        streamErrorMessage,
-        disconnectStream,
-    } = useSseStore();
+    const displayText = useSseStore((state) => state.displayText);
+    const mouthTriggerVersion = useSseStore((state) => state.mouthTriggerVersion);
+    const streamError = useSseStore((state) => state.streamError);
+    const streamErrorMessage = useSseStore((state) => state.streamErrorMessage);
+    const disconnectStream = useSseStore((state) => state.disconnectStream);
 
     const [cursorPos, setCursorPos] = useState<CursorPos>({ x: 0, y: 0 });
     const sapoWidth = SCREEN_WIDTH * 0.4;
@@ -26,29 +25,27 @@ export default function Translate() {
     const sapoBocaAbiertaHeight = sapoWidth * (914 / 929);
     const [sapoMouthOpen, setSapoMouthOpen] = useState<boolean>(false)
     const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const hasMountedRef = useRef(false);
 
     useEffect(() => {
-        if (!tokens) return;
+        if (!hasMountedRef.current) {
+            hasMountedRef.current = true;
+            return;
+        }
 
-        const tokenArray = Array.from(tokens.entries())
+        if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+        }
 
-        const lastToken = tokenArray[tokenArray.length - 1]?.[1]
-
-        if (lastToken?.type === 'word' || lastToken?.type === "translate") {
-            if (timeoutRef.current) {
-                clearTimeout(timeoutRef.current);
-            }
+        timeoutRef.current = setTimeout(() => {
+            setSapoMouthOpen(true);
+            triggerSoftSelectionHaptic();
 
             timeoutRef.current = setTimeout(() => {
-                setSapoMouthOpen(true);
-                triggerSoftSelectionHaptic();
-
-                timeoutRef.current = setTimeout(() => {
-                    setSapoMouthOpen(false);
-                    timeoutRef.current = null;
-                }, 100);
-            }, 0);
-        }
+                setSapoMouthOpen(false);
+                timeoutRef.current = null;
+            }, 100);
+        }, 0);
 
         return () => {
             if (timeoutRef.current) {
@@ -56,7 +53,7 @@ export default function Translate() {
                 timeoutRef.current = null;
             }
         };
-    }, [tokens]);
+    }, [mouthTriggerVersion]);
 
     useEffect(() => {
         return () => {
@@ -94,13 +91,7 @@ export default function Translate() {
                             onTextLayout={onTextLayout}
                             style={styles.translatedText}
                             selectable={true}>
-                            {
-                                tokens.size > 0
-                                    ? Array.from(tokens.entries()).map(([key, value]) => {
-                                        return <Text key={key}>{value.type === 'word' ? value.output : value.value}</Text>
-                                    })
-                                    : "\u200B"
-                            }
+                            {displayText.length > 0 ? displayText : "\u200B"}
                         </Text>
                     )}
                 </View>
