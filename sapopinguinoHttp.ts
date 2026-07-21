@@ -21,6 +21,13 @@ import {
 } from "./sapopinguino/openAiResponses";
 import { createAbortableStream } from "./sapopinguino/abortableStream";
 import { closeStreamOutput, tryEnqueueStreamOutput } from "./sapopinguino/streamOutput";
+import { ABORT_ERROR_NAME } from "./constants/errors";
+import {
+    KEEP_ALIVE_CONNECTION,
+    POST_OPTIONS_METHODS,
+    SAPOPINGUINO_STREAM_CACHE_CONTROL,
+} from "./constants/http";
+import { SUBSCRIPTION_USAGE_OPERATIONS } from "./constants/subscriptions";
 
 type StreamRequestBody = {
     input?: string;
@@ -39,10 +46,10 @@ function responseHeaders(
 ) {
     return buildCorsResponseHeaders(request, {
         contentType,
-        cacheControl: "no-cache, no-transform",
-        allowedMethods: "POST, OPTIONS",
+        cacheControl: SAPOPINGUINO_STREAM_CACHE_CONTROL,
+        allowedMethods: POST_OPTIONS_METHODS,
         extraHeaders: {
-            Connection: "keep-alive",
+            Connection: KEEP_ALIVE_CONNECTION,
             ...extraHeaders,
         },
     });
@@ -100,7 +107,7 @@ export async function handleSapopinguinoRequest(
         return new Response("Method not allowed", {
             status: 405,
             headers: responseHeaders(request, "text/plain; charset=utf-8", {
-                Allow: "POST, OPTIONS",
+                Allow: POST_OPTIONS_METHODS,
             }),
         });
     }
@@ -171,7 +178,7 @@ export async function handleSapopinguinoRequest(
     }
 
     let usageEventId: Id<"usage_events"> | null = null;
-    const operation = "respell" as const;
+    const operation = SUBSCRIPTION_USAGE_OPERATIONS.RESPELL;
 
     try {
         const quotaReservation = await reserveSapopinguinoQuota(ctx, {
@@ -296,7 +303,7 @@ export async function handleSapopinguinoRequest(
                     await finalizeFailure();
                 }
             } catch (error) {
-                if ((error as Error).name === "AbortError") {
+                if ((error as Error).name === ABORT_ERROR_NAME) {
                     await finalizeFailure();
                 } else {
                     await finalizeFailure();

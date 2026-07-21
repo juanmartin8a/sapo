@@ -4,6 +4,10 @@ import { authenticatedHttpAction } from "./httpAuth";
 import { buildCorsResponseHeaders, isAllowedCorsRequest } from "./httpCors";
 import { isRecord, readBoundedJsonRequestBody } from "./httpRequestBody";
 import { getRefreshRateLimitConfig } from "./subscriptionsConfig";
+import {
+    SUBSCRIPTION_PLAN_KEYS,
+    type SubscriptionPlanKey,
+} from "./constants/subscriptions";
 
 const MAX_REFRESH_REQUEST_BODY_BYTES = 2_048;
 
@@ -35,7 +39,7 @@ function jsonResponse(
 
 function publicRefreshResult(refreshResult: {
     has_active_subscription: boolean;
-    plan_key: "free" | "polyglot";
+    plan_key: SubscriptionPlanKey;
 }) {
     return {
         has_active_subscription: refreshResult.has_active_subscription,
@@ -132,7 +136,7 @@ export const refresh = authenticatedHttpAction(async (ctx, request, auth) => {
     let refreshResult: {
         status: string;
         has_active_subscription?: boolean;
-        plan_key?: "free" | "polyglot";
+        plan_key?: SubscriptionPlanKey;
         error?: string;
     };
 
@@ -218,7 +222,7 @@ export const refresh = authenticatedHttpAction(async (ctx, request, auth) => {
         ok: true,
         refresh: publicRefreshResult({
             has_active_subscription: refreshResult.has_active_subscription === true,
-            plan_key: refreshResult.plan_key ?? "free",
+            plan_key: refreshResult.plan_key ?? SUBSCRIPTION_PLAN_KEYS.FREE,
         }),
     });
 }, responseHeaders);

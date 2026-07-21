@@ -1,5 +1,7 @@
 import { buildCorsResponseHeaders } from "../httpCors";
 import { parseString } from "../subscriptionsConfig";
+import { POST_OPTIONS_METHODS } from "../constants/http";
+import { MAX_PERSISTED_ERROR_MESSAGE_CHARS } from "../constants/limits";
 
 function normalizeBearerValue(value: string): string {
     return value.replace(/^Bearer\s+/i, "").trim();
@@ -9,7 +11,7 @@ export function formatErrorMessage(error: unknown): string {
     if (typeof error === "object" && error && "message" in error) {
         const message = (error as { message?: unknown }).message;
         if (typeof message === "string" && message.trim().length > 0) {
-            return message.slice(0, 400);
+            return message.slice(0, MAX_PERSISTED_ERROR_MESSAGE_CHARS);
         }
     }
 
@@ -19,7 +21,7 @@ export function formatErrorMessage(error: unknown): string {
 export function getRevenueCatWebhookResponseHeaders(request: Request) {
     return buildCorsResponseHeaders(request, {
         contentType: "application/json",
-        allowedMethods: "POST, OPTIONS",
+        allowedMethods: POST_OPTIONS_METHODS,
     });
 }
 

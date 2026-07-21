@@ -1,3 +1,5 @@
+import { ABORT_ERROR_NAME } from "../constants/errors";
+
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 const OPENAI_RESPONSES_TOTAL_TIMEOUT_MS = 120_000;
 const OPENAI_RESPONSES_STREAM_IDLE_TIMEOUT_MS = 20_000;
@@ -219,7 +221,7 @@ export async function streamOpenAIResponses(args: {
         await args.onErrored();
         return "errored";
     } catch (error) {
-        if ((error as Error).name === "AbortError" && abortReason !== "external") {
+        if ((error as Error).name === ABORT_ERROR_NAME && abortReason !== "external") {
             await args.onErrored();
             return "errored";
         }

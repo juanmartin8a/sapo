@@ -7,6 +7,9 @@ import {
     hasPolyglotSubscriptionFilters,
     parseString,
 } from "../subscriptionsConfig";
+import { ABORT_ERROR_NAME } from "../constants/errors";
+import { MAX_PERSISTED_ERROR_MESSAGE_CHARS } from "../constants/limits";
+import type { SubscriptionPlanKey } from "../constants/subscriptions";
 
 const REVENUECAT_API_V2_BASE_URL = "https://api.revenuecat.com/v2";
 const REVENUECAT_READ_REQUEST_TIMEOUT_MS = 5_000;
@@ -48,7 +51,7 @@ type RevenueCatReconciliationSnapshot = {
 export type CurrentSubscriptionState = {
     user_id: string;
     revenuecat_app_user_id?: string;
-    plan_key: "free" | "polyglot";
+    plan_key: SubscriptionPlanKey;
     has_active_subscription: boolean;
     store_subscription_id?: string;
     store_subscription_period_id?: string;
@@ -119,7 +122,7 @@ async function fetchRevenueCatWithTimeout(
             signal: abortController.signal,
         });
     } catch (error) {
-        if ((error as Error).name === "AbortError") {
+        if ((error as Error).name === ABORT_ERROR_NAME) {
             throw new Error(`RevenueCat request timed out after ${timeoutMs}ms`);
         }
 
@@ -509,7 +512,7 @@ export function formatErrorMessage(error: unknown): string {
     if (typeof error === "object" && error && "message" in error) {
         const message = (error as { message?: unknown }).message;
         if (typeof message === "string" && message.trim().length > 0) {
-            return message.slice(0, 400);
+            return message.slice(0, MAX_PERSISTED_ERROR_MESSAGE_CHARS);
         }
     }
 

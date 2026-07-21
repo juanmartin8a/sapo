@@ -2,6 +2,7 @@ import { components, internal } from "./_generated/api";
 import { httpAction, type ActionCtx } from "./_generated/server";
 import { isAllowedCorsRequest } from "./httpCors";
 import { readBoundedJsonRequestBody } from "./httpRequestBody";
+import { POST_OPTIONS_METHODS } from "./constants/http";
 
 import {
     buildRevenueCatWebhookEventForIngestion,
@@ -106,7 +107,7 @@ export const revenueCatWebhook = httpAction(async (ctx, request) => {
             ok: false,
             error: "Method not allowed",
         }, {
-            Allow: "POST, OPTIONS",
+            Allow: POST_OPTIONS_METHODS,
         });
     }
 

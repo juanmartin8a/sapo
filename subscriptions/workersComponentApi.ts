@@ -1,4 +1,5 @@
 import { components } from "../_generated/api";
+import type { SubscriptionPlanKey } from "../constants/subscriptions";
 import type { ActionCtx } from "../_generated/server";
 import type { UserDeletionCleanupStep, UserDeletionQueueStatus } from "../userDeletionQueue";
 
@@ -53,7 +54,7 @@ export type SubscriptionStateReconciliationLeaseResult =
           status: "acquired";
           revenuecat_app_user_id: string;
           has_active_subscription: boolean;
-          plan_key: "free" | "polyglot";
+          plan_key: SubscriptionPlanKey;
           last_synced_at_ms: number;
           billing_cycle_end_at_ms?: number;
       }
@@ -61,7 +62,7 @@ export type SubscriptionStateReconciliationLeaseResult =
           status: "in_progress";
           revenuecat_app_user_id: string;
           has_active_subscription: boolean;
-          plan_key: "free" | "polyglot";
+          plan_key: SubscriptionPlanKey;
           last_synced_at_ms: number;
           billing_cycle_end_at_ms?: number;
           retry_at_ms?: number;

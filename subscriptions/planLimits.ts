@@ -1,9 +1,21 @@
 import { v } from "convex/values";
 
+import {
+    SUBSCRIPTION_PLAN_KEYS,
+    SUBSCRIPTION_USAGE_OPERATIONS,
+    type SubscriptionPlanKey,
+    type SubscriptionUsageOperation,
+} from "../constants/subscriptions";
 import type { MutationCtx } from "./_generated/server";
 
-export const subscriptionPlanKeyValidator = v.union(v.literal("free"), v.literal("polyglot"));
-export const subscriptionUsageOperationValidator = v.union(v.literal("translate"), v.literal("respell"));
+export const subscriptionPlanKeyValidator = v.union(
+    v.literal(SUBSCRIPTION_PLAN_KEYS.FREE),
+    v.literal(SUBSCRIPTION_PLAN_KEYS.POLYGLOT)
+);
+export const subscriptionUsageOperationValidator = v.union(
+    v.literal(SUBSCRIPTION_USAGE_OPERATIONS.TRANSLATE),
+    v.literal(SUBSCRIPTION_USAGE_OPERATIONS.RESPELL)
+);
 
 export const subscriptionPlanLimitInputValidator = v.object({
     plan_key: subscriptionPlanKeyValidator,
@@ -29,8 +41,7 @@ const DEFAULT_SUBSCRIPTION_PLAN_LIMITS = {
     },
 } as const;
 
-export type SubscriptionPlanKey = "free" | "polyglot";
-export type SubscriptionUsageOperation = "translate" | "respell";
+export type { SubscriptionPlanKey, SubscriptionUsageOperation };
 export type SubscriptionPlanLimits = {
     translate_input_char_limit: number;
     respell_input_char_limit: number;
@@ -90,7 +101,7 @@ export function resolveOperationLimits(
     operation: SubscriptionUsageOperation,
     planLimits: SubscriptionPlanLimits
 ) {
-    if (operation === "translate") {
+    if (operation === SUBSCRIPTION_USAGE_OPERATIONS.TRANSLATE) {
         return {
             input_limit: Math.max(0, planLimits.translate_input_char_limit),
             monthly_limit: Math.max(0, planLimits.translate_monthly_char_limit),

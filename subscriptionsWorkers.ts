@@ -1,6 +1,11 @@
 import { v } from "convex/values";
 import { components, internal } from "./_generated/api";
 import { internalAction, type ActionCtx } from "./_generated/server";
+import { FAR_FUTURE_TIMESTAMP_MS } from "./constants/time";
+import {
+    PENDING_ACTIVE_SIGNAL_TTL_MS,
+    type SubscriptionPlanKey,
+} from "./constants/subscriptions";
 import {
     USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS,
     USER_DELETION_CLEANUP_DEAD_LETTER_STATUS,
@@ -79,15 +84,14 @@ const USER_DELETION_CLEANUP_CRON_RETRY_DELAY_MS = 15 * 60 * 1000;
 const USER_DELETION_CLEANUP_DEAD_LETTER_RECOVERY_DELAY_MS = 24 * 60 * 60 * 1000;
 const USER_DELETION_QUIESCENCE_GRACE_MS = 3 * 60 * 1000;
 const USER_DELETION_SUBSCRIPTION_CLEANUP_MAX_BATCHES = 10;
-const USER_DELETION_TERMINAL_NEXT_RETRY_AT_MS = 253402300799999;
+const USER_DELETION_TERMINAL_NEXT_RETRY_AT_MS = FAR_FUTURE_TIMESTAMP_MS;
 const REVENUECAT_EVENT_PROCESSING_LEASE_MS = 30_000;
 const SUBSCRIPTION_STATE_RECONCILIATION_LEASE_MS = 30_000;
-const PENDING_ACTIVE_SIGNAL_TTL_MS = 2 * 60 * 1000;
 type SubscriptionStateRefreshResult =
     | {
           status: "already_fresh" | "created" | "updated" | "unchanged";
           revenuecat_app_user_id: string;
-          plan_key: "free" | "polyglot";
+           plan_key: SubscriptionPlanKey;
           has_active_subscription: boolean;
           last_synced_at_ms: number;
           billing_cycle_end_at_ms?: number;
@@ -95,7 +99,7 @@ type SubscriptionStateRefreshResult =
     | {
           status: "pending_active";
           revenuecat_app_user_id: string;
-          plan_key: "free" | "polyglot";
+           plan_key: SubscriptionPlanKey;
           has_active_subscription: boolean;
           last_synced_at_ms: number;
           billing_cycle_end_at_ms?: number;
@@ -104,7 +108,7 @@ type SubscriptionStateRefreshResult =
     | {
           status: "sync_in_progress";
           revenuecat_app_user_id: string;
-          plan_key: "free" | "polyglot";
+           plan_key: SubscriptionPlanKey;
           has_active_subscription: boolean;
           last_synced_at_ms: number;
           billing_cycle_end_at_ms?: number;
@@ -123,7 +127,7 @@ type SubscriptionStateRefreshResult =
           revenuecat_app_user_id: string;
           error: string;
           should_block_requests: boolean;
-          plan_key?: "free" | "polyglot";
+           plan_key?: SubscriptionPlanKey;
           has_active_subscription?: boolean;
           last_synced_at_ms?: number;
           billing_cycle_end_at_ms?: number;
@@ -664,7 +668,7 @@ async function reconcileSubscriptionStateFromRevenueCat(
         snapshotHasActiveSubscription = snapshot.has_active_subscription;
         const applyResult: {
             status: "created" | "updated" | "unchanged" | "pending_active";
-            plan_key: "free" | "polyglot";
+            plan_key: SubscriptionPlanKey;
             has_active_subscription: boolean;
             last_synced_at_ms: number;
             billing_cycle_end_at_ms?: number;

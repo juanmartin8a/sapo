@@ -1,6 +1,7 @@
 import type { Doc } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { UserDeletionCleanupStep, UserDeletionQueueStatus } from "../userDeletionQueue";
+import { MAX_PERSISTED_ERROR_MESSAGE_CHARS } from "../constants/limits";
 
 type DbReaderCtx = Pick<MutationCtx, "db"> | Pick<QueryCtx, "db">;
 
@@ -85,7 +86,9 @@ export function buildUserDeletionQueueEntry(args: {
             : {}),
         next_retry_at_ms: args.next_retry_at_ms,
         retry_count: args.retry_count,
-        ...(typeof args.last_error === "string" ? { last_error: args.last_error.slice(0, 400) } : {}),
+        ...(typeof args.last_error === "string"
+            ? { last_error: args.last_error.slice(0, MAX_PERSISTED_ERROR_MESSAGE_CHARS) }
+            : {}),
         ...(typeof args.cleanup_attempt_id === "string"
             ? { cleanup_attempt_id: args.cleanup_attempt_id }
             : {}),

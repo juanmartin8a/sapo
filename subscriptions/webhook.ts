@@ -94,26 +94,39 @@ import {
 } from "./userDeletionRevenueCatEvents";
 import { shouldIgnoreStaleReconciledSubscriptionState } from "./revenueCatApi";
 import { getExclusiveLeaseOwnershipFailure } from "./leaseOwnership";
+import { MAX_PERSISTED_ERROR_MESSAGE_CHARS } from "../constants/limits";
+import { FAR_FUTURE_TIMESTAMP_MS } from "../constants/time";
+import {
+    SUBSCRIPTION_PLAN_KEYS,
+} from "../constants/subscriptions";
+import {
+    REVENUECAT_TERMINAL_WEBHOOK_EVENT_STATUS_SET,
+    REVENUECAT_WEBHOOK_EVENT_STATUSES,
+} from "../constants/revenueCat";
+import {
+    USER_DELETION_CLEANUP_STEPS,
+    USER_DELETION_QUEUE_STATUSES,
+} from "../constants/userDeletion";
 
-const PROCESSED_EVENT_STATUSES = new Set(["processed", "ignored", "dead_letter"]);
+const PROCESSED_EVENT_STATUSES = REVENUECAT_TERMINAL_WEBHOOK_EVENT_STATUS_SET;
 const SUBSCRIPTION_SYNC_LEASE_MAX_MS = 30_000;
 const PENDING_ACTIVE_SIGNAL_MAX_TTL_MS = 5 * 60 * 1000;
 
 const webhookEventStatusValidator = v.union(
-    v.literal("pending"),
-    v.literal("failed"),
-    v.literal("processed"),
-    v.literal("ignored"),
-    v.literal("dead_letter")
+    v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.PENDING),
+    v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.FAILED),
+    v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.PROCESSED),
+    v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.IGNORED),
+    v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.DEAD_LETTER)
 );
 
 const terminalWebhookEventStatusValidator = v.union(
-    v.literal("processed"),
-    v.literal("ignored"),
-    v.literal("dead_letter")
+    v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.PROCESSED),
+    v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.IGNORED),
+    v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.DEAD_LETTER)
 );
 
-const NEVER_RECONCILE_AT_MS = 253402300799999;
+const NEVER_RECONCILE_AT_MS = FAR_FUTURE_TIMESTAMP_MS;
 const QUOTA_USAGE_RESERVATION_WATCHDOG_DELAY_MS = 5 * 60 * 1000;
 const USER_DELETION_BATCH_LIMIT = 500;
 
@@ -227,23 +240,23 @@ type MutableRevenueCatEventFields = Partial<
 >;
 type MutableUsageEventFields = Partial<Omit<Doc<"usage_events">, "_id" | "_creationTime">>;
 const userDeletionQueueStatusValidator = v.union(
-    v.literal("preparing"),
-    v.literal("awaiting_auth_delete"),
+    v.literal(USER_DELETION_QUEUE_STATUSES[0]),
+    v.literal(USER_DELETION_QUEUE_STATUSES[1]),
     v.literal(USER_DELETION_LATE_AUTH_WAIT_STATUS),
     v.literal(USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS),
     v.literal(USER_DELETION_CLEANUP_DEAD_LETTER_STATUS),
-    v.literal("ready_for_cleanup"),
-    v.literal("waiting_for_quiescence"),
-    v.literal("retryable_error"),
-    v.literal("cleanup_in_progress")
+    v.literal(USER_DELETION_QUEUE_STATUSES[5]),
+    v.literal(USER_DELETION_QUEUE_STATUSES[6]),
+    v.literal(USER_DELETION_QUEUE_STATUSES[7]),
+    v.literal(USER_DELETION_QUEUE_STATUSES[8])
 );
 
 const userDeletionCleanupStepValidator = v.union(
-    v.literal("acquired"),
-    v.literal("waiting_for_quiescence"),
-    v.literal("deleting_subscription_data"),
-    v.literal("finalizing_subscription_data"),
-    v.literal("deleting_revenuecat_subscriber")
+    v.literal(USER_DELETION_CLEANUP_STEPS[0]),
+    v.literal(USER_DELETION_CLEANUP_STEPS[1]),
+    v.literal(USER_DELETION_CLEANUP_STEPS[3]),
+    v.literal(USER_DELETION_CLEANUP_STEPS[4]),
+    v.literal(USER_DELETION_CLEANUP_STEPS[2])
 );
 
 const AUTOMATIC_USER_DELETION_RETRY_STATUSES: UserDeletionQueueStatus[] = [
@@ -946,7 +959,7 @@ async function resolveCurrentSubscriptionQuotaContext(
 ): Promise<ResolvedSubscriptionQuotaContext> {
     const existingState = await getLatestSubscriptionStateByUserId(ctx, args.user_id);
 
-    const planKey: SubscriptionPlanKey = existingState?.plan_key ?? "free";
+    const planKey: SubscriptionPlanKey = existingState?.plan_key ?? SUBSCRIPTION_PLAN_KEYS.FREE;
     const resolvedPlanLimits = await resolvePlanLimitsForPlanKey(ctx, {
         plan_key: planKey,
         now_ms: args.now_ms,
@@ -954,7 +967,7 @@ async function resolveCurrentSubscriptionQuotaContext(
 
     const operationLimits = resolveOperationLimits(args.operation, resolvedPlanLimits);
     const freePeriodAnchorAtMs =
-        planKey === "free"
+        planKey === SUBSCRIPTION_PLAN_KEYS.FREE
             ? resolveFreePeriodAnchorAtMs({
                   existingState,
                   signup_at_ms: args.signup_at_ms,
@@ -963,7 +976,7 @@ async function resolveCurrentSubscriptionQuotaContext(
             : undefined;
 
     const resolvedWindow =
-        planKey === "free"
+        planKey === SUBSCRIPTION_PLAN_KEYS.FREE
             ? getRequiredAnchoredMonthlyWindow(freePeriodAnchorAtMs ?? args.now_ms, args.now_ms)
             : getCurrentPaidBillingCycleWindow(existingState, args.now_ms);
 
@@ -1322,7 +1335,7 @@ async function ensureCurrentQuotaPeriodDoc(
             plan_key: quotaContext.planKey,
             has_active_subscription:
                 quotaContext.existingState?.has_active_subscription ??
-                (quotaContext.planKey === "polyglot"),
+                (quotaContext.planKey === SUBSCRIPTION_PLAN_KEYS.POLYGLOT),
             ...(quotaContext.existingState?.store_subscription_id
                 ? { store_subscription_id: quotaContext.existingState.store_subscription_id }
                 : {}),
@@ -1619,7 +1632,7 @@ export const reserveSubscriptionQuotaUsage = mutation({
             quota_period_id: availabilityResult.quotaPeriod._id,
             operation: args.operation,
             ...(args.model ? { model: args.model } : {}),
-            quota_unit: "input_characters",
+            quota_unit: INPUT_CHARACTERS_QUOTA_UNIT,
             reserved_units: availabilityResult.sanitized_input_char_count,
             charged_units: 0,
             state: "processing",
@@ -2196,7 +2209,7 @@ export const recordRevenueCatEventProcessingProgress = mutation({
                 patch.processed_at_ms = args.now_ms;
                 patch.last_error =
                     patch.status === "ignored"
-                        ? (args.status_message ?? args.error_message).slice(0, 400)
+                        ? (args.status_message ?? args.error_message).slice(0, MAX_PERSISTED_ERROR_MESSAGE_CHARS)
                         : undefined;
             } else {
                 const nextRetryCount = eventDoc.retry_count + 1;
@@ -2209,20 +2222,22 @@ export const recordRevenueCatEventProcessingProgress = mutation({
                     ? args.now_ms
                     : getNextRetryAtMs(args.now_ms, nextRetryCount, args.retry_config);
                 patch.processed_at_ms = undefined;
-                patch.last_error = args.error_message.slice(0, 400);
+                patch.last_error = args.error_message.slice(0, MAX_PERSISTED_ERROR_MESSAGE_CHARS);
             }
         } else if (userSummary.pending_user_ids.length > 0) {
             patch.status = "pending";
             patch.next_retry_at_ms = args.next_retry_at_ms ?? args.now_ms;
             patch.processed_at_ms = undefined;
-            patch.last_error = args.status_message?.slice(0, 400);
+            patch.last_error = args.status_message?.slice(0, MAX_PERSISTED_ERROR_MESSAGE_CHARS);
         } else {
             patch.status = userSummary.processed_user_ids.length > 0 ? "processed" : "ignored";
             patch.retry_count = 0;
             patch.next_retry_at_ms = args.now_ms;
             patch.processed_at_ms = args.now_ms;
             patch.last_error =
-                patch.status === "ignored" ? args.status_message?.slice(0, 400) : undefined;
+                patch.status === "ignored"
+                    ? args.status_message?.slice(0, MAX_PERSISTED_ERROR_MESSAGE_CHARS)
+                    : undefined;
         }
 
         await ctx.db.patch(eventDoc._id, patch);
@@ -2654,7 +2669,7 @@ export const beginSubscriptionStateReconciliation = mutation({
         const stateDoc = {
             user_id: args.user_id,
             revenuecat_app_user_id: args.revenuecat_app_user_id,
-            plan_key: "free" as const,
+            plan_key: SUBSCRIPTION_PLAN_KEYS.FREE,
             has_active_subscription: false,
             free_period_anchor_at_ms: freePeriodAnchorAtMs,
             window_type: resolvedWindow.window_type,
@@ -2677,7 +2692,7 @@ export const beginSubscriptionStateReconciliation = mutation({
             status: "acquired" as const,
             revenuecat_app_user_id: args.revenuecat_app_user_id,
             has_active_subscription: false,
-            plan_key: "free" as const,
+            plan_key: SUBSCRIPTION_PLAN_KEYS.FREE,
             last_synced_at_ms: 0,
         };
     },
@@ -3064,7 +3079,7 @@ export const applyReconciledSubscriptionState = mutation({
         if (ownershipFailure) {
             return {
                 status: "unchanged" as const,
-                plan_key: existingState?.plan_key ?? ("free" as const),
+                plan_key: existingState?.plan_key ?? SUBSCRIPTION_PLAN_KEYS.FREE,
                 has_active_subscription: existingState?.has_active_subscription ?? false,
                 last_synced_at_ms: existingState?.last_synced_at_ms ?? 0,
                 owner_mismatch:
@@ -3165,7 +3180,9 @@ export const applyReconciledSubscriptionState = mutation({
         }
 
         const hasActiveSubscription = args.snapshot.has_active_subscription;
-        const planKey: "free" | "polyglot" = hasActiveSubscription ? "polyglot" : "free";
+        const planKey: SubscriptionPlanKey = hasActiveSubscription
+            ? SUBSCRIPTION_PLAN_KEYS.POLYGLOT
+            : SUBSCRIPTION_PLAN_KEYS.FREE;
 
         const reconciliationWindow =
             hasActiveSubscription &&

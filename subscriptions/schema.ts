@@ -1,9 +1,22 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import {
+    INPUT_CHARACTERS_QUOTA_UNIT,
+    SUBSCRIPTION_PLAN_KEYS,
+    SUBSCRIPTION_USAGE_OPERATIONS,
+} from "../constants/subscriptions";
+import { REVENUECAT_WEBHOOK_EVENT_STATUSES } from "../constants/revenueCat";
+import {
+    USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS,
+    USER_DELETION_CLEANUP_DEAD_LETTER_STATUS,
+    USER_DELETION_CLEANUP_STEPS,
+    USER_DELETION_LATE_AUTH_WAIT_STATUS,
+    USER_DELETION_QUEUE_STATUSES,
+} from "../constants/userDeletion";
 
 export default defineSchema({
     subscription_plan_limits: defineTable({
-        plan_key: v.union(v.literal("free"), v.literal("polyglot")),
+        plan_key: v.union(v.literal(SUBSCRIPTION_PLAN_KEYS.FREE), v.literal(SUBSCRIPTION_PLAN_KEYS.POLYGLOT)),
         translate_input_char_limit: v.number(),
         respell_input_char_limit: v.number(),
         translate_monthly_char_limit: v.number(),
@@ -16,7 +29,7 @@ export default defineSchema({
     subscription_states: defineTable({
         user_id: v.string(),
         revenuecat_app_user_id: v.optional(v.string()),
-        plan_key: v.union(v.literal("free"), v.literal("polyglot")),
+        plan_key: v.union(v.literal(SUBSCRIPTION_PLAN_KEYS.FREE), v.literal(SUBSCRIPTION_PLAN_KEYS.POLYGLOT)),
         has_active_subscription: v.boolean(),
         store_subscription_id: v.optional(v.string()),
         store_subscription_period_id: v.optional(v.string()),
@@ -53,7 +66,7 @@ export default defineSchema({
         window_type: v.union(v.literal("anchored_monthly"), v.literal("billing_cycle")),
         period_start_at_ms: v.number(),
         period_end_at_ms: v.number(),
-        plan_key: v.union(v.literal("free"), v.literal("polyglot")),
+        plan_key: v.union(v.literal(SUBSCRIPTION_PLAN_KEYS.FREE), v.literal(SUBSCRIPTION_PLAN_KEYS.POLYGLOT)),
         active_subscription: v.boolean(),
         store_subscription_id: v.optional(v.string()),
         store_subscription_period_id: v.optional(v.string()),
@@ -78,8 +91,11 @@ export default defineSchema({
 
     quota_period_counters: defineTable({
         quota_period_id: v.id("quota_periods"),
-        operation: v.union(v.literal("translate"), v.literal("respell")),
-        quota_unit: v.literal("input_characters"),
+        operation: v.union(
+            v.literal(SUBSCRIPTION_USAGE_OPERATIONS.TRANSLATE),
+            v.literal(SUBSCRIPTION_USAGE_OPERATIONS.RESPELL)
+        ),
+        quota_unit: v.literal(INPUT_CHARACTERS_QUOTA_UNIT),
         charged_units: v.number(),
         input_limit: v.number(),
         period_limit: v.number(),
@@ -97,15 +113,15 @@ export default defineSchema({
     user_deletion_queue: defineTable({
         user_id: v.string(),
         status: v.union(
-            v.literal("preparing"),
-            v.literal("awaiting_auth_delete"),
-            v.literal("awaiting_auth_delete_late"),
-            v.literal("auth_delete_dead_letter"),
-            v.literal("cleanup_dead_letter"),
-            v.literal("ready_for_cleanup"),
-            v.literal("waiting_for_quiescence"),
-            v.literal("retryable_error"),
-            v.literal("cleanup_in_progress")
+            v.literal(USER_DELETION_QUEUE_STATUSES[0]),
+            v.literal(USER_DELETION_QUEUE_STATUSES[1]),
+            v.literal(USER_DELETION_LATE_AUTH_WAIT_STATUS),
+            v.literal(USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS),
+            v.literal(USER_DELETION_CLEANUP_DEAD_LETTER_STATUS),
+            v.literal(USER_DELETION_QUEUE_STATUSES[5]),
+            v.literal(USER_DELETION_QUEUE_STATUSES[6]),
+            v.literal(USER_DELETION_QUEUE_STATUSES[7]),
+            v.literal(USER_DELETION_QUEUE_STATUSES[8])
         ),
         started_at_ms: v.number(),
         prepared_at_ms: v.optional(v.number()),
@@ -117,11 +133,11 @@ export default defineSchema({
         cleanup_attempt_id: v.optional(v.string()),
         cleanup_step: v.optional(
             v.union(
-                v.literal("acquired"),
-                v.literal("waiting_for_quiescence"),
-                v.literal("deleting_revenuecat_subscriber"),
-                v.literal("deleting_subscription_data"),
-                v.literal("finalizing_subscription_data")
+                v.literal(USER_DELETION_CLEANUP_STEPS[0]),
+                v.literal(USER_DELETION_CLEANUP_STEPS[1]),
+                v.literal(USER_DELETION_CLEANUP_STEPS[2]),
+                v.literal(USER_DELETION_CLEANUP_STEPS[3]),
+                v.literal(USER_DELETION_CLEANUP_STEPS[4])
             )
         ),
         cleanup_step_started_at_ms: v.optional(v.number()),
@@ -142,9 +158,12 @@ export default defineSchema({
         req_id: v.string(),
         user_id: v.string(),
         quota_period_id: v.id("quota_periods"),
-        operation: v.union(v.literal("respell"), v.literal("translate")),
+        operation: v.union(
+            v.literal(SUBSCRIPTION_USAGE_OPERATIONS.RESPELL),
+            v.literal(SUBSCRIPTION_USAGE_OPERATIONS.TRANSLATE)
+        ),
         model: v.optional(v.string()),
-        quota_unit: v.literal("input_characters"),
+        quota_unit: v.literal(INPUT_CHARACTERS_QUOTA_UNIT),
         reserved_units: v.number(),
         charged_units: v.number(),
         state: v.union(
@@ -199,11 +218,11 @@ export default defineSchema({
         purchased_at_ms: v.optional(v.number()),
         payload: v.optional(v.string()),
         status: v.union(
-            v.literal("pending"),
-            v.literal("processed"),
-            v.literal("ignored"),
-            v.literal("failed"),
-            v.literal("dead_letter")
+            v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.PENDING),
+            v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.PROCESSED),
+            v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.IGNORED),
+            v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.FAILED),
+            v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.DEAD_LETTER)
         ),
         retry_count: v.number(),
         next_retry_at_ms: v.number(),
