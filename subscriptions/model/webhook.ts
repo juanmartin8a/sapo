@@ -94,7 +94,7 @@ import {
 } from "../../constants/subscriptions";
 import { REVENUECAT_TERMINAL_WEBHOOK_EVENT_STATUS_SET } from "../../constants/revenueCat";
 
-const PROCESSED_EVENT_STATUSES = REVENUECAT_TERMINAL_WEBHOOK_EVENT_STATUS_SET;
+const TERMINAL_EVENT_STATUSES = REVENUECAT_TERMINAL_WEBHOOK_EVENT_STATUS_SET;
 const SUBSCRIPTION_SYNC_LEASE_MAX_MS = 30_000;
 const PENDING_ACTIVE_SIGNAL_MAX_TTL_MS = 5 * 60 * 1000;
 
@@ -1820,7 +1820,7 @@ export const getRevenueCatEventForProcessing = async (ctx: QueryCtx, args: Webho
 export const acquireRevenueCatEventProcessingLeases = async (ctx: MutationCtx, args: WebhookArgs.AcquireRevenueCatEventProcessingLeasesArgs) => {
         const eventDoc = await ctx.db.get("revenue_cat_events", args.event_doc_id);
 
-        if (!eventDoc || PROCESSED_EVENT_STATUSES.has(eventDoc.status)) {
+        if (!eventDoc || TERMINAL_EVENT_STATUSES.has(eventDoc.status)) {
             return {
                 status: eventDoc?.status ?? "missing",
                 acquired_user_ids: [],
@@ -1914,7 +1914,7 @@ export const getActiveRevenueCatEventProcessingForUserDeletion = async (ctx: Que
 export const recordRevenueCatEventProcessingProgress = async (ctx: MutationCtx, args: WebhookArgs.RecordRevenueCatEventProcessingProgressArgs) => {
         const eventDoc = await ctx.db.get("revenue_cat_events", args.event_doc_id);
 
-        if (!eventDoc || PROCESSED_EVENT_STATUSES.has(eventDoc.status)) {
+        if (!eventDoc || TERMINAL_EVENT_STATUSES.has(eventDoc.status)) {
             return {
                 status: eventDoc?.status ?? "missing",
             };
@@ -2134,7 +2134,7 @@ export const purgeRevenueCatEventsById = async (ctx: MutationCtx, args: WebhookA
         for (const eventDocId of args.event_doc_ids) {
             const eventDoc = await ctx.db.get("revenue_cat_events", eventDocId);
 
-            if (eventDoc && !PROCESSED_EVENT_STATUSES.has(eventDoc.status)) {
+            if (eventDoc && !TERMINAL_EVENT_STATUSES.has(eventDoc.status)) {
                 continue;
             }
 
