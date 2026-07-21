@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, NativeSyntheticEvent, TextLayoutEventData } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, NativeSyntheticEvent, TextLayoutEventData, Dimensions } from 'react-native';
 import useSseStore from '../../stores/sseStore';
 import SapoIcon from "../../assets/icons/sapo.svg"
 import SapoBocaAbiertaIcon from "../../assets/icons/sapo_boca_abierta.svg"
-import { SCREEN_WIDTH } from '@gorhom/bottom-sheet';
+import { triggerSoftSelectionHaptic } from '@/utils/haptics';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 interface CursorPos {
     x: number;
@@ -11,46 +13,53 @@ interface CursorPos {
 }
 
 export default function Translate() {
-    const {
-        tokens,
-        streamError,
-        disconnectStream,
-    } = useSseStore();
+    const displayText = useSseStore((state) => state.displayText);
+    const mouthTriggerVersion = useSseStore((state) => state.mouthTriggerVersion);
+    const streamError = useSseStore((state) => state.streamError);
+    const streamErrorMessage = useSseStore((state) => state.streamErrorMessage);
+    const disconnectStream = useSseStore((state) => state.disconnectStream);
 
     const [cursorPos, setCursorPos] = useState<CursorPos>({ x: 0, y: 0 });
     const sapoWidth = SCREEN_WIDTH * 0.4;
     const sapoHeight = sapoWidth * (800 / 929);
     const sapoBocaAbiertaHeight = sapoWidth * (914 / 929);
     const [sapoMouthOpen, setSapoMouthOpen] = useState<boolean>(false)
-    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const hasMountedRef = useRef(false);
 
     useEffect(() => {
-        if (!tokens) return;
+        if (!hasMountedRef.current) {
+            hasMountedRef.current = true;
+            return;
+        }
 
-        const tokenArray = Array.from(tokens.entries())
+        if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+        }
 
-        const lastToken = tokenArray[tokenArray.length - 1]?.[1]
-
-        if (lastToken?.type === 'word' || lastToken?.type === "translate") {
-            if (sapoMouthOpen) {
-                clearTimeout(timeoutRef.current);
-                setSapoMouthOpen(false);
-            }
-
+        timeoutRef.current = setTimeout(() => {
             setSapoMouthOpen(true);
+            triggerSoftSelectionHaptic();
 
             timeoutRef.current = setTimeout(() => {
                 setSapoMouthOpen(false);
                 timeoutRef.current = null;
             }, 100);
-        }
-    }, [tokens]);
+        }, 0);
+
+        return () => {
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+                timeoutRef.current = null;
+            }
+        };
+    }, [mouthTriggerVersion]);
 
     useEffect(() => {
         return () => {
             disconnectStream();
         };
-    }, []);
+    }, [disconnectStream]);
 
     const onTextLayout = (e: NativeSyntheticEvent<TextLayoutEventData>) => {
         const newLines = e.nativeEvent.lines.map((ln) => ({
@@ -76,19 +85,13 @@ export default function Translate() {
             <View style={styles.container}>
                 <View style={styles.textContainer}>
                     {streamError ? (
-                        <Text style={styles.errorText}>An error occurred </Text>
+                        <Text style={styles.errorText}>{streamErrorMessage ?? "An error occurred"}</Text>
                     ) : (
                         <Text
                             onTextLayout={onTextLayout}
                             style={styles.translatedText}
                             selectable={true}>
-                            {
-                                tokens.size > 0
-                                    ? Array.from(tokens.entries()).map(([key, value]) => {
-                                        return <Text key={key}>{value.type === 'word' ? value.output : value.value}</Text>
-                                    })
-                                    : "\u200B"
-                            }
+                            {displayText.length > 0 ? displayText : "\u200B"}
                         </Text>
                     )}
                 </View>

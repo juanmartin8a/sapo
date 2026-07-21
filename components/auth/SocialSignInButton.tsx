@@ -1,30 +1,69 @@
 import React, { cloneElement, isValidElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import AppleLogo from '@/assets/icons/apple_logo.svg';
 import { authClient } from '@/clients/auth-client';
 
-type SocialProvider = 'google' | 'apple';
+export type SocialProvider = 'google' | 'apple';
 
 interface SocialSignInButtonProps {
     provider: SocialProvider;
     label: string;
-    icon?: React.ReactElement;
+    icon?: React.ReactElement<{ width?: number; height?: number }>;
+    loading?: boolean;
+    disabled?: boolean;
+    onSignInStart?: (provider: SocialProvider) => void;
+    onSignInCancel?: (provider: SocialProvider) => void;
+    onSignInError?: (provider: SocialProvider) => void;
 }
 
-const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) => {
-    const isApple = provider === 'apple';
-    const [loading, setLoading] = useState(false);
-    const [isNativeAppleAuthAvailable, setIsNativeAppleAuthAvailable] = useState(false);
-
-    useEffect(() => {
-        if (!isApple) {
-            setIsNativeAppleAuthAvailable(false);
-            return;
+const assertSocialSignInSucceeded = (
+    result: Awaited<ReturnType<typeof authClient.signIn.social>>,
+    provider: SocialProvider
+) => {
+    if (result.error) {
+        if (__DEV__) {
+            console.warn(`${provider} sign-in failed`, result.error);
         }
 
-        if (Platform.OS !== 'ios') {
-            setIsNativeAppleAuthAvailable(false);
+        throw new Error(`${provider} sign-in failed`);
+    }
+};
+
+const isUserCancelledSignIn = (error: unknown) => {
+    if (typeof error !== 'object' || error === null) {
+        return false;
+    }
+
+    const errorRecord = error as { code?: unknown; message?: unknown; name?: unknown };
+    const code = typeof errorRecord.code === 'string' ? errorRecord.code : null;
+
+    if (code === 'ERR_REQUEST_CANCELED') {
+        return true;
+    }
+
+    const name = typeof errorRecord.name === 'string' ? errorRecord.name.toLowerCase() : '';
+    const message = typeof errorRecord.message === 'string' ? errorRecord.message.toLowerCase() : '';
+
+    return name.includes('cancel') || message.includes('cancel') || message.includes('dismiss');
+};
+
+const SocialSignInButton = ({
+    provider,
+    label,
+    icon,
+    loading = false,
+    disabled = false,
+    onSignInStart,
+    onSignInCancel,
+    onSignInError,
+}: SocialSignInButtonProps) => {
+    const isApple = provider === 'apple';
+    const [isNativeAppleAuthAvailable, setIsNativeAppleAuthAvailable] = useState(false);
+    const isDisabled = disabled || loading;
+
+    useEffect(() => {
+        if (!isApple || Platform.OS !== 'ios') {
             return;
         }
 
@@ -67,20 +106,38 @@ const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) 
     }, [icon, isApple]);
 
     const shouldUseNativeAppleAuth = isApple && isNativeAppleAuthAvailable;
-    console.log("use apple native auth: ", shouldUseNativeAppleAuth)
+
+    const confirmAuthenticatedSession = useCallback(async (treatMissingSessionAsCancel: boolean) => {
+        const { data: nextSession } = await authClient.getSession();
+
+        if (nextSession) {
+            return;
+        }
+
+        if (treatMissingSessionAsCancel) {
+            onSignInCancel?.(provider);
+            return;
+        }
+
+        throw new Error(`${provider} sign-in completed without an authenticated session`);
+    }, [onSignInCancel, provider]);
 
     const handlePress = useCallback(async () => {
-        setLoading(true);
+        if (isDisabled) {
+            return;
+        }
+
+        onSignInStart?.(provider);
 
         try {
             if (provider === 'google') {
-                const data = await authClient.signIn.social({
+                const result = await authClient.signIn.social({
                     provider: 'google',
-                    callbackURL: '/'
+                    callbackURL: '/auth'
                 })
 
-                console.log(data)
-
+                assertSocialSignInSucceeded(result, provider);
+                await confirmAuthenticatedSession(true);
 
                 return;
             }
@@ -93,30 +150,62 @@ const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) 
                     ],
                 });
 
-                const data = await authClient.signIn.social({
+                if (!credential.identityToken) {
+                    throw new Error('Apple sign-in did not return an identity token');
+                }
+
+                if (!credential.authorizationCode) {
+                    throw new Error('Apple sign-in did not return an authorization code');
+                }
+
+                const result = await authClient.signIn.social({
                     provider: 'apple',
                     idToken: {
-                        token: credential.identityToken!,
+                        token: credential.identityToken,
+                        refreshToken: credential.authorizationCode,
+                        user: {
+                            ...(credential.email ? { email: credential.email } : {}),
+                            name: {
+                                ...(credential.fullName?.givenName
+                                    ? { firstName: credential.fullName.givenName }
+                                    : {}),
+                                ...(credential.fullName?.familyName
+                                    ? { lastName: credential.fullName.familyName }
+                                    : {}),
+                            },
+                        },
                     }
                 })
 
-                console.log(data)
+                assertSocialSignInSucceeded(result, provider);
+                await confirmAuthenticatedSession(false);
 
                 return;
             }
 
             if (provider === 'apple') {
-                const data = await authClient.signIn.social({
+                const result = await authClient.signIn.social({
                     provider: 'apple',
-                    callbackURL: '/'
+                    callbackURL: '/auth'
                 })
+
+                assertSocialSignInSucceeded(result, provider);
+                await confirmAuthenticatedSession(true);
             }
         } catch (error) {
-            console.warn(`${provider} sign-in failed`, error);
-        } finally {
-            setLoading(false);
+            if (isUserCancelledSignIn(error)) {
+                onSignInCancel?.(provider);
+                return;
+            }
+
+            if (__DEV__) {
+                console.warn(`${provider} sign-in failed`, error);
+            }
+
+            Alert.alert('Sign-in failed', 'Please try again.');
+            onSignInError?.(provider);
         }
-    }, [provider, shouldUseNativeAppleAuth]);
+    }, [confirmAuthenticatedSession, isDisabled, onSignInCancel, onSignInError, onSignInStart, provider, shouldUseNativeAppleAuth]);
 
     return (
         <TouchableOpacity
@@ -124,17 +213,24 @@ const SocialSignInButton = ({ provider, label, icon }: SocialSignInButtonProps) 
             style={[
                 styles.button,
                 provider === 'apple' ? styles.appleButton : styles.googleButton,
-                // loading && styles.disabled,
+                isDisabled && styles.disabled,
             ]}
             onPress={handlePress}
-            disabled={loading}
+            disabled={isDisabled}
+            accessibilityState={{ disabled: isDisabled, busy: loading }}
         >
             <View
                 style={[
                     styles.content,
                 ]}
             >
-                {processedIcon}
+                {processedIcon ? (
+                    <View style={styles.leadingElement}>
+                        {processedIcon}
+                    </View>
+                ) : (
+                    null
+                )}
                 <Text
                     style={[
                         styles.label,
@@ -167,6 +263,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
+    leadingElement: {
+        width: 44,
+        height: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     label: {
         fontSize: 17,
         fontWeight: '500',
@@ -178,7 +280,7 @@ const styles = StyleSheet.create({
         color: '#fff',
     },
     disabled: {
-        opacity: 0.6,
+        opacity: 0.5,
     },
 });
 

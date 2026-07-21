@@ -1,142 +1,188 @@
+/* eslint-disable react-hooks/immutability -- Reanimated shared values are intentionally mutated in worklets. */
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { StyleSheet, View, Keyboard, Text, TouchableWithoutFeedback } from "react-native";
 import { GestureHandlerRootView, GestureDetector, Gesture } from "react-native-gesture-handler";
 import PagerView from 'react-native-pager-view';
 import Animated, {
+    cancelAnimation,
     useSharedValue,
     useAnimatedStyle,
-    withTiming,
     useAnimatedReaction,
-    Easing
+    withTiming,
+    withSpring,
+    Easing,
 } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
+import { runOnJS } from 'react-native-worklets';
 import SideBar, { SIDEBAR_WIDTH } from "@/components/sidebar/Sidebar";
 import Translate from "@/components/home/Translate";
-import { useSidebarIsOpenNotifier, useTranslModeStore } from "@/stores";
+import { useSidebarIsOpenNotifier, useTransformationOperationStore } from "@/stores";
 import Header from "../header/Header";
 import TranslateButton from "../header/TranslateButton";
 import SidebarIcon from "../../assets/icons/sidebar.svg";
 import TextToTranslateInput from "../home/TextToTranslateInput";
 import usePagerPos from "@/stores/pagerPosStore";
-import AccountTapBottomSheet from "../home/AccountTapBottomSheet";
+import useLocalModelStore from "@/stores/localModelStore";
 import SourceLangugeSelectorBottomSheet from "../home/SourceLanguageSelectorBottomSheet";
 import TargetLanguageSelectorBottomSheet from "../home/TargetLanguageSelectorBottomSheet";
+import LocalModelSelectorBottomSheet from "../home/LocalModelSelectorBottomSheet";
+import { triggerLightImpactHaptic } from "@/utils/haptics";
 
 export default function Home() {
     const pagerRef = useRef<PagerView>(null);
     const sideBarTranslationX = useSharedValue(0);
     const isAnimating = useSharedValue(false);
+    const animationTargetX = useSharedValue(0);
+    const overlayCloseTapLocked = useSharedValue(false);
     const gestureStartX = useSharedValue(0);
+    const gestureStartIsOpen = useSharedValue(false);
+    const gestureAnimationTargetX = useSharedValue(0);
+    const gesturePreviousTranslationX = useSharedValue(0);
+    const hasCapturedSidebarGesture = useSharedValue(false);
 
-    const [isSideBarPosAtStart, setIsSideBarPosAtStart] = useState(true);
-    const isSideBarPosAtStartShared = useSharedValue(true);
+    const pos = useRef<number>(0);
+    const sidebarPressCompletedRef = useRef(false);
+
+    const [isSidebarOverlayMounted, setIsSidebarOverlayMounted] = useState(false);
     const pagerNativeGesture = useMemo(() => Gesture.Native(), []);
 
     const isSidebarOpenOrClosed = useSidebarIsOpenNotifier(state => state.isSidebarOpenOrClosed);
     const setOffset = usePagerPos(state => state.setOffset);
     const setPos = usePagerPos(state => state.setPos);
 
-    const mode = useTranslModeStore((state) => state.mode);
-    const modeText = mode.charAt(0).toUpperCase() + mode.slice(1);
+    const operation = useTransformationOperationStore((state) => state.operation);
+    const isLocalModelEnabled = useLocalModelStore((state) => state.isEnabled);
+    const operationText = operation.charAt(0).toUpperCase() + operation.slice(1);
+    const operationLabel = operation === 'translate' && isLocalModelEnabled
+        ? `${operationText} | local :)`
+        : operationText + " " + (operation === 'translate' ? ':)' : '(:');
+
+    const setSidebarStateJS = useCallback(
+        (isOpen: boolean) => {
+            isSidebarOpenOrClosed(isOpen);
+        },
+        [isSidebarOpenOrClosed]
+    );
+
+    const setSidebarOverlayMountedJS = useCallback((isMounted: boolean) => {
+        setIsSidebarOverlayMounted(isMounted);
+    }, []);
+
+    const triggerSidebarHapticJS = useCallback(() => {
+        triggerLightImpactHaptic();
+    }, []);
+
+    useAnimatedReaction(
+        () => sideBarTranslationX.value > 0,
+        (isOnScreen, wasOnScreen) => {
+            if (wasOnScreen === null || isOnScreen === wasOnScreen) return;
+
+            runOnJS(setSidebarOverlayMountedJS)(isOnScreen);
+        }
+    );
+
+    const animateToTarget = useCallback((target: number, releaseVelocityX?: number) => {
+        'worklet';
+        if (sideBarTranslationX.value === target) {
+            overlayCloseTapLocked.value = false;
+            return
+        }
+
+        isAnimating.value = true;
+        animationTargetX.value = target;
+
+        const onAnimationFinished = (isFinished?: boolean) => {
+            if (!isFinished) return
+            isAnimating.value = false;
+
+            const isOpen = target === SIDEBAR_WIDTH
+            runOnJS(setSidebarStateJS)(isOpen)
+            overlayCloseTapLocked.value = false;
+        };
+
+        if (releaseVelocityX === undefined) {
+            sideBarTranslationX.value = withTiming(
+                target,
+                { duration: 300, easing: Easing.bezier(0.4, 0, 0.2, 1) },
+                onAnimationFinished
+            );
+            return;
+        }
+
+        sideBarTranslationX.value = withSpring(
+            target,
+            {
+                damping: 34,
+                mass: 1,
+                overshootClamping: true,
+                stiffness: 300,
+                velocity: releaseVelocityX,
+            },
+            onAnimationFinished
+        );
+    }, [animationTargetX, isAnimating, overlayCloseTapLocked, setSidebarStateJS, sideBarTranslationX]);
 
     const openSidebar = useCallback(() => {
         if (isAnimating.value) return;
-        isAnimating.value = true;
+        sidebarPressCompletedRef.current = true;
+        triggerSidebarHapticJS();
         Keyboard.dismiss();
-        sideBarTranslationX.value = withTiming(
-            SIDEBAR_WIDTH,
-            { duration: 500, easing: Easing.bezier(0.23, 1, 0.32, 1) },
-            (isFinished) => {
-                if (isFinished) {
-                    isAnimating.value = false;
-                }
-            }
-        );
-    }, []);
+        animateToTarget(SIDEBAR_WIDTH)
+    }, [animateToTarget, isAnimating, triggerSidebarHapticJS]);
 
-    const closeSidebar = useCallback(() => {
-        if (isAnimating.value) return;
-        isAnimating.value = true;
-        sideBarTranslationX.value = withTiming(
-            0,
-            { duration: 500, easing: Easing.bezier(0.23, 1, 0.32, 1) },
-            (isFinished) => {
-                if (isFinished) {
-                    isAnimating.value = false;
-                }
-            }
-        );
-    }, []);
+    const handleSidebarPressIn = useCallback(() => {
+        sidebarPressCompletedRef.current = false;
+        setSidebarOverlayMountedJS(true);
+    }, [setSidebarOverlayMountedJS]);
 
-    const updateJsState = useCallback((value: number) => {
-        const isSidebarClosed = value === 0;
-        setIsSideBarPosAtStart(isSidebarClosed);
-        isSideBarPosAtStartShared.value = isSidebarClosed;
+    const handleSidebarPressOut = useCallback(() => {
+        requestAnimationFrame(() => {
+            if (sidebarPressCompletedRef.current || isAnimating.value || sideBarTranslationX.value > 0) return;
 
-        if (value === 0 || value === SIDEBAR_WIDTH) {
-            isSidebarOpenOrClosed(!isSidebarClosed);
-        }
-    }, [isSidebarOpenOrClosed]);
-
-    useAnimatedReaction(
-        () => sideBarTranslationX.value,
-        (currentValue, previousValue) => {
-            if (currentValue !== previousValue) {
-                scheduleOnRN(updateJsState, currentValue);
-            }
-        },
-        [updateJsState]
-    );
+            setSidebarOverlayMountedJS(false);
+        });
+    }, [isAnimating, setSidebarOverlayMountedJS, sideBarTranslationX]);
 
     const panGesture = useMemo(() => {
-        const clampToSidebar = (value: number) => {
-            'worklet';
-            if (value < 0) return 0;
-            if (value > SIDEBAR_WIDTH) return SIDEBAR_WIDTH;
-            return value;
-        };
-
-        const animateToTarget = (target: number) => {
-            'worklet';
-            if (sideBarTranslationX.value === target) {
-                return;
-            }
-            isAnimating.value = true;
-            sideBarTranslationX.value = withTiming(
-                target,
-                { duration: 500, easing: Easing.bezier(0.23, 1, 0.32, 1) },
-                (isFinished) => {
-                    if (isFinished) {
-                        isAnimating.value = false;
-                    }
-                }
-            );
-        };
 
         return Gesture.Pan()
             .simultaneousWithExternalGesture(pagerNativeGesture)
             .requireExternalGestureToFail(pagerNativeGesture)
             .onBegin(() => {
                 gestureStartX.value = sideBarTranslationX.value;
+                gestureStartIsOpen.value = sideBarTranslationX.value >= SIDEBAR_WIDTH / 2;
+                gestureAnimationTargetX.value = animationTargetX.value;
+                gesturePreviousTranslationX.value = 0;
+                hasCapturedSidebarGesture.value = !isAnimating.value;
             })
             .onUpdate((event) => {
-                if (isAnimating.value) {
-                    return;
+                const dragDeltaX = event.translationX - gesturePreviousTranslationX.value;
+                gesturePreviousTranslationX.value = event.translationX;
+
+                if (!hasCapturedSidebarGesture.value) {
+                    const isDraggingAgainstAnimation = gestureAnimationTargetX.value === SIDEBAR_WIDTH
+                        ? dragDeltaX < 0
+                        : dragDeltaX > 0;
+
+                    if (!isDraggingAgainstAnimation) return;
+
+                    if (isAnimating.value) {
+                        cancelAnimation(sideBarTranslationX);
+                        isAnimating.value = false;
+                    }
+
+                    hasCapturedSidebarGesture.value = true;
+                    gestureStartX.value = sideBarTranslationX.value - event.translationX;
                 }
 
                 const proposedPosition = gestureStartX.value + event.translationX;
 
-                if (gestureStartX.value === 0 && proposedPosition <= 0 && isSideBarPosAtStartShared.value) {
-                    sideBarTranslationX.value = 0;
-                    return;
-                }
+                const clamped = Math.max(0, Math.min(SIDEBAR_WIDTH, proposedPosition))
 
-                sideBarTranslationX.value = clampToSidebar(proposedPosition);
+                sideBarTranslationX.value = clamped;
             })
             .onEnd((event) => {
-                if (isAnimating.value) {
-                    return;
-                }
+                if (!hasCapturedSidebarGesture.value) return;
+                if (isAnimating.value) return;
 
                 const currentX = sideBarTranslationX.value;
                 const flingVelocity = 400;
@@ -149,21 +195,31 @@ export default function Home() {
                     shouldOpen = false;
                 }
 
-                const target = shouldOpen ? SIDEBAR_WIDTH : 0;
-                animateToTarget(target);
+                const didSidebarStateChange = shouldOpen !== gestureStartIsOpen.value;
+
+                if (didSidebarStateChange) {
+                    runOnJS(triggerSidebarHapticJS)();
+                }
+                animateToTarget(shouldOpen ? SIDEBAR_WIDTH : 0, event.velocityX);
+            })
+            .onFinalize(() => {
+                hasCapturedSidebarGesture.value = false;
             });
-    }, [gestureStartX, isAnimating, isSideBarPosAtStartShared, pagerNativeGesture, sideBarTranslationX]);
+    }, [animateToTarget, animationTargetX, gestureAnimationTargetX, gesturePreviousTranslationX, gestureStartIsOpen, gestureStartX, hasCapturedSidebarGesture, isAnimating, pagerNativeGesture, sideBarTranslationX, triggerSidebarHapticJS]);
 
     const overlayTapGesture = useMemo(() => {
         return Gesture.Tap()
             .maxDuration(2000)
             .shouldCancelWhenOutside(false)
             .onEnd((_event, successful) => {
-                if (successful) {
-                    scheduleOnRN(closeSidebar);
-                }
+                if (!successful) return;
+                if (overlayCloseTapLocked.value) return;
+
+                overlayCloseTapLocked.value = true;
+                runOnJS(triggerSidebarHapticJS)();
+                animateToTarget(0);
             });
-    }, [closeSidebar]);
+    }, [animateToTarget, overlayCloseTapLocked, triggerSidebarHapticJS]);
 
     useEffect(() => {
         const unsubscribe = usePagerPos.subscribe(
@@ -193,7 +249,11 @@ export default function Home() {
                             <Header
                                 title={"S A P O"}
                                 leftComponent={(
-                                    <TouchableWithoutFeedback onPress={openSidebar}>
+                                    <TouchableWithoutFeedback
+                                        onPressIn={handleSidebarPressIn}
+                                        onPress={openSidebar}
+                                        onPressOut={handleSidebarPressOut}
+                                    >
                                         <View style={{ padding: 6 }}>
                                             <SidebarIcon width={40} height={32} stroke="black" />
                                         </View>
@@ -202,18 +262,32 @@ export default function Home() {
                                 rightComponent={<TranslateButton />}
                             />
                             <View style={{ backgroundColor: 'transparent', paddingHorizontal: 24, paddingTop: 0, paddingBottom: 3 }}>
-                                <Text style={styles.modeText}>{modeText + " " + (mode === 'translate' ? ':)' : '(:')}</Text>
+                                <Text style={styles.operationText}>{operationLabel}</Text>
                             </View>
                             <GestureDetector gesture={pagerNativeGesture}>
                                 <PagerView
                                     ref={pagerRef}
                                     style={styles.pagerView}
                                     initialPage={0}
+                                    onPageScrollStateChanged={(e) => {
+                                        if (e.nativeEvent.pageScrollState === 'idle') {
+                                            if (usePagerPos.getState().pos !== pos.current) {
+                                                setPos(pos.current)
+                                            }
+                                        }
+                                    }}
                                     scrollEnabled={true}
                                     overScrollMode="never"
+                                    keyboardDismissMode="on-drag"
                                     orientation="horizontal"
-                                    onPageScroll={(e) => setOffset(e.nativeEvent.offset)}
-                                    onPageSelected={(e) => setPos(e.nativeEvent.position)}
+                                    onPageScroll={
+                                        (e) => setOffset(e.nativeEvent.offset)
+                                    }
+                                    onPageSelected={
+                                        (e) => {
+                                            pos.current = e.nativeEvent.position
+                                        }
+                                    }
                                 >
                                     <View key="1" style={{ width: "100%", height: "100%" }}>
                                         <TextToTranslateInput />
@@ -223,7 +297,7 @@ export default function Home() {
                                     </View>
                                 </PagerView>
                             </GestureDetector>
-                            {!isSideBarPosAtStart && (
+                            {isSidebarOverlayMounted && (
                                 <GestureDetector gesture={overlayTapGesture}>
                                     <Animated.View style={styles.mainContentOverlay} />
                                 </GestureDetector>
@@ -233,7 +307,7 @@ export default function Home() {
                 </GestureDetector>
                 <TargetLanguageSelectorBottomSheet />
                 <SourceLangugeSelectorBottomSheet />
-                <AccountTapBottomSheet />
+                <LocalModelSelectorBottomSheet />
             </GestureHandlerRootView>
         </View>
     );
@@ -259,7 +333,7 @@ const styles = StyleSheet.create({
     pagerView: {
         flex: 1,
     },
-    modeText: {
+    operationText: {
         fontSize: 13,
         lineHeight: 13,
         color: "#aaa",

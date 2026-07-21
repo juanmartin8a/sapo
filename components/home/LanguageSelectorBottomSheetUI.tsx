@@ -1,7 +1,5 @@
 import BottomSheet, { BottomSheetFlatList } from "@gorhom/bottom-sheet";
-import { Text, TouchableOpacity } from "react-native";
-import { View } from "react-native";
-import { StyleSheet } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import CheckIcon from "@/assets/icons/check.svg";
 import React from "react";
@@ -10,7 +8,7 @@ import { BottomSheetMethods } from "@gorhom/bottom-sheet/lib/typescript/types";
 interface LangugeSelectorBottomSheetUIProps {
     ref: React.RefObject<BottomSheetMethods | null>;
     data: ([string, string])[];
-    selectedIndex: number;
+    selectedKey: string;
     onClose: () => void;
     onChange: (index: number) => void;
     onLanguageSelected: (key: string) => void;
@@ -18,8 +16,9 @@ interface LangugeSelectorBottomSheetUIProps {
 
 // UI component for SourceLanguageSelectorBottomSheet.tsx and targetLanguageSelectorBottomSheet.tsx
 
-const LangugeSelectorBottomSheetUI = ({ ref, data, selectedIndex, onClose, onChange, onLanguageSelected }: LangugeSelectorBottomSheetUIProps) => {
+const LangugeSelectorBottomSheetUI = ({ ref, data, selectedKey, onClose, onChange, onLanguageSelected }: LangugeSelectorBottomSheetUIProps) => {
     const insets = useSafeAreaInsets();
+    // console.log(ref.current)
 
     return (
         <BottomSheet
@@ -31,16 +30,15 @@ const LangugeSelectorBottomSheetUI = ({ ref, data, selectedIndex, onClose, onCha
             handleIndicatorStyle={styles.handleIndicator}
             onClose={onClose}
             onChange={onChange}
-            style={styles.bottomSheet}
             backgroundStyle={styles.bottomSheetBackground}
         >
             <BottomSheetFlatList
                 data={data}
-                keyExtractor={([key]) => key}
+                keyExtractor={(item: [string, string]) => item[0]}
                 ItemSeparatorComponent={() => <View style={{ height: 12 }}></View>}
-                renderItem={({ item: [key, value] }) => {
-                    const index = parseInt(key);
-                    const isSelected = index === selectedIndex;
+                renderItem={({ item }: { item: [string, string] }) => {
+                    const [key, value] = item;
+                    const isSelected = key === selectedKey;
 
                     return (
                         <TouchableOpacity
@@ -63,12 +61,6 @@ const LangugeSelectorBottomSheetUI = ({ ref, data, selectedIndex, onClose, onCha
 const styles = StyleSheet.create({
     contentContainer: {
         paddingHorizontal: 24,
-    },
-    bottomSheet: {
-        shadowColor: "#aaa",
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.25,
-        shadowRadius: 10,
     },
     handleIndicator: {
         backgroundColor: 'white',

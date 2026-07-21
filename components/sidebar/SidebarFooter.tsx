@@ -1,32 +1,53 @@
 import { authClient } from '@/clients/auth-client';
-import { HomeBottomSheetKey } from '@/types/bottomSheets';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo } from 'react';
 import { StyleSheet, TouchableOpacity, Text, View } from 'react-native';
 import LogInIcon from '@/assets/icons/log-in.svg';
+import { useQuery } from 'convex/react';
+import { api } from '@/convex/_generated/api';
+import useSubscriptionStatusStore from '@/stores/subscriptionStatusStore';
+import { getSessionUserAuthState } from '@/utils/auth';
+import { APP_ROUTES } from '@/constants/routes';
 
-type SideBarFooterProps = {
-    requestBottomSheet: (sheet: HomeBottomSheetKey) => void
-}
-
-const SideBarFooter = ({ requestBottomSheet }: SideBarFooterProps) => {
+const SideBarFooter = () => {
     const router = useRouter();
     const { data: session } = authClient.useSession()
-    const user = session?.user;
-    const email = user?.email ?? "";
-    const emailInitial = user?.email.charAt(0).toUpperCase();
-    const isSignedIn = !!user;
+    const convexUser = useQuery(api.auth.getCurrentUser, session ? {} : "skip");
+    const authState = getSessionUserAuthState(session?.user);
+    const subscriptionUserId = useSubscriptionStatusStore((state) => state.userId);
+    const hasActiveSubscription = useSubscriptionStatusStore((state) => state.hasActiveSubscription);
+    const isAuthenticatedSession = authState === 'authenticated';
+    const email = useMemo(() => {
+        if (!isAuthenticatedSession) {
+            return null;
+        }
+
+        return convexUser?.email ?? session?.user?.email ?? null;
+    }, [convexUser?.email, isAuthenticatedSession, session?.user?.email])
+    const subscriptionLabel = useMemo(() => {
+        const isCurrentUserSubscribed = subscriptionUserId === session?.user?.id &&
+            hasActiveSubscription === true;
+        return isCurrentUserSubscribed ? 'Polyglot' : 'free';
+    }, [hasActiveSubscription, session?.user?.id, subscriptionUserId])
+    const emailInitial = useMemo(() => {
+        return email?.[0]?.toUpperCase();
+    }, [email])
+    const isAuthenticated = React.useMemo(() => isAuthenticatedSession && !!email, [email, isAuthenticatedSession]);
 
     const handleSignInPress = useCallback(() => {
-        router.push('/auth');
+        router.push(APP_ROUTES.AUTH);
+    }, [router]);
+
+    const handleOpenSettings = useCallback(() => {
+        router.push(APP_ROUTES.SETTINGS);
     }, [router]);
 
     return (
         <View style={styles.footer}>
-            {isSignedIn ? (
+            {isAuthenticated ? (
                 <View style={styles.userActionsContainer}>
                     <TouchableOpacity
-                        onPress={() => requestBottomSheet('account_tap')}
+                        onPress={handleOpenSettings}
                         activeOpacity={0.7}
                         style={styles.userContainer}
                     >
@@ -37,7 +58,7 @@ const SideBarFooter = ({ requestBottomSheet }: SideBarFooterProps) => {
                             <Text style={styles.emailText} numberOfLines={1}>
                                 {email}
                             </Text>
-                            <Text style={styles.planText}>Free</Text>
+                            <Text style={styles.planText}>{subscriptionLabel}</Text>
                         </View>
                     </TouchableOpacity>
                 </View>
