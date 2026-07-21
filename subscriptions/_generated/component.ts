@@ -200,13 +200,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         any,
         Name
       >;
-      finalizeStaleSubscriptionQuotaUsage: FunctionReference<
-        "mutation",
-        "internal",
-        { now_ms: number; usage_event_id: string },
-        any,
-        Name
-      >;
       getActiveRevenueCatEventProcessingForUserDeletion: FunctionReference<
         "query",
         "internal",

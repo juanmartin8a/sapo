@@ -1,4 +1,4 @@
-import { parseString } from "../subscriptionsConfig";
+import { parseString } from "./config";
 
 export type RevenueCatWebhookPayload = {
     event?: Record<string, unknown>;

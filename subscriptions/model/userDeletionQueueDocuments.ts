@@ -1,7 +1,7 @@
-import type { Doc } from "./_generated/dataModel";
-import type { MutationCtx, QueryCtx } from "./_generated/server";
-import type { UserDeletionCleanupStep, UserDeletionQueueStatus } from "../userDeletionQueue";
-import { MAX_PERSISTED_ERROR_MESSAGE_CHARS } from "../constants/limits";
+import type { Doc } from "../_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
+import type { UserDeletionCleanupStep, UserDeletionQueueStatus } from "../../model/subscriptions/userDeletionQueue";
+import { MAX_PERSISTED_ERROR_MESSAGE_CHARS } from "../../constants/limits";
 
 type DbReaderCtx = Pick<MutationCtx, "db"> | Pick<QueryCtx, "db">;
 

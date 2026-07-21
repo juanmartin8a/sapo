@@ -9,7 +9,7 @@ import {
     getRevenueCatEventsRetentionMs,
     getSubscriptionProcessingConfig,
     hasPolyglotSubscriptionFilters,
-} from "../subscriptionsConfig";
+} from "../model/subscriptions/config";
 
 const originalEnv = process.env;
 

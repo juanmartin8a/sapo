@@ -1,7 +1,7 @@
-import { buildCorsResponseHeaders } from "../httpCors";
-import { parseString } from "../subscriptionsConfig";
-import { POST_OPTIONS_METHODS } from "../constants/http";
-import { MAX_PERSISTED_ERROR_MESSAGE_CHARS } from "../constants/limits";
+import { POST_OPTIONS_METHODS } from "../../constants/http";
+import { MAX_PERSISTED_ERROR_MESSAGE_CHARS } from "../../constants/limits";
+import { buildCorsResponseHeaders } from "../http/cors";
+import { parseString } from "./config";
 
 function normalizeBearerValue(value: string): string {
     return value.replace(/^Bearer\s+/i, "").trim();

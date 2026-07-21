@@ -1,4 +1,4 @@
-import { components } from "../_generated/api";
+import { components } from "../../_generated/api";
 
 const SIGN_IN_PROVIDER_IDS = ["google", "apple"] as const;
 

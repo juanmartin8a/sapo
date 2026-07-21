@@ -9,10 +9,11 @@
  */
 
 import type * as adapter from "../adapter.js";
-import type * as appleTokens from "../appleTokens.js";
 import type * as auth from "../auth.js";
-import type * as providerAccount from "../providerAccount.js";
-import type * as user from "../user.js";
+import type * as model_appleTokens from "../model/appleTokens.js";
+import type * as model_auth from "../model/auth.js";
+import type * as model_providerAccount from "../model/providerAccount.js";
+import type * as model_user from "../model/user.js";
 
 import type {
   ApiFromModules,
@@ -23,10 +24,11 @@ import { anyApi, componentsGeneric } from "convex/server";
 
 const fullApi: ApiFromModules<{
   adapter: typeof adapter;
-  appleTokens: typeof appleTokens;
   auth: typeof auth;
-  providerAccount: typeof providerAccount;
-  user: typeof user;
+  "model/appleTokens": typeof model_appleTokens;
+  "model/auth": typeof model_auth;
+  "model/providerAccount": typeof model_providerAccount;
+  "model/user": typeof model_user;
 }> = anyApi as any;
 
 /**

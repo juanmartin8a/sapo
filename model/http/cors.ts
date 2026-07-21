@@ -1,4 +1,4 @@
-import { parseString } from "./subscriptionsConfig";
+import { parseString } from "../subscriptions/config";
 
 type CorsHeadersOptions = {
     contentType?: string;

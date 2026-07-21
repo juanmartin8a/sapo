@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 
-import { createAbortableStream } from "../abortableStream";
+import { createAbortableStream } from "../../model/sapopinguino/abortableStream";
 
 function requireUpstreamSignal(signal: AbortSignal | null) {
     if (!signal) {

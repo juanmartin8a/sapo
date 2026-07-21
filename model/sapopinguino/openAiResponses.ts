@@ -1,4 +1,4 @@
-import { ABORT_ERROR_NAME } from "../constants/errors";
+import { ABORT_ERROR_NAME } from "../../constants/errors";
 
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 const OPENAI_RESPONSES_TOTAL_TIMEOUT_MS = 120_000;

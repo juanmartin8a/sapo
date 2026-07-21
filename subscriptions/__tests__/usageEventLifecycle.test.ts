@@ -5,7 +5,7 @@ import {
     finalizeStaleUsageEvent,
     resolveStaleUsageEventTransition,
     resolveUsageEventFailureTransition,
-} from "../usageEventLifecycle";
+} from "../model/usageEventLifecycle";
 
 describe("usage event lifecycle", () => {
     it("only completes charged usage", () => {

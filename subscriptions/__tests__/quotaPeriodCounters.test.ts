@@ -2,14 +2,14 @@ import { describe, expect, it } from "@jest/globals";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { shouldBlockQuotaUsageForPeriod } from "../quotaAvailability";
+import { shouldBlockQuotaUsageForPeriod } from "../model/quotaAvailability";
 import {
     INPUT_CHARACTERS_QUOTA_UNIT,
     applyQuotaPeriodCounterCharge,
     getOrCreateQuotaPeriodCounter,
     resolveQuotaCounterReservationSnapshot,
     shouldRejectQuotaInputBeforeCounterCreation,
-} from "../quotaPeriodCounters";
+} from "../model/quotaPeriodCounters";
 
 type FakeCounterDoc = {
     _id: string;

@@ -1,7 +1,7 @@
-import { components } from "../_generated/api";
-import type { SubscriptionPlanKey } from "../constants/subscriptions";
-import type { ActionCtx } from "../_generated/server";
-import type { UserDeletionCleanupStep, UserDeletionQueueStatus } from "../userDeletionQueue";
+import { components } from "../../_generated/api";
+import type { SubscriptionPlanKey } from "../../constants/subscriptions";
+import type { ActionCtx } from "../../_generated/server";
+import type { UserDeletionCleanupStep, UserDeletionQueueStatus } from "./userDeletionQueue";
 
 export type SubscriptionStateReconciliationCtx = Pick<ActionCtx, "runQuery" | "runMutation">;
 

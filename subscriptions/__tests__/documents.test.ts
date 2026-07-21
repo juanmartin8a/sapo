@@ -3,7 +3,7 @@ import { describe, expect, it } from "@jest/globals";
 import {
     deleteUsageEventsByUserIdBatch,
     prepareQuotaPeriodsForUserDeletionBatch,
-} from "../documents";
+} from "../model/documents";
 
 describe("subscription documents", () => {
     it("authoritatively deletes a processing usage event during account cleanup", async () => {

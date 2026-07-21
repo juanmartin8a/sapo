@@ -1,4 +1,4 @@
-import { components } from "./_generated/api";
+import { components } from "../_generated/api";
 import { Resend } from "@convex-dev/resend";
 
 const resend: Resend = new Resend(components.resend, { testMode: false });

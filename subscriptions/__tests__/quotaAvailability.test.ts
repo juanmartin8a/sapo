@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 
-import { shouldBlockQuotaUsageForPeriod } from "../quotaAvailability";
+import { shouldBlockQuotaUsageForPeriod } from "../model/quotaAvailability";
 
 describe("quota availability", () => {
     it("allows a request that starts before the period limit", () => {

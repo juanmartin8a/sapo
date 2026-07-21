@@ -1,7 +1,7 @@
-import type { Doc } from "./_generated/dataModel";
-import type { MutationCtx, QueryCtx } from "./_generated/server";
-import { summarizeRevenueCatEventUsers } from "./revenueCatEventUsers";
-import { resolveRevenueCatWebhookTargetUserIds as resolveTargetUserIdsFromRevenueCatEvent } from "./revenueCatWebhookIngestion";
+import type { Doc } from "../_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { summarizeRevenueCatEventUsers } from "../../model/subscriptions/revenueCatEventUsers";
+import { resolveRevenueCatWebhookTargetUserIds as resolveTargetUserIdsFromRevenueCatEvent } from "../../model/subscriptions/revenueCatWebhookIngestion";
 
 type DbReaderCtx = Pick<MutationCtx, "db"> | Pick<QueryCtx, "db">;
 type DbWriterCtx = Pick<MutationCtx, "db">;

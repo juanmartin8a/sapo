@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "@jest/globals";
 
-import { buildCorsResponseHeaders, isAllowedCorsRequest } from "../httpCors";
+import { buildCorsResponseHeaders, isAllowedCorsRequest } from "../model/http/cors";
 
 const originalEnv = process.env;
 

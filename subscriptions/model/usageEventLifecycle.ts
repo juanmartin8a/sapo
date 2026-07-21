@@ -1,5 +1,5 @@
-import type { Id } from "./_generated/dataModel";
-import type { MutationCtx } from "./_generated/server";
+import type { Id } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
 
 export type UsageEventState = "processing" | "completed" | "failed" | "indeterminate";
 export type UsageEventQuotaState = "reserved" | "charged" | "released";

@@ -6,10 +6,10 @@ import {
     getRevenueCatEventsRetentionMs,
     hasPolyglotSubscriptionFilters,
     parseString,
-} from "../subscriptionsConfig";
-import { ABORT_ERROR_NAME } from "../constants/errors";
-import { MAX_PERSISTED_ERROR_MESSAGE_CHARS } from "../constants/limits";
-import type { SubscriptionPlanKey } from "../constants/subscriptions";
+} from "./config";
+import { ABORT_ERROR_NAME } from "../../constants/errors";
+import { MAX_PERSISTED_ERROR_MESSAGE_CHARS } from "../../constants/limits";
+import type { SubscriptionPlanKey } from "../../constants/subscriptions";
 
 const REVENUECAT_API_V2_BASE_URL = "https://api.revenuecat.com/v2";
 const REVENUECAT_READ_REQUEST_TIMEOUT_MS = 5_000;

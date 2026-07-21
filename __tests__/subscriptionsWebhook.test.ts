@@ -3,7 +3,7 @@ import { describe, expect, it } from "@jest/globals";
 import {
     resolveRevenueCatWebhookTargetUserIds,
     shouldSkipRevenueCatWebhookIngestion,
-} from "../subscriptionsWebhook";
+} from "../model/subscriptions/revenueCatWebhookIngestion";
 
 describe("RevenueCat webhook ingestion guards", () => {
     it("prefers transferred users and ignores RevenueCat-generated ids", () => {

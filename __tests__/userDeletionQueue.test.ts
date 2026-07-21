@@ -17,7 +17,7 @@ import {
     USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS,
     USER_DELETION_CLEANUP_DEAD_LETTER_STATUS,
     USER_DELETION_LATE_AUTH_WAIT_STATUS,
-} from "../userDeletionQueue";
+} from "../model/subscriptions/userDeletionQueue";
 
 describe("user deletion queue helpers", () => {
     it("blocks user processing for every queued deletion status", () => {

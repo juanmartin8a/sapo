@@ -1,9 +1,9 @@
-import { httpAction, type ActionCtx } from "./_generated/server";
-import { isAllowedCorsRequest } from "./httpCors";
+import { httpAction, type ActionCtx } from "../../_generated/server";
+import { isAllowedCorsRequest } from "./cors";
 
-import { authComponent } from "./betterAuth/auth";
-import { hasSignInProviderAccount } from "./betterAuth/providerAccount";
-import { resolveBetterAuthUserId } from "./betterAuth/user";
+import { authComponent } from "../../betterAuth/auth";
+import { hasSignInProviderAccount } from "../../betterAuth/model/providerAccount";
+import { resolveBetterAuthUserId } from "../../betterAuth/model/user";
 
 type AuthenticatedUser = NonNullable<Awaited<ReturnType<typeof authComponent.safeGetAuthUser>>>;
 

@@ -1,9 +1,15 @@
 import { afterEach, describe, expect, it, jest } from "@jest/globals";
-import { handleSapopinguinoRequest } from "../../sapopinguinoHttp";
-import { handleSapopinguinoTranslateRequest } from "../../sapopinguinoTranslate";
+import { handleSapopinguinoRequest } from "../../model/sapopinguino/respellHttp";
+import { handleSapopinguinoTranslateRequest } from "../../model/sapopinguino/translateHttp";
 
-jest.mock("../../httpAuth", () => ({
+jest.mock("../../model/http/auth", () => ({
     authenticatedHttpAction: (handler: unknown) => handler,
+}));
+
+jest.mock("../../model/subscriptions/workers", () => ({
+    refreshSubscriptionStateFromRevenueCatHandler: async () => ({
+        status: "already_fresh",
+    }),
 }));
 
 const originalOpenAIKey = process.env.OPENAI_API_KEY;

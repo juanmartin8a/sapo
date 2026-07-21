@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 
-import { getExclusiveLeaseOwnershipFailure } from "../leaseOwnership";
+import { getExclusiveLeaseOwnershipFailure } from "../model/leaseOwnership";
 
 describe("exclusive lease ownership", () => {
     it("requires a caller attempt id", () => {

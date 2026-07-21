@@ -5,8 +5,8 @@ import {
     SUBSCRIPTION_USAGE_OPERATIONS,
     type SubscriptionPlanKey,
     type SubscriptionUsageOperation,
-} from "../constants/subscriptions";
-import type { MutationCtx } from "./_generated/server";
+} from "../../constants/subscriptions";
+import type { MutationCtx } from "../_generated/server";
 
 export const subscriptionPlanKeyValidator = v.union(
     v.literal(SUBSCRIPTION_PLAN_KEYS.FREE),

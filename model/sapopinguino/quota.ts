@@ -1,7 +1,7 @@
-import { components } from "./_generated/api";
-import type { ActionCtx } from "./_generated/server";
-import type { Id } from "./subscriptions/_generated/dataModel";
-import type { SubscriptionUsageOperation } from "./constants/subscriptions";
+import { components } from "../../_generated/api";
+import type { ActionCtx } from "../../_generated/server";
+import type { Id } from "../../subscriptions/_generated/dataModel";
+import type { SubscriptionUsageOperation } from "../../constants/subscriptions";
 
 export type SapopinguinoQuotaOperation = SubscriptionUsageOperation;
 export type SapopinguinoQuotaOutcome = "completed" | "failed";

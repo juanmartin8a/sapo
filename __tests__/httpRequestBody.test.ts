@@ -1,6 +1,6 @@
 import { describe, expect, it, jest } from "@jest/globals";
 
-import { readBoundedJsonRequestBody } from "../httpRequestBody";
+import { readBoundedJsonRequestBody } from "../model/http/requestBody";
 
 describe("bounded HTTP request bodies", () => {
     it("reads valid JSON within the byte limit", async () => {

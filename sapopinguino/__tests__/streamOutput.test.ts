@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 
-import { closeStreamOutput, tryEnqueueStreamOutput } from "../streamOutput";
+import { closeStreamOutput, tryEnqueueStreamOutput } from "../../model/sapopinguino/streamOutput";
 
 describe("stream output", () => {
     it("does not throw when a disconnected client rejects an output write", () => {

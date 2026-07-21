@@ -1,16 +1,16 @@
-import type { Doc, Id } from "./_generated/dataModel";
-import type { MutationCtx, QueryCtx } from "./_generated/server";
+import type { Doc, Id } from "../_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 import {
     INPUT_CHARACTERS_QUOTA_UNIT,
     SUBSCRIPTION_USAGE_OPERATIONS,
-} from "../constants/subscriptions";
+} from "../../constants/subscriptions";
 import {
     resolveOperationLimits,
     type SubscriptionPlanLimits,
     type SubscriptionUsageOperation,
 } from "./planLimits";
 
-export { INPUT_CHARACTERS_QUOTA_UNIT } from "../constants/subscriptions";
+export { INPUT_CHARACTERS_QUOTA_UNIT } from "../../constants/subscriptions";
 
 export type SubscriptionQuotaUnit = typeof INPUT_CHARACTERS_QUOTA_UNIT;
 export type QuotaPeriodUsageSnapshot = {

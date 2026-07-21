@@ -4,7 +4,7 @@ import {
     USER_DELETION_CLEANUP_STEPS,
     USER_DELETION_LATE_AUTH_WAIT_STATUS,
     USER_DELETION_QUEUE_STATUSES,
-} from "./constants/userDeletion";
+} from "../../constants/userDeletion";
 
 export {
     USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS,

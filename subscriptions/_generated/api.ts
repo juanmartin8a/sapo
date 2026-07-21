@@ -8,23 +8,18 @@
  * @module
  */
 
-import type * as documents from "../documents.js";
-import type * as leaseOwnership from "../leaseOwnership.js";
-import type * as planLimits from "../planLimits.js";
-import type * as quotaAvailability from "../quotaAvailability.js";
-import type * as quotaPeriodCounters from "../quotaPeriodCounters.js";
-import type * as revenueCatApi from "../revenueCatApi.js";
-import type * as revenueCatEventUserDocuments from "../revenueCatEventUserDocuments.js";
-import type * as revenueCatEventUsers from "../revenueCatEventUsers.js";
-import type * as revenueCatWebhookHttp from "../revenueCatWebhookHttp.js";
-import type * as revenueCatWebhookIngestion from "../revenueCatWebhookIngestion.js";
-import type * as revenueCatWebhookPayload from "../revenueCatWebhookPayload.js";
-import type * as subscriptionWindows from "../subscriptionWindows.js";
-import type * as usageEventLifecycle from "../usageEventLifecycle.js";
-import type * as userDeletionQueueDocuments from "../userDeletionQueueDocuments.js";
-import type * as userDeletionRevenueCatEvents from "../userDeletionRevenueCatEvents.js";
+import type * as model_documents from "../model/documents.js";
+import type * as model_leaseOwnership from "../model/leaseOwnership.js";
+import type * as model_planLimits from "../model/planLimits.js";
+import type * as model_quotaAvailability from "../model/quotaAvailability.js";
+import type * as model_quotaPeriodCounters from "../model/quotaPeriodCounters.js";
+import type * as model_revenueCatEventUserDocuments from "../model/revenueCatEventUserDocuments.js";
+import type * as model_subscriptionWindows from "../model/subscriptionWindows.js";
+import type * as model_usageEventLifecycle from "../model/usageEventLifecycle.js";
+import type * as model_userDeletionQueueDocuments from "../model/userDeletionQueueDocuments.js";
+import type * as model_userDeletionRevenueCatEvents from "../model/userDeletionRevenueCatEvents.js";
+import type * as model_webhook from "../model/webhook.js";
 import type * as webhook from "../webhook.js";
-import type * as workersComponentApi from "../workersComponentApi.js";
 
 import type {
   ApiFromModules,
@@ -34,23 +29,18 @@ import type {
 import { anyApi, componentsGeneric } from "convex/server";
 
 const fullApi: ApiFromModules<{
-  documents: typeof documents;
-  leaseOwnership: typeof leaseOwnership;
-  planLimits: typeof planLimits;
-  quotaAvailability: typeof quotaAvailability;
-  quotaPeriodCounters: typeof quotaPeriodCounters;
-  revenueCatApi: typeof revenueCatApi;
-  revenueCatEventUserDocuments: typeof revenueCatEventUserDocuments;
-  revenueCatEventUsers: typeof revenueCatEventUsers;
-  revenueCatWebhookHttp: typeof revenueCatWebhookHttp;
-  revenueCatWebhookIngestion: typeof revenueCatWebhookIngestion;
-  revenueCatWebhookPayload: typeof revenueCatWebhookPayload;
-  subscriptionWindows: typeof subscriptionWindows;
-  usageEventLifecycle: typeof usageEventLifecycle;
-  userDeletionQueueDocuments: typeof userDeletionQueueDocuments;
-  userDeletionRevenueCatEvents: typeof userDeletionRevenueCatEvents;
+  "model/documents": typeof model_documents;
+  "model/leaseOwnership": typeof model_leaseOwnership;
+  "model/planLimits": typeof model_planLimits;
+  "model/quotaAvailability": typeof model_quotaAvailability;
+  "model/quotaPeriodCounters": typeof model_quotaPeriodCounters;
+  "model/revenueCatEventUserDocuments": typeof model_revenueCatEventUserDocuments;
+  "model/subscriptionWindows": typeof model_subscriptionWindows;
+  "model/usageEventLifecycle": typeof model_usageEventLifecycle;
+  "model/userDeletionQueueDocuments": typeof model_userDeletionQueueDocuments;
+  "model/userDeletionRevenueCatEvents": typeof model_userDeletionRevenueCatEvents;
+  "model/webhook": typeof model_webhook;
   webhook: typeof webhook;
-  workersComponentApi: typeof workersComponentApi;
 }> = anyApi as any;
 
 /**

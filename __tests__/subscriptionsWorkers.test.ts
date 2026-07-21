@@ -3,10 +3,10 @@ import { afterEach, describe, expect, it, jest } from "@jest/globals";
 import {
     finalizeDeletedUserData,
     prepareUserAccountDeletion,
-    processRevenueCatWebhookEventById,
     queueDeletedUserDataCleanup,
 } from "../subscriptionsWorkers";
-import { type CurrentSubscriptionState } from "../subscriptions/revenueCatApi";
+import { processRevenueCatWebhookEventById } from "../model/subscriptions/workers";
+import { type CurrentSubscriptionState } from "../model/subscriptions/revenueCatApi";
 
 const originalEnv = process.env;
 const originalFetch = globalThis.fetch;

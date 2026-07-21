@@ -4,7 +4,7 @@ import {
     isValidSapopinguinoStreamId,
     readSapopinguinoJsonRequestBody,
     sanitizeSapopinguinoInputPayload,
-} from "../sapopinguinoInput";
+} from "../model/sapopinguino/input";
 
 describe("sapopinguino input sanitization", () => {
     it("keeps only the prompt fields used by the app", () => {

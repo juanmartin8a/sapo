@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, jest } from "@jest/globals";
 
-import { streamOpenAIResponses } from "../openAiResponses";
+import { streamOpenAIResponses } from "../../model/sapopinguino/openAiResponses";
 
 const encoder = new TextEncoder();
 const originalOpenAIKey = process.env.OPENAI_API_KEY;
