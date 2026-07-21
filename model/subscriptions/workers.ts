@@ -1,6 +1,6 @@
-import { v } from "convex/values";
 import { components, internal } from "../../_generated/api";
-import { internalAction, type ActionCtx } from "../../_generated/server";
+import type { ActionCtx } from "../../_generated/server";
+import type * as WorkerArgs from "../../validators/subscriptionsWorkers";
 import { FAR_FUTURE_TIMESTAMP_MS } from "../../constants/time";
 import {
     PENDING_ACTIVE_SIGNAL_TTL_MS,
@@ -1007,16 +1007,9 @@ export async function processRevenueCatWebhookEventById(
     };
 }
 
-type RefreshSubscriptionStateArgs = {
-    user_id: string;
-    force?: boolean;
-    expects_active_subscription?: boolean;
-    active_signal_at_ms?: number;
-};
-
 export async function refreshSubscriptionStateFromRevenueCatHandler(
     ctx: ActionCtx,
-    args: RefreshSubscriptionStateArgs
+    args: WorkerArgs.RefreshSubscriptionStateFromRevenueCatArgs
 ) {
     const nowMs = Date.now();
 
@@ -1032,22 +1025,7 @@ export async function refreshSubscriptionStateFromRevenueCatHandler(
             : {}),
     });
 }
-
-const refreshSubscriptionStateFromRevenueCat = internalAction({
-    args: {
-        user_id: v.string(),
-        force: v.optional(v.boolean()),
-        expects_active_subscription: v.optional(v.boolean()),
-        active_signal_at_ms: v.optional(v.number()),
-    },
-    handler: refreshSubscriptionStateFromRevenueCatHandler,
-});
-
-const prepareUserAccountDeletion = internalAction({
-    args: {
-        user_id: v.string(),
-    },
-    handler: async (ctx, args) => {
+export const prepareUserAccountDeletion = async (ctx: ActionCtx, args: WorkerArgs.PrepareUserAccountDeletionArgs) => {
         const nowMs = Date.now();
         await startUserDeletionOperationByUserId(ctx, args.user_id, nowMs);
 
@@ -1164,14 +1142,9 @@ const prepareUserAccountDeletion = internalAction({
             await clearUserDeletionOperationByUserId(ctx, args.user_id).catch(() => null);
             throw error;
         }
-    },
-});
+    };
 
-const queueDeletedUserDataCleanup = internalAction({
-    args: {
-        user_id: v.string(),
-    },
-    handler: async (ctx, args) => {
+export const queueDeletedUserDataCleanup = async (ctx: ActionCtx, args: WorkerArgs.QueueDeletedUserDataCleanupArgs) => {
         const nowMs = Date.now();
 
         await markUserDeletionAuthDeletedByUserId(ctx, args.user_id, {
@@ -1187,19 +1160,12 @@ const queueDeletedUserDataCleanup = internalAction({
         return {
             status: "queued" as const,
         };
-    },
-});
+    };
 
-type FinalizeDeletedUserDataArgs = {
-    user_id: string;
-    mark_auth_deleted?: boolean;
-    allow_terminal_recovery?: boolean;
-    cleanup_fast_retry_attempt?: number;
-};
 
-async function finalizeDeletedUserDataHandler(
+export async function finalizeDeletedUserDataHandler(
     ctx: ActionCtx,
-    args: FinalizeDeletedUserDataArgs
+    args: WorkerArgs.FinalizeDeletedUserDataArgs
 ) {
         const nowMs = Date.now();
 
@@ -1760,20 +1726,7 @@ async function finalizeDeletedUserDataHandler(
             });
         }
 }
-
-const finalizeDeletedUserData = internalAction({
-    args: {
-        user_id: v.string(),
-        mark_auth_deleted: v.optional(v.boolean()),
-        allow_terminal_recovery: v.optional(v.boolean()),
-        cleanup_fast_retry_attempt: v.optional(v.number()),
-    },
-    handler: finalizeDeletedUserDataHandler,
-});
-
-const processQueuedUserDeletions = internalAction({
-    args: {},
-    handler: async (ctx) => {
+export const processQueuedUserDeletions = async (ctx: ActionCtx) => {
         const startedAtMs = Date.now();
         const dueOperations = await listDueUserDeletionOperationUserIds(ctx, {
             now_ms: startedAtMs,
@@ -1811,12 +1764,9 @@ const processQueuedUserDeletions = internalAction({
             scanned: dueOperations.length,
             results,
         };
-    },
-});
+    };
 
-const recoverAuthDeleteDeadLetterUserDeletions = internalAction({
-    args: {},
-    handler: async (ctx) => {
+export const recoverAuthDeleteDeadLetterUserDeletions = async (ctx: ActionCtx) => {
         const startedAtMs = Date.now();
         const deadLetterOperations = await listAuthDeleteDeadLetterUserDeletionOperationUserIds(ctx, {
             limit: Math.max(1, Math.min(getRetryBatchLimit(), 25)),
@@ -1864,17 +1814,9 @@ const recoverAuthDeleteDeadLetterUserDeletions = internalAction({
             scanned: deadLetterOperations.length,
             results,
         };
-    },
-});
+    };
 
-const recoverCleanupDeadLetterUserDeletions = internalAction({
-    args: {
-        user_id: v.optional(v.string()),
-        limit: v.optional(v.number()),
-        dry_run: v.optional(v.boolean()),
-        retry_immediately: v.optional(v.boolean()),
-    },
-    handler: async (ctx, args) => {
+export const recoverCleanupDeadLetterUserDeletions = async (ctx: ActionCtx, args: WorkerArgs.RecoverCleanupDeadLetterUserDeletionsArgs) => {
         const startedAtMs = Date.now();
         const retryImmediately =
             args.retry_immediately === true ||
@@ -1928,12 +1870,9 @@ const recoverCleanupDeadLetterUserDeletions = internalAction({
             dry_run: args.dry_run === true,
             results,
         };
-    },
-});
+    };
 
-const checkUserDeletionDeadLetterHealth = internalAction({
-    args: {},
-    handler: async (ctx) => {
+export const checkUserDeletionDeadLetterHealth = async (ctx: ActionCtx) => {
         const [authDeleteDeadLetters, cleanupDeadLetters] = await Promise.all([
             listAuthDeleteDeadLetterUserDeletionOperationUserIds(ctx, {
                 limit: 25,
@@ -1990,15 +1929,9 @@ const checkUserDeletionDeadLetterHealth = internalAction({
             auth_delete_dead_letter_count: authDeleteDeadLetters.length,
             cleanup_dead_letter_count: cleanupDeadLetters.length,
         };
-    },
-});
+    };
 
-const processRevenueCatWebhookEvent = internalAction({
-    args: {
-        // Validate this inside the subscriptions component, not against the app schema.
-        event_doc_id: v.string(),
-    },
-    handler: async (ctx, args) => {
+export const processRevenueCatWebhookEvent = async (ctx: ActionCtx, args: WorkerArgs.ProcessRevenueCatWebhookEventArgs) => {
         const nowMs = Date.now();
 
         try {
@@ -2024,12 +1957,9 @@ const processRevenueCatWebhookEvent = internalAction({
                 status: "failed" as const,
             };
         }
-    },
-});
+    };
 
-const retryRevenueCatWebhookEvents = internalAction({
-    args: {},
-    handler: async (ctx) => {
+export const retryRevenueCatWebhookEvents = async (ctx: ActionCtx) => {
         const startedAtMs = Date.now();
         const batchLimit = getRetryBatchLimit();
         const halfLimit = Math.max(1, Math.floor(batchLimit / 2));
@@ -2099,11 +2029,9 @@ const retryRevenueCatWebhookEvents = internalAction({
             failed: failedCount,
             started_at_ms: startedAtMs,
         };
-    },
-});
-const reconcileExpiredSubscriptionStates = internalAction({
-    args: {},
-    handler: async (ctx): Promise<
+    };
+
+export const reconcileExpiredSubscriptionStates = async (ctx: ActionCtx): Promise<
         | { processed: number; failed: number; scanned: number }
         | { processed: number; failed: number; skipped: string }
     > => {
@@ -2165,12 +2093,9 @@ const reconcileExpiredSubscriptionStates = internalAction({
             failed,
             scanned: dueStates.length,
         };
-    },
-});
+    };
 
-const purgeExpiredRevenueCatEvents = internalAction({
-    args: {},
-    handler: async (ctx) => {
+export const purgeExpiredRevenueCatEvents = async (ctx: ActionCtx) => {
         const nowMs = Date.now();
         const retentionMs = getRevenueCatEventsRetentionMs();
         const olderThanMs = getRevenueCatEventsRetentionCutoffMs(nowMs, retentionMs);
@@ -2212,12 +2137,9 @@ const purgeExpiredRevenueCatEvents = internalAction({
             older_than_ms: olderThanMs,
             deleted_count: deletedCount,
         };
-    },
-});
+    };
 
-const purgeStaleRefreshRateLimits = internalAction({
-    args: {},
-    handler: async (ctx) => {
+export const purgeStaleRefreshRateLimits = async (ctx: ActionCtx) => {
         const retentionMs = getRefreshRateLimitRetentionMs();
         const olderThanMs = Date.now() - retentionMs;
         let batchCount = 0;
@@ -2253,12 +2175,9 @@ const purgeStaleRefreshRateLimits = internalAction({
             scanned_count: scannedCount,
             deleted_count: deletedCount,
         };
-    },
-});
+    };
 
-const purgeExpiredFrozenQuotaPeriods = internalAction({
-    args: {},
-    handler: async (ctx) => {
+export const purgeExpiredFrozenQuotaPeriods = async (ctx: ActionCtx) => {
         const nowMs = Date.now();
         const olderThanMs = nowMs - getFrozenQuotaPeriodRetentionMs();
         let batchCount = 0;
@@ -2293,12 +2212,9 @@ const purgeExpiredFrozenQuotaPeriods = internalAction({
             deleted_count: deletedCount,
             retained_linked_count: retainedLinkedCount,
         };
-    },
-});
+    };
 
-const checkRevenueCatPipelineHealth = internalAction({
-    args: {},
-    handler: async (ctx) => {
+export const checkRevenueCatPipelineHealth = async (ctx: ActionCtx) => {
         const [deadLetterEvents, failedEvents] = await Promise.all([
             ctx.runQuery(components.subscriptions.webhook.listRevenueCatEventsForStatus, {
                 status: "dead_letter",
@@ -2365,23 +2281,4 @@ const checkRevenueCatPipelineHealth = internalAction({
             dead_letter_count: deadLetterEvents.length,
             failed_count: failedEvents.length,
         };
-    },
-});
-
-export const functions = {
-    refreshSubscriptionStateFromRevenueCat,
-    prepareUserAccountDeletion,
-    queueDeletedUserDataCleanup,
-    finalizeDeletedUserData,
-    processQueuedUserDeletions,
-    recoverAuthDeleteDeadLetterUserDeletions,
-    recoverCleanupDeadLetterUserDeletions,
-    checkUserDeletionDeadLetterHealth,
-    processRevenueCatWebhookEvent,
-    retryRevenueCatWebhookEvents,
-    reconcileExpiredSubscriptionStates,
-    purgeExpiredRevenueCatEvents,
-    purgeStaleRefreshRateLimits,
-    purgeExpiredFrozenQuotaPeriods,
-    checkRevenueCatPipelineHealth,
-};
+    };

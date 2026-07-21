@@ -18,9 +18,9 @@ import type * as constants_time from "../constants/time.js";
 import type * as constants_userDeletion from "../constants/userDeletion.js";
 import type * as crons from "../crons.js";
 import type * as http from "../http.js";
+import type * as lib_httpAuth from "../lib/httpAuth.js";
 import type * as model_auth from "../model/auth.js";
 import type * as model_email from "../model/email.js";
-import type * as model_http_auth from "../model/http/auth.js";
 import type * as model_http_cors from "../model/http/cors.js";
 import type * as model_http_refresh from "../model/http/refresh.js";
 import type * as model_http_requestBody from "../model/http/requestBody.js";
@@ -49,6 +49,7 @@ import type * as sapopinguinoHttp from "../sapopinguinoHttp.js";
 import type * as sapopinguinoTranslate from "../sapopinguinoTranslate.js";
 import type * as subscriptionsWebhook from "../subscriptionsWebhook.js";
 import type * as subscriptionsWorkers from "../subscriptionsWorkers.js";
+import type * as validators_subscriptionsWorkers from "../validators/subscriptionsWorkers.js";
 
 import type {
   ApiFromModules,
@@ -67,9 +68,9 @@ declare const fullApi: ApiFromModules<{
   "constants/userDeletion": typeof constants_userDeletion;
   crons: typeof crons;
   http: typeof http;
+  "lib/httpAuth": typeof lib_httpAuth;
   "model/auth": typeof model_auth;
   "model/email": typeof model_email;
-  "model/http/auth": typeof model_http_auth;
   "model/http/cors": typeof model_http_cors;
   "model/http/refresh": typeof model_http_refresh;
   "model/http/requestBody": typeof model_http_requestBody;
@@ -98,6 +99,7 @@ declare const fullApi: ApiFromModules<{
   sapopinguinoTranslate: typeof sapopinguinoTranslate;
   subscriptionsWebhook: typeof subscriptionsWebhook;
   subscriptionsWorkers: typeof subscriptionsWorkers;
+  "validators/subscriptionsWorkers": typeof validators_subscriptionsWorkers;
 }>;
 
 /**

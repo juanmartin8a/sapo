@@ -1,5 +1,5 @@
 import { httpAction } from "./_generated/server";
-import { authenticatedHttpAction } from "./model/http/auth";
+import { authenticatedHttpAction } from "./lib/httpAuth";
 import {
     handleSapopinguinoTranslateOptionsRequest,
     handleSapopinguinoTranslateRequest,

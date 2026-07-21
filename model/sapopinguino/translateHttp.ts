@@ -1,6 +1,6 @@
 import type { ActionCtx } from "../../_generated/server";
 import { buildCorsResponseHeaders, isAllowedCorsRequest } from "../http/cors";
-import type { AuthenticatedHttpContext } from "../http/auth";
+import type { AuthenticatedHttpContext } from "../../lib/httpAuth";
 import { sapopinguinoQuotaErrorResponse } from "./respellHttp";
 import {
     isValidSapopinguinoStreamId,

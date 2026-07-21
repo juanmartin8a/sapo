@@ -19,6 +19,7 @@ import type * as model_usageEventLifecycle from "../model/usageEventLifecycle.js
 import type * as model_userDeletionQueueDocuments from "../model/userDeletionQueueDocuments.js";
 import type * as model_userDeletionRevenueCatEvents from "../model/userDeletionRevenueCatEvents.js";
 import type * as model_webhook from "../model/webhook.js";
+import type * as validators_webhook from "../validators/webhook.js";
 import type * as webhook from "../webhook.js";
 
 import type {
@@ -40,6 +41,7 @@ const fullApi: ApiFromModules<{
   "model/userDeletionQueueDocuments": typeof model_userDeletionQueueDocuments;
   "model/userDeletionRevenueCatEvents": typeof model_userDeletionRevenueCatEvents;
   "model/webhook": typeof model_webhook;
+  "validators/webhook": typeof validators_webhook;
   webhook: typeof webhook;
 }> = anyApi as any;
 

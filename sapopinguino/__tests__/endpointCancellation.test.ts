@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, jest } from "@jest/globals";
 import { handleSapopinguinoRequest } from "../../model/sapopinguino/respellHttp";
 import { handleSapopinguinoTranslateRequest } from "../../model/sapopinguino/translateHttp";
 
-jest.mock("../../model/http/auth", () => ({
+jest.mock("../../lib/httpAuth", () => ({
     authenticatedHttpAction: (handler: unknown) => handler,
 }));
 

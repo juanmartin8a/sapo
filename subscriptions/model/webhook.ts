@@ -1,12 +1,6 @@
-import { v } from "convex/values";
-
 import { internal } from "../_generated/api";
-import {
-    internalMutation,
-    mutation,
-    query,
-    type MutationCtx,
-} from "../_generated/server";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
+import type * as WebhookArgs from "../validators/webhook";
 import type { Doc } from "../_generated/dataModel";
 import {
     getBillingCycleWindow,
@@ -75,8 +69,6 @@ import {
 import {
     resolveOperationLimits,
     resolvePlanLimitsForPlanKey,
-    subscriptionPlanLimitInputValidator,
-    subscriptionUsageOperationValidator,
     type SubscriptionPlanKey,
     type SubscriptionPlanLimits,
     type SubscriptionUsageOperation,
@@ -100,81 +92,15 @@ import { FAR_FUTURE_TIMESTAMP_MS } from "../../constants/time";
 import {
     SUBSCRIPTION_PLAN_KEYS,
 } from "../../constants/subscriptions";
-import {
-    REVENUECAT_TERMINAL_WEBHOOK_EVENT_STATUS_SET,
-    REVENUECAT_WEBHOOK_EVENT_STATUSES,
-} from "../../constants/revenueCat";
-import {
-    USER_DELETION_CLEANUP_STEPS,
-    USER_DELETION_QUEUE_STATUSES,
-} from "../../constants/userDeletion";
+import { REVENUECAT_TERMINAL_WEBHOOK_EVENT_STATUS_SET } from "../../constants/revenueCat";
 
 const PROCESSED_EVENT_STATUSES = REVENUECAT_TERMINAL_WEBHOOK_EVENT_STATUS_SET;
 const SUBSCRIPTION_SYNC_LEASE_MAX_MS = 30_000;
 const PENDING_ACTIVE_SIGNAL_MAX_TTL_MS = 5 * 60 * 1000;
 
-const webhookEventStatusValidator = v.union(
-    v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.PENDING),
-    v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.FAILED),
-    v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.PROCESSED),
-    v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.IGNORED),
-    v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.DEAD_LETTER)
-);
-
-const terminalWebhookEventStatusValidator = v.union(
-    v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.PROCESSED),
-    v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.IGNORED),
-    v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.DEAD_LETTER)
-);
-
 const NEVER_RECONCILE_AT_MS = FAR_FUTURE_TIMESTAMP_MS;
 const QUOTA_USAGE_RESERVATION_WATCHDOG_DELAY_MS = 5 * 60 * 1000;
 const USER_DELETION_BATCH_LIMIT = 500;
-
-const normalizedWebhookEventValidator = v.object({
-    event_id: v.string(),
-    event_type: v.string(),
-    event_at_ms: v.number(),
-    app_user_id: v.optional(v.string()),
-    original_app_user_id: v.optional(v.string()),
-    aliases: v.array(v.string()),
-    transferred_from: v.array(v.string()),
-    transferred_to: v.array(v.string()),
-    entitlement_ids: v.array(v.string()),
-    product_id: v.optional(v.string()),
-    transaction_id: v.optional(v.string()),
-    store: v.optional(v.string()),
-    environment: v.optional(v.string()),
-    expiration_at_ms: v.optional(v.number()),
-    grace_period_expiration_at_ms: v.optional(v.number()),
-    purchased_at_ms: v.optional(v.number()),
-});
-
-const retryConfigValidator = v.object({
-    max_retry_count: v.number(),
-    retry_base_delay_ms: v.number(),
-    retry_max_delay_ms: v.number(),
-});
-
-const refreshRateLimitConfigValidator = v.object({
-    normal_window_ms: v.number(),
-    normal_max_count: v.number(),
-    purchase_window_ms: v.number(),
-    purchase_max_count: v.number(),
-    daily_window_ms: v.number(),
-    daily_max_count: v.number(),
-});
-
-const reconciliationSnapshotValidator = v.object({
-    has_active_subscription: v.boolean(),
-    entitlement_id: v.optional(v.string()),
-    product_id: v.optional(v.string()),
-    store_subscription_id: v.optional(v.string()),
-    period_start_at_ms: v.optional(v.number()),
-    period_end_at_ms: v.optional(v.number()),
-    store: v.optional(v.string()),
-    environment: v.optional(v.string()),
-});
 
 type RetryConfig = {
     max_retry_count: number;
@@ -240,25 +166,6 @@ type MutableRevenueCatEventFields = Partial<
     Omit<Doc<"revenue_cat_events">, "_id" | "_creationTime">
 >;
 type MutableUsageEventFields = Partial<Omit<Doc<"usage_events">, "_id" | "_creationTime">>;
-const userDeletionQueueStatusValidator = v.union(
-    v.literal(USER_DELETION_QUEUE_STATUSES[0]),
-    v.literal(USER_DELETION_QUEUE_STATUSES[1]),
-    v.literal(USER_DELETION_LATE_AUTH_WAIT_STATUS),
-    v.literal(USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS),
-    v.literal(USER_DELETION_CLEANUP_DEAD_LETTER_STATUS),
-    v.literal(USER_DELETION_QUEUE_STATUSES[5]),
-    v.literal(USER_DELETION_QUEUE_STATUSES[6]),
-    v.literal(USER_DELETION_QUEUE_STATUSES[7]),
-    v.literal(USER_DELETION_QUEUE_STATUSES[8])
-);
-
-const userDeletionCleanupStepValidator = v.union(
-    v.literal(USER_DELETION_CLEANUP_STEPS[0]),
-    v.literal(USER_DELETION_CLEANUP_STEPS[1]),
-    v.literal(USER_DELETION_CLEANUP_STEPS[3]),
-    v.literal(USER_DELETION_CLEANUP_STEPS[4]),
-    v.literal(USER_DELETION_CLEANUP_STEPS[2])
-);
 
 const AUTOMATIC_USER_DELETION_RETRY_STATUSES: UserDeletionQueueStatus[] = [
     "preparing",
@@ -819,7 +726,6 @@ async function getRestorableFrozenQuotaPeriodByStoreSubscriptionPeriodId(
                 })[0] ?? null
         );
     };
-
     if (args.store_subscription_period_id) {
         const quotaPeriods = await ctx.db
             .query("quota_periods")
@@ -1526,13 +1432,7 @@ async function evaluateQuotaAvailability(
         quotaContext,
     };
 }
-
-const upsertSubscriptionPlanLimits = mutation({
-    args: {
-        plans: v.array(subscriptionPlanLimitInputValidator),
-        now_ms: v.number(),
-    },
-    handler: async (ctx, args) => {
+export const upsertSubscriptionPlanLimits = async (ctx: MutationCtx, args: WebhookArgs.UpsertSubscriptionPlanLimitsArgs) => {
         const sanitizedPlans = args.plans.map((plan) => ({
             ...plan,
             translate_input_char_limit: Math.max(0, Math.floor(plan.translate_input_char_limit)),
@@ -1582,20 +1482,9 @@ const upsertSubscriptionPlanLimits = mutation({
             status: "ok",
             plans_updated: sanitizedPlans.length,
         };
-    },
-});
+    };
 
-const reserveSubscriptionQuotaUsage = mutation({
-    args: {
-        req_id: v.string(),
-        user_id: v.string(),
-        operation: subscriptionUsageOperationValidator,
-        input_char_count: v.number(),
-        signup_at_ms: v.optional(v.number()),
-        model: v.optional(v.string()),
-        now_ms: v.number(),
-    },
-    handler: async (ctx, args) => {
+export const reserveSubscriptionQuotaUsage = async (ctx: MutationCtx, args: WebhookArgs.ReserveSubscriptionQuotaUsageArgs) => {
         const activeDeletionOperation = await getLatestUserDeletionQueueEntryByUserId(ctx, args.user_id);
 
         if (doesUserDeletionStatusBlockProcessing(activeDeletionOperation?.status)) {
@@ -1662,15 +1551,9 @@ const reserveSubscriptionQuotaUsage = mutation({
             monthly_limit: availabilityResult.monthly_limit,
             used_chars: availabilityResult.used_chars,
         };
-    },
-});
+    };
 
-const chargeSubscriptionQuotaUsage = mutation({
-    args: {
-        usage_event_id: v.id("usage_events"),
-        now_ms: v.number(),
-    },
-    handler: async (ctx, args) => {
+export const chargeSubscriptionQuotaUsage = async (ctx: MutationCtx, args: WebhookArgs.ChargeSubscriptionQuotaUsageArgs) => {
         const usageEvent = await ctx.db.get(args.usage_event_id);
 
         if (!usageEvent) {
@@ -1717,15 +1600,9 @@ const chargeSubscriptionQuotaUsage = mutation({
             status: "charged",
             charged_units: chargedUnits,
         };
-    },
-});
+    };
 
-const completeSubscriptionQuotaUsage = mutation({
-    args: {
-        usage_event_id: v.id("usage_events"),
-        now_ms: v.number(),
-    },
-    handler: async (ctx, args) => {
+export const completeSubscriptionQuotaUsage = async (ctx: MutationCtx, args: WebhookArgs.CompleteSubscriptionQuotaUsageArgs) => {
         const usageEvent = await ctx.db.get(args.usage_event_id);
 
         if (!usageEvent) {
@@ -1757,15 +1634,9 @@ const completeSubscriptionQuotaUsage = mutation({
         return {
             status: "completed",
         };
-    },
-});
+    };
 
-const markSubscriptionQuotaUsageFailed = mutation({
-    args: {
-        usage_event_id: v.id("usage_events"),
-        now_ms: v.number(),
-    },
-    handler: async (ctx, args) => {
+export const markSubscriptionQuotaUsageFailed = async (ctx: MutationCtx, args: WebhookArgs.MarkSubscriptionQuotaUsageFailedArgs) => {
         const usageEvent = await ctx.db.get(args.usage_event_id);
 
         if (!usageEvent) {
@@ -1806,28 +1677,14 @@ const markSubscriptionQuotaUsageFailed = mutation({
         return {
             status: "failed",
         };
-    },
-});
+    };
 
-const finalizeStaleSubscriptionQuotaUsage = internalMutation({
-    args: {
-        usage_event_id: v.id("usage_events"),
-        now_ms: v.number(),
-    },
-    handler: (ctx, args) =>
-        finalizeStaleUsageEvent(ctx, {
+export const finalizeStaleSubscriptionQuotaUsage = (ctx: MutationCtx, args: WebhookArgs.FinalizeStaleSubscriptionQuotaUsageArgs) => finalizeStaleUsageEvent(ctx, {
             ...args,
             watchdog_delay_ms: QUOTA_USAGE_RESERVATION_WATCHDOG_DELAY_MS,
-        }),
-});
+        });
 
-const ingestRevenueCatEvent = mutation({
-    args: {
-        normalized_event: normalizedWebhookEventValidator,
-        raw_payload: v.optional(v.string()),
-        received_at_ms: v.number(),
-    },
-    handler: async (ctx, args) => {
+export const ingestRevenueCatEvent = async (ctx: MutationCtx, args: WebhookArgs.IngestRevenueCatEventArgs) => {
         const existingEvent = await ctx.db
             .query("revenue_cat_events")
             .withIndex("by_event_id", (query) => query.eq("event_id", args.normalized_event.event_id))
@@ -1931,14 +1788,9 @@ const ingestRevenueCatEvent = mutation({
             event_doc_id: eventDocId,
             already_exists: false,
         };
-    },
-});
+    };
 
-const getRevenueCatEventForProcessing = query({
-    args: {
-        event_doc_id: v.id("revenue_cat_events"),
-    },
-    handler: async (ctx, args) => {
+export const getRevenueCatEventForProcessing = async (ctx: QueryCtx, args: WebhookArgs.GetRevenueCatEventForProcessingArgs) => {
         const eventDoc = await ctx.db.get(args.event_doc_id);
 
         if (!eventDoc) {
@@ -1960,17 +1812,9 @@ const getRevenueCatEventForProcessing = query({
             processed_user_ids: userSummary.processed_user_ids,
             ignored_user_ids: userSummary.ignored_user_ids,
         };
-    },
-});
+    };
 
-const acquireRevenueCatEventProcessingLeases = mutation({
-    args: {
-        event_doc_id: v.id("revenue_cat_events"),
-        user_ids: v.array(v.string()),
-        processing_attempt_id: v.string(),
-        lease_duration_ms: v.number(),
-    },
-    handler: async (ctx, args) => {
+export const acquireRevenueCatEventProcessingLeases = async (ctx: MutationCtx, args: WebhookArgs.AcquireRevenueCatEventProcessingLeasesArgs) => {
         const eventDoc = await ctx.db.get(args.event_doc_id);
 
         if (!eventDoc || PROCESSED_EVENT_STATUSES.has(eventDoc.status)) {
@@ -2032,8 +1876,8 @@ const acquireRevenueCatEventProcessingLeases = mutation({
             active_processing_user_ids: activeProcessingUserIds,
             blocked_user_ids: blockedUserIds,
         };
-    },
-});
+    };
+
 
 async function getActiveRevenueCatEventProcessingForUserDeletionSnapshot(
     ctx: DbReaderCtx,
@@ -2060,32 +1904,11 @@ async function getActiveRevenueCatEventProcessingForUserDeletionSnapshot(
         processing_expires_at_ms: activeProcessingEventUsers[0]?.processing_expires_at_ms,
     };
 }
-
-const getActiveRevenueCatEventProcessingForUserDeletion = query({
-    args: {
-        user_id: v.string(),
-        now_ms: v.number(),
-        limit: v.number(),
-    },
-    handler: async (ctx, args) => {
+export const getActiveRevenueCatEventProcessingForUserDeletion = async (ctx: QueryCtx, args: WebhookArgs.GetActiveRevenueCatEventProcessingForUserDeletionArgs) => {
         return getActiveRevenueCatEventProcessingForUserDeletionSnapshot(ctx, args);
-    },
-});
+    };
 
-const recordRevenueCatEventProcessingProgress = mutation({
-    args: {
-        event_doc_id: v.id("revenue_cat_events"),
-        processing_attempt_id: v.optional(v.string()),
-        now_ms: v.number(),
-        processed_user_ids: v.array(v.string()),
-        ignored_user_ids: v.array(v.string()),
-        released_user_ids: v.optional(v.array(v.string())),
-        status_message: v.optional(v.string()),
-        next_retry_at_ms: v.optional(v.number()),
-        error_message: v.optional(v.string()),
-        retry_config: v.optional(retryConfigValidator),
-    },
-    handler: async (ctx, args) => {
+export const recordRevenueCatEventProcessingProgress = async (ctx: MutationCtx, args: WebhookArgs.RecordRevenueCatEventProcessingProgressArgs) => {
         const eventDoc = await ctx.db.get(args.event_doc_id);
 
         if (!eventDoc || PROCESSED_EVENT_STATUSES.has(eventDoc.status)) {
@@ -2249,16 +2072,9 @@ const recordRevenueCatEventProcessingProgress = mutation({
             processed_user_ids: userSummary.processed_user_ids,
             ignored_user_ids: userSummary.ignored_user_ids,
         };
-    },
-});
+    };
 
-const listRetryableRevenueCatEvents = query({
-    args: {
-        status: webhookEventStatusValidator,
-        now_ms: v.number(),
-        limit: v.number(),
-    },
-    handler: async (ctx, args) => {
+export const listRetryableRevenueCatEvents = async (ctx: QueryCtx, args: WebhookArgs.ListRetryableRevenueCatEventsArgs) => {
         if (args.status !== "pending" && args.status !== "failed") {
             return [];
         }
@@ -2273,15 +2089,9 @@ const listRetryableRevenueCatEvents = query({
             .take(safeLimit);
 
         return docs.map((doc) => doc._id);
-    },
-});
+    };
 
-const listRevenueCatEventsForStatus = query({
-    args: {
-        status: webhookEventStatusValidator,
-        limit: v.number(),
-    },
-    handler: async (ctx, args) => {
+export const listRevenueCatEventsForStatus = async (ctx: QueryCtx, args: WebhookArgs.ListRevenueCatEventsForStatusArgs) => {
         const safeLimit = Math.max(1, Math.min(args.limit, 100));
 
         const docs = await ctx.db
@@ -2300,16 +2110,9 @@ const listRevenueCatEventsForStatus = query({
             last_error: doc.last_error,
             updated_at_ms: doc.updated_at_ms,
         }));
-    },
-});
+    };
 
-const listRevenueCatEventsEligibleForRetentionPurge = query({
-    args: {
-        status: terminalWebhookEventStatusValidator,
-        older_than_ms: v.number(),
-        limit: v.number(),
-    },
-    handler: async (ctx, args) => {
+export const listRevenueCatEventsEligibleForRetentionPurge = async (ctx: QueryCtx, args: WebhookArgs.ListRevenueCatEventsEligibleForRetentionPurgeArgs) => {
         const safeLimit = Math.max(1, Math.min(args.limit, 500));
 
         const docs = await ctx.db
@@ -2320,14 +2123,9 @@ const listRevenueCatEventsEligibleForRetentionPurge = query({
             .take(safeLimit);
 
         return docs.map((doc) => doc._id);
-    },
-});
+    };
 
-const purgeRevenueCatEventsById = mutation({
-    args: {
-        event_doc_ids: v.array(v.id("revenue_cat_events")),
-    },
-    handler: async (ctx, args) => {
+export const purgeRevenueCatEventsById = async (ctx: MutationCtx, args: WebhookArgs.PurgeRevenueCatEventsByIdArgs) => {
         let deletedCount = 0;
 
         for (const eventDocId of args.event_doc_ids) {
@@ -2348,15 +2146,9 @@ const purgeRevenueCatEventsById = mutation({
         return {
             deleted_count: deletedCount,
         };
-    },
-});
+    };
 
-const deleteFrozenQuotaPeriodsEligibleForRetentionPurge = mutation({
-    args: {
-        older_than_ms: v.number(),
-        limit: v.number(),
-    },
-    handler: async (ctx, args) => {
+export const deleteFrozenQuotaPeriodsEligibleForRetentionPurge = async (ctx: MutationCtx, args: WebhookArgs.DeleteFrozenQuotaPeriodsEligibleForRetentionPurgeArgs) => {
         const safeLimit = Math.max(1, Math.min(args.limit, 500));
         const quotaPeriods = await ctx.db
             .query("quota_periods")
@@ -2381,17 +2173,9 @@ const deleteFrozenQuotaPeriodsEligibleForRetentionPurge = mutation({
             deleted_count: deletedCount,
             retained_linked_count: retainedLinkedCount,
         };
-    },
-});
+    };
 
-const consumeRefreshRateLimit = mutation({
-    args: {
-        user_id: v.string(),
-        expects_active_subscription: v.boolean(),
-        now_ms: v.number(),
-        config: refreshRateLimitConfigValidator,
-    },
-    handler: async (ctx, args) => {
+export const consumeRefreshRateLimit = async (ctx: MutationCtx, args: WebhookArgs.ConsumeRefreshRateLimitArgs) => {
         const requestBucket: RefreshRateLimitBucketPlan = args.expects_active_subscription
             ? {
                   kind: "refresh_purchase",
@@ -2461,15 +2245,9 @@ const consumeRefreshRateLimit = mutation({
         return {
             allowed: true as const,
         };
-    },
-});
+    };
 
-const deleteRefreshRateLimitsEligibleForRetentionPurge = mutation({
-    args: {
-        older_than_ms: v.number(),
-        limit: v.number(),
-    },
-    handler: async (ctx, args) => {
+export const deleteRefreshRateLimitsEligibleForRetentionPurge = async (ctx: MutationCtx, args: WebhookArgs.DeleteRefreshRateLimitsEligibleForRetentionPurgeArgs) => {
         const safeLimit = Math.max(1, Math.min(args.limit, 500));
         const docs = await ctx.db
             .query("refresh_rate_limits")
@@ -2486,14 +2264,9 @@ const deleteRefreshRateLimitsEligibleForRetentionPurge = mutation({
             scanned_count: docs.length,
             deleted_count: docs.length,
         };
-    },
-});
+    };
 
-const getSubscriptionStateByUserId = query({
-    args: {
-        user_id: v.string(),
-    },
-    handler: async (ctx, args) => {
+export const getSubscriptionStateByUserId = async (ctx: QueryCtx, args: WebhookArgs.GetSubscriptionStateByUserIdArgs) => {
         const state = await getLatestSubscriptionStateByUserId(ctx, args.user_id);
 
         if (!state) {
@@ -2535,23 +2308,9 @@ const getSubscriptionStateByUserId = query({
             last_synced_at_ms: state.last_synced_at_ms,
             stale_after_at_ms: state.stale_after_at_ms,
         };
-    },
-});
+    };
 
-const beginSubscriptionStateReconciliation = mutation({
-    args: {
-        user_id: v.string(),
-        revenuecat_app_user_id: v.string(),
-        signup_at_ms: v.optional(v.number()),
-        sync_attempt_id: v.string(),
-        now_ms: v.number(),
-        lease_duration_ms: v.number(),
-        expects_active_subscription: v.optional(v.boolean()),
-        trusted_active_signal: v.optional(v.boolean()),
-        active_signal_at_ms: v.optional(v.number()),
-        active_signal_ttl_ms: v.optional(v.number()),
-    },
-    handler: async (ctx, args) => {
+export const beginSubscriptionStateReconciliation = async (ctx: MutationCtx, args: WebhookArgs.BeginSubscriptionStateReconciliationArgs) => {
         const existingState = await getLatestSubscriptionStateByUserId(ctx, args.user_id);
         const existingStateRecord = existingState as Record<string, unknown> | null;
         const nowMs = args.now_ms;
@@ -2696,17 +2455,9 @@ const beginSubscriptionStateReconciliation = mutation({
             plan_key: SUBSCRIPTION_PLAN_KEYS.FREE,
             last_synced_at_ms: 0,
         };
-    },
-});
+    };
 
-const releaseSubscriptionStateReconciliation = mutation({
-    args: {
-        user_id: v.string(),
-        sync_attempt_id: v.string(),
-        now_ms: v.number(),
-        next_attempt_at_ms: v.optional(v.number()),
-    },
-    handler: async (ctx, args) => {
+export const releaseSubscriptionStateReconciliation = async (ctx: MutationCtx, args: WebhookArgs.ReleaseSubscriptionStateReconciliationArgs) => {
         const existingState = await getLatestSubscriptionStateByUserId(ctx, args.user_id);
         const ownershipFailure = getSubscriptionSyncOwnershipFailure({
             state: existingState as Record<string, unknown> | null,
@@ -2737,24 +2488,13 @@ const releaseSubscriptionStateReconciliation = mutation({
         return {
             status: "released" as const,
         };
-    },
-});
+    };
 
-const getUserDeletionSnapshot = query({
-    args: {
-        user_id: v.string(),
-    },
-    handler: async (ctx, args) => {
+export const getUserDeletionSnapshot = async (ctx: QueryCtx, args: WebhookArgs.GetUserDeletionSnapshotArgs) => {
         return getUserDeletionSnapshotRecordByUserId(ctx, args.user_id);
-    },
-});
+    };
 
-const ensureUserDeletionPreservedQuotaPeriod = mutation({
-    args: {
-        user_id: v.string(),
-        now_ms: v.number(),
-    },
-    handler: async (ctx, args) => {
+export const ensureUserDeletionPreservedQuotaPeriod = async (ctx: MutationCtx, args: WebhookArgs.EnsureUserDeletionPreservedQuotaPeriodArgs) => {
         const state = await getLatestSubscriptionStateByUserId(ctx, args.user_id);
 
         if (!state || !state.has_active_subscription) {
@@ -2803,14 +2543,9 @@ const ensureUserDeletionPreservedQuotaPeriod = mutation({
             store_subscription_id: state.store_subscription_id,
             store_subscription_period_id: state.store_subscription_period_id,
         };
-    },
-});
+    };
 
-const getUserDeletionOperationState = query({
-    args: {
-        user_id: v.string(),
-    },
-    handler: async (ctx, args) => {
+export const getUserDeletionOperationState = async (ctx: QueryCtx, args: WebhookArgs.GetUserDeletionOperationStateArgs) => {
         const operation = await getLatestUserDeletionQueueEntryByUserId(ctx, args.user_id);
 
         return {
@@ -2836,15 +2571,9 @@ const getUserDeletionOperationState = query({
             store_subscription_id: operation?.store_subscription_id,
             store_subscription_period_id: operation?.store_subscription_period_id,
         };
-    },
-});
+    };
 
-const listDueUserDeletionOperations = query({
-    args: {
-        now_ms: v.number(),
-        limit: v.number(),
-    },
-    handler: async (ctx, args) => {
+export const listDueUserDeletionOperations = async (ctx: QueryCtx, args: WebhookArgs.ListDueUserDeletionOperationsArgs) => {
         const safeLimit = Math.max(1, Math.min(args.limit, 50));
         const candidateEntries = (
             await Promise.all(
@@ -2888,14 +2617,9 @@ const listDueUserDeletionOperations = query({
                 status: entry.status,
                 next_retry_at_ms: entry.next_retry_at_ms,
             }));
-    },
-});
+    };
 
-const listAuthDeleteDeadLetterUserDeletionOperations = query({
-    args: {
-        limit: v.number(),
-    },
-    handler: async (ctx, args) => {
+export const listAuthDeleteDeadLetterUserDeletionOperations = async (ctx: QueryCtx, args: WebhookArgs.ListAuthDeleteDeadLetterUserDeletionOperationsArgs) => {
         const safeLimit = Math.max(1, Math.min(args.limit, 50));
         const entries = await ctx.db
             .query("user_deletion_queue")
@@ -2927,16 +2651,9 @@ const listAuthDeleteDeadLetterUserDeletionOperations = query({
                 status: entry.status,
                 updated_at_ms: entry.updated_at_ms,
             }));
-    },
-});
+    };
 
-const listCleanupDeadLetterUserDeletionOperations = query({
-    args: {
-        limit: v.number(),
-        now_ms: v.optional(v.number()),
-        user_id: v.optional(v.string()),
-    },
-    handler: async (ctx, args) => {
+export const listCleanupDeadLetterUserDeletionOperations = async (ctx: QueryCtx, args: WebhookArgs.ListCleanupDeadLetterUserDeletionOperationsArgs) => {
         const safeLimit = Math.max(1, Math.min(args.limit, 50));
         const mapEntry = (entry: Doc<"user_deletion_queue">) => ({
             user_id: entry.user_id,
@@ -3002,28 +2719,17 @@ const listCleanupDeadLetterUserDeletionOperations = query({
             .sort((left, right) => left.updated_at_ms - right.updated_at_ms)
             .slice(0, safeLimit)
             .map(mapEntry);
-    },
-});
+    };
 
-const getActiveUserDeletionUsageEventCount = query({
-    args: {
-        user_id: v.string(),
-    },
-    handler: async (ctx, args) => {
+export const getActiveUserDeletionUsageEventCount = async (ctx: QueryCtx, args: WebhookArgs.GetActiveUserDeletionUsageEventCountArgs) => {
         const activeUsageEvents = await listActiveUsageEventsByUserIdBatch(ctx, args.user_id, 1);
 
         return {
             active_usage_event_count: activeUsageEvents.length,
         };
-    },
-});
+    };
 
-const listSubscriptionStatesDueForExpirationReconciliation = query({
-    args: {
-        now_ms: v.number(),
-        limit: v.number(),
-    },
-    handler: async (ctx, args) => {
+export const listSubscriptionStatesDueForExpirationReconciliation = async (ctx: QueryCtx, args: WebhookArgs.ListSubscriptionStatesDueForExpirationReconciliationArgs) => {
         const safeLimit = Math.max(1, Math.min(args.limit, 50));
 
         const dueStates = await ctx.db
@@ -3037,28 +2743,9 @@ const listSubscriptionStatesDueForExpirationReconciliation = query({
             user_id: state.user_id,
             revenuecat_app_user_id: state.revenuecat_app_user_id,
         }));
-    },
-});
+    };
 
-const applyReconciledSubscriptionState = mutation({
-    args: {
-        user_id: v.string(),
-        revenuecat_app_user_id: v.string(),
-        signup_at_ms: v.optional(v.number()),
-        synced_at_ms: v.number(),
-        sync_attempt_id: v.string(),
-        expiration_reconciliation_delay_ms: v.number(),
-        store_subscription_id_hint: v.optional(v.string()),
-        allow_user_deletion_in_progress: v.optional(v.boolean()),
-        expects_active_subscription: v.optional(v.boolean()),
-        trusted_active_signal: v.optional(v.boolean()),
-        active_signal_at_ms: v.optional(v.number()),
-        active_signal_ttl_ms: v.optional(v.number()),
-        revenuecat_event_id: v.optional(v.string()),
-        revenuecat_event_at_ms: v.optional(v.number()),
-        snapshot: reconciliationSnapshotValidator,
-    },
-    handler: async (ctx, args) => {
+export const applyReconciledSubscriptionState = async (ctx: MutationCtx, args: WebhookArgs.ApplyReconciledSubscriptionStateArgs) => {
         if (args.allow_user_deletion_in_progress !== true) {
             const activeDeletionOperation = await getLatestUserDeletionQueueEntryByUserId(ctx, args.user_id);
 
@@ -3359,15 +3046,9 @@ const applyReconciledSubscriptionState = mutation({
             owner_mismatch: false,
             lease_expired: false,
         };
-    },
-});
+    };
 
-const startUserDeletionOperation = mutation({
-    args: {
-        user_id: v.string(),
-        now_ms: v.number(),
-    },
-    handler: async (ctx, args) => {
+export const startUserDeletionOperation = async (ctx: MutationCtx, args: WebhookArgs.StartUserDeletionOperationArgs) => {
         const nextOperation = buildUserDeletionQueueEntry({
             user_id: args.user_id,
             status: "preparing",
@@ -3385,16 +3066,9 @@ const startUserDeletionOperation = mutation({
             status: nextOperation.status,
             updated_at_ms: nextOperation.updated_at_ms,
         };
-    },
-});
+    };
 
-const clearUserDeletionOperation = mutation({
-    args: {
-        user_id: v.string(),
-        cleanup_attempt_id: v.optional(v.string()),
-        now_ms: v.optional(v.number()),
-    },
-    handler: async (ctx, args) => {
+export const clearUserDeletionOperation = async (ctx: MutationCtx, args: WebhookArgs.ClearUserDeletionOperationArgs) => {
         const operations = await listUserDeletionQueueEntriesByUserId(ctx, args.user_id);
         const latestOperation = getLatestUserDeletionQueueEntry(operations);
 
@@ -3436,22 +3110,9 @@ const clearUserDeletionOperation = mutation({
             owner_mismatch: false,
             lease_expired: false,
         };
-    },
-});
+    };
 
-const upsertUserDeletionPreparation = mutation({
-    args: {
-        user_id: v.string(),
-        revenuecat_app_user_id: v.optional(v.string()),
-        has_active_subscription: v.boolean(),
-        preserved_quota_period_id: v.optional(v.id("quota_periods")),
-        store_subscription_id: v.optional(v.string()),
-        store_subscription_period_id: v.optional(v.string()),
-        prepared_at_ms: v.number(),
-        now_ms: v.optional(v.number()),
-        cleanup_attempt_id: v.optional(v.string()),
-    },
-    handler: async (ctx, args) => {
+export const upsertUserDeletionPreparation = async (ctx: MutationCtx, args: WebhookArgs.UpsertUserDeletionPreparationArgs) => {
         assertRequiredPreservedQuotaPeriod({
             user_id: args.user_id,
             has_active_subscription: args.has_active_subscription,
@@ -3530,15 +3191,9 @@ const upsertUserDeletionPreparation = mutation({
             store_subscription_id: nextPreparation.store_subscription_id,
             store_subscription_period_id: nextPreparation.store_subscription_period_id,
         };
-    },
-});
+    };
 
-const markUserDeletionAuthDeleted = mutation({
-    args: {
-        user_id: v.string(),
-        now_ms: v.number(),
-    },
-    handler: async (ctx, args) => {
+export const markUserDeletionAuthDeleted = async (ctx: MutationCtx, args: WebhookArgs.MarkUserDeletionAuthDeletedArgs) => {
         const latestOperation = await getLatestUserDeletionQueueEntryByUserId(ctx, args.user_id);
         const deletionSnapshot = await getUserDeletionSnapshotRecordByUserId(ctx, args.user_id);
         const nextContext = resolveAuthDeletedUserDeletionContext({
@@ -3656,19 +3311,9 @@ const markUserDeletionAuthDeleted = mutation({
             next_retry_at_ms: nextOperation.next_retry_at_ms,
             status: nextOperation.status,
         };
-    },
-});
+    };
 
-const acquireUserDeletionOperation = mutation({
-    args: {
-        user_id: v.string(),
-        now_ms: v.number(),
-        lease_expires_at_ms: v.number(),
-        cleanup_attempt_id: v.string(),
-        cleanup_step: v.optional(userDeletionCleanupStepValidator),
-        allow_terminal_recovery: v.optional(v.boolean()),
-    },
-    handler: async (ctx, args) => {
+export const acquireUserDeletionOperation = async (ctx: MutationCtx, args: WebhookArgs.AcquireUserDeletionOperationArgs) => {
         const latestOperation = await getLatestUserDeletionQueueEntryByUserId(ctx, args.user_id);
 
         if (!latestOperation) {
@@ -3746,18 +3391,9 @@ const acquireUserDeletionOperation = mutation({
                 updated_at_ms: nextOperation.updated_at_ms,
             },
         };
-    },
-});
+    };
 
-const renewUserDeletionOperationCleanupLease = mutation({
-    args: {
-        user_id: v.string(),
-        cleanup_attempt_id: v.string(),
-        cleanup_step: userDeletionCleanupStepValidator,
-        now_ms: v.number(),
-        lease_expires_at_ms: v.number(),
-    },
-    handler: async (ctx, args) => {
+export const renewUserDeletionOperationCleanupLease = async (ctx: MutationCtx, args: WebhookArgs.RenewUserDeletionOperationCleanupLeaseArgs) => {
         const latestOperation = await getLatestUserDeletionQueueEntryByUserId(ctx, args.user_id);
         const ownershipFailure = getUserDeletionCleanupOwnershipFailure({
             operation: latestOperation,
@@ -3815,24 +3451,9 @@ const renewUserDeletionOperationCleanupLease = mutation({
             cleanup_step_started_at_ms: nextOperation.cleanup_step_started_at_ms,
             cleanup_lease_expires_at_ms: nextOperation.cleanup_lease_expires_at_ms,
         };
-    },
-});
+    };
 
-const rescheduleUserDeletionOperation = mutation({
-    args: {
-        user_id: v.string(),
-        status: userDeletionQueueStatusValidator,
-        now_ms: v.number(),
-        next_retry_at_ms: v.number(),
-        retry_count_increment: v.optional(v.number()),
-        last_error: v.optional(v.union(v.string(), v.null())),
-        auth_deleted_at_ms: v.optional(v.number()),
-        cleanup_attempt_id: v.optional(v.string()),
-        cleanup_step: v.optional(userDeletionCleanupStepValidator),
-        cleanup_lease_expires_at_ms: v.optional(v.number()),
-        revenuecat_deleted_at_ms: v.optional(v.number()),
-    },
-    handler: async (ctx, args) => {
+export const rescheduleUserDeletionOperation = async (ctx: MutationCtx, args: WebhookArgs.RescheduleUserDeletionOperationArgs) => {
         const latestOperation = await getLatestUserDeletionQueueEntryByUserId(ctx, args.user_id);
 
         if (!latestOperation) {
@@ -3923,17 +3544,9 @@ const rescheduleUserDeletionOperation = mutation({
             next_retry_at_ms: nextOperation.next_retry_at_ms,
             retry_count: nextOperation.retry_count,
         };
-    },
-});
+    };
 
-const deleteUserSubscriptionData = mutation({
-    args: {
-        user_id: v.string(),
-        revenuecat_app_user_id: v.optional(v.string()),
-        preserved_quota_period_id: v.optional(v.id("quota_periods")),
-        now_ms: v.number(),
-    },
-    handler: async (ctx, args) => {
+export const deleteUserSubscriptionData = async (ctx: MutationCtx, args: WebhookArgs.DeleteUserSubscriptionDataArgs) => {
         const [latestOperation, latestState, preservedQuotaPeriod] = await Promise.all([
             getLatestUserDeletionQueueEntryByUserId(ctx, args.user_id),
             getLatestSubscriptionStateByUserId(ctx, args.user_id),
@@ -4024,20 +3637,9 @@ const deleteUserSubscriptionData = mutation({
                 quota_period_has_more: hasMoreQuotaPeriods,
             }),
         };
-    },
-});
+    };
 
-const finalizeDeletedUserSubscriptionData = mutation({
-    args: {
-        user_id: v.string(),
-        revenuecat_app_user_id: v.optional(v.string()),
-        preserved_quota_period_id: v.optional(v.id("quota_periods")),
-        has_active_subscription: v.boolean(),
-        store_subscription_id: v.optional(v.string()),
-        store_subscription_period_id: v.optional(v.string()),
-        now_ms: v.number(),
-    },
-    handler: async (ctx, args) => {
+export const finalizeDeletedUserSubscriptionData = async (ctx: MutationCtx, args: WebhookArgs.FinalizeDeletedUserSubscriptionDataArgs) => {
         assertRequiredPreservedQuotaPeriod({
             user_id: args.user_id,
             has_active_subscription: args.has_active_subscription,
@@ -4140,15 +3742,9 @@ const finalizeDeletedUserSubscriptionData = mutation({
             frozen_quota_period_id: frozenQuotaPeriodId,
             deleted_subscription_states: stateDocs.length,
         };
-    },
-});
+    };
 
-const deferSubscriptionStateReconciliation = mutation({
-    args: {
-        user_id: v.string(),
-        next_attempt_at_ms: v.number(),
-    },
-    handler: async (ctx, args) => {
+export const deferSubscriptionStateReconciliation = async (ctx: MutationCtx, args: WebhookArgs.DeferSubscriptionStateReconciliationArgs) => {
         const existingState = await getLatestSubscriptionStateByUserId(ctx, args.user_id);
 
         if (!existingState) {
@@ -4165,48 +3761,4 @@ const deferSubscriptionStateReconciliation = mutation({
         return {
             status: "deferred",
         };
-    },
-});
-
-export const functions = {
-    upsertSubscriptionPlanLimits,
-    reserveSubscriptionQuotaUsage,
-    chargeSubscriptionQuotaUsage,
-    completeSubscriptionQuotaUsage,
-    markSubscriptionQuotaUsageFailed,
-    finalizeStaleSubscriptionQuotaUsage,
-    ingestRevenueCatEvent,
-    getRevenueCatEventForProcessing,
-    acquireRevenueCatEventProcessingLeases,
-    getActiveRevenueCatEventProcessingForUserDeletion,
-    recordRevenueCatEventProcessingProgress,
-    listRetryableRevenueCatEvents,
-    listRevenueCatEventsForStatus,
-    listRevenueCatEventsEligibleForRetentionPurge,
-    purgeRevenueCatEventsById,
-    deleteFrozenQuotaPeriodsEligibleForRetentionPurge,
-    consumeRefreshRateLimit,
-    deleteRefreshRateLimitsEligibleForRetentionPurge,
-    getSubscriptionStateByUserId,
-    beginSubscriptionStateReconciliation,
-    releaseSubscriptionStateReconciliation,
-    getUserDeletionSnapshot,
-    ensureUserDeletionPreservedQuotaPeriod,
-    getUserDeletionOperationState,
-    listDueUserDeletionOperations,
-    listAuthDeleteDeadLetterUserDeletionOperations,
-    listCleanupDeadLetterUserDeletionOperations,
-    getActiveUserDeletionUsageEventCount,
-    listSubscriptionStatesDueForExpirationReconciliation,
-    applyReconciledSubscriptionState,
-    startUserDeletionOperation,
-    clearUserDeletionOperation,
-    upsertUserDeletionPreparation,
-    markUserDeletionAuthDeleted,
-    acquireUserDeletionOperation,
-    renewUserDeletionOperationCleanupLease,
-    rescheduleUserDeletionOperation,
-    deleteUserSubscriptionData,
-    finalizeDeletedUserSubscriptionData,
-    deferSubscriptionStateReconciliation,
-};
+    };

@@ -1,6 +1,6 @@
 import { components } from "../../_generated/api";
 import type { ActionCtx } from "../../_generated/server";
-import type { AuthenticatedHttpContext } from "./auth";
+import type { AuthenticatedHttpContext } from "../../lib/httpAuth";
 import { buildCorsResponseHeaders, isAllowedCorsRequest } from "./cors";
 import { isRecord, readBoundedJsonRequestBody } from "./requestBody";
 import { getRefreshRateLimitConfig } from "../subscriptions/config";
