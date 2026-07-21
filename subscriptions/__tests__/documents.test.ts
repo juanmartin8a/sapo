@@ -42,7 +42,8 @@ describe("subscription documents", () => {
                         },
                     };
                 },
-                delete: async (id: string) => {
+                delete: async (tableName: string, id: string) => {
+                    expect(tableName).toBe("usage_events");
                     deletedIds.push(id);
                 },
             },

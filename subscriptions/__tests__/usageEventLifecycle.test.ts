@@ -36,7 +36,11 @@ describe("usage event lifecycle", () => {
         const patch = jest.fn();
         const ctx = {
             db: {
-                get: async () => null,
+                get: async (tableName: string, id: string) => {
+                    expect(tableName).toBe("usage_events");
+                    expect(id).toBe("deleted_event");
+                    return null;
+                },
                 patch,
             },
         } as never;
@@ -55,13 +59,19 @@ describe("usage event lifecycle", () => {
         const patches: unknown[] = [];
         const ctx = {
             db: {
-                get: async () => ({
-                    _id: "usage_event_1",
-                    state: "processing",
-                    quota_state: "charged",
-                    reserved_at_ms: 1_000,
-                }),
-                patch: async (_id: string, patch: unknown) => {
+                get: async (tableName: string, id: string) => {
+                    expect(tableName).toBe("usage_events");
+                    expect(id).toBe("usage_event_1");
+                    return {
+                        _id: "usage_event_1",
+                        state: "processing",
+                        quota_state: "charged",
+                        reserved_at_ms: 1_000,
+                    };
+                },
+                patch: async (tableName: string, id: string, patch: unknown) => {
+                    expect(tableName).toBe("usage_events");
+                    expect(id).toBe("usage_event_1");
                     patches.push(patch);
                 },
             },

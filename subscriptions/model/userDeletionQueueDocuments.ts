@@ -130,7 +130,7 @@ export async function replaceUserDeletionQueueEntry(
         : await ctx.db.insert("user_deletion_queue", nextEntry);
 
     if (latestEntry) {
-        await ctx.db.replace(retainedEntryId, nextEntry);
+        await ctx.db.replace("user_deletion_queue", retainedEntryId, nextEntry);
     }
 
     for (const entry of existingEntries) {
@@ -138,7 +138,7 @@ export async function replaceUserDeletionQueueEntry(
             continue;
         }
 
-        await ctx.db.delete(entry._id);
+        await ctx.db.delete("user_deletion_queue", entry._id);
     }
 
     return {

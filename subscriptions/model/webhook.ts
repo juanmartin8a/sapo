@@ -251,7 +251,7 @@ async function persistRefreshRateLimitBucketState(
     nowMs: number
 ) {
     if (state.retained_entry) {
-        await ctx.db.patch(state.retained_entry._id, {
+        await ctx.db.patch("refresh_rate_limits", state.retained_entry._id, {
             window_start_ms: state.window_start_ms,
             window_end_ms: state.window_end_ms,
             count: nextCount,
@@ -269,7 +269,7 @@ async function persistRefreshRateLimitBucketState(
     }
 
     for (const duplicateEntry of state.duplicate_entries) {
-        await ctx.db.delete(duplicateEntry._id);
+        await ctx.db.delete("refresh_rate_limits", duplicateEntry._id);
     }
 }
 
@@ -1073,7 +1073,7 @@ async function closeNonCurrentOpenQuotaPeriodsById(
             continue;
         }
 
-        await ctx.db.patch(quotaPeriod._id, {
+        await ctx.db.patch("quota_periods", quotaPeriod._id, {
             status: "closed",
             closed_at_ms: args.now_ms,
             updated_at_ms: args.now_ms,
@@ -1113,7 +1113,7 @@ async function closeQuotaPeriodForSubscriptionState(
     });
 
     if (patch) {
-        await ctx.db.patch(currentQuotaPeriod._id, patch);
+        await ctx.db.patch("quota_periods", currentQuotaPeriod._id, patch);
     }
 
     await syncExistingQuotaPeriodCountersForPlanLimits(ctx, {
@@ -1159,7 +1159,7 @@ async function upsertOpenQuotaPeriodDoc(
         });
 
         if (patch) {
-            await ctx.db.patch(currentQuotaPeriod._id, patch);
+            await ctx.db.patch("quota_periods", currentQuotaPeriod._id, patch);
         }
 
         await syncExistingQuotaPeriodCountersForPlanLimits(ctx, {
@@ -1204,7 +1204,7 @@ async function upsertOpenQuotaPeriodDoc(
         now_ms: args.now_ms,
     });
 
-    const insertedQuotaPeriod = await ctx.db.get(quotaPeriodId);
+    const insertedQuotaPeriod = await ctx.db.get("quota_periods", quotaPeriodId);
 
     if (!insertedQuotaPeriod) {
         throw new Error("Failed to create quota period");
@@ -1277,7 +1277,10 @@ async function applyUsageEventChargeToResolvedQuotaPeriod(
         target_quota_period_id?: Doc<"quota_periods">["_id"];
     }
 ) {
-    const quotaPeriod = await ctx.db.get(args.target_quota_period_id ?? args.usageEvent.quota_period_id);
+    const quotaPeriod = await ctx.db.get(
+        "quota_periods",
+        args.target_quota_period_id ?? args.usageEvent.quota_period_id
+    );
 
     if (!quotaPeriod) {
         return {
@@ -1463,14 +1466,14 @@ export const upsertSubscriptionPlanLimits = async (ctx: MutationCtx, args: Webho
             };
 
             if (targetDoc) {
-                await ctx.db.patch(targetDoc._id, nextDocument);
+                await ctx.db.patch("subscription_plan_limits", targetDoc._id, nextDocument);
             } else {
                 await ctx.db.insert("subscription_plan_limits", nextDocument);
             }
 
             for (const duplicateDoc of sortedPlanLimits.slice(1)) {
                 if (duplicateDoc.is_active) {
-                    await ctx.db.patch(duplicateDoc._id, {
+                    await ctx.db.patch("subscription_plan_limits", duplicateDoc._id, {
                         is_active: false,
                         updated_at_ms: args.now_ms,
                     });
@@ -1554,7 +1557,7 @@ export const reserveSubscriptionQuotaUsage = async (ctx: MutationCtx, args: Webh
     };
 
 export const chargeSubscriptionQuotaUsage = async (ctx: MutationCtx, args: WebhookArgs.ChargeSubscriptionQuotaUsageArgs) => {
-        const usageEvent = await ctx.db.get(args.usage_event_id);
+        const usageEvent = await ctx.db.get("usage_events", args.usage_event_id);
 
         if (!usageEvent) {
             return {
@@ -1589,7 +1592,7 @@ export const chargeSubscriptionQuotaUsage = async (ctx: MutationCtx, args: Webho
             return applyResult;
         }
 
-        await ctx.db.patch(usageEvent._id, {
+        await ctx.db.patch("usage_events", usageEvent._id, {
             quota_state: "charged",
             charged_units: chargedUnits,
             charged_at_ms: args.now_ms,
@@ -1603,7 +1606,7 @@ export const chargeSubscriptionQuotaUsage = async (ctx: MutationCtx, args: Webho
     };
 
 export const completeSubscriptionQuotaUsage = async (ctx: MutationCtx, args: WebhookArgs.CompleteSubscriptionQuotaUsageArgs) => {
-        const usageEvent = await ctx.db.get(args.usage_event_id);
+        const usageEvent = await ctx.db.get("usage_events", args.usage_event_id);
 
         if (!usageEvent) {
             return {
@@ -1625,7 +1628,7 @@ export const completeSubscriptionQuotaUsage = async (ctx: MutationCtx, args: Web
             };
         }
 
-        await ctx.db.patch(usageEvent._id, {
+        await ctx.db.patch("usage_events", usageEvent._id, {
             state: "completed",
             completed_at_ms: args.now_ms,
             updated_at_ms: args.now_ms,
@@ -1637,7 +1640,7 @@ export const completeSubscriptionQuotaUsage = async (ctx: MutationCtx, args: Web
     };
 
 export const markSubscriptionQuotaUsageFailed = async (ctx: MutationCtx, args: WebhookArgs.MarkSubscriptionQuotaUsageFailedArgs) => {
-        const usageEvent = await ctx.db.get(args.usage_event_id);
+        const usageEvent = await ctx.db.get("usage_events", args.usage_event_id);
 
         if (!usageEvent) {
             return {
@@ -1672,7 +1675,7 @@ export const markSubscriptionQuotaUsageFailed = async (ctx: MutationCtx, args: W
             patch.released_at_ms = args.now_ms;
         }
 
-        await ctx.db.patch(usageEvent._id, patch);
+        await ctx.db.patch("usage_events", usageEvent._id, patch);
 
         return {
             status: "failed",
@@ -1791,7 +1794,7 @@ export const ingestRevenueCatEvent = async (ctx: MutationCtx, args: WebhookArgs.
     };
 
 export const getRevenueCatEventForProcessing = async (ctx: QueryCtx, args: WebhookArgs.GetRevenueCatEventForProcessingArgs) => {
-        const eventDoc = await ctx.db.get(args.event_doc_id);
+        const eventDoc = await ctx.db.get("revenue_cat_events", args.event_doc_id);
 
         if (!eventDoc) {
             return null;
@@ -1815,7 +1818,7 @@ export const getRevenueCatEventForProcessing = async (ctx: QueryCtx, args: Webho
     };
 
 export const acquireRevenueCatEventProcessingLeases = async (ctx: MutationCtx, args: WebhookArgs.AcquireRevenueCatEventProcessingLeasesArgs) => {
-        const eventDoc = await ctx.db.get(args.event_doc_id);
+        const eventDoc = await ctx.db.get("revenue_cat_events", args.event_doc_id);
 
         if (!eventDoc || PROCESSED_EVENT_STATUSES.has(eventDoc.status)) {
             return {
@@ -1860,7 +1863,7 @@ export const acquireRevenueCatEventProcessingLeases = async (ctx: MutationCtx, a
                 continue;
             }
 
-            await ctx.db.patch(eventUser._id, {
+            await ctx.db.patch("revenue_cat_event_users", eventUser._id, {
                 processing_attempt_id: args.processing_attempt_id,
                 processing_started_at_ms: acquisitionNowMs,
                 processing_expires_at_ms: leaseExpiresAtMs,
@@ -1909,7 +1912,7 @@ export const getActiveRevenueCatEventProcessingForUserDeletion = async (ctx: Que
     };
 
 export const recordRevenueCatEventProcessingProgress = async (ctx: MutationCtx, args: WebhookArgs.RecordRevenueCatEventProcessingProgressArgs) => {
-        const eventDoc = await ctx.db.get(args.event_doc_id);
+        const eventDoc = await ctx.db.get("revenue_cat_events", args.event_doc_id);
 
         if (!eventDoc || PROCESSED_EVENT_STATUSES.has(eventDoc.status)) {
             return {
@@ -1972,7 +1975,7 @@ export const recordRevenueCatEventProcessingProgress = async (ctx: MutationCtx, 
                 continue;
             }
 
-            await ctx.db.patch(eventUser._id, {
+            await ctx.db.patch("revenue_cat_event_users", eventUser._id, {
                 status: "processed",
                 processing_attempt_id: undefined,
                 processing_started_at_ms: undefined,
@@ -1988,7 +1991,7 @@ export const recordRevenueCatEventProcessingProgress = async (ctx: MutationCtx, 
                 continue;
             }
 
-            await ctx.db.patch(eventUser._id, {
+            await ctx.db.patch("revenue_cat_event_users", eventUser._id, {
                 status: "ignored",
                 processing_attempt_id: undefined,
                 processing_started_at_ms: undefined,
@@ -2004,7 +2007,7 @@ export const recordRevenueCatEventProcessingProgress = async (ctx: MutationCtx, 
                 continue;
             }
 
-            await ctx.db.patch(eventUser._id, {
+            await ctx.db.patch("revenue_cat_event_users", eventUser._id, {
                 processing_attempt_id: undefined,
                 processing_started_at_ms: undefined,
                 processing_expires_at_ms: undefined,
@@ -2064,7 +2067,7 @@ export const recordRevenueCatEventProcessingProgress = async (ctx: MutationCtx, 
                     : undefined;
         }
 
-        await ctx.db.patch(eventDoc._id, patch);
+        await ctx.db.patch("revenue_cat_events", eventDoc._id, patch);
 
         return {
             status: patch.status,
@@ -2129,7 +2132,7 @@ export const purgeRevenueCatEventsById = async (ctx: MutationCtx, args: WebhookA
         let deletedCount = 0;
 
         for (const eventDocId of args.event_doc_ids) {
-            const eventDoc = await ctx.db.get(eventDocId);
+            const eventDoc = await ctx.db.get("revenue_cat_events", eventDocId);
 
             if (eventDoc && !PROCESSED_EVENT_STATUSES.has(eventDoc.status)) {
                 continue;
@@ -2138,7 +2141,7 @@ export const purgeRevenueCatEventsById = async (ctx: MutationCtx, args: WebhookA
             await deleteRevenueCatEventUsersByEventDocId(ctx, eventDocId);
 
             if (eventDoc) {
-                await ctx.db.delete(eventDocId);
+                await ctx.db.delete("revenue_cat_events", eventDocId);
                 deletedCount += 1;
             }
         }
@@ -2164,7 +2167,7 @@ export const deleteFrozenQuotaPeriodsEligibleForRetentionPurge = async (ctx: Mut
 
         for (const quotaPeriod of quotaPeriods) {
             await deleteQuotaPeriodCountersByQuotaPeriodId(ctx, quotaPeriod._id);
-            await ctx.db.delete(quotaPeriod._id);
+            await ctx.db.delete("quota_periods", quotaPeriod._id);
             deletedCount += 1;
         }
 
@@ -2257,7 +2260,7 @@ export const deleteRefreshRateLimitsEligibleForRetentionPurge = async (ctx: Muta
             .take(safeLimit);
 
         for (const doc of docs) {
-            await ctx.db.delete(doc._id);
+            await ctx.db.delete("refresh_rate_limits", doc._id);
         }
 
         return {
@@ -2381,7 +2384,7 @@ export const beginSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
 
             if (isOwnedByAnotherLiveAttempt) {
                 if (shouldRecordActiveSignal || !existingPendingIsLive) {
-                    await ctx.db.patch(existingState._id, {
+                    await ctx.db.patch("subscription_states", existingState._id, {
                         ...pendingActivePatch,
                         updated_at_ms: nowMs,
                     });
@@ -2401,7 +2404,7 @@ export const beginSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
                 };
             }
 
-            await ctx.db.patch(existingState._id, {
+            await ctx.db.patch("subscription_states", existingState._id, {
                 revenuecat_app_user_id:
                     existingState.revenuecat_app_user_id ?? args.revenuecat_app_user_id,
                 sync_attempt_id: args.sync_attempt_id,
@@ -2475,7 +2478,7 @@ export const releaseSubscriptionStateReconciliation = async (ctx: MutationCtx, a
             };
         }
 
-        await ctx.db.patch(existingState._id, {
+        await ctx.db.patch("subscription_states", existingState._id, {
             sync_attempt_id: undefined,
             sync_started_at_ms: undefined,
             sync_expires_at_ms: undefined,
@@ -2781,7 +2784,7 @@ export const applyReconciledSubscriptionState = async (ctx: MutationCtx, args: W
         }
 
         if (existingState && shouldIgnoreStaleReconciledSubscriptionState(existingState, args.synced_at_ms)) {
-            await ctx.db.patch(existingState._id, {
+            await ctx.db.patch("subscription_states", existingState._id, {
                 sync_attempt_id: undefined,
                 sync_started_at_ms: undefined,
                 sync_expires_at_ms: undefined,
@@ -2844,7 +2847,7 @@ export const applyReconciledSubscriptionState = async (ctx: MutationCtx, args: W
                   )
                 : existingPendingExpiresAtMs ?? args.synced_at_ms;
 
-            await ctx.db.patch(existingState._id, {
+            await ctx.db.patch("subscription_states", existingState._id, {
                 sync_attempt_id: undefined,
                 sync_started_at_ms: undefined,
                 sync_expires_at_ms: undefined,
@@ -3016,7 +3019,7 @@ export const applyReconciledSubscriptionState = async (ctx: MutationCtx, args: W
         }
 
         if (existingState) {
-            await ctx.db.replace(existingState._id, nextState);
+            await ctx.db.replace("subscription_states", existingState._id, nextState);
         } else {
             await ctx.db.insert("subscription_states", nextState);
         }
@@ -3030,7 +3033,7 @@ export const applyReconciledSubscriptionState = async (ctx: MutationCtx, args: W
         });
 
         if (restorableFrozenQuotaPeriod) {
-            await ctx.db.patch(restorableFrozenQuotaPeriod._id, {
+            await ctx.db.patch("quota_periods", restorableFrozenQuotaPeriod._id, {
                 restored_at_ms: args.synced_at_ms,
                 restored_to_quota_period_id: currentQuotaPeriod._id,
                 updated_at_ms: args.synced_at_ms,
@@ -3102,7 +3105,7 @@ export const clearUserDeletionOperation = async (ctx: MutationCtx, args: Webhook
         }
 
         for (const operation of operations) {
-            await ctx.db.delete(operation._id);
+            await ctx.db.delete("user_deletion_queue", operation._id);
         }
 
         return {
@@ -3550,7 +3553,9 @@ export const deleteUserSubscriptionData = async (ctx: MutationCtx, args: Webhook
         const [latestOperation, latestState, preservedQuotaPeriod] = await Promise.all([
             getLatestUserDeletionQueueEntryByUserId(ctx, args.user_id),
             getLatestSubscriptionStateByUserId(ctx, args.user_id),
-            args.preserved_quota_period_id ? ctx.db.get(args.preserved_quota_period_id) : null,
+            args.preserved_quota_period_id
+                ? ctx.db.get("quota_periods", args.preserved_quota_period_id)
+                : null,
         ]);
         const deletionRequiresPreservedQuotaPeriod =
             latestOperation?.has_active_subscription === true ||
@@ -3620,7 +3625,7 @@ export const deleteUserSubscriptionData = async (ctx: MutationCtx, args: Webhook
 
             for (const quotaPeriod of quotaPeriodDeletion.quota_periods) {
                 await deleteQuotaPeriodCountersByQuotaPeriodId(ctx, quotaPeriod._id);
-                await ctx.db.delete(quotaPeriod._id);
+                await ctx.db.delete("quota_periods", quotaPeriod._id);
                 deletedQuotaPeriods += 1;
             }
         }
@@ -3647,7 +3652,7 @@ export const finalizeDeletedUserSubscriptionData = async (ctx: MutationCtx, args
         });
 
         const preservedQuotaPeriod = args.preserved_quota_period_id
-            ? await ctx.db.get(args.preserved_quota_period_id)
+            ? await ctx.db.get("quota_periods", args.preserved_quota_period_id)
             : null;
 
         assertPreservedQuotaPeriodBelongsToDeletionUser({
@@ -3688,7 +3693,7 @@ export const finalizeDeletedUserSubscriptionData = async (ctx: MutationCtx, args
         if (args.has_active_subscription && preservedQuotaPeriod) {
             const wasAlreadyRestored = typeof preservedQuotaPeriod.restored_at_ms === "number";
 
-            await ctx.db.patch(preservedQuotaPeriod._id, {
+            await ctx.db.patch("quota_periods", preservedQuotaPeriod._id, {
                 user_id: null,
                 status: "frozen",
                 ...(args.store_subscription_id
@@ -3725,7 +3730,7 @@ export const finalizeDeletedUserSubscriptionData = async (ctx: MutationCtx, args
                         target_quota_period_id: restorationTarget._id,
                         now_ms: args.now_ms,
                     });
-                    await ctx.db.patch(preservedQuotaPeriod._id, {
+                    await ctx.db.patch("quota_periods", preservedQuotaPeriod._id, {
                         restored_at_ms: args.now_ms,
                         restored_to_quota_period_id: restorationTarget._id,
                         updated_at_ms: args.now_ms,
@@ -3735,7 +3740,7 @@ export const finalizeDeletedUserSubscriptionData = async (ctx: MutationCtx, args
         }
 
         for (const stateDoc of stateDocs) {
-            await ctx.db.delete(stateDoc._id);
+            await ctx.db.delete("subscription_states", stateDoc._id);
         }
 
         return {
@@ -3753,7 +3758,7 @@ export const deferSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
             };
         }
 
-        await ctx.db.patch(existingState._id, {
+        await ctx.db.patch("subscription_states", existingState._id, {
             stale_after_at_ms: args.next_attempt_at_ms,
             updated_at_ms: args.next_attempt_at_ms,
         } as Record<string, unknown>);

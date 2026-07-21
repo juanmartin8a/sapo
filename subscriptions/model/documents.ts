@@ -102,7 +102,7 @@ export async function deleteUsageEventsByUserIdBatch(
     const usageEvents = candidates.slice(0, safeLimit);
 
     for (const usageEvent of usageEvents) {
-        await ctx.db.delete(usageEvent._id);
+        await ctx.db.delete("usage_events", usageEvent._id);
     }
 
     return {

@@ -30,7 +30,7 @@ export async function deleteOrPruneRevenueCatEventForDeletedUser(
 
     if (remainingUserIds.length === 0) {
         await deleteRevenueCatEventUsersByEventDocId(ctx, args.event_doc._id, linkedEventUsers);
-        await ctx.db.delete(args.event_doc._id);
+        await ctx.db.delete("revenue_cat_events", args.event_doc._id);
 
         return {
             deleted: true,
@@ -42,10 +42,10 @@ export async function deleteOrPruneRevenueCatEventForDeletedUser(
             continue;
         }
 
-        await ctx.db.delete(eventUser._id);
+        await ctx.db.delete("revenue_cat_event_users", eventUser._id);
     }
 
-    await ctx.db.patch(args.event_doc._id, {
+    await ctx.db.patch("revenue_cat_events", args.event_doc._id, {
         ...pruneRevenueCatEventUserReferences({
             removed_user_id: args.user_id,
             remaining_user_ids: remainingUserIds,
@@ -106,7 +106,7 @@ export async function listRevenueCatEventsForUserDeletionBatch(
             break;
         }
 
-        const eventDoc = await ctx.db.get(eventUser.event_doc_id);
+        const eventDoc = await ctx.db.get("revenue_cat_events", eventUser.event_doc_id);
         addEvent(eventDoc);
     }
 

@@ -65,7 +65,7 @@ export async function recordOperationalAlert(
         existingAlert.next_notify_at_ms <= args.now_ms;
 
     if (existingAlert) {
-        await ctx.db.patch(existingAlert._id, {
+        await ctx.db.patch("operational_alerts", existingAlert._id, {
             severity: args.severity,
             status: "open",
             title: truncate(args.title, 300),
@@ -108,7 +108,7 @@ export async function markOperationalAlertNotified(
     ctx: MutationCtx,
     args: { alert_id: Id<"operational_alerts">; now_ms: number },
 ): Promise<void> {
-    await ctx.db.patch(args.alert_id, {
+    await ctx.db.patch("operational_alerts", args.alert_id, {
         notified_at_ms: args.now_ms,
         next_notify_at_ms: args.now_ms + ALERT_NOTIFY_COOLDOWN_MS,
     });
@@ -192,7 +192,7 @@ export async function deleteResolvedOperationalAlertsEligibleForRetentionPurge(
             continue;
         }
 
-        await ctx.db.delete(alert._id);
+        await ctx.db.delete("operational_alerts", alert._id);
         deletedCount += 1;
     }
 

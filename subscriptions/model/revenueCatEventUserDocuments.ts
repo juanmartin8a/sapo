@@ -35,7 +35,7 @@ export async function deleteRevenueCatEventUsersByEventDocId(
     const usersToDelete = eventUsers ?? (await listRevenueCatEventUsersByEventDocId(ctx, eventDocId));
 
     for (const eventUser of usersToDelete) {
-        await ctx.db.delete(eventUser._id);
+        await ctx.db.delete("revenue_cat_event_users", eventUser._id);
     }
 
     return usersToDelete.length;

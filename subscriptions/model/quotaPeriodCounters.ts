@@ -238,11 +238,11 @@ async function normalizeQuotaPeriodCounterRows(
 
     if (Object.keys(patch).length > 0) {
         patch.updated_at_ms = args.now_ms;
-        await ctx.db.patch(canonicalCounter._id, patch);
+        await ctx.db.patch("quota_period_counters", canonicalCounter._id, patch);
     }
 
     for (const duplicateCounter of duplicateCounters) {
-        await ctx.db.delete(duplicateCounter._id);
+        await ctx.db.delete("quota_period_counters", duplicateCounter._id);
     }
 
     return {
@@ -290,7 +290,7 @@ export async function getOrCreateQuotaPeriodCounter(
         "quota_period_counters",
         buildQuotaPeriodCounterInsertDocument(args)
     );
-    const insertedCounter = await ctx.db.get(counterId);
+    const insertedCounter = await ctx.db.get("quota_period_counters", counterId);
 
     if (!insertedCounter) {
         throw new Error("Failed to create quota period counter");
@@ -325,7 +325,7 @@ export async function syncExistingQuotaPeriodCountersForPlanLimits(
         }
 
         patch.updated_at_ms = args.now_ms;
-        await ctx.db.patch(counter._id, patch);
+        await ctx.db.patch("quota_period_counters", counter._id, patch);
     }
 }
 
@@ -339,7 +339,7 @@ export async function applyQuotaPeriodCounterCharge(
 ) {
     const patch = buildQuotaPeriodCounterChargePatch(args);
 
-    await ctx.db.patch(args.counter._id, patch);
+    await ctx.db.patch("quota_period_counters", args.counter._id, patch);
 
     return {
         ...args.counter,
@@ -415,7 +415,7 @@ export async function copyQuotaPeriodCountersToQuotaPeriod(
             updated_at_ms: args.now_ms,
         };
 
-        await ctx.db.patch(targetCounter._id, patch);
+        await ctx.db.patch("quota_period_counters", targetCounter._id, patch);
     }
 }
 
@@ -466,7 +466,7 @@ export async function mergeQuotaPeriodCountersIntoTarget(
                     : sourceCounter.last_charged_at_ms
                 : targetCounter.last_charged_at_ms;
 
-        await ctx.db.patch(targetCounter._id, {
+        await ctx.db.patch("quota_period_counters", targetCounter._id, {
             charged_units:
                 sanitizeCounterUnits(targetCounter.charged_units) +
                 sanitizeCounterUnits(sourceCounter.charged_units),
@@ -483,7 +483,7 @@ export async function deleteQuotaPeriodCountersByQuotaPeriodId(
     const counters = await listQuotaPeriodCountersByQuotaPeriodId(ctx, quotaPeriodId);
 
     for (const counter of counters) {
-        await ctx.db.delete(counter._id);
+        await ctx.db.delete("quota_period_counters", counter._id);
     }
 
     return counters.length;

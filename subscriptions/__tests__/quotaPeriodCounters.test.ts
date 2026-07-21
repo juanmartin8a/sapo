@@ -80,8 +80,16 @@ function createFakeCounterCtx(initialCounters: FakeCounterDoc[] = []) {
 
                     return id;
                 },
-                get: async (id: string) => countersById.get(id) ?? null,
-                patch: async (id: string, patch: Partial<FakeCounterDoc>) => {
+                get: async (tableName: string, id: string) => {
+                    expect(tableName).toBe("quota_period_counters");
+                    return countersById.get(id) ?? null;
+                },
+                patch: async (
+                    tableName: string,
+                    id: string,
+                    patch: Partial<FakeCounterDoc>
+                ) => {
+                    expect(tableName).toBe("quota_period_counters");
                     const counter = countersById.get(id);
 
                     if (!counter) {
@@ -93,7 +101,8 @@ function createFakeCounterCtx(initialCounters: FakeCounterDoc[] = []) {
                         ...patch,
                     });
                 },
-                delete: async (id: string) => {
+                delete: async (tableName: string, id: string) => {
+                    expect(tableName).toBe("quota_period_counters");
                     countersById.delete(id);
                 },
             },

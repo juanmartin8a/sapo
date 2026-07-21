@@ -72,7 +72,7 @@ export async function finalizeStaleUsageEvent(
         watchdog_delay_ms: number;
     }
 ) {
-    const usageEvent = await ctx.db.get(args.usage_event_id);
+    const usageEvent = await ctx.db.get("usage_events", args.usage_event_id);
 
     if (!usageEvent) {
         return {
@@ -101,7 +101,7 @@ export async function finalizeStaleUsageEvent(
     }
 
     if (transition.state === "failed") {
-        await ctx.db.patch(usageEvent._id, {
+        await ctx.db.patch("usage_events", usageEvent._id, {
             state: transition.state,
             quota_state: transition.quota_state,
             failed_at_ms: args.now_ms,
@@ -113,7 +113,7 @@ export async function finalizeStaleUsageEvent(
         };
     }
 
-    await ctx.db.patch(usageEvent._id, {
+    await ctx.db.patch("usage_events", usageEvent._id, {
         state: transition.state,
         indeterminate_at_ms: args.now_ms,
         updated_at_ms: args.now_ms,
