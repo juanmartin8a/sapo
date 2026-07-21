@@ -69,8 +69,6 @@ const FROZEN_QUOTA_PERIOD_PURGE_BATCH_LIMIT = 500;
 const FROZEN_QUOTA_PERIOD_PURGE_MAX_BATCHES = 10;
 const REFRESH_RATE_LIMIT_PURGE_BATCH_LIMIT = 500;
 const REFRESH_RATE_LIMIT_PURGE_MAX_BATCHES = 10;
-const USER_DELETION_AUTH_DELETE_POLL_INTERVAL_MS = 5_000;
-const USER_DELETION_AUTH_DELETE_LATE_POLL_INTERVAL_MS = 5 * 60 * 1000;
 const USER_DELETION_AUTH_DELETE_CONFIRM_TIMEOUT_MS = 60_000;
 const USER_DELETION_AUTH_DELETE_DEAD_LETTER_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 const USER_DELETION_CLEANUP_LEASE_MS = 2 * 60 * 1000;
@@ -1379,28 +1377,18 @@ export const finalizeDeletedUserData = internalAction({
             }
 
             if (authDeleteWaitStatus === USER_DELETION_LATE_AUTH_WAIT_STATUS) {
-                const nextRetryAtMs = nowMs + USER_DELETION_AUTH_DELETE_LATE_POLL_INTERVAL_MS;
+                const nextRetryAtMs = nowMs + USER_DELETION_CLEANUP_CRON_RETRY_DELAY_MS;
 
                 const leaseLost = await rescheduleOwnedUserDeletionOperation(ctx, args.user_id, cleanupAttemptId, {
                     status: USER_DELETION_LATE_AUTH_WAIT_STATUS,
                     now_ms: nowMs,
                     next_retry_at_ms: nextRetryAtMs,
                     last_error:
-                        "Timed out waiting for Better Auth deletion confirmation; continuing background polling",
+                        "Timed out waiting for Better Auth deletion confirmation; continuing cron-based retries",
                 }, "acquired").catch(() => null);
 
                 if (leaseLost) {
                     return leaseLost;
-                }
-
-                try {
-                    await scheduleQueuedUserDeletionProcessing(
-                        ctx,
-                        args.user_id,
-                        USER_DELETION_AUTH_DELETE_LATE_POLL_INTERVAL_MS
-                    );
-                } catch {
-                    // Cron is the fallback.
                 }
 
                 console.warn(
@@ -1417,7 +1405,7 @@ export const finalizeDeletedUserData = internalAction({
                 };
             }
 
-            const nextRetryAtMs = nowMs + USER_DELETION_AUTH_DELETE_POLL_INTERVAL_MS;
+            const nextRetryAtMs = nowMs + USER_DELETION_CLEANUP_CRON_RETRY_DELAY_MS;
             const leaseLost = await rescheduleOwnedUserDeletionOperation(ctx, args.user_id, cleanupAttemptId, {
                 status: "awaiting_auth_delete",
                 now_ms: nowMs,
@@ -1427,16 +1415,6 @@ export const finalizeDeletedUserData = internalAction({
 
             if (leaseLost) {
                 return leaseLost;
-            }
-
-            try {
-                await scheduleQueuedUserDeletionProcessing(
-                    ctx,
-                    args.user_id,
-                    USER_DELETION_AUTH_DELETE_POLL_INTERVAL_MS
-                );
-            } catch {
-                // Cron is the fallback.
             }
 
             return {

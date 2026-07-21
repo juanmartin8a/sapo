@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, jest } from "@jest/globals";
 
 import {
+    finalizeDeletedUserData,
     prepareUserAccountDeletion,
     processRevenueCatWebhookEventById,
     queueDeletedUserDataCleanup,
@@ -441,5 +442,56 @@ describe("user deletion scheduling", () => {
             user_id: "user_1",
         });
         expect(calls).toEqual(["mark", "schedule"]);
+    });
+
+    it("uses the cron retry when Better Auth deletion is not yet confirmed", async () => {
+        jest.spyOn(Date, "now").mockReturnValue(1_000);
+        const scheduler = {
+            runAfter: jest.fn(),
+        };
+        const ctx = {
+            scheduler,
+            runQuery: jest.fn(async (_functionRef: unknown, queryArgs: Record<string, unknown>) => {
+                if (queryArgs.model === "user") {
+                    return {
+                        createdAt: 900,
+                    };
+                }
+
+                throw new Error("Unexpected query in auth deletion confirmation test");
+            }),
+            runMutation: jest.fn(async (_functionRef: unknown, mutationArgs: Record<string, unknown>) => {
+                if (typeof mutationArgs.lease_expires_at_ms === "number") {
+                    return {
+                        acquired: true,
+                        operation: {
+                            started_at_ms: 900,
+                            prepared_at_ms: 900,
+                            has_active_subscription: false,
+                            preserved_quota_period_id: "quota_1",
+                            revenuecat_app_user_id: "rc_user_1",
+                            retry_count: 0,
+                        },
+                    };
+                }
+
+                if (typeof mutationArgs.cleanup_attempt_id === "string") {
+                    return {
+                        updated: true,
+                    };
+                }
+
+                throw new Error("Unexpected mutation in auth deletion confirmation test");
+            }),
+        };
+
+        await expect(
+            (finalizeDeletedUserData as any)._handler(ctx, { user_id: "user_1" })
+        ).resolves.toEqual({
+            status: "awaiting_auth_delete",
+            next_retry_at_ms: 901_000,
+        });
+
+        expect(scheduler.runAfter).not.toHaveBeenCalled();
     });
 });
