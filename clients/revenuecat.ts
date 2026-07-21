@@ -6,7 +6,7 @@ const androidRevenueCatApiKey = process.env.EXPO_PUBLIC_REVENUE_CAT_GOOGLE_API_K
 const iosSubscriptionProductId = process.env.EXPO_PUBLIC_IOS_SUBSCRIPTION_PRODUCT_ID ?? "";
 const androidSubscriptionProductId = process.env.EXPO_PUBLIC_ANDR_SUBSCRIPTION_PRODUCT_ID ?? "";
 
-export const revenueCatEntitlementId =
+const revenueCatEntitlementId =
     process.env.EXPO_PUBLIC_REVENUE_CAT_ENTITLEMENT_ID ?? "";
 
 const getRevenueCatApiKey = () => {
@@ -158,7 +158,7 @@ export const logOutRevenueCatIdentity = async (expectedAppUserId?: string | null
     return true;
 };
 
-export const getRevenueCatManagementUrl = async (appUserId: string) => {
+const getRevenueCatManagementUrl = async (appUserId: string) => {
     const customerInfo = await getRevenueCatCustomerInfo(appUserId);
     return customerInfo?.managementURL ?? null;
 };

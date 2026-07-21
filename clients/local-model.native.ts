@@ -48,19 +48,15 @@ const LEGACY_LOCAL_MODEL_FILE_NAMES = [
 export type LocalModelStatus = {
     supported: boolean;
     isDownloaded: boolean;
-    hasPartialDownload: boolean;
-    modelUri: string | null;
     downloadedBytes: number;
     expectedBytes: number;
     availableBytes: number | null;
-    progress: number;
 };
 
 export type LocalModelDownloadProgress = {
     downloadedBytes: number;
     expectedBytes: number;
     phase: "downloading" | "finalizing";
-    progress: number;
 };
 
 type LocalModelDownloadRecord = {
@@ -126,7 +122,7 @@ export const isLocalModelAbortError = (error: unknown) => {
     return error instanceof Error && error.name === "AbortError";
 };
 
-export const getLocalModelDirectoryUri = () => {
+const getLocalModelDirectoryUri = () => {
     if (!FileSystem.cacheDirectory) {
         return null;
     }
@@ -345,12 +341,9 @@ export const getLocalModelStatus = async (
         return {
             supported,
             isDownloaded: false,
-            hasPartialDownload: false,
-            modelUri: null,
             downloadedBytes: 0,
             expectedBytes: model.sizeBytes,
             availableBytes: null,
-            progress: 0,
         };
     }
 
@@ -368,12 +361,9 @@ export const getLocalModelStatus = async (
     return {
         supported,
         isDownloaded,
-        hasPartialDownload: !isDownloaded && partialBytes > 0,
-        modelUri,
         downloadedBytes,
         expectedBytes: model.sizeBytes,
         availableBytes,
-        progress: Math.min(1, downloadedBytes / model.sizeBytes),
     };
 };
 
@@ -480,7 +470,6 @@ export const createLocalModelDownload = (
                     downloadedBytes: downloadProgress.totalBytesWritten,
                     expectedBytes,
                     phase: progress >= 1 ? "finalizing" : "downloading",
-                    progress,
                 });
             }
         );
@@ -500,7 +489,6 @@ export const createLocalModelDownload = (
             downloadedBytes: model.sizeBytes,
             expectedBytes: model.sizeBytes,
             phase: "finalizing",
-            progress: 1,
         });
 
         try {
