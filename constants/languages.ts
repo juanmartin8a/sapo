@@ -1,3 +1,8 @@
+export const AUTO_DETECT_LANGUAGE_ID = 0;
+export const DEFAULT_SOURCE_LANGUAGE_ID = AUTO_DETECT_LANGUAGE_ID;
+export const DEFAULT_TARGET_LANGUAGE_ID = 1;
+export const AUTO_DETECT_LANGUAGE_LABEL = "Auto-detect";
+
 export const languages = {
     1: "English",
     2: "Spanish",
@@ -11,6 +16,6 @@ export const languages = {
 
 
 export const languagesPlusAutoDetect = {
-    0: "Auto-detect",
+    [AUTO_DETECT_LANGUAGE_ID]: AUTO_DETECT_LANGUAGE_LABEL,
     ...languages
-} 
+};

@@ -4,6 +4,13 @@ import { Alert, Platform, ScrollView, StyleSheet, View } from "react-native";
 
 import TrashIcon from "@/assets/icons/trash.svg";
 import { authClient } from "@/clients/auth-client";
+import { APP_ROUTES } from "@/constants/routes";
+import {
+    SETTINGS_COLORS,
+    SETTINGS_HEADER_CONTENT_GAP,
+    SETTINGS_SCREEN_HORIZONTAL_PADDING,
+} from "@/constants/settings";
+import { getStoreAccountLabel } from "@/constants/subscription";
 import {
     getRevenueCatCustomerInfo,
     hasActiveRevenueCatSubscription,
@@ -38,7 +45,7 @@ export default function DataControlsScreen() {
 
     const requestAccountDeletion = useCallback(async () => {
         const result = await authClient.deleteUser({
-            callbackURL: "/",
+            callbackURL: APP_ROUTES.HOME,
         });
 
         if (result.error) {
@@ -57,8 +64,7 @@ export default function DataControlsScreen() {
 
         isPreparingDeleteAlertRef.current = true;
 
-        const storeAccountLabel =
-            Platform.OS === "android" ? "Google" : Platform.OS === "ios" ? "Apple" : "store";
+        const storeAccountLabel = getStoreAccountLabel(Platform.OS);
         let hasActiveSubscription = false;
 
         try {
@@ -117,7 +123,7 @@ export default function DataControlsScreen() {
         <View style={styles.container}>
             <ScrollView
                 style={styles.scrollView}
-                contentContainerStyle={[styles.contentContainer, { paddingTop: headerHeight + 24 }]}
+                contentContainerStyle={[styles.contentContainer, { paddingTop: headerHeight + SETTINGS_HEADER_CONTENT_GAP }]}
             >
                 <SettingsButton
                     text={
@@ -130,8 +136,8 @@ export default function DataControlsScreen() {
                     leftIcon={TrashIcon}
                     backgroundColor="#CDDEC8"
                     borderRadius={22}
-                    textColor="#8B332A"
-                    iconColor="#8B332A"
+                    textColor={SETTINGS_COLORS.destructiveText}
+                    iconColor={SETTINGS_COLORS.destructiveText}
                     loading={isProcessing}
                     disabled={isPending || isProcessing || !canDeleteAccount}
                     onPress={handleDeleteAccount}
@@ -144,13 +150,13 @@ export default function DataControlsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: "#E1ECDD",
+        backgroundColor: SETTINGS_COLORS.screenBackground,
     },
     scrollView: {
         flex: 1,
     },
     contentContainer: {
         flexGrow: 1,
-        paddingHorizontal: 16,
+        paddingHorizontal: SETTINGS_SCREEN_HORIZONTAL_PADDING,
     },
 });

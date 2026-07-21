@@ -2,15 +2,17 @@ import { useCallback } from "react";
 import { Stack, useRouter } from "expo-router";
 import { Platform, Pressable, StyleSheet } from "react-native";
 import XIcon from "../../../assets/icons/x.svg";
+import { APP_ROUTES } from "@/constants/routes";
+import { SETTINGS_COLORS } from "@/constants/settings";
 
 const isIOS = Platform.OS === "ios";
-const settingsModalBackground = "#E1ECDD";
+const settingsModalBackground = SETTINGS_COLORS.screenBackground;
 
 export default function SettingsModalLayout() {
     const router = useRouter();
 
     const handleDismiss = useCallback(() => {
-        router.dismissTo("/");
+        router.dismissTo(APP_ROUTES.HOME);
     }, [router]);
 
     const renderCloseButton = useCallback(() => {
@@ -20,7 +22,7 @@ export default function SettingsModalLayout() {
                 hitSlop={4}
                 style={({ pressed }) => [styles.headerActionButton, pressed && styles.headerActionButtonPressed]}
             >
-                <XIcon width={26} height={26} stroke="#1E3526" />
+                <XIcon width={26} height={26} stroke={SETTINGS_COLORS.primaryText} />
             </Pressable>
         );
     }, [handleDismiss]);

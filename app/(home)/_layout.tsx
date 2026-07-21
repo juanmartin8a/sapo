@@ -1,6 +1,8 @@
 import { Stack } from "expo-router";
 
-const settingsModalBackground = "#E1ECDD";
+import { SETTINGS_COLORS } from "@/constants/settings";
+
+const settingsModalBackground = SETTINGS_COLORS.screenBackground;
 
 export const unstable_settings = {
     anchor: "index",

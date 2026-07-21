@@ -3,6 +3,7 @@ import { useQuery } from "convex/react";
 import { usePathname, useRouter } from "expo-router";
 
 import { authClient } from "@/clients/auth-client";
+import { APP_ROUTES } from "@/constants/routes";
 import { api } from "@/convex/_generated/api";
 
 export default function AuthGate() {
@@ -42,8 +43,8 @@ export default function AuthGate() {
 
         signedOutSessionIdRef.current = null;
 
-        if (pathname === "/auth") {
-            router.dismissTo("/");
+        if (pathname === APP_ROUTES.AUTH) {
+            router.dismissTo(APP_ROUTES.HOME);
         }
     }, [hasSignedInUser, hasUnsupportedSession, isCheckingCurrentUser, isPending, pathname, router, sessionUserId]);
 

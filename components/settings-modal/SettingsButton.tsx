@@ -3,6 +3,7 @@ import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "rea
 import type { SvgProps } from "react-native-svg";
 
 import ChevronRightIcon from "../../assets/icons/chevron-right.svg";
+import { SETTINGS_COLORS } from "@/constants/settings";
 
 type SettingsButtonIcon = ComponentType<SvgProps>;
 
@@ -29,9 +30,9 @@ const SettingsButton = ({
     borderRadius,
     disabled = false,
     loading = false,
-    textColor = "#1E3526",
-    iconColor = "#1E3526",
-    chevronColor = "#5E755A",
+    textColor = SETTINGS_COLORS.primaryText,
+    iconColor = SETTINGS_COLORS.primaryText,
+    chevronColor = SETTINGS_COLORS.mutedChevron,
 }: SettingsButtonProps) => {
     return (
         <TouchableOpacity

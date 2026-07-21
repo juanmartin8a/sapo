@@ -1,5 +1,9 @@
-export type LanguageSelectorBottomSheetKey = "input_lang_selector" | "target_lang_selector"
+import { HOME_BOTTOM_SHEET_KEYS } from "@/constants/bottomSheets";
 
-export type LocalModelSelectorBottomSheetKey = "local_model_selector"
+export type LanguageSelectorBottomSheetKey =
+    | typeof HOME_BOTTOM_SHEET_KEYS.INPUT_LANGUAGE
+    | typeof HOME_BOTTOM_SHEET_KEYS.TARGET_LANGUAGE;
 
-export type HomeBottomSheetKey = LanguageSelectorBottomSheetKey | LocalModelSelectorBottomSheetKey
+export type LocalModelSelectorBottomSheetKey = typeof HOME_BOTTOM_SHEET_KEYS.LOCAL_MODEL;
+
+export type HomeBottomSheetKey = LanguageSelectorBottomSheetKey | LocalModelSelectorBottomSheetKey;

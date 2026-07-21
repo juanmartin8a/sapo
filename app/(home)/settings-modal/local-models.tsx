@@ -14,17 +14,14 @@ import {
     type LocalTranslationModelId,
     type LocalModelStatus,
 } from "@/clients/local-model";
+import {
+    SETTINGS_COLORS,
+    SETTINGS_HEADER_CONTENT_GAP,
+    SETTINGS_SCREEN_BOTTOM_PADDING,
+    SETTINGS_SCREEN_HORIZONTAL_PADDING,
+} from "@/constants/settings";
 import useLocalModelStore from "@/stores/localModelStore";
 import { triggerErrorHaptic, triggerLightImpactHaptic, triggerStrongImpactHaptic } from "@/utils/haptics";
-
-const colors = {
-    screenBackground: "#E1ECDD",
-    cardBackground: "#C5D8C0",
-    primaryText: "#1E3526",
-    mutedText: "#647C61",
-    border: "#AFC7A8",
-    destructiveText: "#8B332A",
-};
 
 type ModelStatusById = Partial<Record<LocalTranslationModelId, LocalModelStatus>>;
 
@@ -223,11 +220,11 @@ export default function LocalModelScreen() {
                     {isDownloading ? (
                         <SquareIcon width={18} height={18} stroke="black" fill="black" />
                     ) : isDeleting ? (
-                        <ActivityIndicator color={colors.primaryText} size="small" />
+                        <ActivityIndicator color={SETTINGS_COLORS.primaryText} size="small" />
                     ) : isDownloaded ? (
-                        <TrashIcon width={20} height={20} stroke={colors.destructiveText} />
+                        <TrashIcon width={20} height={20} stroke={SETTINGS_COLORS.destructiveText} />
                     ) : (
-                        <DownloadIcon width={20} height={20} stroke={colors.primaryText} />
+                        <DownloadIcon width={20} height={20} stroke={SETTINGS_COLORS.primaryText} />
                     )}
                 </TouchableOpacity>
             </View>
@@ -237,7 +234,7 @@ export default function LocalModelScreen() {
     return (
         <ScrollView
             style={styles.container}
-            contentContainerStyle={[styles.contentContainer, { paddingTop: headerHeight + 24 }]}
+            contentContainerStyle={[styles.contentContainer, { paddingTop: headerHeight + SETTINGS_HEADER_CONTENT_GAP }]}
         >
             {downloadedModels.length > 0 ? (
                 <View style={styles.sectionContainer}>
@@ -260,7 +257,7 @@ export default function LocalModelScreen() {
             ) : null}
 
             {isRefreshing && Object.keys(statusByModelId).length === 0 ? (
-                <ActivityIndicator color={colors.primaryText} size="small" />
+                <ActivityIndicator color={SETTINGS_COLORS.primaryText} size="small" />
             ) : didStatusCheckFail ? (
                 <Text style={styles.noteText}>Unable to determine local model support right now.</Text>
             ) : !localModelsSupported ? (
@@ -277,19 +274,19 @@ export default function LocalModelScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: colors.screenBackground,
+        backgroundColor: SETTINGS_COLORS.screenBackground,
     },
     contentContainer: {
         flexGrow: 1,
-        paddingHorizontal: 16,
-        paddingBottom: 32,
+        paddingHorizontal: SETTINGS_SCREEN_HORIZONTAL_PADDING,
+        paddingBottom: SETTINGS_SCREEN_BOTTOM_PADDING,
         gap: 12,
     },
     sectionContainer: {
         gap: 6,
     },
     sectionLabel: {
-        color: colors.mutedText,
+        color: SETTINGS_COLORS.mutedText,
         fontSize: 14,
         fontWeight: "600",
         paddingHorizontal: 4,
@@ -298,7 +295,7 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     modelCard: {
-        backgroundColor: colors.cardBackground,
+        backgroundColor: SETTINGS_COLORS.surface,
         borderRadius: 24,
         flexDirection: "row",
         alignItems: "center",
@@ -313,12 +310,12 @@ const styles = StyleSheet.create({
         paddingRight: 12,
     },
     modelName: {
-        color: colors.primaryText,
+        color: SETTINGS_COLORS.primaryText,
         fontSize: 16,
         fontWeight: "600",
     },
     modelSize: {
-        color: colors.mutedText,
+        color: SETTINGS_COLORS.mutedText,
         fontSize: 13,
         fontWeight: "500",
     },
@@ -334,7 +331,7 @@ const styles = StyleSheet.create({
         backgroundColor: "transparent",
     },
     storageText: {
-        color: colors.mutedText,
+        color: SETTINGS_COLORS.mutedText,
         fontSize: 13,
         fontWeight: "600",
     },
@@ -342,7 +339,7 @@ const styles = StyleSheet.create({
         opacity: 0.5,
     },
     noteText: {
-        color: colors.mutedText,
+        color: SETTINGS_COLORS.mutedText,
         fontSize: 13,
         lineHeight: 18,
         paddingHorizontal: 4,

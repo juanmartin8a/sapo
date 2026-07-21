@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 
+import { DEFAULT_SOURCE_LANGUAGE_ID, DEFAULT_TARGET_LANGUAGE_ID } from "@/constants/languages";
+
 interface LanguageSelectionNotifierProps {
     selectedIndex0: number,
     selectedIndex1: number,
@@ -8,8 +10,8 @@ interface LanguageSelectionNotifierProps {
 }
 
 const useLanguageSelectionNotifier = create<LanguageSelectionNotifierProps>((set, get) => ({
-    selectedIndex0: 0, // for input languages
-    selectedIndex1: 1, // for target languages
+    selectedIndex0: DEFAULT_SOURCE_LANGUAGE_ID, // for input languages
+    selectedIndex1: DEFAULT_TARGET_LANGUAGE_ID, // for target languages
 
     selectLanguage: (forInput: boolean, index: number) => {
         if (forInput) {

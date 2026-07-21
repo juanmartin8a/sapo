@@ -1,4 +1,5 @@
 import { languagesPlusAutoDetect } from "@/constants/languages";
+import { HOME_BOTTOM_SHEET_KEYS } from "@/constants/bottomSheets";
 import useLanguageSelectorBottomSheetNotifier from '@/stores/languageSelectionNotifierStore';
 import LangugeSelectorBottomSheetUI from "./LanguageSelectorBottomSheetUI";
 import { triggerSelectionHaptic } from "@/utils/haptics";
@@ -9,7 +10,7 @@ import useHomeBottomSheetController from "./useHomeBottomSheetController";
 
 export default function SourceLangugeSelectorBottomSheet() {
     const { sheetRef, handleSheetClose, handleSheetChange } =
-        useHomeBottomSheetController("input_lang_selector");
+        useHomeBottomSheetController(HOME_BOTTOM_SHEET_KEYS.INPUT_LANGUAGE);
     const selectLanguage = useLanguageSelectorBottomSheetNotifier(state => state.selectLanguage);
     const selectedIndex = useLanguageSelectorBottomSheetNotifier(state => state.selectedIndex0);
 

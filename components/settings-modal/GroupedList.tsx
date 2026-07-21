@@ -1,6 +1,8 @@
 import { Children, type ReactNode } from "react";
 import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 
+import { SETTINGS_COLORS } from "@/constants/settings";
+
 interface GroupedListProps {
     children: ReactNode;
     style?: StyleProp<ViewStyle>;
@@ -17,7 +19,7 @@ const GroupedList = ({
     backgroundColor,
     borderRadius,
     showDividers = false,
-    dividerColor = "#D4E0D1",
+    dividerColor = SETTINGS_COLORS.divider,
     dividerInset = 12,
 }: GroupedListProps) => {
     const items = Children.toArray(children).filter((child) => typeof child !== "boolean");

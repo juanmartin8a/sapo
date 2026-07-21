@@ -16,6 +16,8 @@ import {
 } from "expo-router";
 
 import { authClient } from "@/clients/auth-client";
+import { APP_ROUTES } from "@/constants/routes";
+import { SETTINGS_COLORS } from "@/constants/settings";
 import { getSessionUserAuthState } from "@/utils/auth";
 import { triggerErrorHaptic, triggerStrongImpactHaptic } from "@/utils/haptics";
 
@@ -166,7 +168,7 @@ export default function DeleteAccountConfirmationScreen() {
     const lastHapticStatusRef = useRef<ConfirmationStatus | null>(null);
 
     const handleReturnHome = useCallback(() => {
-        router.dismissTo("/");
+        router.dismissTo(APP_ROUTES.HOME);
     }, [router]);
 
     useEffect(() => {
@@ -361,7 +363,7 @@ export default function DeleteAccountConfirmationScreen() {
     }, [isPending, token]);
 
     if (status === "home") {
-        return <Redirect href="/" />;
+        return <Redirect href={APP_ROUTES.HOME} />;
     }
 
     const cardAnimatedStyle = {
@@ -413,7 +415,7 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "#E1ECDD",
+        backgroundColor: SETTINGS_COLORS.screenBackground,
         padding: 24,
     },
     card: {
@@ -425,7 +427,7 @@ const styles = StyleSheet.create({
         gap: 14,
     },
     title: {
-        color: "#1E3526",
+        color: SETTINGS_COLORS.primaryText,
         fontSize: 24,
         fontWeight: "700",
     },
@@ -438,7 +440,7 @@ const styles = StyleSheet.create({
         marginTop: 8,
         alignItems: "center",
         borderRadius: 18,
-        backgroundColor: "#1E3526",
+        backgroundColor: SETTINGS_COLORS.primaryText,
         paddingVertical: 14,
         paddingHorizontal: 18,
     },

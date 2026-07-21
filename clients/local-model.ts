@@ -9,6 +9,8 @@ import type {
     LocalTranslationModelId,
     SelectedLocalTranslationModelId,
 } from "@/clients/local-model-catalog";
+import { ABORT_ERROR_NAME } from "@/constants/errors";
+import { LOCAL_MODELS_MOBILE_ONLY_ERROR } from "@/constants/localModels";
 
 export {
     DEFAULT_LOCAL_TRANSLATION_MODEL_ID,
@@ -57,7 +59,7 @@ const getUnsupportedStatus = (modelId: LocalTranslationModelId): LocalModelStatu
 export const isLocalModelSupported = (): boolean => false;
 
 export const isLocalModelAbortError = (error: unknown) => {
-    return error instanceof Error && error.name === "AbortError";
+    return error instanceof Error && error.name === ABORT_ERROR_NAME;
 };
 
 export const getLocalModelFileUri = (_modelId?: SelectedLocalTranslationModelId): string | null => null;
@@ -75,7 +77,7 @@ export const createLocalModelDownload = (
     _modelId: LocalTranslationModelId
 ) => {
     const start = async (): Promise<LocalModelStatus> => {
-        throw new Error("Local models are available on iOS and Android only.");
+        throw new Error(LOCAL_MODELS_MOBILE_ONLY_ERROR);
     };
 
     const cancel = async () => undefined;

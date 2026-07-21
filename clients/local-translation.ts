@@ -1,3 +1,6 @@
+import { ABORT_ERROR_NAME } from "@/constants/errors";
+import { LOCAL_TRANSLATIONS_MOBILE_ONLY_ERROR } from "@/constants/localModels";
+
 type LocalTranslationArgs = {
     inputLanguage: string;
     targetLanguage: string;
@@ -11,7 +14,7 @@ type LocalTranslationOptions = {
 };
 
 export const isLocalTranslationAbortError = (error: unknown) => {
-    return error instanceof Error && error.name === "AbortError";
+    return error instanceof Error && error.name === ABORT_ERROR_NAME;
 };
 
 export const stopActiveLocalTranslation = async () => undefined;
@@ -31,5 +34,5 @@ export const translateWithLocalModel = async (
     _args: LocalTranslationArgs,
     _options: LocalTranslationOptions = {}
 ): Promise<string> => {
-    throw new Error("Local translations are available on iOS and Android only.");
+    throw new Error(LOCAL_TRANSLATIONS_MOBILE_ONLY_ERROR);
 };

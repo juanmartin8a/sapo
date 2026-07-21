@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { useRouter, type Href } from "expo-router";
+import { useRouter } from "expo-router";
 import { useHeaderHeight } from "expo-router/react-navigation";
 import { Alert, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import Purchases from "react-native-purchases";
@@ -12,6 +12,18 @@ import SettingsIcon from "@/assets/icons/settings.svg";
 import BrainIcon from "@/assets/icons/brain.svg";
 import SlidersHorizontalIcon from "@/assets/icons/sliders-horizontal.svg";
 import { authClient } from "@/clients/auth-client";
+import { APP_ROUTES } from "@/constants/routes";
+import {
+    SETTINGS_COLORS,
+    SETTINGS_HEADER_CONTENT_GAP,
+    SETTINGS_SCREEN_BOTTOM_PADDING,
+    SETTINGS_SCREEN_HORIZONTAL_PADDING,
+} from "@/constants/settings";
+import {
+    getStoreAccountLabel,
+    getSubscriptionLinkedElsewhereMessage,
+    SUBSCRIPTION_LINKED_ELSEWHERE_ALERT_TITLE,
+} from "@/constants/subscription";
 import {
     configureRevenueCat,
     hasActiveRevenueCatSubscription,
@@ -32,23 +44,8 @@ import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
 import { getSessionUserAuthState } from "@/utils/auth";
 import { triggerErrorHaptic, triggerLightImpactHaptic, triggerStrongImpactHaptic, triggerWarningHaptic } from "@/utils/haptics";
 
-const colors = {
-    screenBackground: "#E1ECDD",
-    sectionLabel: "#647C61",
-    accountButtonBackground: "#C5D8C0",
-    primaryText: "#1E3526",
-    mutedChevron: "#5E755A",
-    destructiveText: "#8B332A",
-};
-
-const LOCAL_MODEL_ROUTE = "/settings-modal/local-models" as Href;
-
 const RESTORE_PURCHASES_ERROR_MESSAGE = "Unable to restore purchases. Please try again.";
 const MANAGE_SUBSCRIPTION_ERROR_MESSAGE = "Unable to open subscription settings. Please try again.";
-
-const getSubscriptionLinkedElsewhereMessage = (storeAccountLabel: string) => {
-    return `This ${storeAccountLabel} account already has a S A P O subscription linked to another S A P O account. Please sign in to that account, or contact us for support at support@sapo.surf.`;
-};
 
 const getRestoreSyncPendingMessage = () => {
     return "Your subscription is active. We are still syncing it to SAPO and will keep trying automatically.";
@@ -79,8 +76,7 @@ export default function SettingsModalScreen() {
     const [isRestoringPurchases, setIsRestoringPurchases] = useState(false);
     const [isManagingSubscription, setIsManagingSubscription] = useState(false);
     const canUseRevenueCat = hasRevenueCatConfig();
-    const storeAccountLabel =
-        Platform.OS === "android" ? "Google" : Platform.OS === "ios" ? "Apple" : "store";
+    const storeAccountLabel = getStoreAccountLabel(Platform.OS);
     const shouldShowAuthenticatedActions = isAuthenticatedUser || isSigningOut;
     const isRestorePurchasesDisabled =
         isPending ||
@@ -100,19 +96,19 @@ export default function SettingsModalScreen() {
         !canUseRevenueCat;
 
     const handleOpenSubscription = useCallback(() => {
-        router.push("/settings-modal/subscription");
+        router.push(APP_ROUTES.SUBSCRIPTION);
     }, [router]);
 
     const handleOpenDataControls = useCallback(() => {
-        router.push("/settings-modal/data-controls");
+        router.push(APP_ROUTES.DATA_CONTROLS);
     }, [router]);
 
     const handleOpenLocalModel = useCallback(() => {
-        router.push(LOCAL_MODEL_ROUTE);
+        router.push(APP_ROUTES.LOCAL_MODELS);
     }, [router]);
 
     const handleSignIn = useCallback(() => {
-        router.push("/auth");
+        router.push(APP_ROUTES.AUTH);
     }, [router]);
 
     const handleRestorePurchases = useCallback(async () => {
@@ -202,7 +198,7 @@ export default function SettingsModalScreen() {
 
                 triggerWarningHaptic();
                 Alert.alert(
-                    "Subscription linked elsewhere",
+                    SUBSCRIPTION_LINKED_ELSEWHERE_ALERT_TITLE,
                     getSubscriptionLinkedElsewhereMessage(storeAccountLabel)
                 );
                 return;
@@ -278,7 +274,7 @@ export default function SettingsModalScreen() {
         try {
             setIsSigningOut(true);
             await authClient.signOut();
-            router.dismissTo("/");
+            router.dismissTo(APP_ROUTES.HOME);
         } catch {
             Alert.alert("Something went wrong", "Unable to sign out. Please try again.");
             setIsSigningOut(false);
@@ -289,18 +285,18 @@ export default function SettingsModalScreen() {
         <View style={styles.container}>
             <ScrollView
                 style={styles.scrollView}
-                contentContainerStyle={[styles.contentContainer, { paddingTop: headerHeight + 24 }]}
+                contentContainerStyle={[styles.contentContainer, { paddingTop: headerHeight + SETTINGS_HEADER_CONTENT_GAP }]}
             >
                 <View style={styles.sectionContainer}>
                     <Text style={styles.sectionLabel}>Account</Text>
-                    <GroupedList backgroundColor="#C5D8C0" borderRadius={24} showDividers={true}>
+                    <GroupedList backgroundColor={SETTINGS_COLORS.surface} borderRadius={24} showDividers={true}>
                         <SettingsButton
                             text="Subscription"
                             leftIcon={EarthIcon}
                             showChevron
-                            textColor={colors.primaryText}
-                            iconColor={colors.primaryText}
-                            chevronColor={colors.mutedChevron}
+                            textColor={SETTINGS_COLORS.primaryText}
+                            iconColor={SETTINGS_COLORS.primaryText}
+                            chevronColor={SETTINGS_COLORS.mutedChevron}
                             disabled={isSigningOut}
                             onPress={handleOpenSubscription}
                         />
@@ -313,8 +309,8 @@ export default function SettingsModalScreen() {
                                       : "Restore purchases"
                             }
                             leftIcon={RepeatIcon}
-                            textColor={colors.primaryText}
-                            iconColor={colors.primaryText}
+                            textColor={SETTINGS_COLORS.primaryText}
+                            iconColor={SETTINGS_COLORS.primaryText}
                             loading={isRestoringPurchases}
                             disabled={isRestorePurchasesDisabled}
                             onPress={() => {
@@ -330,8 +326,8 @@ export default function SettingsModalScreen() {
                                       : "Manage subscription"
                             }
                             leftIcon={SettingsIcon}
-                            textColor={colors.primaryText}
-                            iconColor={colors.primaryText}
+                            textColor={SETTINGS_COLORS.primaryText}
+                            iconColor={SETTINGS_COLORS.primaryText}
                             loading={isManagingSubscription}
                             disabled={isManageSubscriptionDisabled}
                             onPress={() => {
@@ -346,11 +342,11 @@ export default function SettingsModalScreen() {
                         text="Local models"
                         leftIcon={BrainIcon}
                         showChevron
-                        backgroundColor={colors.accountButtonBackground}
+                        backgroundColor={SETTINGS_COLORS.surface}
                         borderRadius={22}
-                        textColor={colors.primaryText}
-                        iconColor={colors.primaryText}
-                        chevronColor={colors.mutedChevron}
+                        textColor={SETTINGS_COLORS.primaryText}
+                        iconColor={SETTINGS_COLORS.primaryText}
+                        chevronColor={SETTINGS_COLORS.mutedChevron}
                         disabled={isSigningOut}
                         onPress={handleOpenLocalModel}
                     />
@@ -360,11 +356,11 @@ export default function SettingsModalScreen() {
                         text="Data controls"
                         leftIcon={SlidersHorizontalIcon}
                         showChevron
-                        backgroundColor={colors.accountButtonBackground}
+                        backgroundColor={SETTINGS_COLORS.surface}
                         borderRadius={22}
-                        textColor={colors.primaryText}
-                        iconColor={colors.primaryText}
-                        chevronColor={colors.mutedChevron}
+                        textColor={SETTINGS_COLORS.primaryText}
+                        iconColor={SETTINGS_COLORS.primaryText}
+                        chevronColor={SETTINGS_COLORS.mutedChevron}
                         disabled={isSigningOut}
                         onPress={handleOpenDataControls}
                     />
@@ -378,8 +374,8 @@ export default function SettingsModalScreen() {
                               : "Log out"
                     }
                     leftIcon={shouldShowAuthenticatedActions ? LogOutIcon : LogInIcon}
-                    textColor={colors.primaryText}
-                    iconColor={colors.primaryText}
+                    textColor={SETTINGS_COLORS.primaryText}
+                    iconColor={SETTINGS_COLORS.primaryText}
                     loading={isSigningOut}
                     disabled={isPending || isSigningOut || isRestoringPurchases || isManagingSubscription}
                     onPress={() => {
@@ -399,15 +395,15 @@ export default function SettingsModalScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: colors.screenBackground,
+        backgroundColor: SETTINGS_COLORS.screenBackground,
     },
     scrollView: {
         flex: 1,
     },
     contentContainer: {
         flexGrow: 1,
-        paddingHorizontal: 16,
-        paddingBottom: 32,
+        paddingHorizontal: SETTINGS_SCREEN_HORIZONTAL_PADDING,
+        paddingBottom: SETTINGS_SCREEN_BOTTOM_PADDING,
         gap: 12,
     },
     sectionContainer: {
@@ -416,7 +412,7 @@ const styles = StyleSheet.create({
     sectionLabel: {
         fontSize: 14,
         fontWeight: 600,
-        color: colors.sectionLabel,
+        color: SETTINGS_COLORS.mutedText,
         paddingHorizontal: 4,
     },
 });

@@ -6,6 +6,8 @@ import {
     formatBytes,
     getLocalTranslationModelById,
 } from "@/clients/local-model-catalog";
+import { ABORT_ERROR_NAME } from "@/constants/errors";
+import { LOCAL_MODELS_MOBILE_ONLY_ERROR } from "@/constants/localModels";
 import type {
     LocalTranslationModel,
     LocalTranslationModelId,
@@ -72,7 +74,7 @@ type LocalModelDownloadRecord = {
 
 const createAbortError = (message: string) => {
     const error = new Error(message);
-    error.name = "AbortError";
+    error.name = ABORT_ERROR_NAME;
     return error;
 };
 
@@ -119,7 +121,7 @@ export const isLocalModelSupported = () => {
 };
 
 export const isLocalModelAbortError = (error: unknown) => {
-    return error instanceof Error && error.name === "AbortError";
+    return error instanceof Error && error.name === ABORT_ERROR_NAME;
 };
 
 const getLocalModelDirectoryUri = () => {
@@ -293,7 +295,7 @@ const ensureLocalModelDirectory = async () => {
     const modelDirectoryUri = getLocalModelDirectoryUri();
 
     if (!isLocalModelSupported() || !modelDirectoryUri) {
-        throw new Error("Local models are available on iOS and Android only.");
+        throw new Error(LOCAL_MODELS_MOBILE_ONLY_ERROR);
     }
 
     await FileSystem.makeDirectoryAsync(modelDirectoryUri, { intermediates: true }).catch(async () => {
@@ -435,7 +437,7 @@ export const createLocalModelDownload = (
         const partialModelUri = getPartialLocalModelFileUri(model.id);
 
         if (!modelUri || !partialModelUri) {
-            throw new Error("Local models are available on iOS and Android only.");
+        throw new Error(LOCAL_MODELS_MOBILE_ONLY_ERROR);
         }
 
         await ensureLocalModelDirectory();

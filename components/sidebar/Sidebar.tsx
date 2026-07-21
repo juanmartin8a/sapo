@@ -6,7 +6,14 @@ import Animated, { SharedValue, useAnimatedStyle } from 'react-native-reanimated
 import { useRouter } from 'expo-router';
 import ChevronRightIcon from "../../assets/icons/chevron-right.svg";
 import useLanguageSelectorBottomSheetNotifier from '@/stores/languageSelectionNotifierStore';
-import { languages, languagesPlusAutoDetect } from '@/constants/languages';
+import {
+    DEFAULT_SOURCE_LANGUAGE_ID,
+    DEFAULT_TARGET_LANGUAGE_ID,
+    languages,
+    languagesPlusAutoDetect,
+} from '@/constants/languages';
+import { HOME_BOTTOM_SHEET_KEYS } from '@/constants/bottomSheets';
+import { APP_ROUTES } from '@/constants/routes';
 import useTransformationOperationStore from '@/stores/transformationOperationStore';
 import useHomeBottomSheetNotifier from '@/stores/homeBottomSheetNotifierStore';
 import useLocalModelStore from '@/stores/localModelStore';
@@ -79,10 +86,10 @@ const SideBar = ({ translationX }: SideBarProps) => {
     const selectedIndex1 = useLanguageSelectorBottomSheetNotifier(state => state.selectedIndex1);
     const inputLanguage =
         languagesPlusAutoDetect[selectedIndex0 as keyof typeof languagesPlusAutoDetect]
-        ?? languagesPlusAutoDetect[0];
+        ?? languagesPlusAutoDetect[DEFAULT_SOURCE_LANGUAGE_ID];
     const targetLanguage =
         languages[selectedIndex1 as keyof typeof languages]
-        ?? languages[1];
+        ?? languages[DEFAULT_TARGET_LANGUAGE_ID];
 
     const requestBottomSheet = useCallback((sheet: HomeBottomSheetKey) => {
         const { bottomSheet, loading } = useHomeBottomSheetNotifier.getState();
@@ -147,17 +154,17 @@ const SideBar = ({ translationX }: SideBarProps) => {
 
     const handleLocalModelSelectorPress = useCallback(() => {
         if (downloadedLocalModelCount === 0) {
-            router.push("/settings-modal/local-models");
+            router.push(APP_ROUTES.LOCAL_MODELS);
             return;
         }
 
         if (downloadedLocalModelCount > 1) {
-            requestBottomSheet('local_model_selector');
+            requestBottomSheet(HOME_BOTTOM_SHEET_KEYS.LOCAL_MODEL);
         }
     }, [downloadedLocalModelCount, requestBottomSheet, router]);
 
     const handleManageModelsPress = useCallback(() => {
-        router.push("/settings-modal/local-models");
+        router.push(APP_ROUTES.LOCAL_MODELS);
     }, [router]);
 
     const handleTranslatePress = useCallback(() => {
@@ -189,11 +196,11 @@ const SideBar = ({ translationX }: SideBarProps) => {
     }, [canUseRespell, isAuthenticatedUser, setOperation]);
 
     const handleInputLanguagePress = useCallback(() => {
-        requestBottomSheet('input_lang_selector');
+        requestBottomSheet(HOME_BOTTOM_SHEET_KEYS.INPUT_LANGUAGE);
     }, [requestBottomSheet]);
 
     const handleTargetLanguagePress = useCallback(() => {
-        requestBottomSheet('target_lang_selector');
+        requestBottomSheet(HOME_BOTTOM_SHEET_KEYS.TARGET_LANGUAGE);
     }, [requestBottomSheet]);
 
     const handleLoadModelButtonLayout = useCallback((event: LayoutChangeEvent) => {

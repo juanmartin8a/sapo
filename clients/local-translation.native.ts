@@ -5,6 +5,9 @@ import {
     isLocalModelSupported,
     type LocalTranslationModelId,
 } from "@/clients/local-model";
+import { ABORT_ERROR_NAME } from "@/constants/errors";
+import { AUTO_DETECT_LANGUAGE_LABEL } from "@/constants/languages";
+import { LOCAL_TRANSLATIONS_MOBILE_ONLY_ERROR } from "@/constants/localModels";
 import type { LiteRTLMInstance } from "react-native-litert-lm";
 
 declare const require: (moduleName: string) => unknown;
@@ -70,7 +73,7 @@ const loadLiteRTLMModule = () => {
 
 const createAbortError = () => {
     const error = new Error("Local translation stopped.");
-    error.name = "AbortError";
+    error.name = ABORT_ERROR_NAME;
     return error;
 };
 
@@ -111,7 +114,7 @@ const sanitizeStreamingToken = (token: string) => {
 };
 
 const getSourceLanguageInstruction = (inputLanguage: string) => {
-    if (inputLanguage === "Auto-detect") {
+    if (inputLanguage === AUTO_DETECT_LANGUAGE_LABEL) {
         return "Source: auto-detect";
     }
 
@@ -142,7 +145,7 @@ const closeModel = (model: LiteRTLMInstance | null) => {
 
 const loadLocalTranslationModelCandidate = async (modelId: LocalTranslationModelId) => {
     if (!isLocalModelSupported()) {
-        throw new Error("Local translations are available on iOS and Android only.");
+        throw new Error(LOCAL_TRANSLATIONS_MOBILE_ONLY_ERROR);
     }
 
     const modelUri = getLocalModelFileUri(modelId);
@@ -359,7 +362,7 @@ const getLoadedLocalTranslationModel = () => {
 };
 
 export const isLocalTranslationAbortError = (error: unknown) => {
-    return error instanceof Error && error.name === "AbortError";
+    return error instanceof Error && error.name === ABORT_ERROR_NAME;
 };
 
 export const stopActiveLocalTranslation = async () => {

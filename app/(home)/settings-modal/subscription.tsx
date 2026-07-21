@@ -21,6 +21,17 @@ import Purchases, {
 import CheckIcon from "@/assets/icons/check.svg";
 import { authClient } from "@/clients/auth-client";
 import {
+    SETTINGS_COLORS,
+    SETTINGS_HEADER_CONTENT_GAP,
+    SETTINGS_SCREEN_BOTTOM_PADDING,
+    SETTINGS_SCREEN_HORIZONTAL_PADDING,
+} from "@/constants/settings";
+import {
+    getStoreAccountLabel,
+    getSubscriptionLinkedElsewhereMessage,
+    SUBSCRIPTION_LINKED_ELSEWHERE_ALERT_TITLE,
+} from "@/constants/subscription";
+import {
     configureRevenueCat,
     getRevenueCatSubscriptionProductId,
     hasActiveRevenueCatSubscription,
@@ -163,10 +174,6 @@ const isPurchaseCancelledError = (error: unknown) => {
     return (error as PurchasesError).code === Purchases.PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR;
 };
 
-const getSubscriptionLinkedElsewhereMessage = (storeAccountLabel: string) => {
-    return `This ${storeAccountLabel} account already has a S A P O subscription linked to another S A P O account. Please sign in to that account, or contact us for support at support@sapo.surf.`;
-};
-
 const getSubscriptionSyncPendingMessage = () => {
     return "Your purchase is active. We are still syncing it to SAPO and will keep trying automatically.";
 };
@@ -198,12 +205,11 @@ export default function SubscriptionScreen() {
     const setSubscriptionForUser = useSubscriptionStatusStore((state) => state.setForUser);
     const hasActiveSubscription = subscriptionUserId === userId && storedHasActiveSubscription === true;
     const canUseRevenueCat = hasRevenueCatConfig();
-    const storeAccountLabel =
-        Platform.OS === "android" ? "Google" : Platform.OS === "ios" ? "Apple" : "store";
+    const storeAccountLabel = getStoreAccountLabel(Platform.OS);
 
     const showSubscriptionLinkedElsewhereAlert = useCallback(() => {
         Alert.alert(
-            "Subscription linked elsewhere",
+            SUBSCRIPTION_LINKED_ELSEWHERE_ALERT_TITLE,
             getSubscriptionLinkedElsewhereMessage(storeAccountLabel)
         );
     }, [storeAccountLabel]);
@@ -579,7 +585,7 @@ export default function SubscriptionScreen() {
     return (
         <ScrollView
             style={styles.container}
-            contentContainerStyle={[styles.contentContainer, { paddingTop: headerHeight + 24 }]}
+            contentContainerStyle={[styles.contentContainer, { paddingTop: headerHeight + SETTINGS_HEADER_CONTENT_GAP }]}
         >
             <View style={styles.card}>
                 <View style={styles.planBadge}>
@@ -650,12 +656,12 @@ export default function SubscriptionScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: "#E1ECDD",
+        backgroundColor: SETTINGS_COLORS.screenBackground,
     },
     contentContainer: {
         flexGrow: 1,
-        paddingHorizontal: 16,
-        paddingBottom: 32,
+        paddingHorizontal: SETTINGS_SCREEN_HORIZONTAL_PADDING,
+        paddingBottom: SETTINGS_SCREEN_BOTTOM_PADDING,
     },
     card: {
         backgroundColor: "#fff",

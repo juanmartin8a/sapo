@@ -7,6 +7,7 @@ import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import useSubscriptionStatusStore from '@/stores/subscriptionStatusStore';
 import { getSessionUserAuthState } from '@/utils/auth';
+import { APP_ROUTES } from '@/constants/routes';
 
 const SideBarFooter = () => {
     const router = useRouter();
@@ -34,11 +35,11 @@ const SideBarFooter = () => {
     const isAuthenticated = React.useMemo(() => isAuthenticatedSession && !!email, [email, isAuthenticatedSession]);
 
     const handleSignInPress = useCallback(() => {
-        router.push('/auth');
+        router.push(APP_ROUTES.AUTH);
     }, [router]);
 
     const handleOpenSettings = useCallback(() => {
-        router.push('/settings-modal');
+        router.push(APP_ROUTES.SETTINGS);
     }, [router]);
 
     return (

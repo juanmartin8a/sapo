@@ -1,4 +1,5 @@
 import { getConvexAccessToken } from "@/clients/auth-client";
+import { ABORT_ERROR_NAME } from "@/constants/errors";
 
 type RefreshSubscriptionResponse = {
     ok?: boolean;
@@ -200,7 +201,7 @@ async function requestSubscriptionStateRefresh(
         });
         responseText = await response.text();
     } catch (error) {
-        if ((error as Error).name === "AbortError") {
+        if ((error as Error).name === ABORT_ERROR_NAME) {
             throw new SubscriptionRefreshError("Subscription refresh timed out", 408);
         }
 

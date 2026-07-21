@@ -1,4 +1,6 @@
 import { isLocalModelDownloaded, LOCAL_TRANSLATION_MODELS, type LocalTranslationModelId } from "@/clients/local-model";
+import { HOME_BOTTOM_SHEET_KEYS } from "@/constants/bottomSheets";
+import { APP_ROUTES } from "@/constants/routes";
 import useLocalModelStore from "@/stores/localModelStore";
 import { useRouter } from "expo-router";
 import { useRef } from "react";
@@ -7,12 +9,10 @@ import { triggerErrorHaptic, triggerSelectionHaptic } from "@/utils/haptics";
 import useHomeBottomSheetController from "./useHomeBottomSheetController";
 import { Alert } from "react-native";
 
-const SHEET_KEY = "local_model_selector";
-
 export default function LocalModelSelectorBottomSheet() {
     const router = useRouter();
     const { sheetRef, handleSheetClose, handleSheetChange } =
-        useHomeBottomSheetController(SHEET_KEY);
+        useHomeBottomSheetController(HOME_BOTTOM_SHEET_KEYS.LOCAL_MODEL);
     const isCheckingModelRef = useRef<boolean>(false);
     const selectedModelId = useLocalModelStore((state) => state.selectedModelId);
     const downloadedModelIds = useLocalModelStore((state) => state.downloadedModelIds);
@@ -34,7 +34,7 @@ export default function LocalModelSelectorBottomSheet() {
 
             if (!isDownloaded) {
                 sheetRef.current?.close();
-                router.push("/settings-modal/local-models");
+                router.push(APP_ROUTES.LOCAL_MODELS);
                 return;
             }
 

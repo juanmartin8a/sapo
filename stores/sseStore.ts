@@ -8,7 +8,13 @@ import {
     stopActiveLocalTranslation,
     translateWithLocalModel,
 } from "@/clients/local-translation";
-import { languages, languagesPlusAutoDetect } from "@/constants/languages";
+import {
+    DEFAULT_SOURCE_LANGUAGE_ID,
+    DEFAULT_TARGET_LANGUAGE_ID,
+    languages,
+    languagesPlusAutoDetect,
+} from "@/constants/languages";
+import { ABORT_ERROR_NAME } from "@/constants/errors";
 import useLanguageSelectorBottomSheetNotifier from "./languageSelectionNotifierStore";
 import useLocalModelStore from "./localModelStore";
 import usePagerPos from "./pagerPosStore";
@@ -285,10 +291,10 @@ const useSseStore = create<SseState>((set, get) => {
 
             const inputLanguage =
                 languagesPlusAutoDetect[selectedInputIndex as keyof typeof languagesPlusAutoDetect] ??
-                languagesPlusAutoDetect[0];
+                languagesPlusAutoDetect[DEFAULT_SOURCE_LANGUAGE_ID];
             const targetLanguage =
                 languages[selectedTargetIndex as keyof typeof languages] ??
-                languages[1 as keyof typeof languages];
+                languages[DEFAULT_TARGET_LANGUAGE_ID];
 
             const operation = useTransformationOperationStore.getState().operation;
             const endpointPath = operation === "translate"
@@ -819,7 +825,7 @@ const useSseStore = create<SseState>((set, get) => {
                     setIdleTranslateButtonState();
                 }
             } catch (error) {
-                if ((error as Error).name === "AbortError") {
+                if ((error as Error).name === ABORT_ERROR_NAME) {
                     if (streamTimeoutReason !== null && isActiveRequest()) {
                         console.error(
                             `[sseStore] Stream request timed out reason=${streamTimeoutReason} endpoint=${endpointPath}`
