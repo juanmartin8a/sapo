@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { components, internal } from "./_generated/api";
-import { internalAction, internalQuery, type ActionCtx } from "./_generated/server";
+import { internalAction, type ActionCtx } from "./_generated/server";
 import {
     USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS,
     USER_DELETION_CLEANUP_DEAD_LETTER_STATUS,
@@ -83,25 +83,6 @@ const USER_DELETION_TERMINAL_NEXT_RETRY_AT_MS = 253402300799999;
 const REVENUECAT_EVENT_PROCESSING_LEASE_MS = 30_000;
 const SUBSCRIPTION_STATE_RECONCILIATION_LEASE_MS = 30_000;
 const PENDING_ACTIVE_SIGNAL_TTL_MS = 2 * 60 * 1000;
-const DEFAULT_PLAN_LIMITS = [
-    {
-        plan_key: "free" as const,
-        translate_input_char_limit: 10,
-        respell_input_char_limit: 10,
-        translate_monthly_char_limit: 3_000,
-        respell_monthly_char_limit: 3_000,
-        is_active: true,
-    },
-    {
-        plan_key: "polyglot" as const,
-        translate_input_char_limit: 1_000,
-        respell_input_char_limit: 300,
-        translate_monthly_char_limit: 500_000,
-        respell_monthly_char_limit: 6_000,
-        is_active: true,
-    },
-];
-
 type SubscriptionStateRefreshResult =
     | {
           status: "already_fresh" | "created" | "updated" | "unchanged";
@@ -1984,36 +1965,6 @@ export const checkUserDeletionDeadLetterHealth = internalAction({
     },
 });
 
-export const getUserDeletionDeadLetterSnapshot = internalAction({
-    args: {
-        limit: v.optional(v.number()),
-    },
-    handler: async (ctx, args): Promise<unknown> => {
-        const limit = Math.max(1, Math.min(args.limit ?? 25, 100));
-        const [authDeleteDeadLetters, cleanupDeadLetters, openAlerts] = await Promise.all([
-            listAuthDeleteDeadLetterUserDeletionOperationUserIds(ctx, { limit }),
-            listCleanupDeadLetterUserDeletionOperationUserIds(ctx, { limit }),
-            ctx
-                .runQuery((internal as any).operationalAlerts.listOpenOperationalAlerts, {
-                    limit,
-                })
-                .catch(() => []),
-        ]);
-
-        return {
-            sampled_at_ms: Date.now(),
-            auth_delete_dead_letters: authDeleteDeadLetters,
-            cleanup_dead_letters: cleanupDeadLetters,
-            open_alerts: (openAlerts as { kind?: string }[]).filter(
-                (alert) =>
-                    alert.kind === "user_deletion_auth_delete_dead_letter" ||
-                    alert.kind === "user_deletion_cleanup_dead_letter"
-            ),
-        };
-    },
-});
-
-
 export const processRevenueCatWebhookEvent = internalAction({
     args: {
         // Validate this inside the subscriptions component, not against the app schema.
@@ -2185,21 +2136,6 @@ export const reconcileExpiredSubscriptionStates = internalAction({
             processed,
             failed,
             scanned: dueStates.length,
-        };
-    },
-});
-
-export const ensureSubscriptionPlanLimits = internalAction({
-    args: {},
-    handler: async (ctx) => {
-        await ctx.runMutation(components.subscriptions.webhook.upsertSubscriptionPlanLimits, {
-            plans: DEFAULT_PLAN_LIMITS,
-            now_ms: Date.now(),
-        });
-
-        return {
-            status: "ok",
-            plans: DEFAULT_PLAN_LIMITS.length,
         };
     },
 });
@@ -2400,37 +2336,6 @@ export const checkRevenueCatPipelineHealth = internalAction({
             checked_at_ms: Date.now(),
             dead_letter_count: deadLetterEvents.length,
             failed_count: failedEvents.length,
-        };
-    },
-});
-
-export const getRevenueCatPipelineHealthSnapshot = internalQuery({
-    args: {
-        limit: v.optional(v.number()),
-    },
-    handler: async (ctx, args) => {
-        const limit = Math.max(1, Math.min(args.limit ?? 25, 100));
-
-        const [deadLetterEvents, failedEvents, pendingEvents] = await Promise.all([
-            ctx.runQuery(components.subscriptions.webhook.listRevenueCatEventsForStatus, {
-                status: "dead_letter",
-                limit,
-            }),
-            ctx.runQuery(components.subscriptions.webhook.listRevenueCatEventsForStatus, {
-                status: "failed",
-                limit,
-            }),
-            ctx.runQuery(components.subscriptions.webhook.listRevenueCatEventsForStatus, {
-                status: "pending",
-                limit,
-            }),
-        ]);
-
-        return {
-            sampled_at_ms: Date.now(),
-            dead_letter_events: deadLetterEvents,
-            failed_events: failedEvents,
-            pending_events: pendingEvents,
         };
     },
 });
