@@ -7,7 +7,7 @@ import { resolveBetterAuthUserId } from "./betterAuth/user";
 
 type AuthenticatedUser = NonNullable<Awaited<ReturnType<typeof authComponent.safeGetAuthUser>>>;
 
-type AuthenticatedHttpContext = {
+export type AuthenticatedHttpContext = {
     user: AuthenticatedUser;
     userId: string;
 };

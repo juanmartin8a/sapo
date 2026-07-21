@@ -1,6 +1,6 @@
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 const OPENAI_RESPONSES_TOTAL_TIMEOUT_MS = 120_000;
-const OPENAI_RESPONSES_DELTA_IDLE_TIMEOUT_MS = 10_000;
+const OPENAI_RESPONSES_STREAM_IDLE_TIMEOUT_MS = 20_000;
 
 export const STREAM_END_MARKER = "<end:)>";
 export const STREAM_ERROR_MARKER = "<error:/>";
@@ -11,7 +11,7 @@ type OpenAIStreamEvent = {
 };
 
 type OpenAIStreamStep = "continue" | "completed" | "errored";
-type OpenAIAbortReason = "external" | "total_timeout" | "delta_idle_timeout";
+type OpenAIAbortReason = "external" | "total_timeout" | "stream_idle_timeout";
 
 function sseEventsFromChunkBuffer(chunkBuffer: string): { events: string[]; remainder: string } {
     const normalized = chunkBuffer.replace(/\r\n/g, "\n");
@@ -68,7 +68,8 @@ export async function streamOpenAIResponses(args: {
     const streamAbortController = new AbortController();
     let abortReason: OpenAIAbortReason | null = null;
     let totalTimeout: ReturnType<typeof setTimeout> | null = null;
-    let deltaIdleTimeout: ReturnType<typeof setTimeout> | null = null;
+    let streamIdleTimeout: ReturnType<typeof setTimeout> | null = null;
+    let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
 
     const abortStream = (reason: OpenAIAbortReason) => {
         if (streamAbortController.signal.aborted) {
@@ -86,20 +87,20 @@ export async function streamOpenAIResponses(args: {
         }
     };
 
-    const clearDeltaIdleTimeout = () => {
-        if (deltaIdleTimeout !== null) {
-            clearTimeout(deltaIdleTimeout);
-            deltaIdleTimeout = null;
+    const clearStreamIdleTimeout = () => {
+        if (streamIdleTimeout !== null) {
+            clearTimeout(streamIdleTimeout);
+            streamIdleTimeout = null;
         }
     };
 
-    const refreshDeltaIdleTimeout = () => {
-        clearDeltaIdleTimeout();
+    const refreshStreamIdleTimeout = () => {
+        clearStreamIdleTimeout();
 
         if (!streamAbortController.signal.aborted) {
-            deltaIdleTimeout = setTimeout(
-                () => abortStream("delta_idle_timeout"),
-                OPENAI_RESPONSES_DELTA_IDLE_TIMEOUT_MS
+            streamIdleTimeout = setTimeout(
+                () => abortStream("stream_idle_timeout"),
+                OPENAI_RESPONSES_STREAM_IDLE_TIMEOUT_MS
             );
         }
     };
@@ -113,7 +114,6 @@ export async function streamOpenAIResponses(args: {
     }
 
     totalTimeout = setTimeout(() => abortStream("total_timeout"), OPENAI_RESPONSES_TOTAL_TIMEOUT_MS);
-    refreshDeltaIdleTimeout();
 
     try {
         const upstreamResponse = await fetch(OPENAI_RESPONSES_URL, {
@@ -139,9 +139,10 @@ export async function streamOpenAIResponses(args: {
             return "errored";
         }
 
-        const reader = upstreamResponse.body.getReader();
+        reader = upstreamResponse.body.getReader();
         const textDecoder = new TextDecoder();
         let eventBuffer = "";
+        refreshStreamIdleTimeout();
 
         const handleDataPayload = async (dataPayload: string): Promise<OpenAIStreamStep> => {
             if (dataPayload === "[DONE]") {
@@ -176,7 +177,6 @@ export async function streamOpenAIResponses(args: {
                 return "continue";
             }
 
-            refreshDeltaIdleTimeout();
             return args.onDelta(parsedEvent.delta);
         };
 
@@ -186,6 +186,7 @@ export async function streamOpenAIResponses(args: {
                 break;
             }
 
+            refreshStreamIdleTimeout();
             eventBuffer += textDecoder.decode(value, { stream: true });
             const { events, remainder } = sseEventsFromChunkBuffer(eventBuffer);
             eventBuffer = remainder;
@@ -225,8 +226,20 @@ export async function streamOpenAIResponses(args: {
 
         throw error;
     } finally {
+        if (!streamAbortController.signal.aborted) {
+            streamAbortController.abort();
+        }
+
+        if (reader) {
+            try {
+                await reader.cancel();
+            } catch {
+                // The abort may have already closed the response stream.
+            }
+        }
+
         args.signal.removeEventListener("abort", abortFromExternalSignal);
         clearTotalTimeout();
-        clearDeltaIdleTimeout();
+        clearStreamIdleTimeout();
     }
 }

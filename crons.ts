@@ -33,20 +33,6 @@ crons.interval(
 );
 
 crons.interval(
-    "prune stale sapopinguino stream controls",
-    { minutes: 15 },
-    internal.sapopinguinoWorkers.pruneStaleSapopinguinoStreamControls,
-    {}
-);
-
-crons.interval(
-    "process queued sapopinguino quota recoveries",
-    { minutes: 1 },
-    internal.sapopinguinoWorkers.processQueuedSapopinguinoQuotaFinalizationRecoveries,
-    {}
-);
-
-crons.interval(
     "check revenuecat pipeline health",
     { minutes: 30 },
     internal.subscriptionsWorkers.checkRevenueCatPipelineHealth,
@@ -57,13 +43,6 @@ crons.interval(
     "check user deletion dead letters",
     { minutes: 30 },
     (internal as any).subscriptionsWorkers.checkUserDeletionDeadLetterHealth,
-    {}
-);
-
-crons.interval(
-    "check sapopinguino quota recovery health",
-    { minutes: 30 },
-    (internal as any).subscriptionsWorkers.checkSapopinguinoQuotaRecoveryHealth,
     {}
 );
 

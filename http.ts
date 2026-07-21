@@ -4,8 +4,6 @@ import { refresh, refreshOptions } from "./refresh";
 import {
     sapopinguino,
     sapopinguinoOptions,
-    sapopinguinoStop,
-    sapopinguinoStopOptions,
 } from "./sapopinguinoHttp";
 import { sapopinguinoTranslate, sapopinguinoTranslateOptions } from "./sapopinguinoTranslate";
 import {
@@ -27,18 +25,6 @@ http.route({
     path: "/sapopinguino",
     method: "OPTIONS",
     handler: sapopinguinoOptions,
-});
-
-http.route({
-    path: "/sapopinguino-stop",
-    method: "POST",
-    handler: sapopinguinoStop,
-});
-
-http.route({
-    path: "/sapopinguino-stop",
-    method: "OPTIONS",
-    handler: sapopinguinoStopOptions,
 });
 
 http.route({

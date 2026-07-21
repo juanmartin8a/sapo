@@ -21,7 +21,6 @@ export const userDeletionCleanupSteps = [
     "waiting_for_quiescence",
     "deleting_revenuecat_subscriber",
     "deleting_subscription_data",
-    "deleting_stream_controls",
     "finalizing_subscription_data",
 ] as const;
 
@@ -134,6 +133,48 @@ export function resolveUserDeletionAuthDeleteWaitStatus(args: {
     }
 
     return "awaiting_auth_delete";
+}
+
+export function resolveUserDeletionQuiescenceStatus(args: {
+    active_usage_event_count: number;
+    active_revenuecat_event_processing_count: number;
+    now_ms: number;
+    grace_ends_at_ms: number;
+}) {
+    const hasActiveWork =
+        args.active_usage_event_count > 0 || args.active_revenuecat_event_processing_count > 0;
+
+    if (!hasActiveWork) {
+        return "ready" as const;
+    }
+
+    return args.now_ms >= args.grace_ends_at_ms ? "overdue" as const : "waiting_for_quiescence" as const;
+}
+
+export function shouldDeleteOverdueActiveUsageEvents(args: {
+    quiescence_status: ReturnType<typeof resolveUserDeletionQuiescenceStatus>;
+    active_usage_event_count: number;
+    active_revenuecat_event_processing_count: number;
+}) {
+    return (
+        args.quiescence_status === "overdue" &&
+        args.active_usage_event_count > 0 &&
+        args.active_revenuecat_event_processing_count === 0
+    );
+}
+
+export function doesUserDeletionSubscriptionCleanupHaveRemaining(args: {
+    remaining_delete_budget: number;
+    usage_event_has_more: boolean;
+    revenuecat_event_has_more: boolean;
+    quota_period_has_more: boolean;
+}) {
+    return (
+        args.remaining_delete_budget <= 0 ||
+        args.usage_event_has_more ||
+        args.revenuecat_event_has_more ||
+        args.quota_period_has_more
+    );
 }
 
 export function resolveAuthDeletedUserDeletionContext<TQuotaPeriodId extends string>(args: {

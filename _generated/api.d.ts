@@ -16,12 +16,13 @@ import type * as httpCors from "../httpCors.js";
 import type * as httpRequestBody from "../httpRequestBody.js";
 import type * as operationalAlerts from "../operationalAlerts.js";
 import type * as refresh from "../refresh.js";
+import type * as sapopinguino_openAiResponses from "../sapopinguino/openAiResponses.js";
+import type * as sapopinguino_streamOutput from "../sapopinguino/streamOutput.js";
+import type * as sapopinguino_tokenParser from "../sapopinguino/tokenParser.js";
 import type * as sapopinguinoHttp from "../sapopinguinoHttp.js";
 import type * as sapopinguinoInput from "../sapopinguinoInput.js";
 import type * as sapopinguinoQuota from "../sapopinguinoQuota.js";
-import type * as sapopinguinoQuotaRecovery from "../sapopinguinoQuotaRecovery.js";
 import type * as sapopinguinoTranslate from "../sapopinguinoTranslate.js";
-import type * as sapopinguinoWorkers from "../sapopinguinoWorkers.js";
 import type * as sendEmail from "../sendEmail.js";
 import type * as subscriptionsConfig from "../subscriptionsConfig.js";
 import type * as subscriptionsWebhook from "../subscriptionsWebhook.js";
@@ -43,12 +44,13 @@ declare const fullApi: ApiFromModules<{
   httpRequestBody: typeof httpRequestBody;
   operationalAlerts: typeof operationalAlerts;
   refresh: typeof refresh;
+  "sapopinguino/openAiResponses": typeof sapopinguino_openAiResponses;
+  "sapopinguino/streamOutput": typeof sapopinguino_streamOutput;
+  "sapopinguino/tokenParser": typeof sapopinguino_tokenParser;
   sapopinguinoHttp: typeof sapopinguinoHttp;
   sapopinguinoInput: typeof sapopinguinoInput;
   sapopinguinoQuota: typeof sapopinguinoQuota;
-  sapopinguinoQuotaRecovery: typeof sapopinguinoQuotaRecovery;
   sapopinguinoTranslate: typeof sapopinguinoTranslate;
-  sapopinguinoWorkers: typeof sapopinguinoWorkers;
   sendEmail: typeof sendEmail;
   subscriptionsConfig: typeof subscriptionsConfig;
   subscriptionsWebhook: typeof subscriptionsWebhook;
@@ -84,7 +86,6 @@ export declare const internal: FilterApi<
 
 export declare const components: {
   betterAuth: import("../betterAuth/_generated/component.js").ComponentApi<"betterAuth">;
-  sapopinguino: import("../sapopinguino/_generated/component.js").ComponentApi<"sapopinguino">;
   subscriptions: import("../subscriptions/_generated/component.js").ComponentApi<"subscriptions">;
   resend: import("@convex-dev/resend/_generated/component.js").ComponentApi<"resend">;
 };

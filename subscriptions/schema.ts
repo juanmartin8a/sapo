@@ -114,7 +114,6 @@ export default defineSchema({
         next_retry_at_ms: v.number(),
         retry_count: v.number(),
         last_error: v.optional(v.string()),
-        force_stop_after_at_ms: v.optional(v.number()),
         cleanup_attempt_id: v.optional(v.string()),
         cleanup_step: v.optional(
             v.union(
@@ -122,7 +121,6 @@ export default defineSchema({
                 v.literal("waiting_for_quiescence"),
                 v.literal("deleting_revenuecat_subscriber"),
                 v.literal("deleting_subscription_data"),
-                v.literal("deleting_stream_controls"),
                 v.literal("finalizing_subscription_data")
             )
         ),
@@ -150,20 +148,22 @@ export default defineSchema({
         reserved_units: v.number(),
         charged_units: v.number(),
         state: v.union(
-            v.literal("reserved"),
             v.literal("processing"),
             v.literal("completed"),
-            v.literal("failed_before_charge"),
-            v.literal("failed_after_charge"),
-            v.literal("user_stopped_before_charge"),
-            v.literal("user_stopped_after_charge"),
+            v.literal("failed"),
+            v.literal("indeterminate")
+        ),
+        quota_state: v.union(
+            v.literal("reserved"),
+            v.literal("charged"),
+            v.literal("released")
         ),
         reserved_at_ms: v.number(),
         charged_at_ms: v.optional(v.number()),
+        released_at_ms: v.optional(v.number()),
         completed_at_ms: v.optional(v.number()),
         failed_at_ms: v.optional(v.number()),
-        stopped_at_ms: v.optional(v.number()),
-        quota_applied_at_ms: v.optional(v.number()),
+        indeterminate_at_ms: v.optional(v.number()),
         created_at_ms: v.number(),
         updated_at_ms: v.number(),
     })
@@ -171,29 +171,12 @@ export default defineSchema({
         .index("by_user_id_and_req_id", ["user_id", "req_id"])
         .index("by_user_id_and_state", ["user_id", "state"])
         .index("by_quota_period_id", ["quota_period_id"])
-        .index("by_quota_period_id_and_state", ["quota_period_id", "state"])
+        .index("by_quota_period_id_quota_state_operation", [
+            "quota_period_id",
+            "quota_state",
+            "operation",
+        ])
         .index("by_user_id_and_created_at_ms", ["user_id", "created_at_ms"]),
-
-    quota_finalization_recoveries: defineTable({
-        usage_event_id: v.id("usage_events"),
-        terminal_state: v.union(
-            v.literal("completed"),
-            v.literal("failed_before_charge"),
-            v.literal("failed_after_charge"),
-            v.literal("user_stopped_before_charge"),
-            v.literal("user_stopped_after_charge")
-        ),
-        status: v.union(v.literal("pending"), v.literal("dead_letter")),
-        attempt_count: v.number(),
-        next_retry_at_ms: v.number(),
-        lease_attempt_id: v.optional(v.string()),
-        lease_expires_at_ms: v.optional(v.number()),
-        last_error: v.optional(v.string()),
-        created_at_ms: v.number(),
-        updated_at_ms: v.number(),
-    })
-        .index("by_usage_event_id", ["usage_event_id"])
-        .index("by_status_and_next_retry_at_ms", ["status", "next_retry_at_ms"]),
 
     revenue_cat_events: defineTable({
         event_id: v.string(),

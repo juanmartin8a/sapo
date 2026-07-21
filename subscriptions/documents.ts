@@ -1,3 +1,4 @@
+import type { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 
 export type DbReaderCtx = Pick<MutationCtx, "db"> | Pick<QueryCtx, "db">;
@@ -48,6 +49,31 @@ export async function listQuotaPeriodsByUserIdBatch(
         .take(Math.max(1, limit));
 }
 
+export async function prepareQuotaPeriodsForUserDeletionBatch(
+    ctx: DbReaderCtx,
+    args: {
+        user_id: string;
+        preserved_quota_period_id?: Id<"quota_periods">;
+        delete_limit: number;
+    }
+) {
+    const deleteLimit = Math.max(1, args.delete_limit);
+    const candidates = await listQuotaPeriodsByUserIdBatch(
+        ctx,
+        args.user_id,
+        deleteLimit + (args.preserved_quota_period_id ? 2 : 1)
+    );
+    const deletableCandidates = candidates.filter(
+        (quotaPeriod) => quotaPeriod._id !== args.preserved_quota_period_id
+    );
+    const quotaPeriods = deletableCandidates.slice(0, deleteLimit);
+
+    return {
+        quota_periods: quotaPeriods,
+        has_more: deletableCandidates.length > quotaPeriods.length,
+    };
+}
+
 export async function listUsageEventsByUserId(ctx: DbReaderCtx, userId: string) {
     return ctx.db
         .query("usage_events")
@@ -66,25 +92,32 @@ export async function listUsageEventsByUserIdBatch(
         .take(Math.max(1, limit));
 }
 
-export async function listActiveUsageEventsByUserId(ctx: DbReaderCtx, userId: string) {
-    const [reservedUsageEvents, processingUsageEvents] = await Promise.all([
-        ctx.db
-            .query("usage_events")
-            .withIndex("by_user_id_and_state", (query) =>
-                query.eq("user_id", userId).eq("state", "reserved")
-            )
-            .collect(),
-        ctx.db
-            .query("usage_events")
-            .withIndex("by_user_id_and_state", (query) =>
-                query.eq("user_id", userId).eq("state", "processing")
-            )
-            .collect(),
-    ]);
+export async function deleteUsageEventsByUserIdBatch(
+    ctx: Pick<MutationCtx, "db">,
+    userId: string,
+    limit: number
+) {
+    const safeLimit = Math.max(1, limit);
+    const candidates = await listUsageEventsByUserIdBatch(ctx, userId, safeLimit + 1);
+    const usageEvents = candidates.slice(0, safeLimit);
 
-    return [...reservedUsageEvents, ...processingUsageEvents].sort(
-        (left, right) => left.created_at_ms - right.created_at_ms
-    );
+    for (const usageEvent of usageEvents) {
+        await ctx.db.delete(usageEvent._id);
+    }
+
+    return {
+        deleted_count: usageEvents.length,
+        has_more: candidates.length > usageEvents.length,
+    };
+}
+
+export async function listActiveUsageEventsByUserId(ctx: DbReaderCtx, userId: string) {
+    return ctx.db
+        .query("usage_events")
+        .withIndex("by_user_id_and_state", (query) =>
+            query.eq("user_id", userId).eq("state", "processing")
+        )
+        .collect();
 }
 
 export async function listActiveUsageEventsByUserIdBatch(
@@ -93,23 +126,10 @@ export async function listActiveUsageEventsByUserIdBatch(
     limit: number
 ) {
     const safeLimit = Math.max(1, limit);
-    const perStateLimit = Math.max(1, Math.ceil(safeLimit / 2));
-    const [reservedUsageEvents, processingUsageEvents] = await Promise.all([
-        ctx.db
-            .query("usage_events")
-            .withIndex("by_user_id_and_state", (query) =>
-                query.eq("user_id", userId).eq("state", "reserved")
-            )
-            .take(perStateLimit),
-        ctx.db
-            .query("usage_events")
-            .withIndex("by_user_id_and_state", (query) =>
-                query.eq("user_id", userId).eq("state", "processing")
-            )
-            .take(perStateLimit),
-    ]);
-
-    return [...reservedUsageEvents, ...processingUsageEvents]
-        .sort((left, right) => left.created_at_ms - right.created_at_ms)
-        .slice(0, safeLimit);
+    return ctx.db
+        .query("usage_events")
+        .withIndex("by_user_id_and_state", (query) =>
+            query.eq("user_id", userId).eq("state", "processing")
+        )
+        .take(safeLimit);
 }

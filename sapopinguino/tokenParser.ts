@@ -2,7 +2,6 @@ export type Token =
     | {
           type: string;
           input: string;
-          transcription: string;
           output: string;
       }
     | {
@@ -103,15 +102,13 @@ export class TokenParser {
             return null;
         }
 
-        if (tokenType === "word" && tokenSlice.length >= 4) {
+        if (tokenType === "word" && tokenSlice.length >= 3) {
             const input = typeof tokenSlice[1] === "string" ? tokenSlice[1] : "";
-            const transcription = typeof tokenSlice[2] === "string" ? tokenSlice[2] : "";
-            const output = typeof tokenSlice[3] === "string" ? tokenSlice[3] : "";
+            const output = typeof tokenSlice[2] === "string" ? tokenSlice[2] : "";
 
             return {
                 type: tokenType,
                 input,
-                transcription,
                 output,
             };
         }

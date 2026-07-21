@@ -23,73 +23,6 @@ import type { FunctionReference } from "convex/server";
  */
 export type ComponentApi<Name extends string | undefined = string | undefined> =
   {
-    quotaRecovery: {
-      acquireQuotaFinalizationRecovery: FunctionReference<
-        "mutation",
-        "internal",
-        {
-          leaseAttemptId: string;
-          leaseDurationMs: number;
-          usageEventId: string;
-        },
-        any,
-        Name
-      >;
-      clearQuotaFinalizationRecovery: FunctionReference<
-        "mutation",
-        "internal",
-        { leaseAttemptId: string; nowMs: number; usageEventId: string },
-        any,
-        Name
-      >;
-      enqueueQuotaFinalizationRecovery: FunctionReference<
-        "mutation",
-        "internal",
-        {
-          lastError?: string;
-          nextRetryAtMs?: number;
-          nowMs: number;
-          terminalState:
-            | "completed"
-            | "failed_before_charge"
-            | "failed_after_charge"
-            | "user_stopped_before_charge"
-            | "user_stopped_after_charge";
-          usageEventId: string;
-        },
-        any,
-        Name
-      >;
-      listDeadLetterQuotaFinalizationRecoveries: FunctionReference<
-        "query",
-        "internal",
-        { limit: number },
-        any,
-        Name
-      >;
-      listDueQuotaFinalizationRecoveries: FunctionReference<
-        "query",
-        "internal",
-        { limit: number; nowMs: number },
-        any,
-        Name
-      >;
-      updateQuotaFinalizationRecovery: FunctionReference<
-        "mutation",
-        "internal",
-        {
-          attemptCount: number;
-          lastError?: string | null;
-          leaseAttemptId: string;
-          nextRetryAtMs: number;
-          nowMs: number;
-          status: "pending" | "dead_letter";
-          usageEventId: string;
-        },
-        any,
-        Name
-      >;
-    };
     webhook: {
       acquireRevenueCatEventProcessingLeases: FunctionReference<
         "mutation",
@@ -113,7 +46,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | "acquired"
             | "waiting_for_quiescence"
             | "deleting_subscription_data"
-            | "deleting_stream_controls"
             | "finalizing_subscription_data"
             | "deleting_revenuecat_subscriber";
           lease_expires_at_ms: number;
@@ -152,13 +84,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           trusted_active_signal?: boolean;
           user_id: string;
         },
-        any,
-        Name
-      >;
-      applyUsageEventChargeToQuotaPeriod: FunctionReference<
-        "mutation",
-        "internal",
-        { now_ms: number; usage_event_id: string },
         any,
         Name
       >;
@@ -275,10 +200,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         any,
         Name
       >;
-      forceStopUserActiveUsageEvents: FunctionReference<
+      finalizeStaleSubscriptionQuotaUsage: FunctionReference<
         "mutation",
         "internal",
-        { now_ms: number; user_id: string },
+        { now_ms: number; usage_event_id: string },
         any,
         Name
       >;
@@ -425,21 +350,14 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       markSubscriptionQuotaUsageFailed: FunctionReference<
         "mutation",
         "internal",
-        { after_charge: boolean; now_ms: number; usage_event_id: string },
-        any,
-        Name
-      >;
-      markSubscriptionQuotaUsageStopped: FunctionReference<
-        "mutation",
-        "internal",
-        { after_charge: boolean; now_ms: number; usage_event_id: string },
+        { now_ms: number; usage_event_id: string },
         any,
         Name
       >;
       markUserDeletionAuthDeleted: FunctionReference<
         "mutation",
         "internal",
-        { force_stop_after_at_ms: number; now_ms: number; user_id: string },
+        { now_ms: number; user_id: string },
         any,
         Name
       >;
@@ -493,7 +411,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | "acquired"
             | "waiting_for_quiescence"
             | "deleting_subscription_data"
-            | "deleting_stream_controls"
             | "finalizing_subscription_data"
             | "deleting_revenuecat_subscriber";
           lease_expires_at_ms: number;
@@ -514,10 +431,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | "acquired"
             | "waiting_for_quiescence"
             | "deleting_subscription_data"
-            | "deleting_stream_controls"
             | "finalizing_subscription_data"
             | "deleting_revenuecat_subscriber";
-          force_stop_after_at_ms?: number;
           last_error?: string | null;
           next_retry_at_ms: number;
           now_ms: number;

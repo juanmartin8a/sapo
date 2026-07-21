@@ -15,11 +15,12 @@ import {
     isSameLogicalSubscriptionWindow,
     type SubscriptionWindow,
 } from "./subscriptionWindows";
-import {
-    buildUsageEventQuotaAppliedPatch,
-    shouldApplyUsageEventChargeBeforeDeletion,
-} from "./usageEventChargeApplication";
 import { shouldBlockQuotaUsageForPeriod } from "./quotaAvailability";
+import {
+    canCompleteUsageEvent,
+    finalizeStaleUsageEvent,
+    resolveUsageEventFailureTransition,
+} from "./usageEventLifecycle";
 import {
     INPUT_CHARACTERS_QUOTA_UNIT,
     applyQuotaPeriodCounterCharge,
@@ -33,11 +34,10 @@ import {
     shouldRejectQuotaInputBeforeCounterCreation,
     syncExistingQuotaPeriodCountersForPlanLimits,
 } from "./quotaPeriodCounters";
-import { canTransitionUsageEventToAfterChargeTerminalState } from "./usageEventTransitions";
-import { resolveForcedStoppedUsageEventTransition } from "./userDeletionUsageEvents";
 import {
     assertRequiredPreservedQuotaPeriod,
     canAcquireUserDeletionOperation,
+    doesUserDeletionSubscriptionCleanupHaveRemaining,
     doesUserDeletionCleanupAttemptOwnOperation,
     doesUserDeletionStatusAllowAutomaticRetry,
     doesUserDeletionStatusBlockProcessing,
@@ -60,12 +60,13 @@ import {
     summarizeRevenueCatEventUserState,
 } from "./revenueCatEventUserDocuments";
 import {
+    deleteUsageEventsByUserIdBatch,
     getLatestSubscriptionStateByUserId,
-    listActiveUsageEventsByUserId,
     listActiveUsageEventsByUserIdBatch,
     listQuotaPeriodsByUserIdAndWindowKey,
     listQuotaPeriodsByUserId,
     listQuotaPeriodsByUserIdBatch,
+    prepareQuotaPeriodsForUserDeletionBatch,
     listSubscriptionStatesByUserId,
     listUsageEventsByUserIdBatch,
     type DbReaderCtx,
@@ -91,7 +92,6 @@ import {
     deleteOrPruneRevenueCatEventForDeletedUser,
     listRevenueCatEventsForUserDeletionBatch,
 } from "./userDeletionRevenueCatEvents";
-import { deleteQuotaFinalizationRecoveriesByUsageEventId } from "./quotaRecovery";
 import { shouldIgnoreStaleReconciledSubscriptionState } from "./revenueCatApi";
 import { getExclusiveLeaseOwnershipFailure } from "./leaseOwnership";
 
@@ -242,15 +242,10 @@ const userDeletionCleanupStepValidator = v.union(
     v.literal("acquired"),
     v.literal("waiting_for_quiescence"),
     v.literal("deleting_subscription_data"),
-    v.literal("deleting_stream_controls"),
     v.literal("finalizing_subscription_data"),
     v.literal("deleting_revenuecat_subscriber")
 );
 
-const BEFORE_CHARGE_USAGE_EVENT_STATES = new Set([
-    "failed_before_charge",
-    "user_stopped_before_charge",
-]);
 const AUTOMATIC_USER_DELETION_RETRY_STATUSES: UserDeletionQueueStatus[] = [
     "preparing",
     "awaiting_auth_delete",
@@ -940,22 +935,6 @@ async function getQuotaPeriodRestorationTargetForDeletedUser(
     return selectTarget([...openCandidates, ...closedCandidates]);
 }
 
-function getLogicalQuotaPeriodWindow(
-    quotaPeriod: Pick<
-        Doc<"quota_periods">,
-        "window_key" | "window_type" | "period_start_at_ms" | "store_subscription_period_id"
-    >
-) {
-    return {
-        window_key: quotaPeriod.window_key,
-        window_type: quotaPeriod.window_type,
-        window_start_at_ms: quotaPeriod.period_start_at_ms,
-        ...(quotaPeriod.store_subscription_period_id
-            ? { store_subscription_period_id: quotaPeriod.store_subscription_period_id }
-            : {}),
-    };
-}
-
 async function resolveCurrentSubscriptionQuotaContext(
     ctx: MutationCtx,
     args: {
@@ -1369,36 +1348,6 @@ async function ensureCurrentQuotaPeriodDoc(
     });
 }
 
-function isUsageEventCharged(usageEvent: Doc<"usage_events">) {
-    return typeof usageEvent.charged_at_ms === "number";
-}
-
-function resolveHeldUsageEventUnits(usageEvent: Doc<"usage_events">) {
-    return isUsageEventCharged(usageEvent)
-        ? usageEvent.charged_units > 0
-            ? usageEvent.charged_units
-            : usageEvent.reserved_units
-        : usageEvent.reserved_units;
-}
-
-function buildForcedStoppedUsageEventPatch(
-    usageEvent: Doc<"usage_events">,
-    now_ms: number
-): MutableUsageEventFields | null {
-    if (usageEvent.state !== "reserved" && usageEvent.state !== "processing") {
-        return null;
-    }
-
-    return resolveForcedStoppedUsageEventTransition({
-        state: usageEvent.state,
-        held_units: resolveHeldUsageEventUnits(usageEvent),
-        is_charged: isUsageEventCharged(usageEvent),
-        charged_at_ms: usageEvent.charged_at_ms,
-        stopped_at_ms: usageEvent.stopped_at_ms,
-        now_ms,
-    });
-}
-
 async function applyUsageEventChargeToResolvedQuotaPeriod(
     ctx: MutationCtx,
     args: {
@@ -1450,56 +1399,6 @@ async function applyUsageEventChargeToResolvedQuotaPeriod(
     };
 }
 
-async function applyPendingUsageEventChargeToQuotaPeriod(
-    ctx: MutationCtx,
-    args: {
-        usageEvent: Doc<"usage_events">;
-        now_ms: number;
-        target_quota_period_id?: Doc<"quota_periods">["_id"];
-    }
-) {
-    if (typeof args.usageEvent.quota_applied_at_ms === "number") {
-        return {
-            status: "already_applied" as const,
-            state: args.usageEvent.state,
-        };
-    }
-
-    if (!isUsageEventCharged(args.usageEvent)) {
-        return {
-            status: "not_charged" as const,
-            state: args.usageEvent.state,
-        };
-    }
-
-    const chargedUnits = resolveHeldUsageEventUnits(args.usageEvent);
-    const applyResult = await applyUsageEventChargeToResolvedQuotaPeriod(ctx, {
-        usageEvent: args.usageEvent,
-        charged_units: chargedUnits,
-        now_ms: args.now_ms,
-        target_quota_period_id: args.target_quota_period_id,
-    });
-
-    if (applyResult.status !== "applied") {
-        return applyResult;
-    }
-
-    const patch = buildUsageEventQuotaAppliedPatch({
-        state: args.usageEvent.state,
-        charged_units: chargedUnits,
-        charged_at_ms: args.usageEvent.charged_at_ms,
-        now_ms: args.now_ms,
-    });
-
-    await ctx.db.patch(args.usageEvent._id, patch);
-
-    return {
-        status: "applied" as const,
-        charged_units: chargedUnits,
-        state: patch.state ?? args.usageEvent.state,
-    };
-}
-
 async function getOutstandingUsageUnitsForQuotaPeriod(
     ctx: MutationCtx,
     args: {
@@ -1509,39 +1408,18 @@ async function getOutstandingUsageUnitsForQuotaPeriod(
 ) {
     let outstandingUnits = 0;
 
-    const [reservedUsageEvents, processingUsageEvents] = await Promise.all([
-        ctx.db
-            .query("usage_events")
-            .withIndex("by_quota_period_id_and_state", (query) =>
-                query.eq("quota_period_id", args.quota_period_id).eq("state", "reserved")
-            )
-            .collect(),
-        ctx.db
-            .query("usage_events")
-            .withIndex("by_quota_period_id_and_state", (query) =>
-                query.eq("quota_period_id", args.quota_period_id).eq("state", "processing")
-            )
-            .collect(),
-    ]);
+    const reservedUsageEvents = await ctx.db
+        .query("usage_events")
+        .withIndex("by_quota_period_id_quota_state_operation", (query) =>
+            query
+                .eq("quota_period_id", args.quota_period_id)
+                .eq("quota_state", "reserved")
+                .eq("operation", args.operation)
+        )
+        .collect();
 
     for (const usageEvent of reservedUsageEvents) {
-        if (usageEvent.operation !== args.operation) {
-            continue;
-        }
-
         outstandingUnits += Math.max(0, Math.floor(usageEvent.reserved_units));
-    }
-
-    for (const usageEvent of processingUsageEvents) {
-        if (
-            usageEvent.operation !== args.operation ||
-            !isUsageEventCharged(usageEvent) ||
-            typeof usageEvent.quota_applied_at_ms === "number"
-        ) {
-            continue;
-        }
-
-        outstandingUnits += resolveHeldUsageEventUnits(usageEvent);
     }
 
     return outstandingUnits;
@@ -1744,7 +1622,8 @@ export const reserveSubscriptionQuotaUsage = mutation({
             quota_unit: "input_characters",
             reserved_units: availabilityResult.sanitized_input_char_count,
             charged_units: 0,
-            state: "reserved",
+            state: "processing",
+            quota_state: "reserved",
             reserved_at_ms: args.now_ms,
             created_at_ms: args.now_ms,
             updated_at_ms: args.now_ms,
@@ -1752,7 +1631,7 @@ export const reserveSubscriptionQuotaUsage = mutation({
 
         await ctx.scheduler.runAfter(
             QUOTA_USAGE_RESERVATION_WATCHDOG_DELAY_MS,
-            api.webhook.applyUsageEventChargeToQuotaPeriod,
+            api.webhook.finalizeStaleSubscriptionQuotaUsage,
             {
                 usage_event_id: usageEventId,
                 now_ms: args.now_ms + QUOTA_USAGE_RESERVATION_WATCHDOG_DELAY_MS,
@@ -1786,68 +1665,19 @@ export const chargeSubscriptionQuotaUsage = mutation({
             };
         }
 
-        if (BEFORE_CHARGE_USAGE_EVENT_STATES.has(usageEvent.state)) {
-            return {
-                status: "not_chargeable",
-                state: usageEvent.state,
-            };
-        }
-
-        if (usageEvent.state !== "reserved" && usageEvent.state !== "processing") {
-            if (isUsageEventCharged(usageEvent)) {
-                return {
-                    status: "already_charged",
-                    state: usageEvent.state,
-                    charged_units: resolveHeldUsageEventUnits(usageEvent),
-                };
-            }
-
-            return {
-                status: "invalid_state",
-                state: usageEvent.state,
-            };
-        }
-
-        if (isUsageEventCharged(usageEvent) && typeof usageEvent.quota_applied_at_ms === "number") {
+        if (usageEvent.quota_state === "charged") {
             return {
                 status: "already_charged",
                 state: usageEvent.state,
-                charged_units: resolveHeldUsageEventUnits(usageEvent),
+                charged_units: usageEvent.charged_units,
             };
         }
 
-        if (isUsageEventCharged(usageEvent) && typeof usageEvent.quota_applied_at_ms !== "number") {
-            const chargedUnits = resolveHeldUsageEventUnits(usageEvent);
-            const applyResult = await applyUsageEventChargeToResolvedQuotaPeriod(ctx, {
-                usageEvent,
-                charged_units: chargedUnits,
-                now_ms: args.now_ms,
-            });
-
-            if (applyResult.status !== "applied") {
-                return applyResult;
-            }
-
-            await ctx.db.patch(
-                usageEvent._id,
-                buildUsageEventQuotaAppliedPatch({
-                    state: usageEvent.state,
-                    charged_units: chargedUnits,
-                    charged_at_ms: usageEvent.charged_at_ms,
-                    now_ms: args.now_ms,
-                })
-            );
-
-            return {
-                status: "charged",
-                charged_units: chargedUnits,
-            };
-        }
-
-        if (usageEvent.state !== "reserved") {
+        if (usageEvent.state !== "processing" || usageEvent.quota_state !== "reserved") {
             return {
                 status: "invalid_state",
                 state: usageEvent.state,
+                quota_state: usageEvent.quota_state,
             };
         }
 
@@ -1862,14 +1692,12 @@ export const chargeSubscriptionQuotaUsage = mutation({
             return applyResult;
         }
 
-        await ctx.db.patch(
-            usageEvent._id,
-            buildUsageEventQuotaAppliedPatch({
-                state: usageEvent.state,
-                charged_units: chargedUnits,
-                now_ms: args.now_ms,
-            })
-        );
+        await ctx.db.patch(usageEvent._id, {
+            quota_state: "charged",
+            charged_units: chargedUnits,
+            charged_at_ms: args.now_ms,
+            updated_at_ms: args.now_ms,
+        });
 
         return {
             status: "charged",
@@ -1895,37 +1723,25 @@ export const completeSubscriptionQuotaUsage = mutation({
         if (usageEvent.state === "completed") {
             return {
                 status: "completed",
-                charged_during_completion: isUsageEventCharged(usageEvent),
             };
         }
 
-        if (
-            usageEvent.state !== "reserved" &&
-            usageEvent.state !== "processing"
-        ) {
+        if (!canCompleteUsageEvent(usageEvent)) {
             return {
                 status: "invalid_state",
                 state: usageEvent.state,
+                quota_state: usageEvent.quota_state,
             };
         }
 
-        const chargedDuringCompletion = isUsageEventCharged(usageEvent);
-        const patch: MutableUsageEventFields = {
+        await ctx.db.patch(usageEvent._id, {
             state: "completed",
             completed_at_ms: args.now_ms,
             updated_at_ms: args.now_ms,
-        };
-
-        if (chargedDuringCompletion) {
-            patch.charged_units = resolveHeldUsageEventUnits(usageEvent);
-            patch.charged_at_ms = usageEvent.charged_at_ms ?? args.now_ms;
-        }
-
-        await ctx.db.patch(usageEvent._id, patch);
+        });
 
         return {
             status: "completed",
-            charged_during_completion: chargedDuringCompletion,
         };
     },
 });
@@ -1933,7 +1749,6 @@ export const completeSubscriptionQuotaUsage = mutation({
 export const markSubscriptionQuotaUsageFailed = mutation({
     args: {
         usage_event_id: v.id("usage_events"),
-        after_charge: v.boolean(),
         now_ms: v.number(),
     },
     handler: async (ctx, args) => {
@@ -1945,174 +1760,51 @@ export const markSubscriptionQuotaUsageFailed = mutation({
             };
         }
 
-        const nextState = args.after_charge ? "failed_after_charge" : "failed_before_charge";
-
-        if (usageEvent.state === nextState) {
+        if (usageEvent.state === "failed") {
             return {
-                status: nextState,
+                status: "failed",
             };
         }
 
-        if (args.after_charge) {
-            if (
-                !canTransitionUsageEventToAfterChargeTerminalState({
-                    state: usageEvent.state,
-                    is_charged: isUsageEventCharged(usageEvent),
-                })
-            ) {
-                return {
-                    status: "invalid_state",
-                    state: usageEvent.state,
-                };
-            }
-        } else if (usageEvent.state !== "reserved" || isUsageEventCharged(usageEvent)) {
+        const transition = resolveUsageEventFailureTransition(usageEvent);
+
+        if (!transition) {
             return {
                 status: "invalid_state",
                 state: usageEvent.state,
+                quota_state: usageEvent.quota_state,
             };
         }
 
         const patch: MutableUsageEventFields = {
-            state: nextState,
+            state: transition.state,
             failed_at_ms: args.now_ms,
             updated_at_ms: args.now_ms,
         };
 
-        if (args.after_charge) {
-            patch.charged_units = resolveHeldUsageEventUnits(usageEvent);
-            patch.charged_at_ms = usageEvent.charged_at_ms ?? args.now_ms;
+        if (transition.quota_state === "released") {
+            patch.quota_state = transition.quota_state;
+            patch.released_at_ms = args.now_ms;
         }
 
         await ctx.db.patch(usageEvent._id, patch);
 
         return {
-            status: nextState,
+            status: "failed",
         };
     },
 });
 
-export const markSubscriptionQuotaUsageStopped = mutation({
-    args: {
-        usage_event_id: v.id("usage_events"),
-        after_charge: v.boolean(),
-        now_ms: v.number(),
-    },
-    handler: async (ctx, args) => {
-        const usageEvent = await ctx.db.get(args.usage_event_id);
-
-        if (!usageEvent) {
-            return {
-                status: "missing",
-            };
-        }
-
-        const nextState = args.after_charge ? "user_stopped_after_charge" : "user_stopped_before_charge";
-
-        if (usageEvent.state === nextState) {
-            return {
-                status: nextState,
-            };
-        }
-
-        if (args.after_charge) {
-            if (
-                !canTransitionUsageEventToAfterChargeTerminalState({
-                    state: usageEvent.state,
-                    is_charged: isUsageEventCharged(usageEvent),
-                })
-            ) {
-                return {
-                    status: "invalid_state",
-                    state: usageEvent.state,
-                };
-            }
-        } else if (usageEvent.state !== "reserved" || isUsageEventCharged(usageEvent)) {
-            return {
-                status: "invalid_state",
-                state: usageEvent.state,
-            };
-        }
-
-        const patch: MutableUsageEventFields = {
-            state: nextState,
-            stopped_at_ms: args.now_ms,
-            updated_at_ms: args.now_ms,
-        };
-
-        if (args.after_charge) {
-            patch.charged_units = resolveHeldUsageEventUnits(usageEvent);
-            patch.charged_at_ms = usageEvent.charged_at_ms ?? args.now_ms;
-        }
-
-        await ctx.db.patch(usageEvent._id, patch);
-
-        return {
-            status: nextState,
-        };
-    },
-});
-
-export const applyUsageEventChargeToQuotaPeriod = mutation({
+export const finalizeStaleSubscriptionQuotaUsage = mutation({
     args: {
         usage_event_id: v.id("usage_events"),
         now_ms: v.number(),
     },
-    handler: async (ctx, args) => {
-        const usageEvent = await ctx.db.get(args.usage_event_id);
-
-        if (!usageEvent) {
-            return {
-                status: "missing",
-            };
-        }
-
-        if (typeof usageEvent.quota_applied_at_ms === "number") {
-            return {
-                status: "already_applied",
-            };
-        }
-
-        if (usageEvent.state === "reserved" && !isUsageEventCharged(usageEvent)) {
-            await ctx.db.patch(usageEvent._id, {
-                state: "failed_before_charge",
-                failed_at_ms: usageEvent.failed_at_ms ?? args.now_ms,
-                updated_at_ms: args.now_ms,
-            });
-
-            return {
-                status: "stale_reserved_marked_failed",
-            };
-        }
-
-        if (!isUsageEventCharged(usageEvent)) {
-            return {
-                status: "skipped",
-                state: usageEvent.state,
-            };
-        }
-
-        const applyResult = await applyPendingUsageEventChargeToQuotaPeriod(ctx, {
-            usageEvent,
-            now_ms: args.now_ms,
-        });
-
-        if (applyResult.status === "not_charged") {
-            return {
-                status: "skipped",
-                state: usageEvent.state,
-            };
-        }
-
-        if (applyResult.status !== "applied") {
-            return applyResult;
-        }
-
-        return {
-            status: "applied",
-            charged_units: applyResult.charged_units,
-            state: applyResult.state,
-        };
-    },
+    handler: (ctx, args) =>
+        finalizeStaleUsageEvent(ctx, {
+            ...args,
+            watchdog_delay_ms: QUOTA_USAGE_RESERVATION_WATCHDOG_DELAY_MS,
+        }),
 });
 
 export const ingestRevenueCatEvent = mutation({
@@ -3117,7 +2809,6 @@ export const getUserDeletionOperationState = query({
             revenuecat_deleted_at_ms: operation?.revenuecat_deleted_at_ms,
             next_retry_at_ms: operation?.next_retry_at_ms,
             retry_count: operation?.retry_count,
-            force_stop_after_at_ms: operation?.force_stop_after_at_ms,
             cleanup_attempt_id: operation?.cleanup_attempt_id,
             cleanup_step: operation?.cleanup_step,
             cleanup_step_started_at_ms: operation?.cleanup_step_started_at_ms,
@@ -3793,7 +3484,6 @@ export const upsertUserDeletionPreparation = mutation({
             revenuecat_deleted_at_ms: latestOperation?.revenuecat_deleted_at_ms,
             next_retry_at_ms: latestOperation?.next_retry_at_ms ?? args.prepared_at_ms,
             retry_count: latestOperation?.retry_count ?? 0,
-            force_stop_after_at_ms: latestOperation?.force_stop_after_at_ms,
             cleanup_attempt_id: preserveCleanupLease
                 ? latestOperation.cleanup_attempt_id
                 : undefined,
@@ -3829,7 +3519,6 @@ export const markUserDeletionAuthDeleted = mutation({
     args: {
         user_id: v.string(),
         now_ms: v.number(),
-        force_stop_after_at_ms: v.number(),
     },
     handler: async (ctx, args) => {
         const latestOperation = await getLatestUserDeletionQueueEntryByUserId(ctx, args.user_id);
@@ -3862,7 +3551,6 @@ export const markUserDeletionAuthDeleted = mutation({
                 auth_deleted_at_ms: args.now_ms,
                 next_retry_at_ms: args.now_ms,
                 retry_count: 0,
-                force_stop_after_at_ms: args.force_stop_after_at_ms,
                 revenuecat_app_user_id: nextContext.revenuecat_app_user_id,
                 has_active_subscription: nextContext.has_active_subscription,
                 ...(nextContext.preserved_quota_period_id
@@ -3913,8 +3601,6 @@ export const markUserDeletionAuthDeleted = mutation({
                 ? latestOperation.next_retry_at_ms
                 : args.now_ms,
             retry_count: latestOperation.retry_count,
-            force_stop_after_at_ms:
-                latestOperation.force_stop_after_at_ms ?? args.force_stop_after_at_ms,
             cleanup_attempt_id: preserveCleanupLease
                 ? latestOperation.cleanup_attempt_id
                 : undefined,
@@ -4004,7 +3690,6 @@ export const acquireUserDeletionOperation = mutation({
             revenuecat_deleted_at_ms: latestOperation.revenuecat_deleted_at_ms,
             next_retry_at_ms: args.lease_expires_at_ms,
             retry_count: latestOperation.retry_count,
-            force_stop_after_at_ms: latestOperation.force_stop_after_at_ms,
             cleanup_attempt_id: args.cleanup_attempt_id,
             cleanup_step: args.cleanup_step ?? "acquired",
             cleanup_step_started_at_ms: args.now_ms,
@@ -4031,7 +3716,6 @@ export const acquireUserDeletionOperation = mutation({
                 revenuecat_deleted_at_ms: nextOperation.revenuecat_deleted_at_ms,
                 next_retry_at_ms: nextOperation.next_retry_at_ms,
                 retry_count: nextOperation.retry_count,
-                force_stop_after_at_ms: nextOperation.force_stop_after_at_ms,
                 cleanup_attempt_id: nextOperation.cleanup_attempt_id,
                 cleanup_step: nextOperation.cleanup_step,
                 cleanup_step_started_at_ms: nextOperation.cleanup_step_started_at_ms,
@@ -4087,7 +3771,6 @@ export const renewUserDeletionOperationCleanupLease = mutation({
             next_retry_at_ms: args.lease_expires_at_ms,
             retry_count: latestOperation.retry_count,
             last_error: latestOperation.last_error,
-            force_stop_after_at_ms: latestOperation.force_stop_after_at_ms,
             cleanup_attempt_id: args.cleanup_attempt_id,
             cleanup_step: args.cleanup_step,
             cleanup_step_started_at_ms: getNextUserDeletionCleanupStepStartedAtMs({
@@ -4126,7 +3809,6 @@ export const rescheduleUserDeletionOperation = mutation({
         retry_count_increment: v.optional(v.number()),
         last_error: v.optional(v.union(v.string(), v.null())),
         auth_deleted_at_ms: v.optional(v.number()),
-        force_stop_after_at_ms: v.optional(v.number()),
         cleanup_attempt_id: v.optional(v.string()),
         cleanup_step: v.optional(userDeletionCleanupStepValidator),
         cleanup_lease_expires_at_ms: v.optional(v.number()),
@@ -4193,8 +3875,6 @@ export const rescheduleUserDeletionOperation = mutation({
                 args.last_error === null
                     ? undefined
                     : (args.last_error ?? latestOperation.last_error),
-            force_stop_after_at_ms:
-                args.force_stop_after_at_ms ?? latestOperation.force_stop_after_at_ms,
             cleanup_attempt_id: remainsInProgress
                 ? args.cleanup_attempt_id ?? latestOperation.cleanup_attempt_id
                 : undefined,
@@ -4252,56 +3932,13 @@ export const deleteUserSubscriptionData = mutation({
             preservedQuotaPeriod,
         });
 
-        const preservedQuotaWindow = preservedQuotaPeriod
-            ? getLogicalQuotaPeriodWindow(preservedQuotaPeriod)
-            : null;
-
         let remainingDeletes = USER_DELETION_BATCH_LIMIT;
-        const usageEventCandidates = await listUsageEventsByUserIdBatch(
+        const usageEventDeletion = await deleteUsageEventsByUserIdBatch(
             ctx,
             args.user_id,
-            remainingDeletes + 1
+            remainingDeletes
         );
-        const usageEventsToDelete = usageEventCandidates.slice(0, remainingDeletes);
-        const hasMoreUsageEvents = usageEventCandidates.length > usageEventsToDelete.length;
-
-        let deletedQuotaRecoveries = 0;
-
-        for (const usageEvent of usageEventsToDelete) {
-            const linkedQuotaPeriod = preservedQuotaWindow
-                ? await ctx.db.get(usageEvent.quota_period_id)
-                : null;
-
-            if (
-                shouldApplyUsageEventChargeBeforeDeletion({
-                    matches_preserved_logical_window:
-                        preservedQuotaWindow !== null &&
-                        linkedQuotaPeriod !== null &&
-                        isSameLogicalQuotaPeriodWindow(linkedQuotaPeriod, preservedQuotaWindow),
-                    is_charged: isUsageEventCharged(usageEvent),
-                    quota_applied_at_ms: usageEvent.quota_applied_at_ms,
-                })
-            ) {
-                const applyResult = await applyPendingUsageEventChargeToQuotaPeriod(ctx, {
-                    usageEvent,
-                    now_ms: args.now_ms,
-                    target_quota_period_id: preservedQuotaPeriod?._id,
-                });
-
-                if (applyResult.status !== "applied" && applyResult.status !== "already_applied") {
-                    throw new Error(
-                        `Cannot delete preserved usage event ${String(usageEvent._id)} before applying charged quota usage: ${applyResult.status}`
-                    );
-                }
-            }
-
-            deletedQuotaRecoveries += await deleteQuotaFinalizationRecoveriesByUsageEventId(
-                ctx,
-                usageEvent._id
-            );
-            await ctx.db.delete(usageEvent._id);
-        }
-        remainingDeletes -= usageEventsToDelete.length;
+        remainingDeletes -= usageEventDeletion.deleted_count;
 
         let deletedRevenueCatEvents = 0;
         let hasMoreRevenueCatEvents = false;
@@ -4343,19 +3980,14 @@ export const deleteUserSubscriptionData = mutation({
         let hasMoreQuotaPeriods = false;
 
         if (remainingDeletes > 0) {
-            const quotaPeriodCandidates = await listQuotaPeriodsByUserIdBatch(
-                ctx,
-                args.user_id,
-                remainingDeletes + 1
-            );
-            const quotaPeriodsToDelete = quotaPeriodCandidates
-                .filter((quotaPeriod) => quotaPeriod._id !== args.preserved_quota_period_id)
-                .slice(0, remainingDeletes);
-            hasMoreQuotaPeriods = quotaPeriodCandidates
-                .filter((quotaPeriod) => quotaPeriod._id !== args.preserved_quota_period_id)
-                .length > quotaPeriodsToDelete.length;
+            const quotaPeriodDeletion = await prepareQuotaPeriodsForUserDeletionBatch(ctx, {
+                user_id: args.user_id,
+                preserved_quota_period_id: args.preserved_quota_period_id,
+                delete_limit: remainingDeletes,
+            });
+            hasMoreQuotaPeriods = quotaPeriodDeletion.has_more;
 
-            for (const quotaPeriod of quotaPeriodsToDelete) {
+            for (const quotaPeriod of quotaPeriodDeletion.quota_periods) {
                 await deleteQuotaPeriodCountersByQuotaPeriodId(ctx, quotaPeriod._id);
                 await ctx.db.delete(quotaPeriod._id);
                 deletedQuotaPeriods += 1;
@@ -4365,38 +3997,14 @@ export const deleteUserSubscriptionData = mutation({
         return {
             preserved_quota_period_id: args.preserved_quota_period_id ?? null,
             deleted_quota_periods: deletedQuotaPeriods,
-            deleted_usage_events: usageEventsToDelete.length,
-            deleted_quota_recoveries: deletedQuotaRecoveries,
+            deleted_usage_events: usageEventDeletion.deleted_count,
             deleted_revenue_cat_events: deletedRevenueCatEvents,
-            has_remaining:
-                hasMoreUsageEvents || hasMoreRevenueCatEvents || hasMoreQuotaPeriods,
-        };
-    },
-});
-
-export const forceStopUserActiveUsageEvents = mutation({
-    args: {
-        user_id: v.string(),
-        now_ms: v.number(),
-    },
-    handler: async (ctx, args) => {
-        const activeUsageEvents = await listActiveUsageEventsByUserId(ctx, args.user_id);
-        let forced_stop_count = 0;
-
-        for (const usageEvent of activeUsageEvents) {
-            const patch = buildForcedStoppedUsageEventPatch(usageEvent, args.now_ms);
-
-            if (!patch) {
-                continue;
-            }
-
-            await ctx.db.patch(usageEvent._id, patch);
-            forced_stop_count += 1;
-        }
-
-        return {
-            forced_stop_count,
-            active_usage_event_count: activeUsageEvents.length,
+            has_remaining: doesUserDeletionSubscriptionCleanupHaveRemaining({
+                remaining_delete_budget: remainingDeletes,
+                usage_event_has_more: usageEventDeletion.has_more,
+                revenuecat_event_has_more: hasMoreRevenueCatEvents,
+                quota_period_has_more: hasMoreQuotaPeriods,
+            }),
         };
     },
 });

@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, jest } from "@jest/globals";
 
-import { processRevenueCatWebhookEventById } from "../subscriptionsWorkers";
+import {
+    prepareUserAccountDeletion,
+    processRevenueCatWebhookEventById,
+    queueDeletedUserDataCleanup,
+} from "../subscriptionsWorkers";
 import { type CurrentSubscriptionState } from "../subscriptions/revenueCatApi";
 
 const originalEnv = process.env;
@@ -322,5 +326,120 @@ describe("RevenueCat webhook worker processing", () => {
             processed_user_ids: ["user_1"],
             ignored_user_ids: [],
         });
+    });
+});
+
+describe("user deletion scheduling", () => {
+    afterEach(() => {
+        process.env = originalEnv;
+        globalThis.fetch = originalFetch;
+        jest.restoreAllMocks();
+    });
+
+    it("does not schedule cleanup while preparing account deletion", async () => {
+        process.env = {
+            ...originalEnv,
+            REVENUECAT_CI_SUBSCRIPTIONS_R_API_KEY: "rc_v2_secret",
+            REVENUECAT_PROJECT_ID: "proj_test",
+            REVENUECAT_POLYGLOT_ENTITLEMENT_ID: "polyglot",
+        };
+        globalThis.fetch = jest.fn(async () => jsonResponse(200, { items: [] })) as jest.MockedFunction<
+            typeof fetch
+        >;
+        jest.spyOn(Date, "now").mockReturnValue(1_000);
+        const scheduler = {
+            runAfter: jest.fn(),
+        };
+        let userIdQueryCount = 0;
+        const ctx = {
+            scheduler,
+            runQuery: jest.fn(async (_functionRef: unknown, queryArgs: Record<string, unknown>) => {
+                if (queryArgs.model === "user") {
+                    return {
+                        createdAt: 900,
+                    };
+                }
+
+                if (queryArgs.user_id === "user_1") {
+                    userIdQueryCount += 1;
+
+                    if (userIdQueryCount === 1) {
+                        return null;
+                    }
+
+                    return {
+                        has_active_subscription: false,
+                        revenuecat_app_user_id: "rc_user_1",
+                    };
+                }
+
+                throw new Error("Unexpected query in user deletion scheduling test");
+            }),
+            runMutation: jest.fn(async (_functionRef: unknown, mutationArgs: Record<string, unknown>) => {
+                if (typeof mutationArgs.sync_attempt_id === "string") {
+                    return {
+                        status: "acquired",
+                        revenuecat_app_user_id: "rc_user_1",
+                        plan_key: "free",
+                        has_active_subscription: false,
+                        last_synced_at_ms: 1_000,
+                    };
+                }
+
+                if (mutationArgs.snapshot) {
+                    return {
+                        status: "created",
+                        plan_key: "free",
+                        has_active_subscription: false,
+                        last_synced_at_ms: 1_000,
+                    };
+                }
+
+                if (mutationArgs.user_id === "user_1") {
+                    return {};
+                }
+
+                throw new Error("Unexpected mutation in user deletion scheduling test");
+            }),
+        };
+
+        await expect((prepareUserAccountDeletion as any)._handler(ctx, { user_id: "user_1" })).resolves.toMatchObject({
+            repaired_missing_preserved_quota_period: false,
+        });
+
+        expect(scheduler.runAfter).not.toHaveBeenCalled();
+    });
+
+    it("marks auth deletion and immediately schedules cleanup", async () => {
+        jest.spyOn(Date, "now").mockReturnValue(1_000);
+        const calls: string[] = [];
+        const scheduler = {
+            runAfter: jest.fn(async () => {
+                calls.push("schedule");
+            }),
+        };
+        const runMutation = jest.fn(async () => {
+            calls.push("mark");
+            return {};
+        });
+
+        await expect(
+            (queueDeletedUserDataCleanup as any)._handler(
+                {
+                    scheduler,
+                    runMutation,
+                },
+                { user_id: "user_1" }
+            )
+        ).resolves.toEqual({ status: "queued" });
+
+        expect(runMutation).toHaveBeenCalledWith(expect.anything(), {
+            user_id: "user_1",
+            now_ms: 1_000,
+        });
+        expect(scheduler.runAfter).toHaveBeenCalledWith(0, expect.anything(), {
+            user_id: "user_1",
+        });
+        expect(calls).toEqual(["mark", "schedule"]);
     });
 });

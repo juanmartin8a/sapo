@@ -23,7 +23,6 @@ export type UserDeletionOperationState = {
     revenuecat_deleted_at_ms?: number;
     next_retry_at_ms?: number;
     retry_count?: number;
-    force_stop_after_at_ms?: number;
     cleanup_attempt_id?: string;
     cleanup_step?: UserDeletionCleanupStep;
     cleanup_step_started_at_ms?: number;
@@ -258,7 +257,6 @@ export async function markUserDeletionAuthDeletedByUserId(
     userId: string,
     args: {
         now_ms: number;
-        force_stop_after_at_ms: number;
     }
 ) {
     return (await (ctx as any).runMutation(
@@ -266,7 +264,6 @@ export async function markUserDeletionAuthDeletedByUserId(
         {
             user_id: userId,
             now_ms: args.now_ms,
-            force_stop_after_at_ms: args.force_stop_after_at_ms,
         }
     )) as {
         updated: boolean;
@@ -432,7 +429,6 @@ export async function rescheduleUserDeletionOperationByUserId(
         last_error?: string | null;
         auth_deleted_at_ms?: number;
         revenuecat_deleted_at_ms?: number;
-        force_stop_after_at_ms?: number;
         cleanup_attempt_id?: string;
         cleanup_step?: UserDeletionCleanupStep;
         cleanup_lease_expires_at_ms?: number;
@@ -456,9 +452,6 @@ export async function rescheduleUserDeletionOperationByUserId(
                 : {}),
             ...(typeof args.revenuecat_deleted_at_ms === "number"
                 ? { revenuecat_deleted_at_ms: args.revenuecat_deleted_at_ms }
-                : {}),
-            ...(typeof args.force_stop_after_at_ms === "number"
-                ? { force_stop_after_at_ms: args.force_stop_after_at_ms }
                 : {}),
             ...(typeof args.cleanup_attempt_id === "string"
                 ? { cleanup_attempt_id: args.cleanup_attempt_id }
@@ -512,52 +505,5 @@ export async function getActiveRevenueCatEventProcessingForUserDeletionByUserId(
         active_processing_count: number;
         has_more: boolean;
         processing_expires_at_ms?: number;
-    };
-}
-
-export async function getUserStreamControlQuiescenceByUserId(
-    ctx: SubscriptionStateReconciliationCtx,
-    userId: string,
-    nowMs: number
-) {
-    return (await (ctx as any).runQuery(
-        (components.sapopinguino.streamControl as Record<string, unknown>)
-            .getUserStreamControlQuiescence,
-        {
-            userId,
-            nowMs,
-        }
-    )) as {
-        total_stream_control_count: number;
-        live_stream_control_count: number;
-        orphaned_stream_control_count: number;
-    };
-}
-
-export async function forceStopActiveUserUsageEventsByUserId(
-    ctx: SubscriptionStateReconciliationCtx,
-    userId: string,
-    nowMs: number
-) {
-    return (await (ctx as any).runMutation(
-        (components.subscriptions.webhook as Record<string, unknown>).forceStopUserActiveUsageEvents,
-        {
-            user_id: userId,
-            now_ms: nowMs,
-        }
-    )) as {
-        forced_stop_count: number;
-        active_usage_event_count: number;
-    };
-}
-
-export async function forceStopUserStreamControlsByUserId(
-    ctx: SubscriptionStateReconciliationCtx,
-    userId: string
-) {
-    return (await ctx.runMutation(components.sapopinguino.streamControl.deleteUserStreamControls, {
-        userId,
-    })) as {
-        deleted_count: number;
     };
 }

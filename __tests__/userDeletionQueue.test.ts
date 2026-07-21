@@ -4,6 +4,7 @@ import {
     assertRequiredPreservedQuotaPeriod,
     canAcquireUserDeletionOperation,
     doesUserDeletionCleanupAttemptOwnOperation,
+    doesUserDeletionSubscriptionCleanupHaveRemaining,
     doesUserDeletionStatusAllowAutomaticRetry,
     doesUserDeletionStatusBlockProcessing,
     doesUserDeletionStatusBlockRevenueCatReconciliation,
@@ -11,6 +12,8 @@ import {
     resolveAuthDeletedUserDeletionContext,
     resolvePreparedUserDeletionContext,
     resolveUserDeletionAuthDeleteWaitStatus,
+    resolveUserDeletionQuiescenceStatus,
+    shouldDeleteOverdueActiveUsageEvents,
     USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS,
     USER_DELETION_CLEANUP_DEAD_LETTER_STATUS,
     USER_DELETION_LATE_AUTH_WAIT_STATUS,
@@ -187,6 +190,81 @@ describe("user deletion queue helpers", () => {
                 dead_letter_timeout_ms: 86_400_000,
             })
         ).toBe(USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS);
+    });
+
+    it("waits for active usage naturally and escalates only after the grace period", () => {
+        expect(
+            resolveUserDeletionQuiescenceStatus({
+                active_usage_event_count: 1,
+                active_revenuecat_event_processing_count: 0,
+                now_ms: 1_000,
+                grace_ends_at_ms: 2_000,
+            })
+        ).toBe("waiting_for_quiescence");
+
+        expect(
+            resolveUserDeletionQuiescenceStatus({
+                active_usage_event_count: 0,
+                active_revenuecat_event_processing_count: 0,
+                now_ms: 1_000,
+                grace_ends_at_ms: 2_000,
+            })
+        ).toBe("ready");
+
+        expect(
+            resolveUserDeletionQuiescenceStatus({
+                active_usage_event_count: 1,
+                active_revenuecat_event_processing_count: 0,
+                now_ms: 2_000,
+                grace_ends_at_ms: 2_000,
+            })
+        ).toBe("overdue");
+    });
+
+    it("authoritatively deletes overdue usage only after RevenueCat processing is quiet", () => {
+        expect(
+            shouldDeleteOverdueActiveUsageEvents({
+                quiescence_status: "overdue",
+                active_usage_event_count: 1,
+                active_revenuecat_event_processing_count: 0,
+            })
+        ).toBe(true);
+
+        expect(
+            shouldDeleteOverdueActiveUsageEvents({
+                quiescence_status: "waiting_for_quiescence",
+                active_usage_event_count: 1,
+                active_revenuecat_event_processing_count: 0,
+            })
+        ).toBe(false);
+
+        expect(
+            shouldDeleteOverdueActiveUsageEvents({
+                quiescence_status: "overdue",
+                active_usage_event_count: 1,
+                active_revenuecat_event_processing_count: 1,
+            })
+        ).toBe(false);
+    });
+
+    it("continues subscription cleanup when an earlier table exhausts the delete budget", () => {
+        expect(
+            doesUserDeletionSubscriptionCleanupHaveRemaining({
+                remaining_delete_budget: 0,
+                usage_event_has_more: false,
+                revenuecat_event_has_more: false,
+                quota_period_has_more: false,
+            })
+        ).toBe(true);
+
+        expect(
+            doesUserDeletionSubscriptionCleanupHaveRemaining({
+                remaining_delete_budget: 1,
+                usage_event_has_more: false,
+                revenuecat_event_has_more: false,
+                quota_period_has_more: false,
+            })
+        ).toBe(false);
     });
 
     it("prefers the latest snapshot when transitioning to auth-deleted cleanup", () => {

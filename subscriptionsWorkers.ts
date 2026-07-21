@@ -13,6 +13,8 @@ import {
     resolveAuthDeletedUserDeletionContext,
     resolvePreparedUserDeletionContext,
     resolveUserDeletionAuthDeleteWaitStatus,
+    resolveUserDeletionQuiescenceStatus,
+    shouldDeleteOverdueActiveUsageEvents,
 } from "./userDeletionQueue";
 
 import {
@@ -41,14 +43,11 @@ import {
     acquireUserDeletionOperationByUserId,
     beginSubscriptionStateReconciliation,
     clearUserDeletionOperationByUserId,
-    forceStopActiveUserUsageEventsByUserId,
-    forceStopUserStreamControlsByUserId,
     getActiveUserDeletionUsageEventCountByUserId,
     getActiveRevenueCatEventProcessingForUserDeletionByUserId,
     getBetterAuthUserCreatedAtMs,
     getUserDeletionOperationStateByUserId,
     getUserDeletionSnapshotByUserId,
-    getUserStreamControlQuiescenceByUserId,
     listAuthDeleteDeadLetterUserDeletionOperationUserIds,
     listCleanupDeadLetterUserDeletionOperationUserIds,
     listDueUserDeletionOperationUserIds,
@@ -80,23 +79,12 @@ const USER_DELETION_CLEANUP_FAST_RETRY_LIMIT = 3;
 const USER_DELETION_CLEANUP_DEAD_LETTER_RETRY_LIMIT = 12;
 const USER_DELETION_CLEANUP_CRON_RETRY_DELAY_MS = 15 * 60 * 1000;
 const USER_DELETION_CLEANUP_DEAD_LETTER_RECOVERY_DELAY_MS = 24 * 60 * 60 * 1000;
-const USER_DELETION_FORCE_STOP_GRACE_MS = 3 * 60 * 1000;
+const USER_DELETION_QUIESCENCE_GRACE_MS = 3 * 60 * 1000;
 const USER_DELETION_SUBSCRIPTION_CLEANUP_MAX_BATCHES = 10;
-const USER_DELETION_QUIESCENCE_POLL_INTERVAL_MS = 250;
-const USER_DELETION_QUIESCENCE_WAIT_TIMEOUT_MS = 5_000;
-const USER_DELETION_FORCE_STOP_SETTLE_TIMEOUT_MS = 2_000;
 const USER_DELETION_TERMINAL_NEXT_RETRY_AT_MS = 253402300799999;
 const REVENUECAT_EVENT_PROCESSING_LEASE_MS = 30_000;
 const SUBSCRIPTION_STATE_RECONCILIATION_LEASE_MS = 30_000;
 const PENDING_ACTIVE_SIGNAL_TTL_MS = 2 * 60 * 1000;
-const sapopinguinoQuotaTerminalStateValidator = v.union(
-    v.literal("completed"),
-    v.literal("failed_before_charge"),
-    v.literal("failed_after_charge"),
-    v.literal("user_stopped_before_charge"),
-    v.literal("user_stopped_after_charge")
-);
-
 const DEFAULT_PLAN_LIMITS = [
     {
         plan_key: "free" as const,
@@ -259,10 +247,6 @@ function resolveStoreSubscriptionIdHintFromRevenueCatEvent(
     return eventDoc.transaction_id;
 }
 
-function sleep(milliseconds: number) {
-    return new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
-
 function resolveUserDeletionContextFromState(
     state: UserDeletionOperationState
 ): UserDeletionQueueContext | null {
@@ -284,14 +268,9 @@ async function getUserDeletionQuiescenceSnapshotByUserId(
     userId: string,
     nowMs: number
 ) {
-    const [
-        usageEventCountResult,
-        revenueCatEventProcessingResult,
-        streamControlQuiescenceResult,
-    ] = await Promise.all([
+    const [usageEventCountResult, revenueCatEventProcessingResult] = await Promise.all([
         getActiveUserDeletionUsageEventCountByUserId(ctx, userId),
         getActiveRevenueCatEventProcessingForUserDeletionByUserId(ctx, userId, nowMs, 1),
-        getUserStreamControlQuiescenceByUserId(ctx, userId, nowMs),
     ]);
 
     return {
@@ -300,34 +279,14 @@ async function getUserDeletionQuiescenceSnapshotByUserId(
             revenueCatEventProcessingResult.active_processing_count,
         revenuecat_event_processing_expires_at_ms:
             revenueCatEventProcessingResult.processing_expires_at_ms,
-        total_stream_control_count: streamControlQuiescenceResult.total_stream_control_count,
-        live_stream_control_count: streamControlQuiescenceResult.live_stream_control_count,
-        orphaned_stream_control_count: streamControlQuiescenceResult.orphaned_stream_control_count,
     };
-}
-
-function hasActiveUserDeletionQuiescenceBlockers(
-    snapshot: Awaited<ReturnType<typeof getUserDeletionQuiescenceSnapshotByUserId>>
-) {
-    return (
-        snapshot.active_usage_event_count > 0 ||
-        snapshot.live_stream_control_count > 0 ||
-        snapshot.active_revenuecat_event_processing_count > 0
-    );
 }
 
 function getUserDeletionQuiescenceRetryAtMs(args: {
     snapshot: Awaited<ReturnType<typeof getUserDeletionQuiescenceSnapshotByUserId>>;
     now_ms: number;
-    force_stop_after_at_ms: number;
 }) {
     const retryCandidates = [args.now_ms + USER_DELETION_CLEANUP_RETRY_DELAY_MS];
-
-    if (args.snapshot.active_usage_event_count > 0 || args.snapshot.live_stream_control_count > 0) {
-        if (args.force_stop_after_at_ms > args.now_ms) {
-            retryCandidates.push(args.force_stop_after_at_ms);
-        }
-    }
 
     if (typeof args.snapshot.revenuecat_event_processing_expires_at_ms === "number") {
         retryCandidates.push(args.snapshot.revenuecat_event_processing_expires_at_ms);
@@ -426,27 +385,6 @@ async function recordOperationalAlert(
         });
 }
 
-async function listSapopinguinoQuotaRecoveryDeadLetters(
-    ctx: Pick<ActionCtx, "runQuery">,
-    limit: number
-) {
-    return (await (ctx as any).runQuery(
-        ((components.subscriptions as Record<string, unknown>).quotaRecovery as Record<string, unknown>)
-            .listDeadLetterQuotaFinalizationRecoveries,
-        {
-            limit,
-        }
-    )) as {
-        usage_event_id: string;
-        terminal_state: string;
-        attempt_count: number;
-        next_retry_at_ms: number;
-        last_error?: string;
-        created_at_ms: number;
-        updated_at_ms: number;
-    }[];
-}
-
 function createUserDeletionCleanupAttemptId(userId: string) {
     const randomSuffix = Math.random().toString(36).slice(2);
 
@@ -536,7 +474,7 @@ async function handleOwnedUserDeletionCleanupFailure(
         error?: unknown;
         minimum_retry_delay_ms?: number;
         auth_deleted_at_ms?: number;
-        force_stop_after_at_ms?: number;
+        retry_status?: "waiting_for_quiescence";
     }
 ) {
     const nowMs = Date.now();
@@ -553,7 +491,7 @@ async function handleOwnedUserDeletionCleanupFailure(
     });
     const nextStatus = shouldDeadLetter
         ? USER_DELETION_CLEANUP_DEAD_LETTER_STATUS
-        : "retryable_error";
+        : (args.retry_status ?? "retryable_error");
     const nextRetryAtMs = shouldDeadLetter
         ? nowMs + USER_DELETION_CLEANUP_DEAD_LETTER_RECOVERY_DELAY_MS
         : retryPlan.next_retry_at_ms;
@@ -569,9 +507,6 @@ async function handleOwnedUserDeletionCleanupFailure(
             last_error: args.error_message,
             ...(typeof args.auth_deleted_at_ms === "number"
                 ? { auth_deleted_at_ms: args.auth_deleted_at_ms }
-                : {}),
-            ...(typeof args.force_stop_after_at_ms === "number"
-                ? { force_stop_after_at_ms: args.force_stop_after_at_ms }
                 : {}),
         },
         args.cleanup_step
@@ -620,87 +555,6 @@ async function handleOwnedUserDeletionCleanupFailure(
     };
 }
 
-async function waitForUserDeletionQuiescence(
-    ctx: SubscriptionStateReconciliationCtx,
-    userId: string
-) {
-    const stopRequests = await ctx.runMutation(
-        components.sapopinguino.streamControl.requestUserStreamStops,
-        {
-            userId,
-            nowMs: Date.now(),
-        }
-    );
-
-    const getQuiescenceSnapshot = async () =>
-        getUserDeletionQuiescenceSnapshotByUserId(ctx, userId, Date.now());
-
-    const waitUntil = async (deadlineMs: number) => {
-        let snapshot = await getQuiescenceSnapshot();
-
-        while (hasActiveUserDeletionQuiescenceBlockers(snapshot) && Date.now() < deadlineMs) {
-            await sleep(USER_DELETION_QUIESCENCE_POLL_INTERVAL_MS);
-            snapshot = await getQuiescenceSnapshot();
-        }
-
-        return snapshot;
-    };
-
-    const initialSnapshot = await getQuiescenceSnapshot();
-    const initialWaitDeadlineMs = Date.now() + USER_DELETION_QUIESCENCE_WAIT_TIMEOUT_MS;
-    let snapshot = await waitUntil(initialWaitDeadlineMs);
-    let forcedStopResult:
-        | {
-              forced_stop_count: number;
-              active_usage_event_count: number;
-          }
-        | null = null;
-    let forcedStreamControlCleanupResult:
-        | {
-              deleted_count: number;
-          }
-        | null = null;
-
-    if (snapshot.active_usage_event_count > 0) {
-        forcedStopResult = await forceStopActiveUserUsageEventsByUserId(ctx, userId, Date.now());
-    }
-
-    if (snapshot.live_stream_control_count > 0) {
-        forcedStreamControlCleanupResult = await forceStopUserStreamControlsByUserId(ctx, userId);
-    }
-
-    if (forcedStopResult || forcedStreamControlCleanupResult) {
-        snapshot = await waitUntil(Date.now() + USER_DELETION_FORCE_STOP_SETTLE_TIMEOUT_MS);
-    }
-
-    if (hasActiveUserDeletionQuiescenceBlockers(snapshot)) {
-        throw new Error(
-            "Timed out waiting for active usage events, live stream controls, and RevenueCat event processing to stop during account deletion"
-        );
-    }
-
-    return {
-        stop_requests: stopRequests,
-        initial_active_usage_event_count: initialSnapshot.active_usage_event_count,
-        initial_total_stream_control_count: initialSnapshot.total_stream_control_count,
-        initial_live_stream_control_count: initialSnapshot.live_stream_control_count,
-        initial_orphaned_stream_control_count: initialSnapshot.orphaned_stream_control_count,
-        initial_active_revenuecat_event_processing_count:
-            initialSnapshot.active_revenuecat_event_processing_count,
-        initial_revenuecat_event_processing_expires_at_ms:
-            initialSnapshot.revenuecat_event_processing_expires_at_ms,
-        final_active_usage_event_count: snapshot.active_usage_event_count,
-        final_total_stream_control_count: snapshot.total_stream_control_count,
-        final_live_stream_control_count: snapshot.live_stream_control_count,
-        final_orphaned_stream_control_count: snapshot.orphaned_stream_control_count,
-        final_active_revenuecat_event_processing_count:
-            snapshot.active_revenuecat_event_processing_count,
-        final_revenuecat_event_processing_expires_at_ms:
-            snapshot.revenuecat_event_processing_expires_at_ms,
-        forced_stop_result: forcedStopResult,
-        forced_stream_control_cleanup: forcedStreamControlCleanupResult,
-    };
-}
 
 async function reconcileSubscriptionStateFromRevenueCat(
     ctx: SubscriptionStateReconciliationCtx,
@@ -1306,22 +1160,10 @@ export const prepareUserAccountDeletion = internalAction({
                 }
             );
 
-            let scheduled_cleanup = true;
-            try {
-                await scheduleQueuedUserDeletionProcessing(ctx, args.user_id, 0);
-            } catch (error) {
-                scheduled_cleanup = false;
-                console.warn(
-                    "Failed to schedule queued account deletion processing after preparation:",
-                    error
-                );
-            }
-
             return {
                 refresh: refreshResult,
                 deletion_snapshot: deletionSnapshot,
                 repaired_missing_preserved_quota_period: repairedMissingPreservedQuotaPeriod,
-                scheduled_cleanup,
             };
         } catch (error) {
             await clearUserDeletionOperationByUserId(ctx, args.user_id).catch(() => null);
@@ -1339,7 +1181,6 @@ export const queueDeletedUserDataCleanup = internalAction({
 
         await markUserDeletionAuthDeletedByUserId(ctx, args.user_id, {
             now_ms: nowMs,
-            force_stop_after_at_ms: nowMs + USER_DELETION_FORCE_STOP_GRACE_MS,
         }).catch((error) => {
             console.warn("Failed to mark queued account deletion as auth-deleted:", error);
         });
@@ -1368,7 +1209,6 @@ export const finalizeDeletedUserData = internalAction({
             try {
                 await markUserDeletionAuthDeletedByUserId(ctx, args.user_id, {
                     now_ms: nowMs,
-                    force_stop_after_at_ms: nowMs + USER_DELETION_FORCE_STOP_GRACE_MS,
                 });
             } catch (error) {
                 console.warn("Failed to mark queued account deletion as auth-deleted:", error);
@@ -1408,7 +1248,6 @@ export const finalizeDeletedUserData = internalAction({
                 cleanup_fast_retry_attempt: args.cleanup_fast_retry_attempt,
                 error_message: "Missing saved deletion context for queued account deletion",
                 auth_deleted_at_ms: deletionState.auth_deleted_at_ms,
-                force_stop_after_at_ms: deletionState.force_stop_after_at_ms,
             });
         }
 
@@ -1486,7 +1325,6 @@ export const finalizeDeletedUserData = internalAction({
                 cleanup_fast_retry_attempt: args.cleanup_fast_retry_attempt,
                 error_message: errorMessage,
                 auth_deleted_at_ms: deletionState.auth_deleted_at_ms,
-                force_stop_after_at_ms: deletionState.force_stop_after_at_ms,
             });
         }
 
@@ -1608,13 +1446,11 @@ export const finalizeDeletedUserData = internalAction({
         }
 
         const authDeletedAtMs = deletionState.auth_deleted_at_ms ?? nowMs;
-        const forceStopAfterAtMs =
-            deletionState.force_stop_after_at_ms ?? authDeletedAtMs + USER_DELETION_FORCE_STOP_GRACE_MS;
+        const quiescenceGraceEndsAtMs = authDeletedAtMs + USER_DELETION_QUIESCENCE_GRACE_MS;
 
         if (typeof deletionState.auth_deleted_at_ms !== "number") {
             await markUserDeletionAuthDeletedByUserId(ctx, args.user_id, {
                 now_ms: authDeletedAtMs,
-                force_stop_after_at_ms: forceStopAfterAtMs,
             }).catch(() => null);
         }
 
@@ -1635,21 +1471,40 @@ export const finalizeDeletedUserData = internalAction({
             Date.now()
         );
 
-        const hasForceStoppableQuiescenceBlockers =
-            quiescenceSnapshot.active_usage_event_count > 0 ||
-            quiescenceSnapshot.live_stream_control_count > 0;
-        const hasActiveRevenueCatEventProcessing =
-            quiescenceSnapshot.active_revenuecat_event_processing_count > 0;
+        const quiescenceStatus = resolveUserDeletionQuiescenceStatus({
+            active_usage_event_count: quiescenceSnapshot.active_usage_event_count,
+            active_revenuecat_event_processing_count:
+                quiescenceSnapshot.active_revenuecat_event_processing_count,
+            now_ms: Date.now(),
+            grace_ends_at_ms: quiescenceGraceEndsAtMs,
+        });
+        const shouldDeleteActiveUsageEvents = shouldDeleteOverdueActiveUsageEvents({
+            quiescence_status: quiescenceStatus,
+            active_usage_event_count: quiescenceSnapshot.active_usage_event_count,
+            active_revenuecat_event_processing_count:
+                quiescenceSnapshot.active_revenuecat_event_processing_count,
+        });
 
-        if (
-            (hasForceStoppableQuiescenceBlockers && Date.now() < forceStopAfterAtMs) ||
-            hasActiveRevenueCatEventProcessing
-        ) {
+        if (quiescenceStatus !== "ready" && !shouldDeleteActiveUsageEvents) {
             const retryNowMs = Date.now();
+
+            if (quiescenceStatus === "overdue") {
+                return handleOwnedUserDeletionCleanupFailure(ctx, {
+                    user_id: args.user_id,
+                    cleanup_attempt_id: cleanupAttemptId,
+                    cleanup_step: "waiting_for_quiescence",
+                    current_retry_count: deletionState.retry_count,
+                    cleanup_fast_retry_attempt: args.cleanup_fast_retry_attempt,
+                    error_message:
+                        "Timed out waiting for RevenueCat event processing to finish during account deletion",
+                    auth_deleted_at_ms: authDeletedAtMs,
+                    retry_status: "waiting_for_quiescence",
+                });
+            }
+
             const nextRetryAtMs = getUserDeletionQuiescenceRetryAtMs({
                 snapshot: quiescenceSnapshot,
                 now_ms: retryNowMs,
-                force_stop_after_at_ms: forceStopAfterAtMs,
             });
 
             const leaseLost = await rescheduleOwnedUserDeletionOperation(ctx, args.user_id, cleanupAttemptId, {
@@ -1658,7 +1513,6 @@ export const finalizeDeletedUserData = internalAction({
                 next_retry_at_ms: nextRetryAtMs,
                 last_error: null,
                 auth_deleted_at_ms: authDeletedAtMs,
-                force_stop_after_at_ms: forceStopAfterAtMs,
             }, "waiting_for_quiescence").catch(() => null);
 
             if (leaseLost) {
@@ -1685,50 +1539,21 @@ export const finalizeDeletedUserData = internalAction({
         let activeCleanupStep: UserDeletionCleanupStep = "waiting_for_quiescence";
 
         try {
-            const quiescenceResult =
-                hasActiveUserDeletionQuiescenceBlockers(quiescenceSnapshot)
-                    ? await waitForUserDeletionQuiescence(ctx, args.user_id)
-                    : {
-                          stop_requests: {
-                              requested_count: 0,
-                          },
-                          initial_active_usage_event_count:
-                              quiescenceSnapshot.active_usage_event_count,
-                          initial_total_stream_control_count:
-                              quiescenceSnapshot.total_stream_control_count,
-                          initial_live_stream_control_count:
-                              quiescenceSnapshot.live_stream_control_count,
-                          initial_orphaned_stream_control_count:
-                              quiescenceSnapshot.orphaned_stream_control_count,
-                          final_active_usage_event_count: quiescenceSnapshot.active_usage_event_count,
-                          final_total_stream_control_count:
-                              quiescenceSnapshot.total_stream_control_count,
-                          final_live_stream_control_count:
-                              quiescenceSnapshot.live_stream_control_count,
-                          final_orphaned_stream_control_count:
-                              quiescenceSnapshot.orphaned_stream_control_count,
-                          initial_active_revenuecat_event_processing_count:
-                              quiescenceSnapshot.active_revenuecat_event_processing_count,
-                          initial_revenuecat_event_processing_expires_at_ms:
-                              quiescenceSnapshot.revenuecat_event_processing_expires_at_ms,
-                          final_active_revenuecat_event_processing_count:
-                              quiescenceSnapshot.active_revenuecat_event_processing_count,
-                          final_revenuecat_event_processing_expires_at_ms:
-                              quiescenceSnapshot.revenuecat_event_processing_expires_at_ms,
-                          forced_stop_result: null,
-                          forced_stream_control_cleanup: null,
-                      };
+            const quiescenceResult = {
+                active_usage_event_count: quiescenceSnapshot.active_usage_event_count,
+                active_revenuecat_event_processing_count:
+                    quiescenceSnapshot.active_revenuecat_event_processing_count,
+                authoritative_active_usage_event_deletion: shouldDeleteActiveUsageEvents,
+            };
             let subscriptionCleanupResult: {
                 preserved_quota_period_id: string | null;
                 deleted_quota_periods: number;
                 deleted_usage_events: number;
-                deleted_quota_recoveries: number;
                 deleted_revenue_cat_events: number;
                 has_remaining: boolean;
             };
             let deletedQuotaPeriods = 0;
             let deletedUsageEvents = 0;
-            let deletedQuotaRecoveries = 0;
             let deletedRevenueCatEvents = 0;
             let subscriptionCleanupBatchCount = 0;
 
@@ -1759,7 +1584,6 @@ export const finalizeDeletedUserData = internalAction({
 
                 deletedQuotaPeriods += subscriptionCleanupResult.deleted_quota_periods;
                 deletedUsageEvents += subscriptionCleanupResult.deleted_usage_events;
-                deletedQuotaRecoveries += subscriptionCleanupResult.deleted_quota_recoveries;
                 deletedRevenueCatEvents += subscriptionCleanupResult.deleted_revenue_cat_events;
 
                 subscriptionCleanupBatchCount += 1;
@@ -1783,7 +1607,6 @@ export const finalizeDeletedUserData = internalAction({
                             next_retry_at_ms: retryPlan.next_retry_at_ms,
                             last_error: null,
                             auth_deleted_at_ms: authDeletedAtMs,
-                            force_stop_after_at_ms: forceStopAfterAtMs,
                         },
                         "deleting_subscription_data"
                     );
@@ -1813,7 +1636,6 @@ export const finalizeDeletedUserData = internalAction({
                             batch_count: subscriptionCleanupBatchCount,
                             deleted_quota_periods: deletedQuotaPeriods,
                             deleted_usage_events: deletedUsageEvents,
-                            deleted_quota_recoveries: deletedQuotaRecoveries,
                             deleted_revenue_cat_events: deletedRevenueCatEvents,
                         },
                         next_retry_at_ms: retryPlan.next_retry_at_ms,
@@ -1821,24 +1643,6 @@ export const finalizeDeletedUserData = internalAction({
                 }
             } while (subscriptionCleanupResult.has_remaining);
 
-            activeCleanupStep = "deleting_stream_controls";
-            const leaseLostBeforeStreamControls = await renewUserDeletionCleanupLease(
-                ctx,
-                args.user_id,
-                cleanupAttemptId,
-                "deleting_stream_controls"
-            );
-
-            if (leaseLostBeforeStreamControls) {
-                return leaseLostBeforeStreamControls;
-            }
-
-            const streamControlCleanupResult = await ctx.runMutation(
-                components.sapopinguino.streamControl.deleteUserStreamControls,
-                {
-                    userId: args.user_id,
-                }
-            );
             activeCleanupStep = "finalizing_subscription_data";
             const leaseLostBeforeFinalization = await renewUserDeletionCleanupLease(
                 ctx,
@@ -1910,7 +1714,6 @@ export const finalizeDeletedUserData = internalAction({
                         next_retry_at_ms: revenueCatDeletedAtMs + USER_DELETION_CLEANUP_LEASE_MS,
                         last_error: null,
                         auth_deleted_at_ms: authDeletedAtMs,
-                        force_stop_after_at_ms: forceStopAfterAtMs,
                         cleanup_step: "deleting_revenuecat_subscriber",
                         cleanup_lease_expires_at_ms:
                             revenueCatDeletedAtMs + USER_DELETION_CLEANUP_LEASE_MS,
@@ -1957,10 +1760,8 @@ export const finalizeDeletedUserData = internalAction({
                     batch_count: subscriptionCleanupBatchCount,
                     deleted_quota_periods: deletedQuotaPeriods,
                     deleted_usage_events: deletedUsageEvents,
-                    deleted_quota_recoveries: deletedQuotaRecoveries,
                     deleted_revenue_cat_events: deletedRevenueCatEvents,
                 },
-                stream_control_cleanup: streamControlCleanupResult,
                 finalization: finalizationResult,
                 revenuecat_delete,
                 deletion_operation_cleanup: deletionOperationCleanupResult,
@@ -1978,7 +1779,6 @@ export const finalizeDeletedUserData = internalAction({
                 error,
                 minimum_retry_delay_ms: getRevenueCatApiErrorRetryDelayMs(error),
                 auth_deleted_at_ms: authDeletedAtMs,
-                force_stop_after_at_ms: forceStopAfterAtMs,
             });
         }
     },
@@ -2235,121 +2035,6 @@ export const getUserDeletionDeadLetterSnapshot = internalAction({
     },
 });
 
-export const checkSapopinguinoQuotaRecoveryHealth = internalAction({
-    args: {},
-    handler: async (ctx) => {
-        const deadLetterRecoveries = await listSapopinguinoQuotaRecoveryDeadLetters(ctx, 25);
-
-        if (deadLetterRecoveries.length > 0) {
-            console.error(
-                JSON.stringify({
-                    event: "sapopinguino_quota_recovery_dead_letters_detected",
-                    dead_letter_count: deadLetterRecoveries.length,
-                    sample_usage_event_ids: deadLetterRecoveries
-                        .slice(0, 5)
-                        .map((item) => item.usage_event_id),
-                })
-            );
-            await recordOperationalAlert(ctx, {
-                kind: "sapopinguino_quota_recovery_dead_letter",
-                entity_key: "quota_finalization_recoveries",
-                severity: "critical",
-                title: "Sapopinguino quota recoveries dead-lettered",
-                message: `${deadLetterRecoveries.length} sampled quota finalization recoveries require manual inspection.`,
-                last_error: deadLetterRecoveries
-                    .slice(0, 3)
-                    .map(
-                        (item) =>
-                            `${item.usage_event_id}: ${item.last_error ?? item.terminal_state}`
-                    )
-                    .join(" | "),
-            });
-        }
-
-        return {
-            checked_at_ms: Date.now(),
-            dead_letter_count: deadLetterRecoveries.length,
-        };
-    },
-});
-
-export const getSapopinguinoQuotaRecoveryDeadLetterSnapshot = internalAction({
-    args: {
-        limit: v.optional(v.number()),
-    },
-    handler: async (ctx, args): Promise<unknown> => {
-        const limit = Math.max(1, Math.min(args.limit ?? 25, 100));
-        const [deadLetterRecoveries, openAlerts] = await Promise.all([
-            listSapopinguinoQuotaRecoveryDeadLetters(ctx, limit),
-            ctx
-                .runQuery((internal as any).operationalAlerts.listOpenOperationalAlerts, {
-                    limit,
-                })
-                .catch(() => []),
-        ]);
-
-        return {
-            sampled_at_ms: Date.now(),
-            dead_letter_recoveries: deadLetterRecoveries,
-            open_alerts: (openAlerts as { kind?: string }[]).filter(
-                (alert) => alert.kind === "sapopinguino_quota_recovery_dead_letter"
-            ),
-        };
-    },
-});
-
-export const processSapopinguinoQuotaFinalizationRecovery = internalAction({
-    args: {
-        usage_event_id: v.string(),
-    },
-    handler: async (ctx, args): Promise<unknown> => {
-        return (ctx as any).runAction(
-            (internal as any).sapopinguinoWorkers.processSapopinguinoQuotaFinalizationRecovery,
-            {
-                usage_event_id: args.usage_event_id,
-            }
-        );
-    },
-});
-
-export const processQueuedSapopinguinoQuotaFinalizationRecoveries = internalAction({
-    args: {},
-    handler: async (ctx): Promise<unknown> => {
-        return (ctx as any).runAction(
-            (internal as any).sapopinguinoWorkers.processQueuedSapopinguinoQuotaFinalizationRecoveries,
-            {}
-        );
-    },
-});
-
-export const reconcileUsageEventQuotaApplication = internalAction({
-    args: {
-        // Component document IDs become opaque strings at the app boundary.
-        usage_event_id: v.string(),
-        terminal_state: v.optional(sapopinguinoQuotaTerminalStateValidator),
-        attempt: v.optional(v.number()),
-    },
-    handler: async (ctx, args): Promise<unknown> => {
-        return (ctx as any).runAction(
-            (internal as any).sapopinguinoWorkers.reconcileUsageEventQuotaApplication,
-            {
-                usage_event_id: args.usage_event_id,
-                ...(args.terminal_state ? { terminal_state: args.terminal_state } : {}),
-                ...(typeof args.attempt === "number" ? { attempt: args.attempt } : {}),
-            }
-        );
-    },
-});
-
-export const pruneStaleSapopinguinoStreamControls = internalAction({
-    args: {},
-    handler: async (ctx): Promise<unknown> => {
-        return (ctx as any).runAction(
-            (internal as any).sapopinguinoWorkers.pruneStaleSapopinguinoStreamControls,
-            {}
-        );
-    },
-});
 
 export const processRevenueCatWebhookEvent = internalAction({
     args: {

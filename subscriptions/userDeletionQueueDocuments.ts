@@ -60,7 +60,6 @@ export function buildUserDeletionQueueEntry(args: {
     auth_deleted_at_ms?: number;
     revenuecat_deleted_at_ms?: number;
     last_error?: string;
-    force_stop_after_at_ms?: number;
     cleanup_attempt_id?: string;
     cleanup_step?: UserDeletionCleanupStep;
     cleanup_step_started_at_ms?: number;
@@ -87,9 +86,6 @@ export function buildUserDeletionQueueEntry(args: {
         next_retry_at_ms: args.next_retry_at_ms,
         retry_count: args.retry_count,
         ...(typeof args.last_error === "string" ? { last_error: args.last_error.slice(0, 400) } : {}),
-        ...(typeof args.force_stop_after_at_ms === "number"
-            ? { force_stop_after_at_ms: args.force_stop_after_at_ms }
-            : {}),
         ...(typeof args.cleanup_attempt_id === "string"
             ? { cleanup_attempt_id: args.cleanup_attempt_id }
             : {}),
