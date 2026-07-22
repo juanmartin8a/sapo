@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import SocialSignInButton, { type SocialProvider } from '@/components/auth/SocialSignInButton';
 import SapoIcon from '@/assets/icons/sapo.svg';
 import GoogleGIcon from '@/assets/icons/google-g.svg';
+import ArrowLeftIcon from '@/assets/icons/arrow-left.svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const SIGN_IN_TITLE = 'Sign in :)';
@@ -12,12 +14,22 @@ const TITLE_FADE_EASING = Easing.out(Easing.cubic);
 
 const AuthScreen = () => {
     const insets = useSafeAreaInsets();
+    const router = useRouter();
     const [pendingProvider, setPendingProvider] = useState<SocialProvider | null>(null);
     const [titleTransitionProgress] = useState(() => new Animated.Value(0));
 
     const handleSignInEnd = useCallback((provider: SocialProvider) => {
         setPendingProvider((currentProvider) => currentProvider === provider ? null : currentProvider);
     }, []);
+
+    const handleBackPress = useCallback(() => {
+        if (router.canGoBack()) {
+            router.back();
+            return;
+        }
+
+        router.replace('/');
+    }, [router]);
 
     const isSignInPending = pendingProvider !== null;
 
@@ -42,6 +54,16 @@ const AuthScreen = () => {
 
     return (
         <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+            <TouchableOpacity
+                accessibilityLabel="Go back"
+                accessibilityRole="button"
+                activeOpacity={0.7}
+                disabled={isSignInPending}
+                onPress={handleBackPress}
+                style={[styles.backButton, { top: insets.top }]}
+            >
+                <ArrowLeftIcon width={40} height={32} stroke="#000" />
+            </TouchableOpacity>
             <View style={styles.content}>
                 <View style={styles.hero}>
                     <View style={styles.iconBadge}>
@@ -122,6 +144,12 @@ const styles = StyleSheet.create({
         paddingVertical: 32,
         justifyContent: 'space-between',
         backgroundColor: '#fff',
+    },
+    backButton: {
+        position: 'absolute',
+        left: 18,
+        padding: 6,
+        zIndex: 1,
     },
     hero: {
         alignItems: 'center',
