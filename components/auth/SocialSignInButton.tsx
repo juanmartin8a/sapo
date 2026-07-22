@@ -2,7 +2,7 @@ import React, { cloneElement, isValidElement, useCallback, useEffect, useMemo, u
 import { Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import AppleLogo from '@/assets/icons/apple_logo.svg';
-import { authClient } from '@/clients/auth-client';
+import { authClient } from '@/lib/auth-client';
 
 export type SocialProvider = 'google' | 'apple';
 

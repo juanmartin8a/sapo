@@ -1,16 +1,5 @@
-import Home from "@/components/screens/Home";
-import { StatusBar, View } from "react-native";
+import HomeScreen from "@/components/home/HomeScreen";
 
 export default function Index() {
-    return (
-        <View
-            style={{
-                flex: 1,
-                backgroundColor: '#fff'
-            }}
-        >
-            <StatusBar barStyle="dark-content" />
-            <Home />
-        </View>
-    );
+    return <HomeScreen />;
 }

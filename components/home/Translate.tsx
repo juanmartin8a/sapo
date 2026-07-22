@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, NativeSyntheticEvent, TextLayoutEventData, Dimensions } from 'react-native';
-import useSseStore from '../../stores/sseStore';
+import useTranslationStore from '@/stores/translationStore';
 import SapoIcon from "../../assets/icons/sapo.svg"
 import SapoBocaAbiertaIcon from "../../assets/icons/sapo_boca_abierta.svg"
-import { triggerSoftSelectionHaptic } from '@/utils/haptics';
+import { triggerSoftSelectionHaptic } from '@/lib/haptics';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -13,11 +13,11 @@ interface CursorPos {
 }
 
 export default function Translate() {
-    const displayText = useSseStore((state) => state.displayText);
-    const mouthTriggerVersion = useSseStore((state) => state.mouthTriggerVersion);
-    const streamError = useSseStore((state) => state.streamError);
-    const streamErrorMessage = useSseStore((state) => state.streamErrorMessage);
-    const disconnectStream = useSseStore((state) => state.disconnectStream);
+    const displayText = useTranslationStore((state) => state.displayText);
+    const mouthTriggerVersion = useTranslationStore((state) => state.mouthTriggerVersion);
+    const streamError = useTranslationStore((state) => state.streamError);
+    const streamErrorMessage = useTranslationStore((state) => state.streamErrorMessage);
+    const disconnectStream = useTranslationStore((state) => state.disconnectStream);
 
     const [cursorPos, setCursorPos] = useState<CursorPos>({ x: 0, y: 0 });
     const sapoWidth = SCREEN_WIDTH * 0.4;

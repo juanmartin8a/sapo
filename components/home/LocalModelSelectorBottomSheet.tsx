@@ -1,12 +1,14 @@
-import { isLocalModelDownloaded, LOCAL_TRANSLATION_MODELS, type LocalTranslationModelId } from "@/clients/local-model";
+import { isLocalModelDownloaded } from "@/lib/local-model";
+import { LOCAL_TRANSLATION_MODELS } from "@/constants/localModelCatalog";
+import type { LocalTranslationModelId } from "@/types/localModels";
 import { HOME_BOTTOM_SHEET_KEYS } from "@/constants/bottomSheets";
 import { APP_ROUTES } from "@/constants/routes";
 import useLocalModelStore from "@/stores/localModelStore";
 import { useRouter } from "expo-router";
 import { useRef } from "react";
-import LangugeSelectorBottomSheetUI from "./LanguageSelectorBottomSheetUI";
-import { triggerErrorHaptic, triggerSelectionHaptic } from "@/utils/haptics";
-import useHomeBottomSheetController from "./useHomeBottomSheetController";
+import OptionSelectorSheet from "./OptionSelectorSheet";
+import { triggerErrorHaptic, triggerSelectionHaptic } from "@/lib/haptics";
+import useHomeBottomSheetController from "@/hooks/useHomeBottomSheetController";
 import { Alert } from "react-native";
 
 export default function LocalModelSelectorBottomSheet() {
@@ -57,10 +59,10 @@ export default function LocalModelSelectorBottomSheet() {
     }
 
     return (
-        <LangugeSelectorBottomSheetUI
+        <OptionSelectorSheet
             selectedKey={selectedModelId ?? ""}
             ref={sheetRef}
-            onLanguageSelected={handleModelSelect}
+            onItemSelected={handleModelSelect}
             onClose={handleSheetClose}
             onChange={handleSheetChange}
             data={downloadedModelData}

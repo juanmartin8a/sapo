@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { SharedValue, useAnimatedStyle } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import ChevronRightIcon from "../../assets/icons/chevron-right.svg";
-import useLanguageSelectorBottomSheetNotifier from '@/stores/languageSelectionNotifierStore';
+import useLanguageSelectionStore from '@/stores/languageSelectionStore';
 import {
     DEFAULT_SOURCE_LANGUAGE_ID,
     DEFAULT_TARGET_LANGUAGE_ID,
@@ -15,15 +15,15 @@ import {
 import { HOME_BOTTOM_SHEET_KEYS } from '@/constants/bottomSheets';
 import { APP_ROUTES } from '@/constants/routes';
 import useTransformationOperationStore from '@/stores/transformationOperationStore';
-import useHomeBottomSheetNotifier from '@/stores/homeBottomSheetNotifierStore';
+import useHomeBottomSheetStore from '@/stores/homeBottomSheetStore';
 import useLocalModelStore from '@/stores/localModelStore';
 import { HomeBottomSheetKey } from '@/types/bottomSheets';
-import { LOCAL_TRANSLATION_MODELS } from '@/clients/local-model';
+import { LOCAL_TRANSLATION_MODELS } from '@/constants/localModelCatalog';
 import SideBarFooter from './SidebarFooter';
 import useSubscriptionStatusStore from '@/stores/subscriptionStatusStore';
-import { authClient } from '@/clients/auth-client';
+import { authClient } from '@/lib/auth-client';
 import { getSessionUserAuthState } from '@/utils/auth';
-import { triggerErrorHaptic, triggerLightImpactHaptic, triggerSelectionHaptic } from '@/utils/haptics';
+import { triggerErrorHaptic, triggerLightImpactHaptic, triggerSelectionHaptic } from '@/lib/haptics';
 
 export const SIDEBAR_WIDTH = Dimensions.get("window").width * 0.7;
 
@@ -82,8 +82,8 @@ const SideBar = ({ translationX }: SideBarProps) => {
     const loadModelButtonTransitionRunRef = useRef(0);
 
     // Get individual values from the store to avoid unnecessary re-renders
-    const selectedIndex0 = useLanguageSelectorBottomSheetNotifier(state => state.selectedIndex0);
-    const selectedIndex1 = useLanguageSelectorBottomSheetNotifier(state => state.selectedIndex1);
+    const selectedIndex0 = useLanguageSelectionStore(state => state.selectedIndex0);
+    const selectedIndex1 = useLanguageSelectionStore(state => state.selectedIndex1);
     const inputLanguage =
         languagesPlusAutoDetect[selectedIndex0 as keyof typeof languagesPlusAutoDetect]
         ?? languagesPlusAutoDetect[DEFAULT_SOURCE_LANGUAGE_ID];
@@ -92,7 +92,7 @@ const SideBar = ({ translationX }: SideBarProps) => {
         ?? languages[DEFAULT_TARGET_LANGUAGE_ID];
 
     const requestBottomSheet = useCallback((sheet: HomeBottomSheetKey) => {
-        const { bottomSheet, loading } = useHomeBottomSheetNotifier.getState();
+        const { bottomSheet, loading } = useHomeBottomSheetStore.getState();
 
         if (loading && bottomSheet !== sheet) {
             return false;
@@ -102,7 +102,7 @@ const SideBar = ({ translationX }: SideBarProps) => {
             return false;
         }
 
-        useHomeBottomSheetNotifier.getState().showBottomSheet(sheet, true);
+        useHomeBottomSheetStore.getState().showBottomSheet(sheet, true);
         return true;
     }, []);
 

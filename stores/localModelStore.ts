@@ -1,21 +1,25 @@
 import {
     createLocalModelDownload,
-    DEFAULT_LOCAL_TRANSLATION_MODEL_ID,
     deleteLocalModel,
-    LOCAL_TRANSLATION_MODELS,
-    getLocalTranslationModelById,
     isLocalModelDownloaded,
     setSelectedLocalTranslationModelId,
-    type LocalModelDownloadProgress,
-    type LocalModelStatus,
-    type LocalTranslationModelId,
-    type SelectedLocalTranslationModelId,
-} from "@/clients/local-model";
+} from "@/lib/local-model";
+import {
+    DEFAULT_LOCAL_TRANSLATION_MODEL_ID,
+    LOCAL_TRANSLATION_MODELS,
+    getLocalTranslationModelById,
+} from "@/constants/localModelCatalog";
+import type {
+    LocalModelDownloadProgress,
+    LocalModelStatus,
+    LocalTranslationModelId,
+    SelectedLocalTranslationModelId,
+} from "@/types/localModels";
 import {
     ensureLocalTranslationModelLoaded,
     getLoadedLocalTranslationModelId,
     runWithLocalTranslationModelReleased,
-} from "@/clients/local-translation";
+} from "@/lib/local-translation";
 import { create } from "zustand";
 
 interface LocalModelStoreState {
