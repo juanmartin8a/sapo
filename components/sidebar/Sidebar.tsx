@@ -111,22 +111,20 @@ const SideBar = ({ translationX }: SideBarProps) => {
     }, [toggleLocalModel]);
 
     const handleSelectOnlineMode = useCallback(async () => {
-        triggerSelectionHaptic();
-
         if (!isLocalModelEnabled) {
             return;
         }
 
+        triggerSelectionHaptic();
         await handleToggleLocalModel();
     }, [handleToggleLocalModel, isLocalModelEnabled]);
 
     const handleSelectLocalMode = useCallback(async () => {
-        triggerSelectionHaptic();
-
         if (isLocalModelEnabled) {
             return;
         }
 
+        triggerSelectionHaptic();
         await handleToggleLocalModel();
     }, [handleToggleLocalModel, isLocalModelEnabled]);
 
@@ -168,11 +166,19 @@ const SideBar = ({ translationX }: SideBarProps) => {
     }, [router]);
 
     const handleTranslatePress = useCallback(() => {
+        if (operation === 'translate') {
+            return;
+        }
+
         triggerSelectionHaptic();
         setOperation('translate');
-    }, [setOperation]);
+    }, [operation, setOperation]);
 
     const handleRespellPress = useCallback(() => {
+        if (operation === 'respell') {
+            return;
+        }
+
         if (canUseRespell) {
             triggerSelectionHaptic();
             setOperation('respell');
@@ -193,7 +199,7 @@ const SideBar = ({ translationX }: SideBarProps) => {
             title,
             message
         );
-    }, [canUseRespell, isAuthenticatedUser, setOperation]);
+    }, [canUseRespell, isAuthenticatedUser, operation, setOperation]);
 
     const handleInputLanguagePress = useCallback(() => {
         requestBottomSheet(HOME_BOTTOM_SHEET_KEYS.INPUT_LANGUAGE);
