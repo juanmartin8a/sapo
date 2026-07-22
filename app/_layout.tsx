@@ -4,9 +4,9 @@ import * as WebBrowser from 'expo-web-browser';
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 
-import { authClient } from "@/clients/auth-client";
-import AuthGate from "@/components/providers/AuthGate";
-import RevenueCatIdentitySync from "@/components/providers/RevenueCatIdentitySync";
+import { authClient } from "@/lib/auth-client";
+import AuthGate from "@/providers/AuthGate";
+import RevenueCatIdentitySync from "@/providers/RevenueCatIdentitySync";
 
 WebBrowser.maybeCompleteAuthSession();
 

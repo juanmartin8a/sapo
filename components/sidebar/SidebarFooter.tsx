@@ -1,4 +1,4 @@
-import { authClient } from '@/clients/auth-client';
+import { authClient } from '@/lib/auth-client';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo } from 'react';
 import { StyleSheet, TouchableOpacity, Text, View } from 'react-native';

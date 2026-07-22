@@ -1,6 +1,19 @@
-# Welcome to your Expo app 👋
+# SAPO
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+SAPO is an Expo, React Native, and TypeScript app using Expo Router.
+
+## Project structure
+
+- `app/`: Expo Router route and layout adapters only
+- `components/`: feature screens and reusable UI
+- `hooks/`: reusable React behavior
+- `providers/`: app-wide lifecycle and synchronization components
+- `lib/`: authentication, purchases, streaming, and native integrations
+- `stores/`: Zustand application state
+- `constants/`: static configuration and domain data
+- `types/`: shared TypeScript contracts
+- `utils/`: pure, framework-independent helpers
+- `convex/`: backend submodule and generated Convex bindings
 
 ## Get started
 
@@ -13,7 +26,7 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 2. Start the app
 
    ```bash
-    npx expo start
+    npm run start
    ```
 
 In the output, you'll find options to open the app in a
@@ -23,7 +36,7 @@ In the output, you'll find options to open the app in a
 - [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
 - [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+Add navigation entries in `app/`, but keep screen implementations and non-route code outside that directory. See the [Expo Router core concepts](https://docs.expo.dev/router/basics/core-concepts/) for the file-based routing rules.
 
 ## Learn more
 

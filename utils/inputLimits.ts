@@ -1,4 +1,4 @@
-import type { TransformationOperation } from "@/stores/transformationOperationStore";
+import type { TransformationOperation } from "@/types/translation";
 
 export const getInputLimit = (
     operation: TransformationOperation,
