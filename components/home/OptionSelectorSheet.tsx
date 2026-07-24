@@ -16,8 +16,6 @@ interface OptionSelectorSheetProps {
 
 const OptionSelectorSheet = ({ ref, data, selectedKey, onClose, onChange, onItemSelected }: OptionSelectorSheetProps) => {
     const insets = useSafeAreaInsets();
-    // console.log(ref.current)
-
     return (
         <BottomSheet
             ref={ref}

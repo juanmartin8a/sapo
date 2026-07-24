@@ -4,6 +4,7 @@ import { Alert, Platform, ScrollView, StyleSheet, View } from "react-native";
 
 import TrashIcon from "@/assets/icons/trash.svg";
 import { authClient } from "@/lib/auth-client";
+import { useAuthState } from "@/providers/AuthStateProvider";
 import { APP_ROUTES } from "@/constants/routes";
 import {
     SETTINGS_COLORS,
@@ -18,7 +19,6 @@ import {
     isRevenueCatSupportedPlatform,
 } from "@/lib/revenuecat";
 import SettingsButton from "@/components/settings/SettingsButton";
-import { getSessionUserAuthState } from "@/utils/auth";
 import { triggerErrorHaptic, triggerLightImpactHaptic, triggerStrongImpactHaptic } from "@/lib/haptics";
 
 const getDeleteAccountAlertMessage = (args: {
@@ -34,12 +34,10 @@ const getDeleteAccountAlertMessage = (args: {
 
 export default function DataControlsScreen() {
     const headerHeight = useHeaderHeight();
-    const { data: session, isPending } = authClient.useSession();
-    const user = session?.user;
-    const authState = getSessionUserAuthState(user);
-    const isAuthenticatedUser = authState === "authenticated";
+    const { status: authStatus, userId } = useAuthState();
+    const isPending = authStatus === "checking";
+    const isAuthenticatedUser = authStatus === "authenticated";
     const canDeleteAccount = isAuthenticatedUser;
-    const userId = isAuthenticatedUser ? user?.id ?? null : null;
     const [isProcessing, setIsProcessing] = useState(false);
     const isPreparingDeleteAlertRef = useRef(false);
 

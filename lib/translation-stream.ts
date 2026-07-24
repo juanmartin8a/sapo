@@ -13,7 +13,6 @@ const STREAM_TOTAL_TIMEOUT_MS = 135_000;
 export type TranslationStreamToken = {
     type: string;
     input?: string;
-    transcription?: string;
     output?: string;
     value?: string;
 };
@@ -35,9 +34,9 @@ export type TranslationStreamCallbacks = {
     onStreamError: (message: string, source: "event" | "marker") => void;
 };
 
-export type TranslationStreamTimeoutReason = "response" | "idle" | "total";
+type TranslationStreamTimeoutReason = "response" | "idle" | "total";
 
-export type TranslationStreamResult =
+type TranslationStreamResult =
     | { type: "completed" }
     | { type: "stopped" }
     | { type: "inactive" }
@@ -153,7 +152,7 @@ function resolveStreamErrorMessage(responseText: string, status: number) {
         const parsedResponse = JSON.parse(responseText) as unknown;
 
         if (typeof parsedResponse === "object" && parsedResponse !== null) {
-            const typedResponse = parsedResponse as { error?: unknown; message?: unknown };
+            const typedResponse = parsedResponse as { error?: unknown };
 
             if (typeof typedResponse.error === "string") {
                 return getStreamErrorMessageFromCode(typedResponse.error, status);

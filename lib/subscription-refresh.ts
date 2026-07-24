@@ -65,17 +65,13 @@ type ActiveRefresh = {
     promise: Promise<RefreshSubscriptionResult | null>;
 };
 
-type ScheduledCooldownRetry = {
-    timeoutId: ReturnType<typeof setTimeout>;
-};
-
 const REFRESH_COOLDOWN_KINDS = ["refresh_normal", "refresh_purchase", "refresh_daily"] as const;
 const activeRefreshesByUserId = new Map<string, ActiveRefresh>();
 const refreshCooldownsByUserId = new Map<
     string,
     Partial<Record<RefreshCooldownKind, number>>
 >();
-const scheduledCooldownRetriesByKey = new Map<string, ScheduledCooldownRetry>();
+const scheduledCooldownRetriesByKey = new Set<string>();
 
 function sleep(milliseconds: number) {
     return new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -313,14 +309,12 @@ function scheduleRefreshAfterCooldown(
     }
 
     const delayMs = Math.max(0, cooldownUntilMs - Date.now());
-    const timeoutId = setTimeout(() => {
+    setTimeout(() => {
         scheduledCooldownRetriesByKey.delete(scheduleKey);
         void refreshSubscriptionState(options).catch(() => null);
     }, delayMs);
 
-    scheduledCooldownRetriesByKey.set(scheduleKey, {
-        timeoutId,
-    });
+    scheduledCooldownRetriesByKey.add(scheduleKey);
 }
 
 function startRefresh(

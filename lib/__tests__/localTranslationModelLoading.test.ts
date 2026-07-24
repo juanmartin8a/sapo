@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 
 type MockEngine = {
     close: jest.MockedFunction<() => void>;
-    loadModel: jest.MockedFunction<(modelPath: string) => Promise<void>>;
+    loadModel: jest.MockedFunction<(
+        modelPath: string,
+        config?: { forceLoad?: boolean }
+    ) => Promise<void>>;
 };
 
 type PendingLoad = {
@@ -21,7 +24,10 @@ const mockCreateLLM = jest.fn(() => {
     });
     const engine: MockEngine = {
         close: jest.fn(),
-        loadModel: jest.fn<(modelPath: string) => Promise<void>>((modelPath: string) => {
+        loadModel: jest.fn<(
+            modelPath: string,
+            config?: { forceLoad?: boolean }
+        ) => Promise<void>>((modelPath: string) => {
             const pendingLoad = mockPendingLoads.find((item) => item.engine === engine);
             if (pendingLoad) {
                 pendingLoad.modelPath = modelPath;
@@ -98,6 +104,14 @@ describe("local translation model loading", () => {
 
         expect(firstLoad.engine.close).toHaveBeenCalledTimes(1);
         expect(mockPendingLoads[1].modelPath).toContain("gemma4-e4b-it");
+        expect(firstLoad.engine.loadModel).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({ forceLoad: true })
+        );
+        expect(mockPendingLoads[1].engine.loadModel).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({ forceLoad: true })
+        );
 
         mockPendingLoads[1].resolve();
         await Promise.all([loadA, loadB]);

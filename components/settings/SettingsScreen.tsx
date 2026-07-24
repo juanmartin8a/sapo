@@ -41,7 +41,7 @@ import {
 import GroupedList from "@/components/settings/GroupedList";
 import SettingsButton from "@/components/settings/SettingsButton";
 import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
-import { getSessionUserAuthState } from "@/utils/auth";
+import { useAuthState } from "@/providers/AuthStateProvider";
 import { triggerErrorHaptic, triggerLightImpactHaptic, triggerStrongImpactHaptic, triggerWarningHaptic } from "@/lib/haptics";
 
 const RESTORE_PURCHASES_ERROR_MESSAGE = "Unable to restore purchases. Please try again.";
@@ -66,11 +66,9 @@ const retryRevenueCatUpdateSyncInBackground = (userId: string) => {
 export default function SettingsScreen() {
     const headerHeight = useHeaderHeight();
     const router = useRouter();
-    const { data: session, isPending } = authClient.useSession();
-    const user = session?.user;
-    const authState = getSessionUserAuthState(user);
-    const isAuthenticatedUser = authState === "authenticated";
-    const userId = isAuthenticatedUser ? user?.id ?? null : null;
+    const { status: authStatus, userId } = useAuthState();
+    const isPending = authStatus === "checking";
+    const isAuthenticatedUser = authStatus === "authenticated";
     const setSubscriptionForUser = useSubscriptionStatusStore((state) => state.setForUser);
     const [isSigningOut, setIsSigningOut] = useState(false);
     const [isRestoringPurchases, setIsRestoringPurchases] = useState(false);

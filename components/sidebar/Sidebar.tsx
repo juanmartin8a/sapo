@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { StyleSheet, Dimensions, Text, View, TouchableOpacity, Alert, ActivityIndicator, Animated as RNAnimated, Easing, LayoutChangeEvent } from 'react-native';
 import { useNetworkState } from 'expo-network';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,8 +21,7 @@ import { HomeBottomSheetKey } from '@/types/bottomSheets';
 import { LOCAL_TRANSLATION_MODELS } from '@/constants/localModelCatalog';
 import SideBarFooter from './SidebarFooter';
 import useSubscriptionStatusStore from '@/stores/subscriptionStatusStore';
-import { authClient } from '@/lib/auth-client';
-import { getSessionUserAuthState } from '@/utils/auth';
+import { useAuthState } from '@/providers/AuthStateProvider';
 import { triggerErrorHaptic, triggerLightImpactHaptic, triggerSelectionHaptic } from '@/lib/haptics';
 
 export const SIDEBAR_WIDTH = Dimensions.get("window").width * 0.7;
@@ -34,9 +33,8 @@ type SideBarProps = {
 const SideBar = ({ translationX }: SideBarProps) => {
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    const { data: session, isPending: isAuthPending } = authClient.useSession();
-    const authState = getSessionUserAuthState(session?.user);
-    const isAuthenticatedUser = authState === 'authenticated';
+    const { status: authStatus, userId } = useAuthState();
+    const isAuthenticatedUser = authStatus === 'authenticated';
     const subscriptionUserId = useSubscriptionStatusStore((state) => state.userId);
     const hasActiveSubscription = useSubscriptionStatusStore((state) => state.hasActiveSubscription);
     const operation = useTransformationOperationStore((state) => state.operation);
@@ -53,7 +51,6 @@ const SideBar = ({ translationX }: SideBarProps) => {
     const refreshLocalModelStatus = useLocalModelStore((state) => state.refreshDownloadedStatus);
     const loadLocalModel = useLocalModelStore((state) => state.loadModel);
     const setLocalModelEnabled = useLocalModelStore((state) => state.setEnabled);
-    const toggleLocalModel = useLocalModelStore((state) => state.toggleEnabled);
     const networkState = useNetworkState();
     const selectedLocalModel = LOCAL_TRANSLATION_MODELS.find((model) => model.id === selectedLocalModelId)
         ?? null;
@@ -67,9 +64,9 @@ const SideBar = ({ translationX }: SideBarProps) => {
         isLocalModelRefreshing ||
         deletingLocalModelId !== null;
     const canUseRespell = isAuthenticatedUser &&
-        subscriptionUserId === session?.user?.id &&
+        subscriptionUserId === userId &&
         hasActiveSubscription === true;
-    const shouldShowLocalModeToggle = isAuthPending || isAuthenticatedUser;
+    const shouldShowLocalModeToggle = isAuthenticatedUser;
     const shouldShowLoadModelButton = isLocalModelDownloaded && !isLocalModelLoaded;
     const [isLoadModelButtonVisible, setIsLoadModelButtonVisible] = useState(shouldShowLoadModelButton);
     const [loadModelButtonLayoutHeight, setLoadModelButtonLayoutHeight] = useState(0);
@@ -106,29 +103,23 @@ const SideBar = ({ translationX }: SideBarProps) => {
         return true;
     }, []);
 
-    const handleToggleLocalModel = useCallback(async () => {
-        await toggleLocalModel();
-    }, [toggleLocalModel]);
-
-    const handleSelectOnlineMode = useCallback(async () => {
-        triggerSelectionHaptic();
-
+    const handleSelectOnlineMode = useCallback(() => {
         if (!isLocalModelEnabled) {
             return;
         }
 
-        await handleToggleLocalModel();
-    }, [handleToggleLocalModel, isLocalModelEnabled]);
-
-    const handleSelectLocalMode = useCallback(async () => {
         triggerSelectionHaptic();
+        setLocalModelEnabled(false);
+    }, [isLocalModelEnabled, setLocalModelEnabled]);
 
+    const handleSelectLocalMode = useCallback(() => {
         if (isLocalModelEnabled) {
             return;
         }
 
-        await handleToggleLocalModel();
-    }, [handleToggleLocalModel, isLocalModelEnabled]);
+        triggerSelectionHaptic();
+        setLocalModelEnabled(true);
+    }, [isLocalModelEnabled, setLocalModelEnabled]);
 
     const handleLocalModelAction = useCallback(async () => {
         if (!isLocalModelDownloaded || isLocalModelLoaded || isLocalModelBusy) {
@@ -168,11 +159,19 @@ const SideBar = ({ translationX }: SideBarProps) => {
     }, [router]);
 
     const handleTranslatePress = useCallback(() => {
+        if (operation === 'translate') {
+            return;
+        }
+
         triggerSelectionHaptic();
         setOperation('translate');
-    }, [setOperation]);
+    }, [operation, setOperation]);
 
     const handleRespellPress = useCallback(() => {
+        if (operation === 'respell') {
+            return;
+        }
+
         if (canUseRespell) {
             triggerSelectionHaptic();
             setOperation('respell');
@@ -193,7 +192,7 @@ const SideBar = ({ translationX }: SideBarProps) => {
             title,
             message
         );
-    }, [canUseRespell, isAuthenticatedUser, setOperation]);
+    }, [canUseRespell, isAuthenticatedUser, operation, setOperation]);
 
     const handleInputLanguagePress = useCallback(() => {
         requestBottomSheet(HOME_BOTTOM_SHEET_KEYS.INPUT_LANGUAGE);
@@ -226,10 +225,10 @@ const SideBar = ({ translationX }: SideBarProps) => {
     }, [canUseRespell, operation, setOperation]);
 
     useEffect(() => {
-        if (!shouldShowLocalModeToggle && !isLocalModelEnabled) {
+        if (authStatus === 'signed_out' && !isLocalModelEnabled) {
             setLocalModelEnabled(true);
         }
-    }, [isLocalModelEnabled, setLocalModelEnabled, shouldShowLocalModeToggle]);
+    }, [authStatus, isLocalModelEnabled, setLocalModelEnabled]);
 
     useEffect(() => {
         if (shouldShowLoadModelButton === isLoadModelButtonVisible) {
@@ -651,14 +650,6 @@ const styles = StyleSheet.create({
         alignItems: 'stretch',
         marginBottom: 32,
         marginTop: 8,
-        // backgroundColor: 'red'
-    },
-    operationLabelText: {
-        fontSize: 16,
-        fontWeight: '500',
-        color: '#aaa',
-        marginBottom: 10,
-        textAlign: 'left',
     },
     operationToggleContainer: {
         width: '100%',
@@ -705,9 +696,6 @@ const styles = StyleSheet.create({
     localModeOptionActive: {
         backgroundColor: '#000',
     },
-    localModeOptionDisabled: {
-        opacity: 0.45,
-    },
     localModeOptionText: {
         fontSize: 14,
         fontWeight: '600',
@@ -744,8 +732,6 @@ const styles = StyleSheet.create({
         zIndex: 1,
         padding: 20,
         justifyContent: 'space-between',
-        // borderBottomRightRadius: 20,
-        // borderTopRightRadius: 20,
         transform: [
             { translateX: -SIDEBAR_WIDTH }
         ]

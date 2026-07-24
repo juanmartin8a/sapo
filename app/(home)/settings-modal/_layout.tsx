@@ -31,10 +31,10 @@ export default function SettingsModalLayout() {
         <Stack
             screenOptions={{
                 headerShown: true,
+                headerTransparent: true,
+                headerShadowVisible: false,
                 headerStyle: styles.header,
                 contentStyle: styles.content,
-                headerTransparent: true,
-                headerShadowVisible: true,
                 headerRight: isIOS ? renderCloseButton : undefined,
             }}
         >
@@ -80,7 +80,6 @@ export default function SettingsModalLayout() {
 
 const styles = StyleSheet.create({
     header: {
-        // backgroundColor: settingsModalBackground,
         backgroundColor: "transparent",
     },
     content: {

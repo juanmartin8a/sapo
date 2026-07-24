@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, NativeSyntheticEvent, TextLayoutEventData, Dimensions } from 'react-native';
 import useTranslationStore from '@/stores/translationStore';
 import SapoIcon from "../../assets/icons/sapo.svg"
@@ -139,15 +139,12 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
     },
     translatedText: {
-        // fontSize: 32,
-        // lineHeight: 32 * 1.2,
         fontSize: 24,
         lineHeight: 24 * 1.2,
         textAlign: "left",
         textAlignVertical: "top",
         width: "100%",
         backgroundColor: "#fff",
-        // fontFamily: "Tangerine_400Regular",
         fontFamily: "Times New Roman",
         fontWeight: "400",
     },

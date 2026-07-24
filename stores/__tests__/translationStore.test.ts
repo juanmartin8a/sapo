@@ -21,7 +21,7 @@ describe("remote stream cancellation", () => {
         useTranslationStore.setState(initialState);
     });
 
-    it.each(["stopStream", "disconnectStream", "reset"] as const)(
+    it.each(["stopStream", "disconnectStream"] as const)(
         "%s aborts the active remote request without a separate stop request",
         (action) => {
             const abortController = new AbortController();

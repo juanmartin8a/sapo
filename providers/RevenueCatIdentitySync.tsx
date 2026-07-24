@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
-import { useQuery } from "convex/react";
-import { AppState } from "react-native";
 import Purchases, { type CustomerInfo } from "react-native-purchases";
 
-import { authClient } from "@/lib/auth-client";
 import {
     configureRevenueCat,
     hasActiveRevenueCatSubscription,
@@ -16,21 +13,19 @@ import {
     refreshSubscriptionState,
     refreshSubscriptionStateAfterRevenueCatUpdate,
 } from "@/lib/subscription-refresh";
-import { api } from "@/convex/_generated/api";
+import { useAuthState } from "@/providers/AuthStateProvider";
 import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
 
 export default function RevenueCatIdentitySync() {
-    const { data: session, isPending, refetch } = authClient.useSession();
-    const currentUser = useQuery(api.auth.getCurrentUser, session ? {} : "skip");
-    const isCheckingCurrentUser = Boolean(session) && currentUser === undefined;
-    const isAuthPending = isPending || isCheckingCurrentUser;
-    const userId = currentUser ? session?.user?.id ?? null : null;
+    const { status, userId } = useAuthState();
+    const isAuthPending = status === "checking";
     const setCurrentSubscriptionUser = useSubscriptionStatusStore((state) => state.setCurrentUser);
     const setSubscriptionForUser = useSubscriptionStatusStore((state) => state.setForUser);
     const receiptConflictUserIdRef = useRef<string | null>(null);
     const authenticatedSessionUserIdRef = useRef<string | null>(null);
     const syncedRevenueCatUserIdRef = useRef<string | null>(null);
     const lastRevenueCatActiveRef = useRef<boolean | null>(null);
+    const revenueCatLogoutPromiseRef = useRef<Promise<unknown> | null>(null);
 
     const publishSubscriptionStatus = useCallback((hasActiveSubscription: boolean | null) => {
         return userId ? setSubscriptionForUser(userId, hasActiveSubscription) : false;
@@ -41,33 +36,6 @@ export default function RevenueCatIdentitySync() {
             setCurrentSubscriptionUser(userId);
         }
     }, [isAuthPending, setCurrentSubscriptionUser, userId]);
-
-    useEffect(() => {
-        if (!isRevenueCatSupportedPlatform || !hasRevenueCatConfig()) {
-            publishSubscriptionStatus(false);
-            return;
-        }
-
-        const appStateSubscription = AppState.addEventListener("change", (nextState) => {
-            if (nextState === "active") {
-                void refetch().catch((error) => {
-                    if (__DEV__) {
-                        console.warn("Session refresh failed", error);
-                    }
-                });
-            }
-        });
-
-        void refetch().catch((error) => {
-            if (__DEV__) {
-                console.warn("Session refresh failed", error);
-            }
-        });
-
-        return () => {
-            appStateSubscription.remove();
-        };
-    }, [publishSubscriptionStatus, refetch]);
 
     useEffect(() => {
         if (isAuthPending) {
@@ -189,11 +157,20 @@ export default function RevenueCatIdentitySync() {
             lastRevenueCatActiveRef.current = null;
 
             if (previousRevenueCatUserId) {
-                void logOutRevenueCatIdentity(previousRevenueCatUserId).catch((error) => {
-                    if (__DEV__) {
-                        console.warn("RevenueCat identity logout failed", error);
-                    }
-                });
+                const previousLogoutPromise = revenueCatLogoutPromiseRef.current;
+                const logoutPromise = (previousLogoutPromise ?? Promise.resolve())
+                    .then(() => logOutRevenueCatIdentity(previousRevenueCatUserId))
+                    .catch((error) => {
+                        if (__DEV__) {
+                            console.warn("RevenueCat identity logout failed", error);
+                        }
+                    })
+                    .finally(() => {
+                        if (revenueCatLogoutPromiseRef.current === logoutPromise) {
+                            revenueCatLogoutPromiseRef.current = null;
+                        }
+                    });
+                revenueCatLogoutPromiseRef.current = logoutPromise;
             }
 
             return;
@@ -209,6 +186,12 @@ export default function RevenueCatIdentitySync() {
 
         const syncRevenueCatIdentity = async () => {
             try {
+                await revenueCatLogoutPromiseRef.current;
+
+                if (isCancelled) {
+                    return;
+                }
+
                 if (receiptConflictUserIdRef.current === userId) {
                     if (!isCancelled) {
                         publishSubscriptionStatus(false);

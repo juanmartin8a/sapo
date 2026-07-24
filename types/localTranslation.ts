@@ -6,6 +6,5 @@ export type LocalTranslationArgs = {
 
 export type LocalTranslationOptions = {
     signal?: AbortSignal;
-    onReady?: () => void;
     onToken?: (token: string) => void;
 };

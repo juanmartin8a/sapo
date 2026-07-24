@@ -46,7 +46,6 @@ interface TranslationStoreState {
     sendMessage: (input: string) => Promise<void>;
     repeatLastTranslation: () => void;
     stopStream: () => void;
-    reset: () => void;
 }
 
 const useTranslationStore = create<TranslationStoreState>((set, get) => {
@@ -476,24 +475,6 @@ const useTranslationStore = create<TranslationStoreState>((set, get) => {
             abortActiveStream(streamSnapshot);
         },
 
-        reset: () => {
-            const streamSnapshot = getActiveStreamSnapshot();
-
-            clearActiveSendMessage();
-            setIdleTranslateButtonState();
-            set({
-                displayText: "",
-                streamError: false,
-                streamErrorMessage: null,
-                abortController: null,
-                activeStreamId: null,
-                activeLocalStop: null,
-                isStreaming: false,
-                lastInput: null,
-            });
-
-            abortActiveStream(streamSnapshot);
-        },
     };
 });
 

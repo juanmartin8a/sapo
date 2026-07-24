@@ -20,6 +20,7 @@ import { APP_ROUTES } from "@/constants/routes";
 import { SETTINGS_COLORS } from "@/constants/settings";
 import { getSessionUserAuthState } from "@/utils/auth";
 import { triggerErrorHaptic, triggerStrongImpactHaptic } from "@/lib/haptics";
+import { useAuthState } from "@/providers/AuthStateProvider";
 
 type ConfirmationStatus =
     | "checking"
@@ -159,7 +160,8 @@ export default function DeleteAccountConfirmationScreen() {
     const rootNavigationState = useRootNavigationState();
     const params = useLocalSearchParams<{ token?: string | string[] }>();
     const token = useMemo(() => getTokenParam(params.token), [params.token]);
-    const { isPending } = authClient.useSession();
+    const { status: authStatus } = useAuthState();
+    const isPending = authStatus === "checking";
     const [status, setStatus] = useState<ConfirmationStatus>("checking");
     const [visibleStatus, setVisibleStatus] = useState<ConfirmationStatus>("checking");
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
