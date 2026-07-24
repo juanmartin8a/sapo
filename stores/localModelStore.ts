@@ -283,7 +283,6 @@ const useLocalModelStore = create<LocalModelStoreState>((set, get) => ({
                     downloadedBytes: 0,
                     expectedBytes: model.sizeBytes,
                     phase: "downloading",
-                    progress: 0,
                 },
             },
             downloadingModelId: modelId,

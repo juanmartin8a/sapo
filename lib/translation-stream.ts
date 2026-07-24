@@ -35,9 +35,9 @@ export type TranslationStreamCallbacks = {
     onStreamError: (message: string, source: "event" | "marker") => void;
 };
 
-export type TranslationStreamTimeoutReason = "response" | "idle" | "total";
+type TranslationStreamTimeoutReason = "response" | "idle" | "total";
 
-export type TranslationStreamResult =
+type TranslationStreamResult =
     | { type: "completed" }
     | { type: "stopped" }
     | { type: "inactive" }

@@ -1,8 +1,6 @@
 import { create } from 'zustand';
 import type { TransformationOperation } from "@/types/translation";
 
-export type { TransformationOperation } from "@/types/translation";
-
 interface TransformationOperationStoreProps {
     operation: TransformationOperation;
 

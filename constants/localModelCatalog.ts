@@ -30,7 +30,7 @@ export const LOCAL_TRANSLATION_MODELS = [
 ] as const satisfies readonly LocalTranslationModel[];
 
 export const DEFAULT_LOCAL_TRANSLATION_MODEL_ID: SelectedLocalTranslationModelId = null;
-export const LOCAL_TRANSLATION_MODEL = LOCAL_TRANSLATION_MODELS[0];
+const LOCAL_TRANSLATION_MODEL = LOCAL_TRANSLATION_MODELS[0];
 
 export const getLocalTranslationModelById = (modelId: LocalTranslationModelId) => {
     return LOCAL_TRANSLATION_MODELS.find((model) => model.id === modelId) ?? LOCAL_TRANSLATION_MODEL;

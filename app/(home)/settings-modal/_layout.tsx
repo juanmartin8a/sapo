@@ -80,7 +80,6 @@ export default function SettingsModalLayout() {
 
 const styles = StyleSheet.create({
     header: {
-        // backgroundColor: settingsModalBackground,
         backgroundColor: "transparent",
     },
     content: {

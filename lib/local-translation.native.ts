@@ -171,6 +171,7 @@ const loadLocalTranslationModelCandidate = async (modelId: LocalTranslationModel
             topP: 1,
             maxTokens: 1024,
             multimodal: false,
+            forceLoad: true,
         });
     } catch (error) {
         closeModel(model);
@@ -413,8 +414,6 @@ export const translateWithLocalModel = async (
     try {
         model.resetConversation();
         throwIfAborted(options.signal);
-        options.onReady?.();
-
         const prompt = getTranslationPrompt(args);
         let streamedText = "";
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { StyleSheet, Dimensions, Text, View, TouchableOpacity, Alert, ActivityIndicator, Animated as RNAnimated, Easing, LayoutChangeEvent } from 'react-native';
 import { useNetworkState } from 'expo-network';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -650,14 +650,6 @@ const styles = StyleSheet.create({
         alignItems: 'stretch',
         marginBottom: 32,
         marginTop: 8,
-        // backgroundColor: 'red'
-    },
-    operationLabelText: {
-        fontSize: 16,
-        fontWeight: '500',
-        color: '#aaa',
-        marginBottom: 10,
-        textAlign: 'left',
     },
     operationToggleContainer: {
         width: '100%',
@@ -704,9 +696,6 @@ const styles = StyleSheet.create({
     localModeOptionActive: {
         backgroundColor: '#000',
     },
-    localModeOptionDisabled: {
-        opacity: 0.45,
-    },
     localModeOptionText: {
         fontSize: 14,
         fontWeight: '600',
@@ -743,8 +732,6 @@ const styles = StyleSheet.create({
         zIndex: 1,
         padding: 20,
         justifyContent: 'space-between',
-        // borderBottomRightRadius: 20,
-        // borderTopRightRadius: 20,
         transform: [
             { translateX: -SIDEBAR_WIDTH }
         ]

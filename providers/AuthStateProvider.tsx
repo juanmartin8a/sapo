@@ -15,7 +15,6 @@ type AuthStateContextValue = {
     userId: string | null;
     sessionId: string | null;
     email: string | null;
-    isRefreshing: boolean;
     hasUnsupportedSession: boolean;
 };
 
@@ -96,7 +95,6 @@ export default function AuthStateProvider({ children }: PropsWithChildren) {
                 userId,
                 sessionId: session?.session?.id ?? null,
                 email,
-                isRefreshing: isSessionRefetching || currentUserState === "checking",
                 hasUnsupportedSession,
             }}
         >
