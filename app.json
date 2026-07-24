@@ -31,6 +31,10 @@
         "foregroundImage": "./assets/images/sapo_logo.png",
         "backgroundColor": "#ffffff"
       },
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
       "package": "com.juanmartin8a.SAPO"
     },
     "web": {
@@ -66,7 +70,12 @@
         }
       ],
       "expo-web-browser",
-      "expo-secure-store",
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": false
+        }
+      ],
       "react-native-litert-lm"
     ],
     "experiments": {
