@@ -45,7 +45,6 @@ interface LocalModelStoreState {
     startDownload: (modelId: LocalTranslationModelId) => Promise<LocalModelStatus | null>;
     loadModel: () => Promise<void>;
     setEnabled: (isEnabled: boolean) => void;
-    toggleEnabled: () => Promise<void>;
 }
 
 let activeDownload: ReturnType<typeof createLocalModelDownload> | null = null;
@@ -380,11 +379,6 @@ const useLocalModelStore = create<LocalModelStoreState>((set, get) => ({
     },
     setEnabled: (isEnabled) => {
         set({ isEnabled });
-    },
-    toggleEnabled: async () => {
-        const { isEnabled } = get();
-
-        set({ isEnabled: !isEnabled });
     },
 }));
 

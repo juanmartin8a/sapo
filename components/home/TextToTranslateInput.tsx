@@ -3,8 +3,7 @@ import { Alert, StyleSheet, TextInput } from "react-native"
 import useTranslationInputStore from "@/stores/translationInputStore";
 import useTransformationOperationStore from "@/stores/transformationOperationStore";
 import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
-import { authClient } from "@/lib/auth-client";
-import { getSessionUserAuthState } from "@/utils/auth";
+import { useAuthState } from "@/providers/AuthStateProvider";
 import { getCharacterCount, getInputLimit } from "@/utils/inputLimits";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,13 +14,12 @@ const TextToTranslateInput = () => {
     const operation = useTransformationOperationStore((state) => state.operation)
     const subscriptionUserId = useSubscriptionStatusStore((state) => state.userId)
     const hasActiveSubscription = useSubscriptionStatusStore((state) => state.hasActiveSubscription)
-    const { data: session, isPending: isAuthPending } = authClient.useSession()
-    const authState = getSessionUserAuthState(session?.user)
-    const effectiveSubscriptionStatus = isAuthPending
+    const { status: authStatus, userId } = useAuthState()
+    const effectiveSubscriptionStatus = authStatus === "checking"
         ? null
-        : authState !== "authenticated"
+        : authStatus !== "authenticated"
           ? false
-          : subscriptionUserId === session?.user?.id
+          : subscriptionUserId === userId
             ? hasActiveSubscription
             : null
     const hasAlertedRef = useRef(false)

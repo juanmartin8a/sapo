@@ -9,8 +9,7 @@ import usePagerStore from "@/stores/pagerStore";
 import useTranslationStore from "@/stores/translationStore";
 import { Pressable } from "react-native-gesture-handler";
 import { useCallback } from "react";
-import { authClient } from "@/lib/auth-client";
-import { getSessionUserAuthState } from "@/utils/auth";
+import { useAuthState } from "@/providers/AuthStateProvider";
 import useTransformationOperationStore from "@/stores/transformationOperationStore";
 import useLocalModelStore from "@/stores/localModelStore";
 import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
@@ -21,9 +20,9 @@ const TranslateButton = () => {
     const translateButtonState = useTranslateButtonStore((state) => state.state)
     const lastInput = useTranslationStore((state) => state.lastInput)
     const text = useTranslationInputStore((state) => state.text)
-    const { data: session, isPending: isAuthPending } = authClient.useSession()
-    const authState = getSessionUserAuthState(session?.user)
-    const isAuthenticatedUser = authState === 'authenticated'
+    const { status: authStatus, userId } = useAuthState()
+    const isAuthPending = authStatus === 'checking'
+    const isAuthenticatedUser = authStatus === 'authenticated'
     const subscriptionUserId = useSubscriptionStatusStore((state) => state.userId)
     const hasActiveSubscription = useSubscriptionStatusStore((state) => state.hasActiveSubscription)
 
@@ -65,7 +64,7 @@ const TranslateButton = () => {
             ? null
             : !isAuthenticatedUser
               ? false
-              : subscriptionUserId === session?.user?.id
+              : subscriptionUserId === userId
                 ? hasActiveSubscription
                 : null;
         const inputLimit = getInputLimit(operation, effectiveSubscriptionStatus);
@@ -107,7 +106,7 @@ const TranslateButton = () => {
         }
 
         goToPage(1);
-    }, [goToPage, hasActiveSubscription, isAuthPending, isAuthenticatedUser, isLocalModelEnabled, lastInput, operation, repeatLastTranslation, sendMessage, session?.user?.id, stopStream, subscriptionUserId, text, translateButtonState]);
+    }, [goToPage, hasActiveSubscription, isAuthPending, isAuthenticatedUser, isLocalModelEnabled, lastInput, operation, repeatLastTranslation, sendMessage, stopStream, subscriptionUserId, text, translateButtonState, userId]);
 
 
     return (

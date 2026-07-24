@@ -1,33 +1,31 @@
 import { useEffect, useRef } from "react";
-import { useQuery } from "convex/react";
 import { usePathname, useRouter } from "expo-router";
 
 import { authClient } from "@/lib/auth-client";
 import { APP_ROUTES } from "@/constants/routes";
-import { api } from "@/convex/_generated/api";
+import { useAuthState } from "@/providers/AuthStateProvider";
 
 export default function AuthGate() {
     const pathname = usePathname();
     const router = useRouter();
-    const { data: session, isPending } = authClient.useSession();
-    const currentUser = useQuery(api.auth.getCurrentUser, session ? {} : "skip");
-    const isCheckingCurrentUser = Boolean(session) && currentUser === undefined;
-    const hasSignedInUser = Boolean(session && currentUser);
-    const hasUnsupportedSession = Boolean(session && currentUser === null);
+    const { status, hasUnsupportedSession, sessionId } = useAuthState();
     const signedOutSessionIdRef = useRef<string | null>(null);
-    const sessionUserId = session?.user?.id ?? null;
 
     useEffect(() => {
-        if (isPending || isCheckingCurrentUser) {
+        if (status === "checking") {
             return;
         }
 
         if (hasUnsupportedSession) {
-            const sessionKey = sessionUserId ?? "unknown";
+            const sessionKey = sessionId ?? "unknown";
 
             if (signedOutSessionIdRef.current !== sessionKey) {
                 signedOutSessionIdRef.current = sessionKey;
                 void authClient.signOut().catch((error) => {
+                    if (signedOutSessionIdRef.current === sessionKey) {
+                        signedOutSessionIdRef.current = null;
+                    }
+
                     if (__DEV__) {
                         console.warn("Unsupported session sign-out failed", error);
                     }
@@ -37,7 +35,7 @@ export default function AuthGate() {
             return;
         }
 
-        if (!hasSignedInUser) {
+        if (status !== "authenticated") {
             return;
         }
 
@@ -46,7 +44,7 @@ export default function AuthGate() {
         if (pathname === APP_ROUTES.AUTH) {
             router.dismissTo(APP_ROUTES.HOME);
         }
-    }, [hasSignedInUser, hasUnsupportedSession, isCheckingCurrentUser, isPending, pathname, router, sessionUserId]);
+    }, [hasUnsupportedSession, pathname, router, sessionId, status]);
 
     return null;
 }

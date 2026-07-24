@@ -1,38 +1,24 @@
-import { authClient } from '@/lib/auth-client';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { StyleSheet, TouchableOpacity, Text, View } from 'react-native';
 import LogInIcon from '@/assets/icons/log-in.svg';
-import { useQuery } from 'convex/react';
-import { api } from '@/convex/_generated/api';
 import useSubscriptionStatusStore from '@/stores/subscriptionStatusStore';
-import { getSessionUserAuthState } from '@/utils/auth';
 import { APP_ROUTES } from '@/constants/routes';
+import { useAuthState } from '@/providers/AuthStateProvider';
 
 const SideBarFooter = () => {
     const router = useRouter();
-    const { data: session } = authClient.useSession()
-    const convexUser = useQuery(api.auth.getCurrentUser, session ? {} : "skip");
-    const authState = getSessionUserAuthState(session?.user);
+    const { status, userId, email } = useAuthState();
     const subscriptionUserId = useSubscriptionStatusStore((state) => state.userId);
     const hasActiveSubscription = useSubscriptionStatusStore((state) => state.hasActiveSubscription);
-    const isAuthenticatedSession = authState === 'authenticated';
-    const email = useMemo(() => {
-        if (!isAuthenticatedSession) {
-            return null;
-        }
-
-        return convexUser?.email ?? session?.user?.email ?? null;
-    }, [convexUser?.email, isAuthenticatedSession, session?.user?.email])
     const subscriptionLabel = useMemo(() => {
-        const isCurrentUserSubscribed = subscriptionUserId === session?.user?.id &&
+        const isCurrentUserSubscribed = subscriptionUserId === userId &&
             hasActiveSubscription === true;
         return isCurrentUserSubscribed ? 'Polyglot' : 'free';
-    }, [hasActiveSubscription, session?.user?.id, subscriptionUserId])
+    }, [hasActiveSubscription, subscriptionUserId, userId])
     const emailInitial = useMemo(() => {
-        return email?.[0]?.toUpperCase();
+        return email?.[0]?.toUpperCase() ?? '?';
     }, [email])
-    const isAuthenticated = React.useMemo(() => isAuthenticatedSession && !!email, [email, isAuthenticatedSession]);
 
     const handleSignInPress = useCallback(() => {
         router.push(APP_ROUTES.AUTH);
@@ -44,7 +30,19 @@ const SideBarFooter = () => {
 
     return (
         <View style={styles.footer}>
-            {isAuthenticated ? (
+            {status === 'checking' ? (
+                <View
+                    style={styles.skeletonContainer}
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
+                >
+                    <View style={styles.skeletonAvatar} />
+                    <View style={styles.skeletonTextContainer}>
+                        <View style={styles.skeletonPrimaryText} />
+                        <View style={styles.skeletonSecondaryText} />
+                    </View>
+                </View>
+            ) : status === 'authenticated' ? (
                 <View style={styles.userActionsContainer}>
                     <TouchableOpacity
                         onPress={handleOpenSettings}
@@ -56,7 +54,7 @@ const SideBarFooter = () => {
                         </View>
                         <View style={styles.userTextContainer}>
                             <Text style={styles.emailText} numberOfLines={1}>
-                                {email}
+                                {email ?? 'Account'}
                             </Text>
                             <Text style={styles.planText}>{subscriptionLabel}</Text>
                         </View>
@@ -88,6 +86,34 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
+    },
+    skeletonContainer: {
+        minHeight: 40,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    skeletonAvatar: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#e7e7e7',
+    },
+    skeletonTextContainer: {
+        flex: 1,
+        gap: 7,
+    },
+    skeletonPrimaryText: {
+        width: '72%',
+        height: 12,
+        borderRadius: 6,
+        backgroundColor: '#e7e7e7',
+    },
+    skeletonSecondaryText: {
+        width: '32%',
+        height: 9,
+        borderRadius: 5,
+        backgroundColor: '#eeeeee',
     },
     userContainer: {
         flexDirection: 'row',

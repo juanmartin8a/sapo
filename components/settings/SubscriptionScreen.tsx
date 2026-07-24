@@ -19,7 +19,7 @@ import Purchases, {
 } from "react-native-purchases";
 
 import CheckIcon from "@/assets/icons/check.svg";
-import { authClient } from "@/lib/auth-client";
+import { useAuthState } from "@/providers/AuthStateProvider";
 import {
     SETTINGS_COLORS,
     SETTINGS_HEADER_CONTENT_GAP,
@@ -46,7 +46,6 @@ import {
     retrySubscriptionStateAfterRevenueCatUpdateInBackground,
 } from "@/lib/subscription-refresh";
 import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
-import { getSessionUserAuthState } from "@/utils/auth";
 import { triggerErrorHaptic, triggerLightImpactHaptic, triggerStrongImpactHaptic, triggerWarningHaptic } from "@/lib/haptics";
 
 const TERMS_OF_USE_URL = "https://sapo.surf/terms-of-use";
@@ -192,9 +191,7 @@ const retryRevenueCatUpdateSyncInBackground = (userId: string) => {
 
 export default function SubscriptionScreen() {
     const headerHeight = useHeaderHeight();
-    const { data: session } = authClient.useSession();
-    const user = session?.user;
-    const userId = getSessionUserAuthState(user) === "authenticated" ? user?.id ?? null : null;
+    const { userId } = useAuthState();
     const [isLoadingSubscription, setIsLoadingSubscription] = useState(true);
     const [isPurchasing, setIsPurchasing] = useState(false);
     const [isSubscriptionLinkedElsewhere, setIsSubscriptionLinkedElsewhere] = useState(false);
