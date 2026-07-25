@@ -13,7 +13,7 @@ import { useAuthState } from "@/providers/AuthStateProvider";
 import useTransformationOperationStore from "@/stores/transformationOperationStore";
 import useLocalModelStore from "@/stores/localModelStore";
 import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
-import { triggerErrorHaptic, triggerMediumImpactHaptic, triggerStopHaptic } from "@/lib/haptics";
+import { triggerErrorHaptic, triggerMediumImpactHaptic } from "@/lib/haptics";
 import { getCharacterCount, getInputLimit } from "@/utils/inputLimits";
 
 const TranslateButton = () => {
@@ -44,7 +44,6 @@ const TranslateButton = () => {
         }
 
         if (translateButtonState === 'stop') {
-            triggerStopHaptic();
             stopStream();
             goToPage(1);
             return;

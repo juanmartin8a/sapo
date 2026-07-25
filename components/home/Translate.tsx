@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, NativeSyntheticEvent, TextLayoutEve
 import useTranslationStore from '@/stores/translationStore';
 import SapoIcon from "../../assets/icons/sapo.svg"
 import SapoBocaAbiertaIcon from "../../assets/icons/sapo_boca_abierta.svg"
-import { triggerSoftSelectionHaptic } from '@/lib/haptics';
+import { triggerLightImpactHaptic } from '@/lib/haptics';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -15,8 +15,10 @@ interface CursorPos {
 export default function Translate() {
     const displayText = useTranslationStore((state) => state.displayText);
     const mouthTriggerVersion = useTranslationStore((state) => state.mouthTriggerVersion);
+    const streamStartVersion = useTranslationStore((state) => state.streamStartVersion);
     const streamError = useTranslationStore((state) => state.streamError);
     const streamErrorMessage = useTranslationStore((state) => state.streamErrorMessage);
+    const isStreaming = useTranslationStore((state) => state.isStreaming);
     const disconnectStream = useTranslationStore((state) => state.disconnectStream);
 
     const [cursorPos, setCursorPos] = useState<CursorPos>({ x: 0, y: 0 });
@@ -26,6 +28,8 @@ export default function Translate() {
     const [sapoMouthOpen, setSapoMouthOpen] = useState<boolean>(false)
     const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const hasMountedRef = useRef(false);
+    const wasStreamingRef = useRef(false);
+    const streamStartVersionRef = useRef(0);
 
     useEffect(() => {
         if (!hasMountedRef.current) {
@@ -39,7 +43,6 @@ export default function Translate() {
 
         timeoutRef.current = setTimeout(() => {
             setSapoMouthOpen(true);
-            triggerSoftSelectionHaptic();
 
             timeoutRef.current = setTimeout(() => {
                 setSapoMouthOpen(false);
@@ -54,6 +57,20 @@ export default function Translate() {
             }
         };
     }, [mouthTriggerVersion]);
+
+    useEffect(() => {
+        if (wasStreamingRef.current && !isStreaming) {
+            triggerLightImpactHaptic();
+        }
+        wasStreamingRef.current = isStreaming;
+    }, [isStreaming]);
+
+    useEffect(() => {
+        if (streamStartVersionRef.current !== streamStartVersion) {
+            triggerLightImpactHaptic();
+            streamStartVersionRef.current = streamStartVersion;
+        }
+    }, [streamStartVersion]);
 
     useEffect(() => {
         return () => {
