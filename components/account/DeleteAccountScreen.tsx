@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     Animated,
     Easing,
+    Pressable,
     StyleSheet,
+    StatusBar,
     Text,
-    TouchableOpacity,
+    useWindowDimensions,
     View,
 } from "react-native";
 import {
@@ -15,9 +17,9 @@ import {
     useRouter,
 } from "expo-router";
 
+import SapoIcon from "@/assets/icons/sapo.svg";
 import { authClient } from "@/lib/auth-client";
 import { APP_ROUTES } from "@/constants/routes";
-import { SETTINGS_COLORS } from "@/constants/settings";
 import { getSessionUserAuthState } from "@/utils/auth";
 import { triggerErrorHaptic, triggerStrongImpactHaptic } from "@/lib/haptics";
 import { useAuthState } from "@/providers/AuthStateProvider";
@@ -155,6 +157,7 @@ function shouldAnimateStatusChange(
 }
 
 export default function DeleteAccountConfirmationScreen() {
+    const { width: windowWidth } = useWindowDimensions();
     const router = useRouter();
     const rootNavigation = useNavigationContainerRef();
     const rootNavigationState = useRootNavigationState();
@@ -165,8 +168,9 @@ export default function DeleteAccountConfirmationScreen() {
     const [status, setStatus] = useState<ConfirmationStatus>("checking");
     const [visibleStatus, setVisibleStatus] = useState<ConfirmationStatus>("checking");
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
-    const [cardTransitionValue] = useState(() => new Animated.Value(1));
-    const cardTransitionRunRef = useRef(0);
+    const [contentTransitionValue] = useState(() => new Animated.Value(1));
+    const contentTransitionRunRef = useRef(0);
+    const statusToRevealRef = useRef<ConfirmationStatus | null>(null);
     const lastHapticStatusRef = useRef<ConfirmationStatus | null>(null);
 
     const handleReturnHome = useCallback(() => {
@@ -188,30 +192,39 @@ export default function DeleteAccountConfirmationScreen() {
             };
         }
 
-        const transitionRun = cardTransitionRunRef.current + 1;
-        cardTransitionRunRef.current = transitionRun;
-        cardTransitionValue.stopAnimation();
+        const transitionRun = contentTransitionRunRef.current + 1;
+        contentTransitionRunRef.current = transitionRun;
+        contentTransitionValue.stopAnimation();
 
-        Animated.timing(cardTransitionValue, {
+        Animated.timing(contentTransitionValue, {
             toValue: 0,
             duration: 120,
             easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
         }).start(({ finished }) => {
-            if (!finished || cardTransitionRunRef.current !== transitionRun) {
+            if (!finished || contentTransitionRunRef.current !== transitionRun) {
                 return;
             }
 
+            contentTransitionValue.setValue(0);
+            statusToRevealRef.current = status;
             setVisibleStatus(status);
-            cardTransitionValue.setValue(0);
-            Animated.timing(cardTransitionValue, {
-                toValue: 1,
-                duration: 180,
-                easing: Easing.out(Easing.cubic),
-                useNativeDriver: true,
-            }).start();
         });
-    }, [cardTransitionValue, status, visibleStatus]);
+    }, [contentTransitionValue, status, visibleStatus]);
+
+    useEffect(() => {
+        if (statusToRevealRef.current !== visibleStatus) {
+            return;
+        }
+
+        statusToRevealRef.current = null;
+        Animated.timing(contentTransitionValue, {
+            toValue: 1,
+            duration: 180,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+        }).start();
+    }, [contentTransitionValue, visibleStatus]);
 
     useEffect(() => {
         if (!hasFocusedRouteName(rootNavigationState as RouteState, DELETE_ACCOUNT_ROUTE_NAME)) {
@@ -368,16 +381,8 @@ export default function DeleteAccountConfirmationScreen() {
         return <Redirect href={APP_ROUTES.HOME} />;
     }
 
-    const cardAnimatedStyle = {
-        opacity: cardTransitionValue,
-        transform: [
-            {
-                scale: cardTransitionValue.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.96, 1],
-                }),
-            },
-        ],
+    const contentAnimatedStyle = {
+        opacity: contentTransitionValue,
     };
 
     const title =
@@ -388,26 +393,64 @@ export default function DeleteAccountConfirmationScreen() {
               : "Deleting account";
     const message =
         visibleStatus === "completed"
-            ? "Your account deletion was confirmed. We are finishing provider cleanup now."
+            ? "Account deletion confirmed. We are finishing cleanup now."
             : visibleStatus === "failed"
               ? errorMessage ?? "Unable to delete the account. Please try the email link again."
               : "Keep this screen open while we confirm deletion.";
+    const isTerminalStatus = visibleStatus === "completed" || visibleStatus === "failed";
+    const sapoWidth = windowWidth * 0.4;
+    const sapoHeight = sapoWidth * (800 / 929);
 
     return (
         <View style={styles.container}>
-            <Animated.View style={[styles.card, cardAnimatedStyle]}>
-                <Text style={styles.title}>{title}</Text>
-                <Text style={styles.message}>{message}</Text>
-                {visibleStatus === "completed" || visibleStatus === "failed" ? (
-                    <TouchableOpacity
-                        activeOpacity={0.75}
-                        style={styles.button}
-                        onPress={handleReturnHome}
-                    >
+            <StatusBar barStyle="dark-content" />
+            <View style={styles.contentAnchor}>
+                <View
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
+                    pointerEvents="none"
+                    style={[styles.content, styles.contentSizer]}
+                >
+                    <Text style={styles.title}>Deletion failed</Text>
+                    <Text style={styles.message}>{DELETE_ACCOUNT_ERROR_MESSAGE}</Text>
+                    <View style={styles.button}>
                         <Text style={styles.buttonText}>Return home</Text>
-                    </TouchableOpacity>
-                ) : null}
-            </Animated.View>
+                    </View>
+                </View>
+                <Animated.View style={[styles.content, styles.activeContent, contentAnimatedStyle]}>
+                    <Text accessibilityRole="header" style={styles.title}>
+                        {title}
+                    </Text>
+                    <Text style={styles.message}>{message}</Text>
+                    {isTerminalStatus ? (
+                        <Pressable
+                            accessibilityRole="button"
+                            style={({ pressed }) => [
+                                styles.button,
+                                pressed && styles.buttonPressed,
+                            ]}
+                            onPress={handleReturnHome}
+                        >
+                            <Text style={styles.buttonText}>Return home</Text>
+                        </Pressable>
+                    ) : null}
+                </Animated.View>
+                <View
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
+                    pointerEvents="none"
+                    style={[
+                        styles.frog,
+                        {
+                            left: -(sapoWidth * 0.23),
+                            width: sapoWidth,
+                            height: sapoHeight,
+                        },
+                    ]}
+                >
+                    <SapoIcon width={sapoWidth} height={sapoHeight} />
+                </View>
+            </View>
         </View>
     );
 }
@@ -417,38 +460,65 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: SETTINGS_COLORS.screenBackground,
-        padding: 24,
+        backgroundColor: "#fff",
     },
-    card: {
+    contentAnchor: {
+        position: "relative",
+        width: "100%",
+        alignItems: "center",
+    },
+    content: {
         width: "100%",
         maxWidth: 420,
-        borderRadius: 28,
-        backgroundColor: "#F8FBF6",
-        padding: 24,
+        alignItems: "center",
+        paddingHorizontal: 24,
         gap: 14,
     },
+    contentSizer: {
+        opacity: 0,
+    },
+    activeContent: {
+        position: "absolute",
+        top: 0,
+        alignSelf: "center",
+    },
     title: {
-        color: SETTINGS_COLORS.primaryText,
+        color: "#000",
         fontSize: 24,
+        lineHeight: 29,
         fontWeight: "700",
+        textAlign: "center",
     },
     message: {
-        color: "#4C6349",
+        maxWidth: 320,
+        color: "#666",
         fontSize: 16,
         lineHeight: 22,
+        textAlign: "center",
     },
     button: {
-        marginTop: 8,
+        width: "100%",
+        maxWidth: 320,
+        minHeight: 42,
         alignItems: "center",
-        borderRadius: 18,
-        backgroundColor: SETTINGS_COLORS.primaryText,
-        paddingVertical: 14,
-        paddingHorizontal: 18,
+        justifyContent: "center",
+        marginTop: 10,
+        borderRadius: 12,
+        backgroundColor: "#000",
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+    },
+    buttonPressed: {
+        opacity: 0.8,
     },
     buttonText: {
-        color: "#F8FBF6",
-        fontSize: 16,
-        fontWeight: "700",
+        color: "#fff",
+        fontSize: 14,
+        fontWeight: "600",
+    },
+    frog: {
+        position: "absolute",
+        top: "100%",
+        marginTop: 56,
     },
 });

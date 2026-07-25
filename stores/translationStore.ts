@@ -34,6 +34,8 @@ type ActiveStreamSnapshot = {
 interface TranslationStoreState {
     displayText: string;
     mouthTriggerVersion: number;
+    streamStartVersion: number;
+    hasReceivedStreamToken: boolean;
     streamError: boolean;
     streamErrorMessage: string | null;
     abortController: AbortController | null;
@@ -103,6 +105,10 @@ const useTranslationStore = create<TranslationStoreState>((set, get) => {
             mouthTriggerVersion: token.type === "word" || token.type === "translate"
                 ? state.mouthTriggerVersion + 1
                 : state.mouthTriggerVersion,
+            streamStartVersion: state.hasReceivedStreamToken
+                ? state.streamStartVersion
+                : state.streamStartVersion + 1,
+            hasReceivedStreamToken: true,
         }));
     };
 
@@ -116,6 +122,8 @@ const useTranslationStore = create<TranslationStoreState>((set, get) => {
     return {
         displayText: "",
         mouthTriggerVersion: 0,
+        streamStartVersion: 0,
+        hasReceivedStreamToken: false,
         streamError: false,
         streamErrorMessage: null,
         abortController: null,
@@ -238,6 +246,7 @@ const useTranslationStore = create<TranslationStoreState>((set, get) => {
                         activeStreamId: streamId,
                         activeLocalStop: stopLocalTranslation,
                         isStreaming: true,
+                        hasReceivedStreamToken: false,
                     });
 
                     const isActiveLocalRequest = () =>
@@ -344,6 +353,7 @@ const useTranslationStore = create<TranslationStoreState>((set, get) => {
                 activeStreamId: streamId,
                 activeLocalStop: null,
                 isStreaming: true,
+                hasReceivedStreamToken: false,
             });
 
             const isActiveRequest = () =>
