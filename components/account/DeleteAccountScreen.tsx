@@ -168,8 +168,9 @@ export default function DeleteAccountConfirmationScreen() {
     const [status, setStatus] = useState<ConfirmationStatus>("checking");
     const [visibleStatus, setVisibleStatus] = useState<ConfirmationStatus>("checking");
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
-    const [cardTransitionValue] = useState(() => new Animated.Value(1));
-    const cardTransitionRunRef = useRef(0);
+    const [contentTransitionValue] = useState(() => new Animated.Value(1));
+    const contentTransitionRunRef = useRef(0);
+    const statusToRevealRef = useRef<ConfirmationStatus | null>(null);
     const lastHapticStatusRef = useRef<ConfirmationStatus | null>(null);
 
     const handleReturnHome = useCallback(() => {
@@ -191,30 +192,39 @@ export default function DeleteAccountConfirmationScreen() {
             };
         }
 
-        const transitionRun = cardTransitionRunRef.current + 1;
-        cardTransitionRunRef.current = transitionRun;
-        cardTransitionValue.stopAnimation();
+        const transitionRun = contentTransitionRunRef.current + 1;
+        contentTransitionRunRef.current = transitionRun;
+        contentTransitionValue.stopAnimation();
 
-        Animated.timing(cardTransitionValue, {
+        Animated.timing(contentTransitionValue, {
             toValue: 0,
             duration: 120,
             easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
         }).start(({ finished }) => {
-            if (!finished || cardTransitionRunRef.current !== transitionRun) {
+            if (!finished || contentTransitionRunRef.current !== transitionRun) {
                 return;
             }
 
+            contentTransitionValue.setValue(0);
+            statusToRevealRef.current = status;
             setVisibleStatus(status);
-            cardTransitionValue.setValue(0);
-            Animated.timing(cardTransitionValue, {
-                toValue: 1,
-                duration: 180,
-                easing: Easing.out(Easing.cubic),
-                useNativeDriver: true,
-            }).start();
         });
-    }, [cardTransitionValue, status, visibleStatus]);
+    }, [contentTransitionValue, status, visibleStatus]);
+
+    useEffect(() => {
+        if (statusToRevealRef.current !== visibleStatus) {
+            return;
+        }
+
+        statusToRevealRef.current = null;
+        Animated.timing(contentTransitionValue, {
+            toValue: 1,
+            duration: 180,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+        }).start();
+    }, [contentTransitionValue, visibleStatus]);
 
     useEffect(() => {
         if (!hasFocusedRouteName(rootNavigationState as RouteState, DELETE_ACCOUNT_ROUTE_NAME)) {
@@ -371,16 +381,8 @@ export default function DeleteAccountConfirmationScreen() {
         return <Redirect href={APP_ROUTES.HOME} />;
     }
 
-    const cardAnimatedStyle = {
-        opacity: cardTransitionValue,
-        transform: [
-            {
-                scale: cardTransitionValue.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.96, 1],
-                }),
-            },
-        ],
+    const contentAnimatedStyle = {
+        opacity: contentTransitionValue,
     };
 
     const title =
@@ -403,7 +405,19 @@ export default function DeleteAccountConfirmationScreen() {
         <View style={styles.container}>
             <StatusBar barStyle="dark-content" />
             <View style={styles.contentAnchor}>
-                <Animated.View style={[styles.content, cardAnimatedStyle]}>
+                <View
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
+                    pointerEvents="none"
+                    style={[styles.content, styles.contentSizer]}
+                >
+                    <Text style={styles.title}>Deletion failed</Text>
+                    <Text style={styles.message}>{DELETE_ACCOUNT_ERROR_MESSAGE}</Text>
+                    <View style={styles.button}>
+                        <Text style={styles.buttonText}>Return home</Text>
+                    </View>
+                </View>
+                <Animated.View style={[styles.content, styles.activeContent, contentAnimatedStyle]}>
                     <Text accessibilityRole="header" style={styles.title}>
                         {title}
                     </Text>
@@ -459,6 +473,14 @@ const styles = StyleSheet.create({
         alignItems: "center",
         paddingHorizontal: 24,
         gap: 14,
+    },
+    contentSizer: {
+        opacity: 0,
+    },
+    activeContent: {
+        position: "absolute",
+        top: 0,
+        alignSelf: "center",
     },
     title: {
         color: "#000",
