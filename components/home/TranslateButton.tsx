@@ -65,10 +65,15 @@ const TranslateButton = () => {
               : subscriptionUserId === userId
                 ? hasActiveSubscription
                 : null;
-        const inputLimit = getInputLimit(operation, effectiveSubscriptionStatus);
+        const inputLimit = getInputLimit(operation, effectiveSubscriptionStatus, isLocalModelEnabled);
 
         if (inputLimit === null) {
             Alert.alert("Checking subscription", "Please wait a moment and try again.");
+            return;
+        }
+
+        if (operation === 'respell' && !effectiveSubscriptionStatus) {
+            Alert.alert("Subscription required", "Respelling requires an active subscription.");
             return;
         }
 

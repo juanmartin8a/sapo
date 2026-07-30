@@ -9,6 +9,7 @@ import { AUTO_DETECT_LANGUAGE_LABEL } from "@/constants/languages";
 import { LOCAL_TRANSLATIONS_MOBILE_ONLY_ERROR } from "@/constants/localModels";
 import type { LocalTranslationModelId } from "@/types/localModels";
 import type { LocalTranslationArgs, LocalTranslationOptions } from "@/types/localTranslation";
+import { getCharacterCount, LOCAL_TRANSLATION_INPUT_LIMIT } from "@/utils/inputLimits";
 import type { LiteRTLMInstance } from "react-native-litert-lm";
 
 declare const require: (moduleName: string) => unknown;
@@ -390,6 +391,10 @@ export const translateWithLocalModel = async (
     args: LocalTranslationArgs,
     options: LocalTranslationOptions = {}
 ): Promise<string> => {
+    if (getCharacterCount(args.input) > LOCAL_TRANSLATION_INPUT_LIMIT) {
+        throw new Error(`Local translations support up to ${LOCAL_TRANSLATION_INPUT_LIMIT} characters.`);
+    }
+
     throwIfAborted(options.signal);
 
     const model = getLoadedLocalTranslationModel();
