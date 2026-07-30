@@ -598,7 +598,7 @@ export default function SubscriptionScreen() {
                 <View style={styles.featureList}>
                     <View style={styles.featureRow}>
                         <CheckIcon width={18} height={18} stroke="#000" style={styles.featureIcon} />
-                        <Text style={styles.featureText}>50,000 respell input characters</Text>
+                        <Text style={styles.featureText}>100,000 respell input characters</Text>
                     </View>
                     <View style={styles.featureRow}>
                         <CheckIcon width={18} height={18} stroke="#000" style={styles.featureIcon} />
