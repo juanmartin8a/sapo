@@ -32,8 +32,10 @@ export default function SettingsModalLayout() {
             screenOptions={{
                 headerShown: true,
                 headerTransparent: true,
-                headerShadowVisible: false,
+                headerShadowVisible: isIOS,
+                headerLargeTitleShadowVisible: false,
                 headerStyle: styles.header,
+                headerLargeStyle: styles.header,
                 contentStyle: styles.content,
                 headerRight: isIOS ? renderCloseButton : undefined,
             }}
@@ -49,8 +51,6 @@ export default function SettingsModalLayout() {
                 options={{
                     title: "Data controls",
                     headerBackButtonDisplayMode: 'minimal',
-                    headerTransparent: true,
-                    headerShadowVisible: true,
                     headerRight: () => null,
                 }}
             />
@@ -59,8 +59,6 @@ export default function SettingsModalLayout() {
                 options={{
                     title: "Local models",
                     headerBackButtonDisplayMode: 'minimal',
-                    headerTransparent: true,
-                    headerShadowVisible: false,
                     headerRight: () => null,
                 }}
             />
@@ -69,8 +67,6 @@ export default function SettingsModalLayout() {
                 options={{
                     title: "Subscription",
                     headerBackButtonDisplayMode: 'minimal',
-                    headerTransparent: true,
-                    headerShadowVisible: true,
                     headerRight: () => null,
                 }}
             />

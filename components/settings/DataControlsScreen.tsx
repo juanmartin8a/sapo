@@ -1,6 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { useHeaderHeight } from "expo-router/react-navigation";
-import { Alert, Platform, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, Platform, StyleSheet, View } from "react-native";
 
 import TrashIcon from "@/assets/icons/trash.svg";
 import { authClient } from "@/lib/auth-client";
@@ -8,7 +7,6 @@ import { useAuthState } from "@/providers/AuthStateProvider";
 import { APP_ROUTES } from "@/constants/routes";
 import {
     SETTINGS_COLORS,
-    SETTINGS_HEADER_CONTENT_GAP,
     SETTINGS_SCREEN_HORIZONTAL_PADDING,
 } from "@/constants/settings";
 import { getStoreAccountLabel } from "@/constants/subscription";
@@ -19,6 +17,7 @@ import {
     isRevenueCatSupportedPlatform,
 } from "@/lib/revenuecat";
 import SettingsButton from "@/components/settings/SettingsButton";
+import SettingsScrollView from "@/components/settings/SettingsScrollView";
 import { triggerErrorHaptic, triggerLightImpactHaptic, triggerStrongImpactHaptic } from "@/lib/haptics";
 
 const getDeleteAccountAlertMessage = (args: {
@@ -33,7 +32,6 @@ const getDeleteAccountAlertMessage = (args: {
 };
 
 export default function DataControlsScreen() {
-    const headerHeight = useHeaderHeight();
     const { status: authStatus, userId } = useAuthState();
     const isPending = authStatus === "checking";
     const isAuthenticatedUser = authStatus === "authenticated";
@@ -119,9 +117,9 @@ export default function DataControlsScreen() {
 
     return (
         <View style={styles.container}>
-            <ScrollView
+            <SettingsScrollView
                 style={styles.scrollView}
-                contentContainerStyle={[styles.contentContainer, { paddingTop: headerHeight + SETTINGS_HEADER_CONTENT_GAP }]}
+                contentContainerStyle={styles.contentContainer}
             >
                 <SettingsButton
                     text={
@@ -140,7 +138,7 @@ export default function DataControlsScreen() {
                     disabled={isPending || isProcessing || !canDeleteAccount}
                     onPress={handleDeleteAccount}
                 />
-            </ScrollView>
+            </SettingsScrollView>
         </View>
     );
 }
@@ -154,7 +152,6 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     contentContainer: {
-        flexGrow: 1,
         paddingHorizontal: SETTINGS_SCREEN_HORIZONTAL_PADDING,
     },
 });

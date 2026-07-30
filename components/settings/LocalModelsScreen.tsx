@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useHeaderHeight } from "expo-router/react-navigation";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import DownloadIcon from "@/assets/icons/download.svg";
 import SquareIcon from "@/assets/icons/square.svg";
@@ -18,17 +17,16 @@ import type {
 import { formatBytes } from "@/utils/formatBytes";
 import {
     SETTINGS_COLORS,
-    SETTINGS_HEADER_CONTENT_GAP,
     SETTINGS_SCREEN_BOTTOM_PADDING,
     SETTINGS_SCREEN_HORIZONTAL_PADDING,
 } from "@/constants/settings";
 import useLocalModelStore from "@/stores/localModelStore";
 import { triggerErrorHaptic, triggerLightImpactHaptic, triggerStrongImpactHaptic } from "@/lib/haptics";
+import SettingsScrollView from "@/components/settings/SettingsScrollView";
 
 type ModelStatusById = Partial<Record<LocalTranslationModelId, LocalModelStatus>>;
 
 export default function LocalModelsScreen() {
-    const headerHeight = useHeaderHeight();
     const [statusByModelId, setStatusByModelId] = useState<ModelStatusById>({});
     const [isRefreshing, setIsRefreshing] = useState(true);
     const [didStatusCheckFail, setDidStatusCheckFail] = useState(false);
@@ -234,9 +232,9 @@ export default function LocalModelsScreen() {
     };
 
     return (
-        <ScrollView
+        <SettingsScrollView
             style={styles.container}
-            contentContainerStyle={[styles.contentContainer, { paddingTop: headerHeight + SETTINGS_HEADER_CONTENT_GAP }]}
+            contentContainerStyle={styles.contentContainer}
         >
             {downloadedModels.length > 0 ? (
                 <View style={styles.sectionContainer}>
@@ -269,18 +267,16 @@ export default function LocalModelsScreen() {
                     Local translations run without network requests. Other SAPO features continue to use the online service.
                 </Text>
             )}
-        </ScrollView>
+        </SettingsScrollView>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
-        // flex: 1,
+        flex: 1,
         backgroundColor: SETTINGS_COLORS.screenBackground,
     },
     contentContainer: {
-        // flexGrow: 1,
-        height: "100%",
         paddingHorizontal: SETTINGS_SCREEN_HORIZONTAL_PADDING,
         paddingBottom: SETTINGS_SCREEN_BOTTOM_PADDING,
         gap: 12,
