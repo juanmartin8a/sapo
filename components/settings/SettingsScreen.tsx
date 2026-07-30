@@ -1,7 +1,6 @@
 import { useCallback, useState } from "react";
 import { useRouter } from "expo-router";
-import { useHeaderHeight } from "expo-router/react-navigation";
-import { Alert, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Platform, StyleSheet, Text, View } from "react-native";
 import Purchases from "react-native-purchases";
 
 import LogInIcon from "@/assets/icons/log-in.svg";
@@ -15,7 +14,6 @@ import { authClient } from "@/lib/auth-client";
 import { APP_ROUTES } from "@/constants/routes";
 import {
     SETTINGS_COLORS,
-    SETTINGS_HEADER_CONTENT_GAP,
     SETTINGS_SCREEN_BOTTOM_PADDING,
     SETTINGS_SCREEN_HORIZONTAL_PADDING,
 } from "@/constants/settings";
@@ -40,6 +38,7 @@ import {
 } from "@/lib/subscription-refresh";
 import GroupedList from "@/components/settings/GroupedList";
 import SettingsButton from "@/components/settings/SettingsButton";
+import SettingsScrollView from "@/components/settings/SettingsScrollView";
 import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
 import { useAuthState } from "@/providers/AuthStateProvider";
 import { triggerErrorHaptic, triggerLightImpactHaptic, triggerStrongImpactHaptic, triggerWarningHaptic } from "@/lib/haptics";
@@ -64,7 +63,6 @@ const retryRevenueCatUpdateSyncInBackground = (userId: string) => {
 };
 
 export default function SettingsScreen() {
-    const headerHeight = useHeaderHeight();
     const router = useRouter();
     const { status: authStatus, userId } = useAuthState();
     const isPending = authStatus === "checking";
@@ -281,9 +279,9 @@ export default function SettingsScreen() {
 
     return (
         <View style={styles.container}>
-            <ScrollView
+            <SettingsScrollView
                 style={styles.scrollView}
-                contentContainerStyle={[styles.contentContainer, { paddingTop: headerHeight + SETTINGS_HEADER_CONTENT_GAP }]}
+                contentContainerStyle={styles.contentContainer}
             >
                 <View style={styles.sectionContainer}>
                     <Text style={styles.sectionLabel}>Account</Text>
@@ -385,7 +383,7 @@ export default function SettingsScreen() {
                         void handleSignOut();
                     }}
                 />
-            </ScrollView>
+            </SettingsScrollView>
         </View>
     );
 }
@@ -399,7 +397,6 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     contentContainer: {
-        flexGrow: 1,
         paddingHorizontal: SETTINGS_SCREEN_HORIZONTAL_PADDING,
         paddingBottom: SETTINGS_SCREEN_BOTTOM_PADDING,
         gap: 12,

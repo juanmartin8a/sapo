@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useHeaderHeight } from "expo-router/react-navigation";
 import {
     ActivityIndicator,
     Alert,
     Linking,
     Platform,
     Pressable,
-    ScrollView,
     StyleSheet,
     Text,
     View,
@@ -19,10 +17,10 @@ import Purchases, {
 } from "react-native-purchases";
 
 import CheckIcon from "@/assets/icons/check.svg";
+import SettingsScrollView from "@/components/settings/SettingsScrollView";
 import { useAuthState } from "@/providers/AuthStateProvider";
 import {
     SETTINGS_COLORS,
-    SETTINGS_HEADER_CONTENT_GAP,
     SETTINGS_SCREEN_BOTTOM_PADDING,
     SETTINGS_SCREEN_HORIZONTAL_PADDING,
 } from "@/constants/settings";
@@ -190,7 +188,6 @@ const retryRevenueCatUpdateSyncInBackground = (userId: string) => {
 };
 
 export default function SubscriptionScreen() {
-    const headerHeight = useHeaderHeight();
     const { userId } = useAuthState();
     const [isLoadingSubscription, setIsLoadingSubscription] = useState(true);
     const [isPurchasing, setIsPurchasing] = useState(false);
@@ -580,9 +577,9 @@ export default function SubscriptionScreen() {
     }, []);
 
     return (
-        <ScrollView
+        <SettingsScrollView
             style={styles.container}
-            contentContainerStyle={[styles.contentContainer, { paddingTop: headerHeight + SETTINGS_HEADER_CONTENT_GAP }]}
+            contentContainerStyle={styles.contentContainer}
         >
             <View style={styles.card}>
                 <View style={styles.planBadge}>
@@ -601,7 +598,7 @@ export default function SubscriptionScreen() {
                 <View style={styles.featureList}>
                     <View style={styles.featureRow}>
                         <CheckIcon width={18} height={18} stroke="#000" style={styles.featureIcon} />
-                        <Text style={styles.featureText}>50,000 respell input characters</Text>
+                        <Text style={styles.featureText}>100,000 respell input characters</Text>
                     </View>
                     <View style={styles.featureRow}>
                         <CheckIcon width={18} height={18} stroke="#000" style={styles.featureIcon} />
@@ -646,7 +643,7 @@ export default function SubscriptionScreen() {
                     </Text>
                 </View>
             </View>
-        </ScrollView>
+        </SettingsScrollView>
     );
 }
 
@@ -656,7 +653,6 @@ const styles = StyleSheet.create({
         backgroundColor: SETTINGS_COLORS.screenBackground,
     },
     contentContainer: {
-        flexGrow: 1,
         paddingHorizontal: SETTINGS_SCREEN_HORIZONTAL_PADDING,
         paddingBottom: SETTINGS_SCREEN_BOTTOM_PADDING,
     },
