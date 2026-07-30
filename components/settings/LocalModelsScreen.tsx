@@ -275,11 +275,12 @@ export default function LocalModelsScreen() {
 
 const styles = StyleSheet.create({
     container: {
-        flex: 1,
+        // flex: 1,
         backgroundColor: SETTINGS_COLORS.screenBackground,
     },
     contentContainer: {
-        flexGrow: 1,
+        // flexGrow: 1,
+        height: "100%",
         paddingHorizontal: SETTINGS_SCREEN_HORIZONTAL_PADDING,
         paddingBottom: SETTINGS_SCREEN_BOTTOM_PADDING,
         gap: 12,

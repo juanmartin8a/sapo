@@ -60,7 +60,7 @@ export default function SettingsModalLayout() {
                     title: "Local models",
                     headerBackButtonDisplayMode: 'minimal',
                     headerTransparent: true,
-                    headerShadowVisible: true,
+                    headerShadowVisible: false,
                     headerRight: () => null,
                 }}
             />
