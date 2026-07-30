@@ -28,16 +28,16 @@ export const subscriptionPlanLimitInputValidator = v.object({
 
 const DEFAULT_SUBSCRIPTION_PLAN_LIMITS = {
     free: {
-        translate_input_char_limit: 10,
-        respell_input_char_limit: 10,
-        translate_monthly_char_limit: 3_000,
-        respell_monthly_char_limit: 3_000,
+        translate_input_char_limit: 500,
+        respell_input_char_limit: 0,
+        translate_monthly_char_limit: 5_000,
+        respell_monthly_char_limit: 0,
     },
     polyglot: {
-        translate_input_char_limit: 1_000,
-        respell_input_char_limit: 300,
+        translate_input_char_limit: 10_000,
+        respell_input_char_limit: 2_000,
         translate_monthly_char_limit: 500_000,
-        respell_monthly_char_limit: 6_000,
+        respell_monthly_char_limit: 50_000,
     },
 } as const;
 
@@ -49,7 +49,7 @@ export type SubscriptionPlanLimits = {
     respell_monthly_char_limit: number;
 };
 
-function getDefaultPlanLimits(planKey: SubscriptionPlanKey) {
+export function getDefaultPlanLimits(planKey: SubscriptionPlanKey) {
     const defaults = DEFAULT_SUBSCRIPTION_PLAN_LIMITS[planKey];
     return {
         translate_input_char_limit: defaults.translate_input_char_limit,
@@ -76,20 +76,23 @@ export async function resolvePlanLimitsForPlanKey(
         .sort((left, right) => right.updated_at_ms - left.updated_at_ms)[0];
     const defaultPlanLimits = getDefaultPlanLimits(args.plan_key);
 
-    const resolvedPlanLimits = activePlanLimitDoc
-        ? {
-              translate_input_char_limit: activePlanLimitDoc.translate_input_char_limit,
-              respell_input_char_limit: activePlanLimitDoc.respell_input_char_limit,
-              translate_monthly_char_limit: activePlanLimitDoc.translate_monthly_char_limit,
-              respell_monthly_char_limit: activePlanLimitDoc.respell_monthly_char_limit,
-          }
-        : defaultPlanLimits;
+    const resolvedPlanLimits = defaultPlanLimits;
 
     if (!activePlanLimitDoc) {
         await ctx.db.insert("subscription_plan_limits", {
             plan_key: args.plan_key,
             ...resolvedPlanLimits,
             is_active: true,
+            updated_at_ms: args.now_ms,
+        });
+    } else if (
+        activePlanLimitDoc.translate_input_char_limit !== resolvedPlanLimits.translate_input_char_limit ||
+        activePlanLimitDoc.respell_input_char_limit !== resolvedPlanLimits.respell_input_char_limit ||
+        activePlanLimitDoc.translate_monthly_char_limit !== resolvedPlanLimits.translate_monthly_char_limit ||
+        activePlanLimitDoc.respell_monthly_char_limit !== resolvedPlanLimits.respell_monthly_char_limit
+    ) {
+        await ctx.db.patch("subscription_plan_limits", activePlanLimitDoc._id, {
+            ...resolvedPlanLimits,
             updated_at_ms: args.now_ms,
         });
     }

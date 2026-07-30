@@ -91,6 +91,7 @@ import { MAX_PERSISTED_ERROR_MESSAGE_CHARS } from "../../constants/limits";
 import { FAR_FUTURE_TIMESTAMP_MS } from "../../constants/time";
 import {
     SUBSCRIPTION_PLAN_KEYS,
+    SUBSCRIPTION_USAGE_OPERATIONS,
 } from "../../constants/subscriptions";
 import { REVENUECAT_TERMINAL_WEBHOOK_EVENT_STATUS_SET } from "../../constants/revenueCat";
 
@@ -1370,6 +1371,19 @@ async function evaluateQuotaAvailability(
     const quotaContext = await resolveCurrentSubscriptionQuotaContext(ctx, args);
 
     if (
+        quotaContext.planKey === SUBSCRIPTION_PLAN_KEYS.FREE &&
+        args.operation === SUBSCRIPTION_USAGE_OPERATIONS.RESPELL
+    ) {
+        return {
+            allowed: false as const,
+            reason: "subscription_required" as const,
+            plan_key: quotaContext.planKey,
+            input_limit: quotaContext.operationLimits.input_limit,
+            monthly_limit: quotaContext.operationLimits.period_limit,
+        };
+    }
+
+    if (
         shouldRejectQuotaInputBeforeCounterCreation({
             input_char_count: sanitizedInputCharCount,
             input_limit: quotaContext.operationLimits.input_limit,
@@ -1411,6 +1425,7 @@ async function evaluateQuotaAvailability(
     if (
         shouldBlockQuotaUsageForPeriod({
             used_chars: usedChars,
+            requested_chars: sanitizedInputCharCount,
             period_limit: reservationSnapshot.period_limit,
         })
     ) {
