@@ -29,7 +29,7 @@ describe("subscription plan limits", () => {
         });
         expect(resolveOperationLimits("respell", limits)).toEqual({
             input_limit: 2_000,
-            monthly_limit: 50_000,
+            monthly_limit: 100_000,
         });
     });
 

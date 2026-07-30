@@ -37,7 +37,7 @@ const DEFAULT_SUBSCRIPTION_PLAN_LIMITS = {
         translate_input_char_limit: 10_000,
         respell_input_char_limit: 2_000,
         translate_monthly_char_limit: 500_000,
-        respell_monthly_char_limit: 50_000,
+        respell_monthly_char_limit: 100_000,
     },
 } as const;
 
