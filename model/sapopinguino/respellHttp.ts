@@ -61,6 +61,8 @@ function getQuotaErrorMessage(reason: string) {
             return "Quota limit reached.";
         case "input_limit_exceeded":
             return "Input limit reached.";
+        case "subscription_required":
+            return "An active subscription is required for respelling.";
         case "user_deletion_in_progress":
             return "Account deletion is in progress.";
         default:

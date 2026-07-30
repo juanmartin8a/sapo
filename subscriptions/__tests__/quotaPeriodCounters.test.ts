@@ -180,12 +180,14 @@ describe("quota period counters", () => {
         expect(
             shouldBlockQuotaUsageForPeriod({
                 used_chars: reservationSnapshot.used_chars,
+                requested_chars: 25,
                 period_limit: reservationSnapshot.period_limit,
             })
         ).toBe(false);
         expect(
             shouldBlockQuotaUsageForPeriod({
-                used_chars: 1_000,
+                used_chars: 975,
+                requested_chars: 26,
                 period_limit: reservationSnapshot.period_limit,
             })
         ).toBe(true);

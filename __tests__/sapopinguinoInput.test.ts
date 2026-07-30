@@ -40,6 +40,18 @@ describe("sapopinguino input sanitization", () => {
         expect(isValidSapopinguinoStreamId("a".repeat(129))).toBe(false);
     });
 
+    it("accepts the paid translation request limit", () => {
+        const input = "a".repeat(10_000);
+
+        expect(
+            sanitizeSapopinguinoInputPayload(JSON.stringify({
+                input_language: "English",
+                target_language: "Spanish",
+                input,
+            }))
+        ).toMatchObject({ userInput: input });
+    });
+
     it("rejects non-object and oversized JSON request bodies", async () => {
         await expect(
             readSapopinguinoJsonRequestBody(
@@ -58,7 +70,7 @@ describe("sapopinguino input sanitization", () => {
                 new Request("https://example.com", {
                     method: "POST",
                     headers: {
-                        "content-length": "32769",
+                        "content-length": "131073",
                     },
                     body: JSON.stringify({ input: "hello" }),
                 })
