@@ -101,7 +101,7 @@ export default function Translate() {
 
     return (
         <ScrollView>
-            <View style={[styles.container, { paddingBottom: sapoBocaAbiertaHeight + 10 + insets.bottom }]}>
+            <View style={[styles.container, { paddingBottom: sapoBocaAbiertaHeight + 10 + 24 + insets.bottom }]}>
                 <View style={styles.textContainer}>
                     {streamError ? (
                         <Text style={styles.errorText}>{streamErrorMessage ?? "An error occurred"}</Text>
