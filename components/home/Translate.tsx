@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, NativeSyntheticEvent, TextLayoutEventData, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, NativeSyntheticEvent, NativeScrollEvent, TextLayoutEventData, Dimensions } from 'react-native';
 import useTranslationStore from '@/stores/translationStore';
 import SapoIcon from "../../assets/icons/sapo.svg"
 import SapoBocaAbiertaIcon from "../../assets/icons/sapo_boca_abierta.svg"
@@ -32,6 +32,8 @@ export default function Translate() {
     const hasMountedRef = useRef(false);
     const wasStreamingRef = useRef(false);
     const streamStartVersionRef = useRef(0);
+    const scrollViewRef = useRef<ScrollView>(null);
+    const shouldStickToBottomRef = useRef(true);
 
     useEffect(() => {
         if (!hasMountedRef.current) {
@@ -99,8 +101,25 @@ export default function Translate() {
 
     };
 
+    const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+        const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+        shouldStickToBottomRef.current =
+            contentOffset.y + layoutMeasurement.height >= contentSize.height - 2;
+    };
+
+    const onContentSizeChange = () => {
+        if (isStreaming && shouldStickToBottomRef.current) {
+            scrollViewRef.current?.scrollToEnd({ animated: false });
+        }
+    };
+
     return (
-        <ScrollView>
+        <ScrollView
+            ref={scrollViewRef}
+            onScroll={onScroll}
+            onContentSizeChange={onContentSizeChange}
+            scrollEventThrottle={16}
+        >
             <View style={[styles.container, { paddingBottom: sapoBocaAbiertaHeight + 10 + 24 + insets.bottom }]}>
                 <View style={styles.textContainer}>
                     {streamError ? (
