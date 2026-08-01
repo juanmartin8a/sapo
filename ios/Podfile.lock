@@ -2341,7 +2341,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - react-native-pager-view (8.0.2):
+  - react-native-pager-view (8.0.4):
     - boost
     - DoubleConversion
     - fast_float
@@ -3881,7 +3881,7 @@ SPEC CHECKSUMS:
   React-mutationobservernativemodule: 7f5f4da31e906da2100a432672c55cb2096570e1
   react-native-keyboard-controller: 93e24ebbe21551622cbb0e9c39664dc5539f943c
   react-native-litert-lm: 91c0459edddabf55f89555de29f06c85c8160de9
-  react-native-pager-view: 2694b7efa49588b1cc3aecb5f513871135f499cc
+  react-native-pager-view: 1baaa3452a7d5efbd642856cbbdafbd8958028b4
   react-native-safe-area-context: befb5404eb8a16fdc07fa2bebab3568ecabcbb8a
   React-NativeModulesApple: 964558d22b90c45c1ad5900410addd8e2362e9a2
   React-networking: ac799e9c5ccd2d62435a2f41dc2833cc4ec331a8
