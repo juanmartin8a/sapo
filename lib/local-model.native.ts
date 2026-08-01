@@ -1,8 +1,7 @@
-import * as FileSystem from "expo-file-system/legacy";
+import { Directory, File, Paths, type DownloadTask } from "expo-file-system";
 import { Platform } from "react-native";
 import {
     DEFAULT_LOCAL_TRANSLATION_MODEL_ID,
-    LOCAL_TRANSLATION_MODELS,
     getLocalTranslationModelById,
 } from "@/constants/localModelCatalog";
 import { ABORT_ERROR_NAME } from "@/constants/errors";
@@ -32,54 +31,49 @@ export const setSelectedLocalTranslationModelId = (modelId: SelectedLocalTransla
     selectedLocalModelId = modelId;
 };
 
-const LEGACY_LOCAL_MODEL_FILE_NAMES = [
-    "gemma-4-E2B-it-Q4_K_M.gguf",
-    "google_gemma-4-E4B-it-Q4_K_M.gguf",
-    "google_gemma-3n-E4B-it-Q4_K_M.gguf",
-];
-
 const createAbortError = (message: string) => {
     const error = new Error(message);
     error.name = ABORT_ERROR_NAME;
     return error;
 };
 
-const getFileSize = (fileInfo: Awaited<ReturnType<typeof FileSystem.getInfoAsync>>) => {
-    return fileInfo.exists && !fileInfo.isDirectory ? fileInfo.size ?? 0 : 0;
+const getFileSize = (file: File) => {
+    return file.exists ? file.size : 0;
 };
 
-const getFileModificationTime = (fileInfo: Awaited<ReturnType<typeof FileSystem.getInfoAsync>>) => {
-    return fileInfo.exists && !fileInfo.isDirectory ? fileInfo.modificationTime : null;
+const getFileModificationTime = (file: File) => {
+    return file.exists ? file.lastModified : null;
 };
 
 const normalizeHeaderValue = (value: string | undefined) => {
     return value?.trim().replace(/^W\//, "").replace(/^"|"$/g, "").toLowerCase();
 };
 
-const getHeaderValue = (headers: Record<string, string>, name: string) => {
-    const headerName = Object.keys(headers).find((key) => key.toLowerCase() === name.toLowerCase());
-
-    return headerName ? headers[headerName] : undefined;
-};
-
 const hasExpectedDownloadIntegrityHeader = (
     model: LocalTranslationModel,
-    headers: Record<string, string>
+    headers: Headers
 ) => {
-    const linkedEtag = normalizeHeaderValue(getHeaderValue(headers, "x-linked-etag"));
-    const xetHash = normalizeHeaderValue(getHeaderValue(headers, "x-xet-hash"));
-    const etag = normalizeHeaderValue(getHeaderValue(headers, "etag"));
+    const linkedEtag = normalizeHeaderValue(headers.get("x-linked-etag") ?? undefined);
+    const xetHash = normalizeHeaderValue(headers.get("x-xet-hash") ?? undefined);
+    const etag = normalizeHeaderValue(headers.get("etag") ?? undefined);
 
     return linkedEtag === model.sha256 || xetHash === model.xetHash || etag === model.xetHash;
 };
 
-const assertDownloadResponseMatchesModel = (
-    model: LocalTranslationModel,
-    downloadResult: FileSystem.FileSystemDownloadResult
-) => {
-    if (!hasExpectedDownloadIntegrityHeader(model, downloadResult.headers)) {
+const assertDownloadResponseMatchesModel = (model: LocalTranslationModel, headers: Headers) => {
+    if (!hasExpectedDownloadIntegrityHeader(model, headers)) {
         throw new Error("The model download response did not match the pinned model artifact.");
     }
+};
+
+const validateDownloadResponse = async (model: LocalTranslationModel, signal: AbortSignal) => {
+    const response = await fetch(model.downloadUrl, { method: "HEAD", signal });
+
+    if (!response.ok) {
+        throw new Error(`Unable to validate the model download (status ${response.status}).`);
+    }
+
+    assertDownloadResponseMatchesModel(model, response.headers);
 };
 
 export const isLocalModelSupported = () => {
@@ -90,77 +84,35 @@ export const isLocalModelAbortError = (error: unknown) => {
     return error instanceof Error && error.name === ABORT_ERROR_NAME;
 };
 
-const getLocalModelDirectoryUri = () => {
-    if (!FileSystem.cacheDirectory) {
-        return null;
-    }
-
-    return `${FileSystem.cacheDirectory}${MODEL_DIRECTORY_NAME}/`;
+const getLocalModelDirectory = () => {
+    return new Directory(Paths.cache, MODEL_DIRECTORY_NAME);
 };
 
-const getLegacyDocumentLocalModelDirectoryUri = () => {
-    if (!FileSystem.documentDirectory) {
-        return null;
-    }
-
-    return `${FileSystem.documentDirectory}${MODEL_DIRECTORY_NAME}/`;
+const getLocalModelFile = (modelId: LocalTranslationModelId) => {
+    return new File(getLocalModelDirectory(), getLocalTranslationModelById(modelId).fileName);
 };
 
 export const getLocalModelFileUri = (modelId: SelectedLocalTranslationModelId = selectedLocalModelId) => {
-    const modelDirectoryUri = getLocalModelDirectoryUri();
-
-    if (!modelDirectoryUri || !modelId) {
+    if (!modelId) {
         return null;
     }
 
-    return `${modelDirectoryUri}${getLocalTranslationModelById(modelId).fileName}`;
+    return getLocalModelFile(modelId).uri;
 };
 
-const getPartialLocalModelFileUri = (modelId: SelectedLocalTranslationModelId = selectedLocalModelId) => {
-    const modelFileUri = getLocalModelFileUri(modelId);
-
-    if (!modelFileUri) {
-        return null;
-    }
-
-    return `${modelFileUri}${PARTIAL_DOWNLOAD_SUFFIX}`;
+const getPartialLocalModelFile = (modelId: LocalTranslationModelId) => {
+    const model = getLocalTranslationModelById(modelId);
+    return new File(getLocalModelDirectory(), `${model.fileName}${PARTIAL_DOWNLOAD_SUFFIX}`);
 };
 
-const getLocalModelDownloadRecordUri = (
-    modelId: SelectedLocalTranslationModelId = selectedLocalModelId
-) => {
-    const modelFileUri = getLocalModelFileUri(modelId);
-
-    if (!modelFileUri) {
-        return null;
-    }
-
-    return `${modelFileUri}${VERIFICATION_FILE_SUFFIX}`;
-};
-
-const getLegacyDocumentLocalModelUris = () => {
-    const legacyDocumentDirectoryUri = getLegacyDocumentLocalModelDirectoryUri();
-
-    if (!legacyDocumentDirectoryUri) {
-        return [] as string[];
-    }
-
-    return [
-        ...LOCAL_TRANSLATION_MODELS.flatMap((model) => [
-            `${legacyDocumentDirectoryUri}${model.fileName}`,
-            `${legacyDocumentDirectoryUri}${model.fileName}${PARTIAL_DOWNLOAD_SUFFIX}`,
-            `${legacyDocumentDirectoryUri}${model.fileName}${VERIFICATION_FILE_SUFFIX}`,
-        ]),
-        ...LEGACY_LOCAL_MODEL_FILE_NAMES.flatMap((fileName) => [
-            `${legacyDocumentDirectoryUri}${fileName}`,
-            `${legacyDocumentDirectoryUri}${fileName}${PARTIAL_DOWNLOAD_SUFFIX}`,
-        ]),
-    ];
+const getLocalModelDownloadRecordFile = (modelId: LocalTranslationModelId) => {
+    const model = getLocalTranslationModelById(modelId);
+    return new File(getLocalModelDirectory(), `${model.fileName}${VERIFICATION_FILE_SUFFIX}`);
 };
 
 const getFreeDiskStorage = async () => {
     try {
-        return await FileSystem.getFreeDiskStorageAsync();
+        return Paths.availableDiskSpace;
     } catch {
         return null;
     }
@@ -169,14 +121,10 @@ const getFreeDiskStorage = async () => {
 const readLocalModelDownloadRecord = async (
     model: LocalTranslationModel
 ): Promise<LocalModelDownloadRecord | null> => {
-    const verificationUri = getLocalModelDownloadRecordUri(model.id);
-
-    if (!verificationUri) {
-        return null;
-    }
+    const verificationFile = getLocalModelDownloadRecordFile(model.id);
 
     try {
-        const verificationText = await FileSystem.readAsStringAsync(verificationUri);
+        const verificationText = await verificationFile.text();
         const parsedRecord = JSON.parse(verificationText) as Partial<LocalModelDownloadRecord>;
 
         if (
@@ -198,21 +146,15 @@ const readLocalModelDownloadRecord = async (
 
 const hasTrustedLocalModelFile = async (
     model: LocalTranslationModel,
-    modelInfo?: Awaited<ReturnType<typeof FileSystem.getInfoAsync>>
+    modelFile?: File
 ) => {
-    const modelUri = getLocalModelFileUri(model.id);
-
-    if (!modelUri) {
-        return false;
-    }
-
-    const resolvedModelInfo = modelInfo ?? (await FileSystem.getInfoAsync(modelUri));
-    if (getFileSize(resolvedModelInfo) !== model.sizeBytes) {
+    const resolvedModelFile = modelFile ?? getLocalModelFile(model.id);
+    if (getFileSize(resolvedModelFile) !== model.sizeBytes) {
         return false;
     }
 
     const downloadRecord = await readLocalModelDownloadRecord(model);
-    const fileModificationTime = getFileModificationTime(resolvedModelInfo);
+    const fileModificationTime = getFileModificationTime(resolvedModelFile);
 
     if (!downloadRecord) {
         return false;
@@ -227,19 +169,19 @@ const hasTrustedLocalModelFile = async (
 
 const isTrustedLocalModelFile = async (
     model: LocalTranslationModel,
-    modelInfo?: Awaited<ReturnType<typeof FileSystem.getInfoAsync>>
+    modelFile?: File
 ) => {
-    return hasTrustedLocalModelFile(model, modelInfo);
+    return hasTrustedLocalModelFile(model, modelFile);
 };
 
 const writeLocalModelDownloadRecord = async (
     model: LocalTranslationModel,
-    modelInfo: Awaited<ReturnType<typeof FileSystem.getInfoAsync>>
+    modelFile: File
 ) => {
-    const verificationUri = getLocalModelDownloadRecordUri(model.id);
-    const fileModificationTime = getFileModificationTime(modelInfo);
+    const verificationFile = getLocalModelDownloadRecordFile(model.id);
+    const fileModificationTime = getFileModificationTime(modelFile);
 
-    if (!verificationUri || fileModificationTime === null) {
+    if (fileModificationTime === null) {
         throw new Error("Unable to write local model download record.");
     }
 
@@ -254,47 +196,48 @@ const writeLocalModelDownloadRecord = async (
         verifiedAtMs: Date.now(),
     };
 
-    await FileSystem.writeAsStringAsync(verificationUri, JSON.stringify(downloadRecord));
+    verificationFile.write(JSON.stringify(downloadRecord));
 };
 
 const ensureLocalModelDirectory = async () => {
-    const modelDirectoryUri = getLocalModelDirectoryUri();
-
-    if (!isLocalModelSupported() || !modelDirectoryUri) {
+    if (!isLocalModelSupported()) {
         throw new Error(LOCAL_MODELS_MOBILE_ONLY_ERROR);
     }
 
-    await FileSystem.makeDirectoryAsync(modelDirectoryUri, { intermediates: true }).catch(async () => {
-        const directoryInfo = await FileSystem.getInfoAsync(modelDirectoryUri);
-        if (!directoryInfo.exists || !directoryInfo.isDirectory) {
+    const modelDirectory = getLocalModelDirectory();
+
+    try {
+        modelDirectory.create({ idempotent: true, intermediates: true });
+    } catch (error) {
+        if (!modelDirectory.exists) {
             throw new Error("Unable to create the local model folder.");
         }
-    });
+        throw error;
+    }
 
-    return modelDirectoryUri;
+    return modelDirectory;
 };
 
 const finalizeLocalModelDownload = async (
     model: LocalTranslationModel,
-    partialModelUri: string,
-    modelUri: string
+    partialModelFile: File,
+    modelFile: File
 ) => {
-    const partialModelInfo = await FileSystem.getInfoAsync(partialModelUri);
-
-    if (getFileSize(partialModelInfo) !== model.sizeBytes) {
+    if (getFileSize(partialModelFile) !== model.sizeBytes) {
         throw new Error("The downloaded model file was incomplete. Please try again.");
     }
 
-    const verificationUri = getLocalModelDownloadRecordUri(model.id);
+    const verificationFile = getLocalModelDownloadRecordFile(model.id);
 
-    await Promise.all([
-        FileSystem.deleteAsync(modelUri, { idempotent: true }).catch(() => undefined),
-        verificationUri ? FileSystem.deleteAsync(verificationUri, { idempotent: true }).catch(() => undefined) : Promise.resolve(),
-    ]);
-    await FileSystem.moveAsync({ from: partialModelUri, to: modelUri });
+    if (modelFile.exists) {
+        modelFile.delete();
+    }
+    if (verificationFile.exists) {
+        verificationFile.delete();
+    }
+    await partialModelFile.move(modelFile);
 
-    const modelInfo = await FileSystem.getInfoAsync(modelUri);
-    await writeLocalModelDownloadRecord(model, modelInfo);
+    await writeLocalModelDownloadRecord(model, new File(modelFile.uri));
 };
 
 export const getLocalModelStatus = async (
@@ -302,10 +245,8 @@ export const getLocalModelStatus = async (
 ): Promise<LocalModelStatus> => {
     const model = getLocalTranslationModelById(modelId);
     const supported = isLocalModelSupported();
-    const modelUri = getLocalModelFileUri(model.id);
-    const partialModelUri = getPartialLocalModelFileUri(model.id);
 
-    if (!supported || !modelUri || !partialModelUri) {
+    if (!supported) {
         return {
             supported,
             isDownloaded: false,
@@ -315,14 +256,12 @@ export const getLocalModelStatus = async (
         };
     }
 
-    const [modelInfo, partialModelInfo, availableBytes] = await Promise.all([
-        FileSystem.getInfoAsync(modelUri),
-        FileSystem.getInfoAsync(partialModelUri),
-        getFreeDiskStorage(),
-    ]);
-    const modelBytes = getFileSize(modelInfo);
-    const partialBytes = getFileSize(partialModelInfo);
-    const isDownloaded = await isTrustedLocalModelFile(model, modelInfo);
+    const modelFile = getLocalModelFile(model.id);
+    const partialModelFile = getPartialLocalModelFile(model.id);
+    const availableBytes = await getFreeDiskStorage();
+    const modelBytes = getFileSize(modelFile);
+    const partialBytes = getFileSize(partialModelFile);
+    const isDownloaded = await isTrustedLocalModelFile(model, modelFile);
 
     const downloadedBytes = isDownloaded ? modelBytes : partialBytes;
 
@@ -341,9 +280,8 @@ export const isLocalModelDownloaded = async (modelId: SelectedLocalTranslationMo
     }
 
     const model = getLocalTranslationModelById(modelId);
-    const modelUri = getLocalModelFileUri(model.id);
 
-    if (!isLocalModelSupported() || !modelUri) {
+    if (!isLocalModelSupported()) {
         return false;
     }
 
@@ -355,26 +293,19 @@ export const deleteLocalModel = async (modelId: SelectedLocalTranslationModelId 
         return;
     }
 
-    const model = getLocalTranslationModelById(modelId);
-    const modelUri = getLocalModelFileUri(model.id);
-    const partialModelUri = getPartialLocalModelFileUri(model.id);
-    const verificationModelUri = getLocalModelDownloadRecordUri(model.id);
-    const modelDirectoryUri = getLocalModelDirectoryUri();
-    const legacyModelUris = modelDirectoryUri
-        ? LEGACY_LOCAL_MODEL_FILE_NAMES.flatMap((fileName) => [
-            `${modelDirectoryUri}${fileName}`,
-            `${modelDirectoryUri}${fileName}${PARTIAL_DOWNLOAD_SUFFIX}`,
-        ])
-        : [];
-    const legacyDocumentModelUris = getLegacyDocumentLocalModelUris();
+    const modelFile = getLocalModelFile(modelId);
+    const partialModelFile = getPartialLocalModelFile(modelId);
+    const verificationFile = getLocalModelDownloadRecordFile(modelId);
 
-    await Promise.all([
-        modelUri ? FileSystem.deleteAsync(modelUri, { idempotent: true }) : Promise.resolve(),
-        partialModelUri ? FileSystem.deleteAsync(partialModelUri, { idempotent: true }) : Promise.resolve(),
-        verificationModelUri ? FileSystem.deleteAsync(verificationModelUri, { idempotent: true }) : Promise.resolve(),
-        ...legacyModelUris.map((uri) => FileSystem.deleteAsync(uri, { idempotent: true })),
-        ...legacyDocumentModelUris.map((uri) => FileSystem.deleteAsync(uri, { idempotent: true })),
-    ]);
+    if (modelFile.exists) {
+        modelFile.delete();
+    }
+    if (partialModelFile.exists) {
+        partialModelFile.delete();
+    }
+    if (verificationFile.exists) {
+        verificationFile.delete();
+    }
 };
 
 export const createLocalModelDownload = (
@@ -382,28 +313,31 @@ export const createLocalModelDownload = (
     modelId: LocalTranslationModelId
 ) => {
     const model = getLocalTranslationModelById(modelId);
-    let downloadTask: ReturnType<typeof FileSystem.createDownloadResumable> | null = null;
+    const abortController = new AbortController();
+    let downloadTask: DownloadTask | null = null;
+    let downloadPromise: Promise<File | null> | null = null;
     let isCancelled = false;
 
     const cancel = async () => {
         isCancelled = true;
+        abortController.abort();
 
         if (downloadTask) {
-            await downloadTask.cancelAsync().catch(() => undefined);
+            downloadTask.cancel();
+        }
+        if (downloadPromise) {
+            await downloadPromise.catch(() => undefined);
         }
 
-        const partialModelUri = getPartialLocalModelFileUri(model.id);
-        if (partialModelUri) {
-            await FileSystem.deleteAsync(partialModelUri, { idempotent: true }).catch(() => undefined);
+        const partialModelFile = getPartialLocalModelFile(model.id);
+        if (partialModelFile.exists) {
+            partialModelFile.delete();
         }
     };
 
     const start = async () => {
-        const modelUri = getLocalModelFileUri(model.id);
-        const partialModelUri = getPartialLocalModelFileUri(model.id);
-
-        if (!modelUri || !partialModelUri) {
-        throw new Error(LOCAL_MODELS_MOBILE_ONLY_ERROR);
+        if (!isLocalModelSupported()) {
+            throw new Error(LOCAL_MODELS_MOBILE_ONLY_ERROR);
         }
 
         await ensureLocalModelDirectory();
@@ -424,33 +358,48 @@ export const createLocalModelDownload = (
             );
         }
 
-        downloadTask = FileSystem.createDownloadResumable(
-            model.downloadUrl,
-            partialModelUri,
-            {},
-            (downloadProgress) => {
-                const expectedBytes = downloadProgress.totalBytesExpectedToWrite > 0
-                    ? downloadProgress.totalBytesExpectedToWrite
-                    : model.sizeBytes;
-                const progress = Math.min(1, downloadProgress.totalBytesWritten / expectedBytes);
+        await validateDownloadResponse(model, abortController.signal);
 
-                onProgress({
-                    downloadedBytes: downloadProgress.totalBytesWritten,
-                    expectedBytes,
-                    phase: progress >= 1 ? "finalizing" : "downloading",
-                });
-            }
-        );
-
-        const downloadResult = await downloadTask.downloadAsync();
-
-        if (isCancelled || !downloadResult) {
+        if (isCancelled) {
             throw createAbortError("Local model download cancelled.");
         }
 
-        if (downloadResult.status < 200 || downloadResult.status >= 300) {
-            await FileSystem.deleteAsync(partialModelUri, { idempotent: true }).catch(() => undefined);
-            throw new Error(`Model download failed with status ${downloadResult.status}.`);
+        const modelFile = getLocalModelFile(model.id);
+        const partialModelFile = getPartialLocalModelFile(model.id);
+
+        downloadTask = File.createDownloadTask(
+            model.downloadUrl,
+            partialModelFile,
+            {
+                signal: abortController.signal,
+                onProgress: (downloadProgress) => {
+                    const expectedBytes = downloadProgress.totalBytes > 0
+                        ? downloadProgress.totalBytes
+                        : model.sizeBytes;
+                    const progress = Math.min(1, downloadProgress.bytesWritten / expectedBytes);
+
+                    onProgress({
+                        downloadedBytes: downloadProgress.bytesWritten,
+                        expectedBytes,
+                        phase: progress >= 1 ? "finalizing" : "downloading",
+                    });
+                },
+            }
+        );
+
+        downloadPromise = downloadTask.downloadAsync();
+        let downloadedFile: File | null;
+
+        try {
+            downloadedFile = await downloadPromise;
+        } finally {
+            downloadPromise = null;
+            downloadTask.release();
+            downloadTask = null;
+        }
+
+        if (isCancelled || !downloadedFile) {
+            throw createAbortError("Local model download cancelled.");
         }
 
         onProgress({
@@ -459,27 +408,19 @@ export const createLocalModelDownload = (
             phase: "finalizing",
         });
 
-        try {
-            assertDownloadResponseMatchesModel(model, downloadResult);
-        } catch (error) {
-            await FileSystem.deleteAsync(partialModelUri, { idempotent: true }).catch(() => undefined);
-            throw error;
-        }
-
-        const partialModelInfo = await FileSystem.getInfoAsync(partialModelUri);
-        const partialModelBytes = getFileSize(partialModelInfo);
+        const partialModelBytes = getFileSize(downloadedFile);
 
         if (partialModelBytes !== model.sizeBytes) {
-            await FileSystem.deleteAsync(partialModelUri, { idempotent: true }).catch(() => undefined);
+            downloadedFile.delete();
             throw new Error("The downloaded model file was incomplete. Please try again.");
         }
 
         if (isCancelled) {
-            await FileSystem.deleteAsync(partialModelUri, { idempotent: true }).catch(() => undefined);
+            downloadedFile.delete();
             throw createAbortError("Local model download cancelled.");
         }
 
-        await finalizeLocalModelDownload(model, partialModelUri, modelUri);
+        await finalizeLocalModelDownload(model, downloadedFile, modelFile);
 
         return await getLocalModelStatus(model.id);
     };

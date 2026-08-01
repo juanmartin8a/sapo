@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, StyleSheet, TextInput } from "react-native"
 import useTranslationInputStore from "@/stores/translationInputStore";
 import useTransformationOperationStore from "@/stores/transformationOperationStore";
@@ -10,6 +10,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import useLocalModelStore from "@/stores/localModelStore";
 
 const TextToTranslateInput = () => {
+    const textInputRef = useRef<TextInput>(null)
+    const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const touchEndTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const isScrollingRef = useRef(false)
+    const [isScrolling, setIsScrolling] = useState(false)
+    const [touchStartedWhileScrolling, setTouchStartedWhileScrolling] = useState(false)
     const text = useTranslationInputStore((state) => state.text)
     const setText = useTranslationInputStore((state) => state.setText)
     const operation = useTransformationOperationStore((state) => state.operation)
@@ -56,6 +62,31 @@ const TextToTranslateInput = () => {
         }
     }, [inputLimit, isLimitReached, operation])
 
+    useEffect(() => () => {
+        if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current)
+        if (touchEndTimeoutRef.current) clearTimeout(touchEndTimeoutRef.current)
+    }, [])
+
+    const handleScroll = () => {
+        if (textInputRef.current?.isFocused()) return
+
+        isScrollingRef.current = true
+        setIsScrolling(true)
+
+        if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current)
+        scrollTimeoutRef.current = setTimeout(() => {
+            isScrollingRef.current = false
+            setIsScrolling(false)
+        }, 100)
+    }
+
+    const handleTouchEnd = () => {
+        if (touchEndTimeoutRef.current) clearTimeout(touchEndTimeoutRef.current)
+        touchEndTimeoutRef.current = setTimeout(() => {
+            setTouchStartedWhileScrolling(false)
+        }, 0)
+    }
+
     return (
         <KeyboardAvoidingView
             style={styles.innerContainer}
@@ -63,10 +94,19 @@ const TextToTranslateInput = () => {
             keyboardVerticalOffset={insets.top+60+16} 
         >
             <TextInput
+                ref={textInputRef}
                 style={styles.textInput}
                 multiline
                 value={text}
                 onChangeText={handleTextChange}
+                onScroll={handleScroll}
+                onTouchStart={() => {
+                    if (touchEndTimeoutRef.current) clearTimeout(touchEndTimeoutRef.current)
+                    if (isScrollingRef.current) setTouchStartedWhileScrolling(true)
+                }}
+                onTouchEnd={handleTouchEnd}
+                onTouchCancel={handleTouchEnd}
+                editable={!isScrolling && !touchStartedWhileScrolling}
                 placeholder="Type something..."
                 placeholderTextColor="#aaa"
                 returnKeyType="done"

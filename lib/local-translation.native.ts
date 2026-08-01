@@ -118,6 +118,7 @@ const getTranslationPrompt = ({ inputLanguage, targetLanguage, input }: LocalTra
         "<text>",
         input,
         "</text>",
+        "Return only the semantic translation, with no labels, quotes, markdown, or commentary."
     ].join("\n");
 };
 
@@ -170,7 +171,7 @@ const loadLocalTranslationModelCandidate = async (modelId: LocalTranslationModel
             temperature: 0,
             topK: 1,
             topP: 1,
-            maxTokens: 1024,
+            maxTokens: 3096,
             multimodal: false,
             forceLoad: true,
         });
