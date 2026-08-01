@@ -4,6 +4,7 @@ import useTranslationStore from '@/stores/translationStore';
 import SapoIcon from "../../assets/icons/sapo.svg"
 import SapoBocaAbiertaIcon from "../../assets/icons/sapo_boca_abierta.svg"
 import { triggerLightImpactHaptic } from '@/lib/haptics';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -13,6 +14,7 @@ interface CursorPos {
 }
 
 export default function Translate() {
+    const insets = useSafeAreaInsets();
     const displayText = useTranslationStore((state) => state.displayText);
     const mouthTriggerVersion = useTranslationStore((state) => state.mouthTriggerVersion);
     const streamStartVersion = useTranslationStore((state) => state.streamStartVersion);
@@ -99,7 +101,7 @@ export default function Translate() {
 
     return (
         <ScrollView>
-            <View style={styles.container}>
+            <View style={[styles.container, { paddingBottom: sapoBocaAbiertaHeight + 10 + 24 + insets.bottom }]}>
                 <View style={styles.textContainer}>
                     {streamError ? (
                         <Text style={styles.errorText}>{streamErrorMessage ?? "An error occurred"}</Text>
