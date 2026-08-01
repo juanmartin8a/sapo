@@ -32,7 +32,7 @@
         "react-native-keyboard-controller": "1.21.9",
         "react-native-litert-lm": "^0.5.1",
         "react-native-nitro-modules": "^0.36.1",
-        "react-native-pager-view": "8.0.2",
+        "react-native-pager-view": "8.0.4",
         "react-native-purchases": "^9.10.0",
         "react-native-reanimated": "4.5.1",
         "react-native-safe-area-context": "5.7.0",
@@ -1749,7 +1749,7 @@
 
     "react-native-nitro-modules": ["react-native-nitro-modules@0.36.1", "", { "peerDependencies": { "react": "*", "react-native": "*" } }, "sha512-kBv/VvKqAmkXAvP1DxJMC9b/fRhh7JdSO4EUnPP46hJjrIFeFR8AwKm8mYaKZEuF014M/TVdv2vomVUW0umsQQ=="],
 
-    "react-native-pager-view": ["react-native-pager-view@8.0.2", "", { "peerDependencies": { "react": "*", "react-native": "*" } }, "sha512-Y8All2BbjidI4ZIF9kBOIIoldkqrY/2FXapHZMdjwD+ByXhiOWTFenPs5rq9KRN5uAH/gOXtQCqHLxQDNBQRiQ=="],
+    "react-native-pager-view": ["react-native-pager-view@8.0.4", "", { "peerDependencies": { "react": "*", "react-native": "*" } }, "sha512-9ASQA/gdQv63pESFbzyODgsY07kZoBjLqBRvZ/HNYn+h29XyOX2BICuvVmhemxw/pz3hKGqGEU31DDhDArwaRg=="],
 
     "react-native-purchases": ["react-native-purchases@9.10.4", "", { "dependencies": { "@revenuecat/purchases-js-hybrid-mappings": "17.41.0", "@revenuecat/purchases-typescript-internal": "17.41.0" }, "peerDependencies": { "react": ">= 16.6.3", "react-native": ">= 0.73.0", "react-native-web": "*" }, "optionalPeers": ["react-native-web"] }, "sha512-dc5kj+BGfrpQwJrYfQV1CsVHdt1H7xb7pP3zODH2BmV8J1ULy4AWUF2y/hQJ1lYbc7olSDHlr637agxApvOcvw=="],
 
