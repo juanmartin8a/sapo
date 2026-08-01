@@ -170,7 +170,7 @@ const loadLocalTranslationModelCandidate = async (modelId: LocalTranslationModel
             temperature: 0,
             topK: 1,
             topP: 1,
-            maxContextTokens: 8192,
+            maxContextTokens: 4096,
             maxOutputTokens: 4096,
             multimodal: false,
             forceLoad: true,
