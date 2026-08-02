@@ -1,22 +1,13 @@
 import { useCallback, useState } from "react";
+import { FieldGroup } from "@expo/ui";
 import { useRouter } from "expo-router";
-import { Alert, Platform, StyleSheet, Text, View } from "react-native";
+import { Alert, Platform } from "react-native";
 import Purchases from "react-native-purchases";
 
-import LogInIcon from "@/assets/icons/log-in.svg";
-import LogOutIcon from "@/assets/icons/log-out.svg";
-import RepeatIcon from "@/assets/icons/repeat.svg";
-import EarthIcon from "@/assets/icons/earth.svg";
-import SettingsIcon from "@/assets/icons/settings.svg";
-import BrainIcon from "@/assets/icons/brain.svg";
-import SlidersHorizontalIcon from "@/assets/icons/sliders-horizontal.svg";
+import SettingsForm from "@/components/settings/SettingsForm";
+import SettingsRow from "@/components/settings/SettingsRow";
 import { authClient } from "@/lib/auth-client";
 import { APP_ROUTES } from "@/constants/routes";
-import {
-    SETTINGS_COLORS,
-    SETTINGS_SCREEN_BOTTOM_PADDING,
-    SETTINGS_SCREEN_HORIZONTAL_PADDING,
-} from "@/constants/settings";
 import {
     getStoreAccountLabel,
     getSubscriptionLinkedElsewhereMessage,
@@ -36,9 +27,6 @@ import {
     refreshSubscriptionStateAfterRevenueCatUpdate,
     retrySubscriptionStateAfterRevenueCatUpdateInBackground,
 } from "@/lib/subscription-refresh";
-import GroupedList from "@/components/settings/GroupedList";
-import SettingsButton from "@/components/settings/SettingsButton";
-import SettingsScrollView from "@/components/settings/SettingsScrollView";
 import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
 import { useAuthState } from "@/providers/AuthStateProvider";
 import { triggerErrorHaptic, triggerLightImpactHaptic, triggerStrongImpactHaptic, triggerWarningHaptic } from "@/lib/haptics";
@@ -278,101 +266,70 @@ export default function SettingsScreen() {
     }, [isManagingSubscription, isPending, isRestoringPurchases, isSigningOut, router]);
 
     return (
-        <View style={styles.container}>
-            <SettingsScrollView
-                style={styles.scrollView}
-                contentContainerStyle={styles.contentContainer}
-            >
-                <View style={styles.sectionContainer}>
-                    <Text style={styles.sectionLabel}>Account</Text>
-                    <GroupedList backgroundColor={SETTINGS_COLORS.surface} borderRadius={24} showDividers={true}>
-                        <SettingsButton
-                            text="Subscription"
-                            leftIcon={EarthIcon}
-                            showChevron
-                            textColor={SETTINGS_COLORS.primaryText}
-                            iconColor={SETTINGS_COLORS.primaryText}
-                            chevronColor={SETTINGS_COLORS.mutedChevron}
-                            disabled={isSigningOut}
-                            onPress={handleOpenSubscription}
-                        />
-                        <SettingsButton
-                            text={
-                                !shouldShowAuthenticatedActions
-                                    ? "Sign in to restore purchases"
-                                    : isRestoringPurchases
-                                      ? "Restoring purchases..."
-                                      : "Restore purchases"
-                            }
-                            leftIcon={RepeatIcon}
-                            textColor={SETTINGS_COLORS.primaryText}
-                            iconColor={SETTINGS_COLORS.primaryText}
-                            loading={isRestoringPurchases}
-                            disabled={isRestorePurchasesDisabled}
-                            onPress={() => {
-                                void handleRestorePurchases();
-                            }}
-                        />
-                        <SettingsButton
-                            text={
-                                !shouldShowAuthenticatedActions
-                                    ? "Sign in to manage subscription"
-                                    : isManagingSubscription
-                                      ? "Opening subscription..."
-                                      : "Manage subscription"
-                            }
-                            leftIcon={SettingsIcon}
-                            textColor={SETTINGS_COLORS.primaryText}
-                            iconColor={SETTINGS_COLORS.primaryText}
-                            loading={isManagingSubscription}
-                            disabled={isManageSubscriptionDisabled}
-                            onPress={() => {
-                                void handleManageSubscription();
-                            }}
-                        />
-                    </GroupedList>
-                </View>
-                <View style={styles.sectionContainer}>
-                    <Text style={styles.sectionLabel}>Device</Text>
-                    <SettingsButton
-                        text="Local models"
-                        leftIcon={BrainIcon}
-                        showChevron
-                        backgroundColor={SETTINGS_COLORS.surface}
-                        borderRadius={22}
-                        textColor={SETTINGS_COLORS.primaryText}
-                        iconColor={SETTINGS_COLORS.primaryText}
-                        chevronColor={SETTINGS_COLORS.mutedChevron}
-                        disabled={isSigningOut}
-                        onPress={handleOpenLocalModel}
-                    />
-                </View>
+        <SettingsForm>
+            <FieldGroup.Section title="Account">
+                <SettingsRow
+                    label="Subscription"
+                    icon="subscription"
+                    showDisclosure
+                    disabled={isSigningOut}
+                    onPress={handleOpenSubscription}
+                />
                 {shouldShowAuthenticatedActions ? (
-                    <SettingsButton
-                        text="Data controls"
-                        leftIcon={SlidersHorizontalIcon}
-                        showChevron
-                        backgroundColor={SETTINGS_COLORS.surface}
-                        borderRadius={22}
-                        textColor={SETTINGS_COLORS.primaryText}
-                        iconColor={SETTINGS_COLORS.primaryText}
-                        chevronColor={SETTINGS_COLORS.mutedChevron}
+                    <SettingsRow
+                        label={isRestoringPurchases ? "Restoring purchases..." : "Restore purchases"}
+                        icon="restore"
+                        loading={isRestoringPurchases}
+                        disabled={isRestorePurchasesDisabled}
+                        onPress={() => {
+                            void handleRestorePurchases();
+                        }}
+                    />
+                ) : null}
+                {shouldShowAuthenticatedActions ? (
+                    <SettingsRow
+                        label={isManagingSubscription ? "Opening subscriptions..." : "Manage subscription"}
+                        icon="manage"
+                        loading={isManagingSubscription}
+                        disabled={isManageSubscriptionDisabled}
+                        onPress={() => {
+                            void handleManageSubscription();
+                        }}
+                    />
+                ) : null}
+                {shouldShowAuthenticatedActions ? (
+                    <SettingsRow
+                        label="Data controls"
+                        icon="dataControls"
+                        showDisclosure
                         disabled={isSigningOut}
                         onPress={handleOpenDataControls}
                     />
                 ) : null}
-                <SettingsButton
-                    text={
+            </FieldGroup.Section>
+
+            <FieldGroup.Section>
+                <SettingsRow
+                    label="Local models"
+                    icon="localModels"
+                    showDisclosure
+                    disabled={isSigningOut}
+                    onPress={handleOpenLocalModel}
+                />
+            </FieldGroup.Section>
+
+            <FieldGroup.Section>
+                <SettingsRow
+                    label={
                         !shouldShowAuthenticatedActions
                             ? "Sign in"
                             : isSigningOut
-                              ? "Logging out..."
-                              : "Log out"
+                              ? "Signing out..."
+                              : "Sign out"
                     }
-                    leftIcon={shouldShowAuthenticatedActions ? LogOutIcon : LogInIcon}
-                    textColor={SETTINGS_COLORS.primaryText}
-                    iconColor={SETTINGS_COLORS.primaryText}
+                    icon={shouldShowAuthenticatedActions ? "signOut" : "signIn"}
                     loading={isSigningOut}
+                    destructive={shouldShowAuthenticatedActions}
                     disabled={isPending || isSigningOut || isRestoringPurchases || isManagingSubscription}
                     onPress={() => {
                         if (!shouldShowAuthenticatedActions) {
@@ -383,31 +340,7 @@ export default function SettingsScreen() {
                         void handleSignOut();
                     }}
                 />
-            </SettingsScrollView>
-        </View>
+            </FieldGroup.Section>
+        </SettingsForm>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: SETTINGS_COLORS.screenBackground,
-    },
-    scrollView: {
-        flex: 1,
-    },
-    contentContainer: {
-        paddingHorizontal: SETTINGS_SCREEN_HORIZONTAL_PADDING,
-        paddingBottom: SETTINGS_SCREEN_BOTTOM_PADDING,
-        gap: 12,
-    },
-    sectionContainer: {
-        gap: 6,
-    },
-    sectionLabel: {
-        fontSize: 14,
-        fontWeight: 600,
-        color: SETTINGS_COLORS.mutedText,
-        paddingHorizontal: 4,
-    },
-});

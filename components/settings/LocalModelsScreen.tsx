@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Column, FieldGroup, RNHostView, Row, Spacer, Text } from "@expo/ui";
+import { font } from "@expo/ui/swift-ui/modifiers";
+import { ActivityIndicator, Alert, Platform, Pressable, StyleSheet } from "react-native";
 
 import DownloadIcon from "@/assets/icons/download.svg";
 import SquareIcon from "@/assets/icons/square.svg";
@@ -15,16 +17,16 @@ import type {
     LocalTranslationModelId,
 } from "@/types/localModels";
 import { formatBytes } from "@/utils/formatBytes";
-import {
-    SETTINGS_COLORS,
-    SETTINGS_SCREEN_BOTTOM_PADDING,
-    SETTINGS_SCREEN_HORIZONTAL_PADDING,
-} from "@/constants/settings";
+import { SETTINGS_COLORS } from "@/constants/settings";
 import useLocalModelStore from "@/stores/localModelStore";
 import { triggerErrorHaptic, triggerLightImpactHaptic, triggerStrongImpactHaptic } from "@/lib/haptics";
-import SettingsScrollView from "@/components/settings/SettingsScrollView";
+import SettingsForm from "@/components/settings/SettingsForm";
 
 type ModelStatusById = Partial<Record<LocalTranslationModelId, LocalModelStatus>>;
+
+const isIOS = Platform.OS === "ios";
+const bodyFontModifiers = isIOS ? [font({ textStyle: "body", weight: "medium" })] : undefined;
+const footnoteFontModifiers = isIOS ? [font({ textStyle: "footnote", weight: "medium" })] : undefined;
 
 export default function LocalModelsScreen() {
     const [statusByModelId, setStatusByModelId] = useState<ModelStatusById>({});
@@ -97,6 +99,14 @@ export default function LocalModelsScreen() {
     }, [downloadedModelIds, statusByModelId]);
     const downloadedModels = LOCAL_TRANSLATION_MODELS.filter((model) => isModelDownloaded(model.id));
     const availableModels = LOCAL_TRANSLATION_MODELS.filter((model) => !isModelDownloaded(model.id));
+    const hasStatuses = Object.keys(statusByModelId).length > 0;
+    const deviceNote = isRefreshing && !hasStatuses
+        ? "Checking model compatibility..."
+        : didStatusCheckFail
+          ? "Unable to determine local model support right now."
+          : !localModelsSupported
+            ? "Local models are available in the iOS and Android apps."
+            : "Local translations run without network requests. Other SAPO features continue to use the online service.";
 
     const handleDownload = useCallback(async (model: LocalTranslationModel) => {
         if (downloadingModelId || deletingModelId || isLocalModelLoading) {
@@ -174,7 +184,7 @@ export default function LocalModelsScreen() {
         );
     }, [deleteModel, deletingModelId, downloadingModelId, isLocalModelLoading, isModelDownloaded, refreshStatus]);
 
-    const renderModelCard = (model: LocalTranslationModel) => {
+    const renderModelRow = (model: LocalTranslationModel) => {
         const status = statusByModelId[model.id];
         const isDownloaded = isModelDownloaded(model.id);
         const isDownloading = downloadingModelId === model.id;
@@ -189,158 +199,124 @@ export default function LocalModelsScreen() {
             : formatBytes(model.sizeBytes);
 
         return (
-            <View key={model.id} style={styles.modelCard}>
-                <View style={styles.modelTextContainer}>
-                    <Text style={styles.modelName}>{model.displayName}</Text>
-                    <Text style={styles.modelSize}>{modelSizeText}</Text>
-                </View>
-                <TouchableOpacity
-                    accessibilityLabel={isDownloading ? "Cancel download" : isDownloaded ? "Delete local model" : "Download local model"}
-                    activeOpacity={0.8}
-                    disabled={isModelActionDisabled}
-                    onPress={() => {
-                        if (isDownloading) {
-                            void handleCancelDownload();
-                            return;
-                        }
+            <Row key={model.id} alignment="center" spacing={12} style={{ width: "100%" }}>
+                <Column spacing={2}>
+                    <Text
+                        modifiers={bodyFontModifiers}
+                        textStyle={{
+                            color: SETTINGS_COLORS.primaryText,
+                            fontSize: isIOS ? undefined : 16,
+                            fontWeight: isIOS ? undefined : "500",
+                        }}
+                    >
+                        {model.displayName}
+                    </Text>
+                    <Text
+                        modifiers={footnoteFontModifiers}
+                        textStyle={{
+                            color: SETTINGS_COLORS.mutedText,
+                            fontSize: isIOS ? undefined : 13,
+                        }}
+                    >
+                        {modelSizeText}
+                    </Text>
+                </Column>
+                <Spacer flexible />
+                <RNHostView matchContents>
+                    <Pressable
+                        accessibilityLabel={isDownloading ? "Cancel download" : isDownloaded ? "Delete local model" : "Download local model"}
+                        accessibilityRole="button"
+                        disabled={isModelActionDisabled}
+                        hitSlop={6}
+                        onPress={() => {
+                            if (isDownloading) {
+                                void handleCancelDownload();
+                                return;
+                            }
 
-                        if (isDownloaded) {
-                            handleDeleteModel(model);
-                            return;
-                        }
+                            if (isDownloaded) {
+                                handleDeleteModel(model);
+                                return;
+                            }
 
-                        void handleDownload(model);
-                    }}
-                    style={[
-                        styles.iconButton,
-                        isDownloaded && styles.deleteIconButton,
-                        isModelActionDisabled && styles.disabledButton,
-                    ]}
-                >
-                    {isDownloading ? (
-                        <SquareIcon width={18} height={18} stroke="black" fill="black" />
-                    ) : isDeleting ? (
-                        <ActivityIndicator color={SETTINGS_COLORS.primaryText} size="small" />
-                    ) : isDownloaded ? (
-                        <TrashIcon width={20} height={20} stroke={SETTINGS_COLORS.destructiveText} />
-                    ) : (
-                        <DownloadIcon width={20} height={20} stroke={SETTINGS_COLORS.primaryText} />
-                    )}
-                </TouchableOpacity>
-            </View>
+                            void handleDownload(model);
+                        }}
+                        style={({ pressed }) => [
+                            styles.iconButton,
+                            isModelActionDisabled && styles.disabledButton,
+                            pressed && styles.pressedButton,
+                        ]}
+                    >
+                        {isDownloading ? (
+                            <SquareIcon width={18} height={18} stroke={SETTINGS_COLORS.primaryText} fill={SETTINGS_COLORS.primaryText} />
+                        ) : isDeleting ? (
+                            <ActivityIndicator color={SETTINGS_COLORS.primaryText} size="small" />
+                        ) : isDownloaded ? (
+                            <TrashIcon width={20} height={20} stroke={SETTINGS_COLORS.destructiveText} />
+                        ) : (
+                            <DownloadIcon width={20} height={20} stroke={SETTINGS_COLORS.primaryText} />
+                        )}
+                    </Pressable>
+                </RNHostView>
+            </Row>
         );
     };
 
+    const sectionFooter = (
+        <Column spacing={12}>
+            {availableBytes !== null && availableBytes !== undefined ? (
+                <Text
+                    modifiers={footnoteFontModifiers}
+                    textStyle={{ color: SETTINGS_COLORS.mutedText, fontSize: isIOS ? undefined : 13 }}
+                >
+                    {`${formatBytes(availableBytes)} available on this device`}
+                </Text>
+            ) : null}
+            <Text
+                modifiers={footnoteFontModifiers}
+                textStyle={{
+                    color: SETTINGS_COLORS.mutedText,
+                    fontSize: isIOS ? undefined : 13,
+                    lineHeight: isIOS ? undefined : 18,
+                }}
+            >
+                {deviceNote}
+            </Text>
+        </Column>
+    );
+
     return (
-        <SettingsScrollView
-            style={styles.container}
-            contentContainerStyle={styles.contentContainer}
-        >
+        <SettingsForm>
             {downloadedModels.length > 0 ? (
-                <View style={styles.sectionContainer}>
-                    <Text style={styles.sectionLabel}>Downloaded</Text>
-                    <View style={styles.modelList}>{downloadedModels.map(renderModelCard)}</View>
-                </View>
+                <FieldGroup.Section title="Downloaded">
+                    {downloadedModels.map(renderModelRow)}
+                    {availableModels.length === 0 ? (
+                        <FieldGroup.SectionFooter>{sectionFooter}</FieldGroup.SectionFooter>
+                    ) : null}
+                </FieldGroup.Section>
             ) : null}
 
             {availableModels.length > 0 ? (
-                <View style={styles.sectionContainer}>
-                    <Text style={styles.sectionLabel}>Models</Text>
-                    <View style={styles.modelList}>{availableModels.map(renderModelCard)}</View>
-                </View>
+                <FieldGroup.Section title="Available">
+                    {availableModels.map(renderModelRow)}
+                    <FieldGroup.SectionFooter>{sectionFooter}</FieldGroup.SectionFooter>
+                </FieldGroup.Section>
             ) : null}
-
-            {availableBytes !== null && availableBytes !== undefined ? (
-                <Text style={styles.storageText}>
-                {formatBytes(availableBytes)} available on this device
-                </Text>
-            ) : null}
-
-            {isRefreshing && Object.keys(statusByModelId).length === 0 ? (
-                <ActivityIndicator color={SETTINGS_COLORS.primaryText} size="small" />
-            ) : didStatusCheckFail ? (
-                <Text style={styles.noteText}>Unable to determine local model support right now.</Text>
-            ) : !localModelsSupported ? (
-                <Text style={styles.noteText}>Local models are available in the iOS and Android apps.</Text>
-            ) : (
-                <Text style={styles.noteText}>
-                    Local translations run without network requests. Other SAPO features continue to use the online service.
-                </Text>
-            )}
-        </SettingsScrollView>
+        </SettingsForm>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: SETTINGS_COLORS.screenBackground,
-    },
-    contentContainer: {
-        paddingHorizontal: SETTINGS_SCREEN_HORIZONTAL_PADDING,
-        paddingBottom: SETTINGS_SCREEN_BOTTOM_PADDING,
-        gap: 12,
-    },
-    sectionContainer: {
-        gap: 6,
-    },
-    sectionLabel: {
-        color: SETTINGS_COLORS.mutedText,
-        fontSize: 14,
-        fontWeight: "600",
-        paddingHorizontal: 4,
-    },
-    modelList: {
-        gap: 8,
-    },
-    modelCard: {
-        backgroundColor: SETTINGS_COLORS.surface,
-        borderRadius: 24,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        minHeight: 68,
-        paddingHorizontal: 14,
-        paddingVertical: 12,
-    },
-    modelTextContainer: {
-        flex: 1,
-        gap: 3,
-        paddingRight: 12,
-    },
-    modelName: {
-        color: SETTINGS_COLORS.primaryText,
-        fontSize: 16,
-        fontWeight: "600",
-    },
-    modelSize: {
-        color: SETTINGS_COLORS.mutedText,
-        fontSize: 13,
-        fontWeight: "500",
-    },
     iconButton: {
         alignItems: "center",
-        backgroundColor: "transparent",
-        borderRadius: 18,
         height: 36,
         justifyContent: "center",
         width: 36,
     },
-    deleteIconButton: {
-        backgroundColor: "transparent",
-    },
-    storageText: {
-        color: SETTINGS_COLORS.mutedText,
-        fontSize: 13,
-        fontWeight: "600",
-    },
     disabledButton: {
-        opacity: 0.5,
+        opacity: 0.45,
     },
-    noteText: {
-        color: SETTINGS_COLORS.mutedText,
-        fontSize: 13,
-        lineHeight: 18,
-        paddingHorizontal: 4,
+    pressedButton: {
+        opacity: 0.6,
     },
 });
