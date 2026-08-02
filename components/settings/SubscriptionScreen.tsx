@@ -153,6 +153,10 @@ const getPackageRenewalPeriodLabel = (
         .replace("/ ", "every ");
 };
 
+const formatDisplayPrice = (priceString: string | undefined) => {
+    return priceString?.replace(/^(?:USD|US\$)[\s\u00A0]*/i, "$") ?? "--";
+};
+
 const PURCHASE_ERROR_MESSAGE = "Unable to complete the purchase. Please try again.";
 
 const isPurchaseCancelledError = (error: unknown) => {
@@ -216,7 +220,7 @@ export default function SubscriptionScreen() {
         let isMounted = true;
 
         const loadSubscriptionData = async () => {
-            if (!isRevenueCatSupportedPlatform || !canUseRevenueCat || !userId) {
+            if (!isRevenueCatSupportedPlatform || !canUseRevenueCat) {
                 if (!isMounted) {
                     return;
                 }
@@ -238,20 +242,22 @@ export default function SubscriptionScreen() {
                 let customerInfo: CustomerInfo | null = null;
                 let isLinkedElsewhere = false;
 
-                try {
-                    const currentAppUserId = await Purchases.getAppUserID();
+                if (userId) {
+                    try {
+                        const currentAppUserId = await Purchases.getAppUserID();
 
-                    if (currentAppUserId !== userId) {
-                        customerInfo = (await Purchases.logIn(userId)).customerInfo;
-                    } else {
-                        customerInfo = await Purchases.getCustomerInfo();
-                    }
-                } catch (error) {
-                    if (!isReceiptAlreadyInUseRevenueCatError(error)) {
-                        throw error;
-                    }
+                        if (currentAppUserId !== userId) {
+                            customerInfo = (await Purchases.logIn(userId)).customerInfo;
+                        } else {
+                            customerInfo = await Purchases.getCustomerInfo();
+                        }
+                    } catch (error) {
+                        if (!isReceiptAlreadyInUseRevenueCatError(error)) {
+                            throw error;
+                        }
 
-                    isLinkedElsewhere = true;
+                        isLinkedElsewhere = true;
+                    }
                 }
 
                 const offerings = await offeringsPromise;
@@ -323,7 +329,9 @@ export default function SubscriptionScreen() {
         };
     }, [canUseRevenueCat, setCurrentSubscriptionStatus, showSubscriptionLinkedElsewhereAlert, userId]);
 
-    const displayPrice = subscriptionPackage?.product.priceString ?? subscriptionProduct?.priceString ?? "--";
+    const displayPrice = formatDisplayPrice(
+        subscriptionPackage?.product.priceString ?? subscriptionProduct?.priceString
+    );
     const billingPeriodLabel = useMemo(() => {
         return getPackageBillingPeriodLabel(subscriptionPackage, subscriptionProduct);
     }, [subscriptionPackage, subscriptionProduct]);
@@ -582,8 +590,11 @@ export default function SubscriptionScreen() {
             contentContainerStyle={styles.contentContainer}
         >
             <View style={styles.card}>
-                <View style={styles.planBadge}>
-                    <Text style={styles.planBadgeText}>Polyglot</Text>
+                <View style={styles.planHeader}>
+                    <Text style={styles.planName}>Polyglot</Text>
+                    <Text style={styles.planDescription}>
+                        For real-world multilingual needs
+                    </Text>
                 </View>
 
                 <View style={styles.priceRow}>
@@ -591,17 +602,14 @@ export default function SubscriptionScreen() {
                     <Text style={styles.priceSuffix}>{billingPeriodLabel}</Text>
                 </View>
 
-                <Text style={styles.planDescription}>
-                    For real-world multilingual needs
-                </Text>
-
                 <View style={styles.featureList}>
+                    <Text style={styles.featureListLabel}>Included</Text>
                     <View style={styles.featureRow}>
-                        <CheckIcon width={18} height={18} stroke="#000" style={styles.featureIcon} />
+                        <CheckIcon width={18} height={18} stroke={SETTINGS_COLORS.accent} />
                         <Text style={styles.featureText}>100,000 respell input characters</Text>
                     </View>
                     <View style={styles.featureRow}>
-                        <CheckIcon width={18} height={18} stroke="#000" style={styles.featureIcon} />
+                        <CheckIcon width={18} height={18} stroke={SETTINGS_COLORS.accent} />
                         <Text style={styles.featureText}>500,000 translate input characters</Text>
                     </View>
                 </View>
@@ -627,20 +635,29 @@ export default function SubscriptionScreen() {
                 </Text>
 
                 <View style={styles.legalLinksRow}>
-                    <Text
+                    <Pressable
                         accessibilityRole="link"
+                        hitSlop={6}
                         onPress={handleOpenTermsOfUse}
-                        style={styles.legalLink}
                     >
-                        Terms of Use
-                    </Text>
-                    <Text
+                        {({ pressed }) => (
+                            <Text style={[styles.legalLink, pressed && styles.legalLinkPressed]}>
+                                Terms of Use
+                            </Text>
+                        )}
+                    </Pressable>
+                    <View style={styles.legalDivider} />
+                    <Pressable
                         accessibilityRole="link"
+                        hitSlop={6}
                         onPress={handleOpenPrivacyPolicy}
-                        style={styles.legalLink}
                     >
-                        Privacy Policy
-                    </Text>
+                        {({ pressed }) => (
+                            <Text style={[styles.legalLink, pressed && styles.legalLinkPressed]}>
+                                Privacy Policy
+                            </Text>
+                        )}
+                    </Pressable>
                 </View>
             </View>
         </SettingsScrollView>
@@ -657,106 +674,124 @@ const styles = StyleSheet.create({
         paddingBottom: SETTINGS_SCREEN_BOTTOM_PADDING,
     },
     card: {
-        backgroundColor: "#fff",
-        borderRadius: 16,
-        padding: 20,
-        gap: 14,
+        backgroundColor: SETTINGS_COLORS.surface,
+        borderWidth: 1,
+        borderColor: "#DDE7E0",
+        borderRadius: 24,
+        padding: 22,
+        gap: 18,
+        shadowColor: "#18231D",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.07,
+        shadowRadius: 20,
+        elevation: 2,
     },
-    planBadge: {
-        alignSelf: "flex-start",
-        backgroundColor: "#000",
-        borderRadius: 999,
-        paddingVertical: 6,
-        paddingHorizontal: 10,
+    planHeader: {
+        gap: 5,
     },
-    planBadgeText: {
-        color: "#fff",
-        fontSize: 12,
+    planName: {
+        color: "#000",
+        fontSize: 21,
+        lineHeight: 26,
         fontWeight: "700",
-        letterSpacing: 0.3,
+        letterSpacing: -0.3,
     },
     priceRow: {
         flexDirection: "row",
         alignItems: "flex-end",
-        gap: 6,
+        gap: 7,
     },
     priceText: {
-        fontSize: 34,
-        lineHeight: 38,
-        fontWeight: "700",
+        fontSize: 40,
+        lineHeight: 44,
+        fontWeight: "800",
+        letterSpacing: -1,
         color: "#000",
     },
     priceSuffix: {
         fontSize: 14,
         lineHeight: 20,
         fontWeight: "500",
-        color: "#8E8E93",
-        marginBottom: 4,
+        color: "#737373",
+        marginBottom: 5,
     },
     planDescription: {
-        fontSize: 14,
-        lineHeight: 20,
+        fontSize: 15,
+        lineHeight: 21,
         fontWeight: "400",
-        color: "#3A3A3C",
+        color: "#636366",
     },
     featureList: {
-        borderTopWidth: 1,
-        borderTopColor: "#ECECEC",
-        paddingTop: 14,
-        gap: 10,
+        gap: 12,
+    },
+    featureListLabel: {
+        color: "#737373",
+        fontSize: 11,
+        lineHeight: 14,
+        fontWeight: "700",
+        letterSpacing: 0.8,
+        textTransform: "uppercase",
     },
     featureRow: {
         flexDirection: "row",
         alignItems: "center",
-    },
-    featureIcon: {
-        marginRight: 10,
+        gap: 10,
     },
     featureText: {
+        flex: 1,
         fontSize: 15,
-        lineHeight: 20,
+        lineHeight: 21,
         fontWeight: "500",
-        color: "#000",
+        color: "#1C1C1E",
     },
     subscribeButton: {
-        marginTop: 6,
         backgroundColor: "#000",
         borderRadius: 12,
-        minHeight: 48,
+        minHeight: 42,
         alignItems: "center",
         justifyContent: "center",
+        paddingVertical: 12,
         paddingHorizontal: 16,
     },
     subscribeButtonPressed: {
-        opacity: 0.8,
+        opacity: 0.78,
     },
     subscribeButtonDisabled: {
-        backgroundColor: "#B6B6B6",
+        opacity: 0.45,
     },
     subscribeButtonText: {
         color: "#fff",
-        fontSize: 15,
+        fontSize: 14,
         lineHeight: 20,
         fontWeight: "600",
         textAlign: "center",
     },
     footnote: {
         fontSize: 12,
-        lineHeight: 16,
+        lineHeight: 17,
         fontWeight: "400",
-        color: "#8E8E93",
+        color: "#737373",
+        textAlign: "center",
     },
     legalLinksRow: {
         flexDirection: "row",
         alignItems: "center",
+        justifyContent: "center",
         gap: 12,
     },
+    legalDivider: {
+        width: 3,
+        height: 3,
+        borderRadius: 2,
+        backgroundColor: "#AAB4AE",
+    },
     legalLink: {
-        alignSelf: "flex-start",
-        color: "#000",
+        color: "#1C1C1E",
         fontSize: 12,
         lineHeight: 16,
         fontWeight: "600",
-        textDecorationLine: "underline",
+    },
+    legalLinkPressed: {
+        color: "#8E8E93",
     },
 });

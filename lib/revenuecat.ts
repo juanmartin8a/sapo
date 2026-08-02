@@ -71,14 +71,14 @@ export const isReceiptAlreadyInUseRevenueCatError = (error: unknown) => {
 
 let configurePromise: Promise<boolean> | null = null;
 
-export const configureRevenueCat = async (appUserId: string): Promise<boolean> => {
+export const configureRevenueCat = async (appUserId: string | null): Promise<boolean> => {
     if (!hasRevenueCatConfig()) {
         return false;
     }
 
-    const normalizedAppUserId = appUserId.trim();
+    const normalizedAppUserId = appUserId === null ? null : appUserId.trim();
 
-    if (normalizedAppUserId.length === 0) {
+    if (normalizedAppUserId === "") {
         return false;
     }
 
@@ -96,7 +96,7 @@ export const configureRevenueCat = async (appUserId: string): Promise<boolean> =
         if (!isConfigured) {
             Purchases.configure({
                 apiKey: getRevenueCatApiKey(),
-                appUserID: normalizedAppUserId,
+                ...(normalizedAppUserId ? { appUserID: normalizedAppUserId } : {}),
             });
         }
 

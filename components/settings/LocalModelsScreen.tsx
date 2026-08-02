@@ -25,8 +25,8 @@ import SettingsForm from "@/components/settings/SettingsForm";
 type ModelStatusById = Partial<Record<LocalTranslationModelId, LocalModelStatus>>;
 
 const isIOS = Platform.OS === "ios";
-const bodyFontModifiers = isIOS ? [font({ textStyle: "body", weight: "medium" })] : undefined;
-const footnoteFontModifiers = isIOS ? [font({ textStyle: "footnote", weight: "medium" })] : undefined;
+const bodyFontModifiers = isIOS ? [font({ textStyle: "body", weight: "regular" })] : undefined;
+const footnoteFontModifiers = isIOS ? [font({ textStyle: "footnote", weight: "regular" })] : undefined;
 
 export default function LocalModelsScreen() {
     const [statusByModelId, setStatusByModelId] = useState<ModelStatusById>({});
