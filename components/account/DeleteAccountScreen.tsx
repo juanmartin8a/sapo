@@ -19,7 +19,7 @@ import {
 
 import SapoIcon from "@/assets/icons/sapo.svg";
 import { authClient } from "@/lib/auth-client";
-import { APP_ROUTES } from "@/constants/routes";
+import { APP_ROUTE_NAMES, APP_ROUTES } from "@/constants/routes";
 import { getSessionUserAuthState } from "@/utils/auth";
 import { triggerErrorHaptic, triggerStrongImpactHaptic } from "@/lib/haptics";
 import { useAuthState } from "@/providers/AuthStateProvider";
@@ -43,8 +43,6 @@ type RouteRecord = {
     [key: string]: unknown;
 };
 
-const DELETE_ACCOUNT_ROUTE_NAME = "delete-account";
-const SETTINGS_MODAL_ROUTE_NAME = "settings-modal";
 const DELETE_ACCOUNT_ERROR_MESSAGE = "Unable to delete the account. Please try the email link again.";
 const completedDeleteAccountTokens = new Set<string>();
 const deleteAccountTokenRequests = new Map<string, Promise<void>>();
@@ -87,7 +85,7 @@ function hasFocusedRouteName(state: RouteState, routeName: string): boolean {
 function removeSettingsModalRoute(state: RouteState): RouteState {
     let didChange = false;
     const routes = state.routes?.flatMap((route) => {
-        if (route.name === SETTINGS_MODAL_ROUTE_NAME) {
+        if (route.name === APP_ROUTE_NAMES.SETTINGS_MODAL) {
             didChange = true;
             return [];
         }
@@ -227,7 +225,7 @@ export default function DeleteAccountConfirmationScreen() {
     }, [contentTransitionValue, visibleStatus]);
 
     useEffect(() => {
-        if (!hasFocusedRouteName(rootNavigationState as RouteState, DELETE_ACCOUNT_ROUTE_NAME)) {
+        if (!hasFocusedRouteName(rootNavigationState as RouteState, APP_ROUTE_NAMES.DELETE_ACCOUNT)) {
             return;
         }
 
@@ -235,7 +233,7 @@ export default function DeleteAccountConfirmationScreen() {
 
         if (
             nextNavigationState === rootNavigationState ||
-            !hasFocusedRouteName(nextNavigationState, DELETE_ACCOUNT_ROUTE_NAME) ||
+            !hasFocusedRouteName(nextNavigationState, APP_ROUTE_NAMES.DELETE_ACCOUNT) ||
             !rootNavigation.isReady()
         ) {
             return;
@@ -395,7 +393,7 @@ export default function DeleteAccountConfirmationScreen() {
         visibleStatus === "completed"
             ? "Account deletion confirmed. We are finishing cleanup now."
             : visibleStatus === "failed"
-              ? errorMessage ?? "Unable to delete the account. Please try the email link again."
+              ? errorMessage ?? DELETE_ACCOUNT_ERROR_MESSAGE
               : "Keep this screen open while we confirm deletion.";
     const isTerminalStatus = visibleStatus === "completed" || visibleStatus === "failed";
     const sapoWidth = windowWidth * 0.4;

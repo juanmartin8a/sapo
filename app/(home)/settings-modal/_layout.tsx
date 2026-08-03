@@ -1,8 +1,9 @@
 import { useCallback } from "react";
 import { Stack, useRouter } from "expo-router";
 import { Platform, Pressable, StyleSheet } from "react-native";
-import XIcon from "../../../assets/icons/x.svg";
-import { APP_ROUTES } from "@/constants/routes";
+
+import XIcon from "@/assets/icons/x.svg";
+import { APP_ROUTES, SETTINGS_ROUTES } from "@/constants/routes";
 import { SETTINGS_COLORS } from "@/constants/settings";
 
 const isIOS = Platform.OS === "ios";
@@ -41,32 +42,32 @@ export default function SettingsModalLayout() {
             }}
         >
             <Stack.Screen
-                name="index"
+                name={SETTINGS_ROUTES.ROOT.name}
                 options={{
-                    title: "Settings",
+                    title: SETTINGS_ROUTES.ROOT.title,
                 }}
             />
             <Stack.Screen
-                name="data-controls"
+                name={SETTINGS_ROUTES.DATA_CONTROLS.name}
                 options={{
-                    title: "Data controls",
-                    headerBackButtonDisplayMode: 'minimal',
+                    title: SETTINGS_ROUTES.DATA_CONTROLS.title,
+                    headerBackButtonDisplayMode: "minimal",
                     headerRight: () => null,
                 }}
             />
             <Stack.Screen
-                name="local-models"
+                name={SETTINGS_ROUTES.LOCAL_MODELS.name}
                 options={{
-                    title: "Local models",
-                    headerBackButtonDisplayMode: 'minimal',
+                    title: SETTINGS_ROUTES.LOCAL_MODELS.title,
+                    headerBackButtonDisplayMode: "minimal",
                     headerRight: () => null,
                 }}
             />
             <Stack.Screen
-                name="subscription"
+                name={SETTINGS_ROUTES.SUBSCRIPTION.name}
                 options={{
-                    title: "Subscription",
-                    headerBackButtonDisplayMode: 'minimal',
+                    title: SETTINGS_ROUTES.SUBSCRIPTION.title,
+                    headerBackButtonDisplayMode: "minimal",
                     headerRight: () => null,
                 }}
             />

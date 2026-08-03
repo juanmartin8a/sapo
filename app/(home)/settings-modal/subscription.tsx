@@ -1,4 +1,4 @@
-import SubscriptionScreen from "@/components/settings/SubscriptionScreen";
+import SubscriptionScreen from "@/components/settings/subscription/SubscriptionScreen";
 
 export default function SubscriptionRoute() {
     return <SubscriptionScreen />;

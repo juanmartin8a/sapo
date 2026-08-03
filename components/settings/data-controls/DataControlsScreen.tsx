@@ -1,13 +1,14 @@
 import { useCallback, useRef, useState } from "react";
-import { Alert, Platform, StyleSheet, View } from "react-native";
+import { FieldGroup, Text } from "@expo/ui";
+import { font } from "@expo/ui/swift-ui/modifiers";
+import { Alert, Platform } from "react-native";
 
-import TrashIcon from "@/assets/icons/trash.svg";
 import { authClient } from "@/lib/auth-client";
 import { useAuthState } from "@/providers/AuthStateProvider";
 import { APP_ROUTES } from "@/constants/routes";
 import {
+    SETTINGS_ANDROID_FOOTNOTE_FONT_SIZE,
     SETTINGS_COLORS,
-    SETTINGS_SCREEN_HORIZONTAL_PADDING,
 } from "@/constants/settings";
 import { getStoreAccountLabel } from "@/constants/subscription";
 import {
@@ -16,8 +17,8 @@ import {
     hasRevenueCatConfig,
     isRevenueCatSupportedPlatform,
 } from "@/lib/revenuecat";
-import SettingsButton from "@/components/settings/SettingsButton";
-import SettingsScrollView from "@/components/settings/SettingsScrollView";
+import SettingsForm from "@/components/settings/ui/SettingsForm";
+import SettingsRow from "@/components/settings/ui/SettingsRow";
 import { triggerErrorHaptic, triggerLightImpactHaptic, triggerStrongImpactHaptic } from "@/lib/haptics";
 
 const getDeleteAccountAlertMessage = (args: {
@@ -116,42 +117,36 @@ export default function DataControlsScreen() {
     }, [canDeleteAccount, isPending, isProcessing, requestAccountDeletion, userId]);
 
     return (
-        <View style={styles.container}>
-            <SettingsScrollView
-                style={styles.scrollView}
-                contentContainerStyle={styles.contentContainer}
-            >
-                <SettingsButton
-                    text={
+        <SettingsForm>
+            <FieldGroup.Section title="Account">
+                <SettingsRow
+                    label={
                         !isAuthenticatedUser
                             ? "Sign in to manage data"
                             : isProcessing
                               ? "Preparing deletion..."
                               : "Delete account"
                     }
-                    leftIcon={TrashIcon}
-                    backgroundColor="#CDDEC8"
-                    borderRadius={22}
-                    textColor={SETTINGS_COLORS.destructiveText}
-                    iconColor={SETTINGS_COLORS.destructiveText}
+                    icon="trash"
+                    destructive
                     loading={isProcessing}
                     disabled={isPending || isProcessing || !canDeleteAccount}
                     onPress={handleDeleteAccount}
                 />
-            </SettingsScrollView>
-        </View>
+                <FieldGroup.SectionFooter>
+                    <Text
+                        modifiers={Platform.OS === "ios" ? [font({ textStyle: "footnote", weight: "regular" })] : undefined}
+                        textStyle={{
+                            color: SETTINGS_COLORS.mutedText,
+                            fontSize: Platform.OS === "ios"
+                                ? undefined
+                                : SETTINGS_ANDROID_FOOTNOTE_FONT_SIZE,
+                        }}
+                    >
+                        Deleting your account permanently removes your SAPO account and data. Store subscriptions must be cancelled separately.
+                    </Text>
+                </FieldGroup.SectionFooter>
+            </FieldGroup.Section>
+        </SettingsForm>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: SETTINGS_COLORS.screenBackground,
-    },
-    scrollView: {
-        flex: 1,
-    },
-    contentContainer: {
-        paddingHorizontal: SETTINGS_SCREEN_HORIZONTAL_PADDING,
-    },
-});
