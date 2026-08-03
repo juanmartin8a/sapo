@@ -7,7 +7,7 @@ import type {
 export const LOCAL_TRANSLATION_MODELS = [
     {
         id: "gemma4-e2b-it",
-        displayName: "Gemma4 e2b",
+        displayName: "Gemma 4 e2b",
         fileName: "gemma-4-E2B-it.litertlm",
         revision: "361a4010ad6d88fc5c86e148e333c0342b99763d",
         sizeBytes: 2_588_147_712,
@@ -18,7 +18,7 @@ export const LOCAL_TRANSLATION_MODELS = [
     },
     {
         id: "gemma4-e4b-it",
-        displayName: "Gemma4 e4b",
+        displayName: "Gemma 4 e4b",
         fileName: "gemma-4-E4B-it.litertlm",
         revision: "f7ad3343bd6ebc9607f4dc3bc4f2398bd5749bc5",
         sizeBytes: 3_659_530_240,
