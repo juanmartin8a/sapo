@@ -1,9 +1,13 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text } from "react-native";
 
 import ChevronRightIcon from "@/assets/icons/chevron-right.svg";
-import SettingsIcon from "@/components/settings/SettingsIcon";
-import type { SettingsRowProps } from "@/components/settings/SettingsRow.types";
-import { SETTINGS_COLORS } from "@/constants/settings";
+import SettingsIcon from "@/components/settings/ui/SettingsIcon";
+import type { SettingsRowProps } from "@/components/settings/ui/SettingsRow.types";
+import {
+    SETTINGS_COLORS,
+    SETTINGS_DISABLED_OPACITY,
+    SETTINGS_ROW_CONTENT_SPACING,
+} from "@/constants/settings";
 
 export default function SettingsRow({
     label,
@@ -49,7 +53,7 @@ const styles = StyleSheet.create({
         width: "100%",
         flexDirection: "row",
         alignItems: "center",
-        gap: 12,
+        gap: SETTINGS_ROW_CONTENT_SPACING,
     },
     label: {
         flex: 1,
@@ -60,7 +64,7 @@ const styles = StyleSheet.create({
         color: SETTINGS_COLORS.destructiveText,
     },
     disabled: {
-        opacity: 0.45,
+        opacity: SETTINGS_DISABLED_OPACITY,
     },
     pressed: {
         opacity: 0.65,

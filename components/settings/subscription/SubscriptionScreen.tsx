@@ -1,23 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-    ActivityIndicator,
-    Alert,
-    Linking,
-    Platform,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
-} from "react-native";
+import { Alert, Linking, Platform, StyleSheet } from "react-native";
 import Purchases, {
     type CustomerInfo,
-    type PurchasesError,
     type PurchasesPackage,
     type PurchasesStoreProduct,
 } from "react-native-purchases";
 
-import CheckIcon from "@/assets/icons/check.svg";
-import SettingsScrollView from "@/components/settings/SettingsScrollView";
+import SubscriptionPlanCard from "@/components/settings/subscription/SubscriptionPlanCard";
+import {
+    formatDisplayPrice,
+    getAvailablePackagesFromOfferings,
+    getPackageBillingPeriodLabel,
+    getPackageRenewalPeriodLabel,
+    isPurchaseCancelledError,
+} from "@/components/settings/subscription/subscriptionDisplay";
+import SettingsScrollView from "@/components/settings/ui/SettingsScrollView";
 import { useAuthState } from "@/providers/AuthStateProvider";
 import {
     SETTINGS_COLORS,
@@ -28,6 +25,8 @@ import {
     getStoreAccountLabel,
     getSubscriptionLinkedElsewhereMessage,
     SUBSCRIPTION_LINKED_ELSEWHERE_ALERT_TITLE,
+    SUBSCRIPTION_PLAN_DISPLAY_NAMES,
+    SUBSCRIPTION_SESSION_CHANGED_ALERT_TITLE,
 } from "@/constants/subscription";
 import {
     configureRevenueCat,
@@ -38,7 +37,7 @@ import {
     isRevenueCatSupportedPlatform,
 } from "@/lib/revenuecat";
 import {
-    getSubscriptionRefreshErrorStatus,
+    isSubscriptionRefreshAuthMismatch,
     refreshSubscriptionState,
     refreshSubscriptionStateAfterRevenueCatUpdate,
     retrySubscriptionStateAfterRevenueCatUpdateInBackground,
@@ -49,131 +48,7 @@ import { triggerErrorHaptic, triggerLightImpactHaptic, triggerStrongImpactHaptic
 const TERMS_OF_USE_URL = "https://sapo.surf/terms-of-use";
 const PRIVACY_POLICY_URL = "https://sapo.surf/privacy-policy";
 
-const getSubscriptionPackage = (packages: PurchasesPackage[]) => {
-    if (packages.length === 0) {
-        return null;
-    }
-
-    const configuredProductId = getRevenueCatSubscriptionProductId();
-
-    if (configuredProductId.length > 0) {
-        const matchedPackage = packages.find(
-            (item) => item.product.identifier === configuredProductId
-        );
-
-        if (matchedPackage) {
-            return matchedPackage;
-        }
-    }
-
-    const monthlyPackage = packages.find(
-        (item) => item.packageType === Purchases.PACKAGE_TYPE.MONTHLY
-    );
-
-    return monthlyPackage ?? packages[0] ?? null;
-};
-
-const getAvailablePackagesFromOfferings = (
-    offerings: Awaited<ReturnType<typeof Purchases.getOfferings>>
-) => {
-    const currentPackages = offerings.current?.availablePackages ?? [];
-    const allPackages = Object.values(offerings.all).flatMap(
-        (offering) => offering.availablePackages
-    );
-
-    const configuredProductId = getRevenueCatSubscriptionProductId();
-
-    if (configuredProductId.length > 0) {
-        const configuredPackage = allPackages.find(
-            (item) => item.product.identifier === configuredProductId
-        );
-
-        if (configuredPackage) {
-            return {
-                selectedPackage: configuredPackage,
-                allPackages,
-                currentPackages,
-            };
-        }
-    }
-
-    const selectedPackage = getSubscriptionPackage(
-        currentPackages.length > 0 ? currentPackages : allPackages
-    );
-
-    return {
-        selectedPackage,
-        allPackages,
-        currentPackages,
-    };
-};
-
-const getProductBillingPeriodLabel = (subscriptionProduct: PurchasesStoreProduct | null) => {
-    const match = subscriptionProduct?.subscriptionPeriod?.match(/^P(\d+)([WMY])$/);
-
-    if (!match) {
-        return null;
-    }
-
-    const count = Number(match[1]);
-    const unit = match[2] === "W" ? "week" : match[2] === "M" ? "month" : "year";
-    return `/ ${count === 1 ? unit : `${count} ${unit}s`}`;
-};
-
-const getPackageBillingPeriodLabel = (
-    subscriptionPackage: PurchasesPackage | null,
-    subscriptionProduct: PurchasesStoreProduct | null
-) => {
-    if (!subscriptionPackage) {
-        return getProductBillingPeriodLabel(subscriptionProduct) ?? "/ month";
-    }
-
-    switch (subscriptionPackage.packageType) {
-        case Purchases.PACKAGE_TYPE.WEEKLY:
-            return "/ week";
-        case Purchases.PACKAGE_TYPE.TWO_MONTH:
-            return "/ 2 months";
-        case Purchases.PACKAGE_TYPE.THREE_MONTH:
-            return "/ 3 months";
-        case Purchases.PACKAGE_TYPE.SIX_MONTH:
-            return "/ 6 months";
-        case Purchases.PACKAGE_TYPE.ANNUAL:
-            return "/ year";
-        case Purchases.PACKAGE_TYPE.MONTHLY:
-        default:
-            return "/ month";
-    }
-};
-
-const getPackageRenewalPeriodLabel = (
-    subscriptionPackage: PurchasesPackage | null,
-    subscriptionProduct: PurchasesStoreProduct | null
-) => {
-    return getPackageBillingPeriodLabel(subscriptionPackage, subscriptionProduct)
-        .replace("/ ", "every ");
-};
-
-const formatDisplayPrice = (priceString: string | undefined) => {
-    return priceString?.replace(/^(?:USD|US\$)[\s\u00A0]*/i, "$") ?? "--";
-};
-
 const PURCHASE_ERROR_MESSAGE = "Unable to complete the purchase. Please try again.";
-
-const isPurchaseCancelledError = (error: unknown) => {
-    if (!error || typeof error !== "object") {
-        return false;
-    }
-
-    if ("userCancelled" in error && error.userCancelled === true) {
-        return true;
-    }
-
-    if (!("code" in error)) {
-        return false;
-    }
-
-    return (error as PurchasesError).code === Purchases.PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR;
-};
 
 const getSubscriptionSyncPendingMessage = () => {
     return "Your purchase is active. We are still syncing it to SAPO and will keep trying automatically.";
@@ -181,14 +56,6 @@ const getSubscriptionSyncPendingMessage = () => {
 
 const getSubscriptionSessionChangedMessage = () => {
     return "Your account changed while syncing the subscription. Please sign in again and retry.";
-};
-
-const retryRevenueCatUpdateSyncInBackground = (userId: string) => {
-    void retrySubscriptionStateAfterRevenueCatUpdateInBackground(userId).catch((error) => {
-        if (__DEV__) {
-            console.warn("Background subscription sync retry failed", error);
-        }
-    });
 };
 
 export default function SubscriptionScreen() {
@@ -368,7 +235,7 @@ export default function SubscriptionScreen() {
             return "No plans available";
         }
 
-        return "Get Polyglot";
+        return `Get ${SUBSCRIPTION_PLAN_DISPLAY_NAMES.POLYGLOT}`;
     }, [
         canUseRevenueCat,
         hasActiveSubscription,
@@ -415,10 +282,8 @@ export default function SubscriptionScreen() {
                         : await refreshSubscriptionState({ userId });
                     hasActiveServerSubscriptionAfterLogin = refreshResult?.has_active_subscription === true;
                 } catch (error) {
-                    const refreshErrorStatus = getSubscriptionRefreshErrorStatus(error);
-
                     loginRefreshFailed = true;
-                    loginRefreshAuthMismatch = refreshErrorStatus === 401 || refreshErrorStatus === 409;
+                    loginRefreshAuthMismatch = isSubscriptionRefreshAuthMismatch(error);
 
                     if (__DEV__) {
                         console.warn("Failed to refresh subscription state after login", error);
@@ -429,7 +294,10 @@ export default function SubscriptionScreen() {
                     setIsSubscriptionLinkedElsewhere(false);
                     setCurrentSubscriptionStatus(false);
                     triggerWarningHaptic();
-                    Alert.alert("Session changed", getSubscriptionSessionChangedMessage());
+                    Alert.alert(
+                        SUBSCRIPTION_SESSION_CHANGED_ALERT_TITLE,
+                        getSubscriptionSessionChangedMessage()
+                    );
                     return;
                 }
 
@@ -439,7 +307,10 @@ export default function SubscriptionScreen() {
                 setIsSubscriptionLinkedElsewhere(false);
                 if (!setCurrentSubscriptionStatus(hasActiveAfterLogin)) {
                     triggerWarningHaptic();
-                    Alert.alert("Session changed", getSubscriptionSessionChangedMessage());
+                    Alert.alert(
+                        SUBSCRIPTION_SESSION_CHANGED_ALERT_TITLE,
+                        getSubscriptionSessionChangedMessage()
+                    );
                     return;
                 }
 
@@ -447,7 +318,7 @@ export default function SubscriptionScreen() {
                     triggerStrongImpactHaptic();
 
                     if (loginRefreshFailed) {
-                        retryRevenueCatUpdateSyncInBackground(userId);
+                        retrySubscriptionStateAfterRevenueCatUpdateInBackground(userId);
                         Alert.alert("Subscription active", getSubscriptionSyncPendingMessage());
                     } else {
                         Alert.alert(
@@ -481,10 +352,8 @@ export default function SubscriptionScreen() {
                     : await refreshSubscriptionState({ userId });
                 hasActiveServerSubscription = refreshResult?.has_active_subscription === true;
             } catch (error) {
-                const refreshErrorStatus = getSubscriptionRefreshErrorStatus(error);
-
                 purchaseRefreshFailed = true;
-                purchaseRefreshAuthMismatch = refreshErrorStatus === 401 || refreshErrorStatus === 409;
+                purchaseRefreshAuthMismatch = isSubscriptionRefreshAuthMismatch(error);
 
                 if (__DEV__) {
                     console.warn("Failed to refresh subscription state after purchase", error);
@@ -495,7 +364,10 @@ export default function SubscriptionScreen() {
                 setIsSubscriptionLinkedElsewhere(false);
                 setCurrentSubscriptionStatus(false);
                 triggerWarningHaptic();
-                Alert.alert("Session changed", getSubscriptionSessionChangedMessage());
+                Alert.alert(
+                    SUBSCRIPTION_SESSION_CHANGED_ALERT_TITLE,
+                    getSubscriptionSessionChangedMessage()
+                );
                 return;
             }
 
@@ -504,7 +376,10 @@ export default function SubscriptionScreen() {
             setIsSubscriptionLinkedElsewhere(false);
             if (!setCurrentSubscriptionStatus(isActive)) {
                 triggerWarningHaptic();
-                Alert.alert("Session changed", getSubscriptionSessionChangedMessage());
+                Alert.alert(
+                    SUBSCRIPTION_SESSION_CHANGED_ALERT_TITLE,
+                    getSubscriptionSessionChangedMessage()
+                );
                 return;
             }
 
@@ -512,7 +387,7 @@ export default function SubscriptionScreen() {
                 triggerStrongImpactHaptic();
 
                 if (purchaseRefreshFailed) {
-                    retryRevenueCatUpdateSyncInBackground(userId);
+                    retrySubscriptionStateAfterRevenueCatUpdateInBackground(userId);
                     Alert.alert("Subscription active", getSubscriptionSyncPendingMessage());
                 } else {
                     Alert.alert("Subscription active", "Your SAPO subscription is now active.");
@@ -534,7 +409,10 @@ export default function SubscriptionScreen() {
             if (isReceiptAlreadyInUseRevenueCatError(error)) {
                 if (!setCurrentSubscriptionStatus(false)) {
                     triggerWarningHaptic();
-                    Alert.alert("Session changed", getSubscriptionSessionChangedMessage());
+                    Alert.alert(
+                        SUBSCRIPTION_SESSION_CHANGED_ALERT_TITLE,
+                        getSubscriptionSessionChangedMessage()
+                    );
                     return;
                 }
 
@@ -589,77 +467,20 @@ export default function SubscriptionScreen() {
             style={styles.container}
             contentContainerStyle={styles.contentContainer}
         >
-            <View style={styles.card}>
-                <View style={styles.planHeader}>
-                    <Text style={styles.planName}>Polyglot</Text>
-                    <Text style={styles.planDescription}>
-                        For real-world multilingual needs
-                    </Text>
-                </View>
-
-                <View style={styles.priceRow}>
-                    <Text style={styles.priceText}>{displayPrice}</Text>
-                    <Text style={styles.priceSuffix}>{billingPeriodLabel}</Text>
-                </View>
-
-                <View style={styles.featureList}>
-                    <Text style={styles.featureListLabel}>Included</Text>
-                    <View style={styles.featureRow}>
-                        <CheckIcon width={18} height={18} stroke={SETTINGS_COLORS.accent} />
-                        <Text style={styles.featureText}>100,000 respell input characters</Text>
-                    </View>
-                    <View style={styles.featureRow}>
-                        <CheckIcon width={18} height={18} stroke={SETTINGS_COLORS.accent} />
-                        <Text style={styles.featureText}>500,000 translate input characters</Text>
-                    </View>
-                </View>
-
-                <Pressable
-                    onPress={handleSubscribe}
-                    disabled={isSubscribeDisabled}
-                    style={({ pressed }) => [
-                        styles.subscribeButton,
-                        (pressed || isPurchasing) && styles.subscribeButtonPressed,
-                        isSubscribeDisabled && styles.subscribeButtonDisabled,
-                    ]}
-                >
-                    {isPurchasing ? (
-                        <ActivityIndicator color="#fff" size="small" />
-                    ) : (
-                        <Text style={styles.subscribeButtonText}>{buttonLabel}</Text>
-                    )}
-                </Pressable>
-
-                <Text style={styles.footnote}>
-                    {`Auto-renews ${renewalPeriodLabel}. Cancel anytime from your ${storeAccountLabel} account subscriptions settings.`}
-                </Text>
-
-                <View style={styles.legalLinksRow}>
-                    <Pressable
-                        accessibilityRole="link"
-                        hitSlop={6}
-                        onPress={handleOpenTermsOfUse}
-                    >
-                        {({ pressed }) => (
-                            <Text style={[styles.legalLink, pressed && styles.legalLinkPressed]}>
-                                Terms of Use
-                            </Text>
-                        )}
-                    </Pressable>
-                    <View style={styles.legalDivider} />
-                    <Pressable
-                        accessibilityRole="link"
-                        hitSlop={6}
-                        onPress={handleOpenPrivacyPolicy}
-                    >
-                        {({ pressed }) => (
-                            <Text style={[styles.legalLink, pressed && styles.legalLinkPressed]}>
-                                Privacy Policy
-                            </Text>
-                        )}
-                    </Pressable>
-                </View>
-            </View>
+            <SubscriptionPlanCard
+                displayPrice={displayPrice}
+                billingPeriodLabel={billingPeriodLabel}
+                renewalPeriodLabel={renewalPeriodLabel}
+                storeAccountLabel={storeAccountLabel}
+                buttonLabel={buttonLabel}
+                isPurchasing={isPurchasing}
+                isSubscribeDisabled={isSubscribeDisabled}
+                onSubscribe={() => {
+                    void handleSubscribe();
+                }}
+                onOpenTermsOfUse={handleOpenTermsOfUse}
+                onOpenPrivacyPolicy={handleOpenPrivacyPolicy}
+            />
         </SettingsScrollView>
     );
 }
@@ -672,126 +493,5 @@ const styles = StyleSheet.create({
     contentContainer: {
         paddingHorizontal: SETTINGS_SCREEN_HORIZONTAL_PADDING,
         paddingBottom: SETTINGS_SCREEN_BOTTOM_PADDING,
-    },
-    card: {
-        backgroundColor: SETTINGS_COLORS.surface,
-        borderWidth: 1,
-        borderColor: "#DDE7E0",
-        borderRadius: 24,
-        padding: 22,
-        gap: 18,
-        shadowColor: "#18231D",
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.07,
-        shadowRadius: 20,
-        elevation: 2,
-    },
-    planHeader: {
-        gap: 5,
-    },
-    planName: {
-        color: "#000",
-        fontSize: 21,
-        lineHeight: 26,
-        fontWeight: "700",
-        letterSpacing: -0.3,
-    },
-    priceRow: {
-        flexDirection: "row",
-        alignItems: "flex-end",
-        gap: 7,
-    },
-    priceText: {
-        fontSize: 40,
-        lineHeight: 44,
-        fontWeight: "800",
-        letterSpacing: -1,
-        color: "#000",
-    },
-    priceSuffix: {
-        fontSize: 14,
-        lineHeight: 20,
-        fontWeight: "500",
-        color: "#737373",
-        marginBottom: 5,
-    },
-    planDescription: {
-        fontSize: 15,
-        lineHeight: 21,
-        fontWeight: "400",
-        color: "#636366",
-    },
-    featureList: {
-        gap: 12,
-    },
-    featureListLabel: {
-        color: "#737373",
-        fontSize: 11,
-        lineHeight: 14,
-        fontWeight: "700",
-        letterSpacing: 0.8,
-        textTransform: "uppercase",
-    },
-    featureRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 10,
-    },
-    featureText: {
-        flex: 1,
-        fontSize: 15,
-        lineHeight: 21,
-        fontWeight: "500",
-        color: "#1C1C1E",
-    },
-    subscribeButton: {
-        backgroundColor: "#000",
-        borderRadius: 12,
-        minHeight: 42,
-        alignItems: "center",
-        justifyContent: "center",
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-    },
-    subscribeButtonPressed: {
-        opacity: 0.78,
-    },
-    subscribeButtonDisabled: {
-        opacity: 0.45,
-    },
-    subscribeButtonText: {
-        color: "#fff",
-        fontSize: 14,
-        lineHeight: 20,
-        fontWeight: "600",
-        textAlign: "center",
-    },
-    footnote: {
-        fontSize: 12,
-        lineHeight: 17,
-        fontWeight: "400",
-        color: "#737373",
-        textAlign: "center",
-    },
-    legalLinksRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 12,
-    },
-    legalDivider: {
-        width: 3,
-        height: 3,
-        borderRadius: 2,
-        backgroundColor: "#AAB4AE",
-    },
-    legalLink: {
-        color: "#1C1C1E",
-        fontSize: 12,
-        lineHeight: 16,
-        fontWeight: "600",
-    },
-    legalLinkPressed: {
-        color: "#8E8E93",
     },
 });

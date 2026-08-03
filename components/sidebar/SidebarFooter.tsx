@@ -4,6 +4,7 @@ import { StyleSheet, TouchableOpacity, Text, View } from 'react-native';
 import LogInIcon from '@/assets/icons/log-in.svg';
 import useSubscriptionStatusStore from '@/stores/subscriptionStatusStore';
 import { APP_ROUTES } from '@/constants/routes';
+import { SUBSCRIPTION_PLAN_DISPLAY_NAMES } from '@/constants/subscription';
 import { useAuthState } from '@/providers/AuthStateProvider';
 
 const SideBarFooter = () => {
@@ -14,7 +15,9 @@ const SideBarFooter = () => {
     const subscriptionLabel = useMemo(() => {
         const isCurrentUserSubscribed = subscriptionUserId === userId &&
             hasActiveSubscription === true;
-        return isCurrentUserSubscribed ? 'Polyglot' : 'free';
+        return isCurrentUserSubscribed
+            ? SUBSCRIPTION_PLAN_DISPLAY_NAMES.POLYGLOT
+            : SUBSCRIPTION_PLAN_DISPLAY_NAMES.FREE;
     }, [hasActiveSubscription, subscriptionUserId, userId])
     const emailInitial = useMemo(() => {
         return email?.[0]?.toUpperCase() ?? '?';

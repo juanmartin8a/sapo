@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Column, FieldGroup, RNHostView, Row, Spacer, Text } from "@expo/ui";
+import { Column, FieldGroup, Text } from "@expo/ui";
 import { font } from "@expo/ui/swift-ui/modifiers";
-import { ActivityIndicator, Alert, Platform, Pressable, StyleSheet } from "react-native";
+import { Alert, Platform } from "react-native";
 
-import DownloadIcon from "@/assets/icons/download.svg";
-import SquareIcon from "@/assets/icons/square.svg";
-import TrashIcon from "@/assets/icons/trash.svg";
+import LocalModelRow from "@/components/settings/local-models/LocalModelRow";
+import SettingsForm from "@/components/settings/ui/SettingsForm";
 import {
     getLocalModelStatus,
     isLocalModelAbortError,
@@ -17,15 +16,16 @@ import type {
     LocalTranslationModelId,
 } from "@/types/localModels";
 import { formatBytes } from "@/utils/formatBytes";
-import { SETTINGS_COLORS } from "@/constants/settings";
+import {
+    SETTINGS_ANDROID_FOOTNOTE_FONT_SIZE,
+    SETTINGS_COLORS,
+} from "@/constants/settings";
 import useLocalModelStore from "@/stores/localModelStore";
 import { triggerErrorHaptic, triggerLightImpactHaptic, triggerStrongImpactHaptic } from "@/lib/haptics";
-import SettingsForm from "@/components/settings/SettingsForm";
 
 type ModelStatusById = Partial<Record<LocalTranslationModelId, LocalModelStatus>>;
 
 const isIOS = Platform.OS === "ios";
-const bodyFontModifiers = isIOS ? [font({ textStyle: "body", weight: "regular" })] : undefined;
 const footnoteFontModifiers = isIOS ? [font({ textStyle: "footnote", weight: "regular" })] : undefined;
 
 export default function LocalModelsScreen() {
@@ -191,74 +191,27 @@ export default function LocalModelsScreen() {
         const isDeleting = deletingModelId === model.id;
         const isBusy = !!downloadingModelId || !!deletingModelId || isLocalModelLoading;
         const isModelActionDisabled = isRefreshing || !status?.supported || (isBusy && !isDownloading);
-        const modelProgress = downloadProgressByModelId[model.id];
-        const modelSizeText = isDownloading
-            ? modelProgress?.phase === "finalizing"
-                ? "Finalizing..."
-                : `${formatBytes(modelProgress?.downloadedBytes ?? status?.downloadedBytes ?? 0)} of ${formatBytes(modelProgress?.expectedBytes ?? status?.expectedBytes ?? model.sizeBytes)}`
-            : formatBytes(model.sizeBytes);
 
         return (
-            <Row key={model.id} alignment="center" spacing={12} style={{ width: "100%" }}>
-                <Column spacing={2}>
-                    <Text
-                        modifiers={bodyFontModifiers}
-                        textStyle={{
-                            color: SETTINGS_COLORS.primaryText,
-                            fontSize: isIOS ? undefined : 16,
-                            fontWeight: isIOS ? undefined : "500",
-                        }}
-                    >
-                        {model.displayName}
-                    </Text>
-                    <Text
-                        modifiers={footnoteFontModifiers}
-                        textStyle={{
-                            color: SETTINGS_COLORS.mutedText,
-                            fontSize: isIOS ? undefined : 13,
-                        }}
-                    >
-                        {modelSizeText}
-                    </Text>
-                </Column>
-                <Spacer flexible />
-                <RNHostView matchContents>
-                    <Pressable
-                        accessibilityLabel={isDownloading ? "Cancel download" : isDownloaded ? "Delete local model" : "Download local model"}
-                        accessibilityRole="button"
-                        disabled={isModelActionDisabled}
-                        hitSlop={6}
-                        onPress={() => {
-                            if (isDownloading) {
-                                void handleCancelDownload();
-                                return;
-                            }
-
-                            if (isDownloaded) {
-                                handleDeleteModel(model);
-                                return;
-                            }
-
-                            void handleDownload(model);
-                        }}
-                        style={({ pressed }) => [
-                            styles.iconButton,
-                            isModelActionDisabled && styles.disabledButton,
-                            pressed && styles.pressedButton,
-                        ]}
-                    >
-                        {isDownloading ? (
-                            <SquareIcon width={18} height={18} stroke={SETTINGS_COLORS.primaryText} fill={SETTINGS_COLORS.primaryText} />
-                        ) : isDeleting ? (
-                            <ActivityIndicator color={SETTINGS_COLORS.primaryText} size="small" />
-                        ) : isDownloaded ? (
-                            <TrashIcon width={20} height={20} stroke={SETTINGS_COLORS.destructiveText} />
-                        ) : (
-                            <DownloadIcon width={20} height={20} stroke={SETTINGS_COLORS.primaryText} />
-                        )}
-                    </Pressable>
-                </RNHostView>
-            </Row>
+            <LocalModelRow
+                key={model.id}
+                model={model}
+                status={status}
+                progress={downloadProgressByModelId[model.id]}
+                isDownloaded={isDownloaded}
+                isDownloading={isDownloading}
+                isDeleting={isDeleting}
+                disabled={isModelActionDisabled}
+                onDownload={() => {
+                    void handleDownload(model);
+                }}
+                onCancelDownload={() => {
+                    void handleCancelDownload();
+                }}
+                onDelete={() => {
+                    handleDeleteModel(model);
+                }}
+            />
         );
     };
 
@@ -267,7 +220,10 @@ export default function LocalModelsScreen() {
             {availableBytes !== null && availableBytes !== undefined ? (
                 <Text
                     modifiers={footnoteFontModifiers}
-                    textStyle={{ color: SETTINGS_COLORS.mutedText, fontSize: isIOS ? undefined : 13 }}
+                    textStyle={{
+                        color: SETTINGS_COLORS.mutedText,
+                        fontSize: isIOS ? undefined : SETTINGS_ANDROID_FOOTNOTE_FONT_SIZE,
+                    }}
                 >
                     {`${formatBytes(availableBytes)} available on this device`}
                 </Text>
@@ -276,7 +232,7 @@ export default function LocalModelsScreen() {
                 modifiers={footnoteFontModifiers}
                 textStyle={{
                     color: SETTINGS_COLORS.mutedText,
-                    fontSize: isIOS ? undefined : 13,
+                    fontSize: isIOS ? undefined : SETTINGS_ANDROID_FOOTNOTE_FONT_SIZE,
                     lineHeight: isIOS ? undefined : 18,
                 }}
             >
@@ -305,18 +261,3 @@ export default function LocalModelsScreen() {
         </SettingsForm>
     );
 }
-
-const styles = StyleSheet.create({
-    iconButton: {
-        alignItems: "center",
-        height: 36,
-        justifyContent: "center",
-        width: 36,
-    },
-    disabledButton: {
-        opacity: 0.45,
-    },
-    pressedButton: {
-        opacity: 0.6,
-    },
-});

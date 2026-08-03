@@ -3,9 +3,13 @@ import { CircularProgressIndicator } from "@expo/ui/jetpack-compose";
 import { fillMaxWidth, size } from "@expo/ui/jetpack-compose/modifiers";
 
 import ChevronRightIcon from "@/assets/icons/chevron-right.svg";
-import SettingsIcon from "@/components/settings/SettingsIcon";
-import type { SettingsRowProps } from "@/components/settings/SettingsRow.types";
-import { SETTINGS_COLORS } from "@/constants/settings";
+import SettingsIcon from "@/components/settings/ui/SettingsIcon";
+import type { SettingsRowProps } from "@/components/settings/ui/SettingsRow.types";
+import {
+    SETTINGS_COLORS,
+    SETTINGS_DISABLED_OPACITY,
+    SETTINGS_ROW_CONTENT_SPACING,
+} from "@/constants/settings";
 
 export default function SettingsRow({
     label,
@@ -19,11 +23,11 @@ export default function SettingsRow({
     return (
         <Row
             alignment="center"
-            spacing={12}
+            spacing={SETTINGS_ROW_CONTENT_SPACING}
             disabled={disabled}
             modifiers={[fillMaxWidth()]}
             onPress={onPress}
-            style={disabled ? { opacity: 0.45 } : undefined}
+            style={disabled ? { opacity: SETTINGS_DISABLED_OPACITY } : undefined}
         >
             <RNHostView matchContents>
                 <SettingsIcon

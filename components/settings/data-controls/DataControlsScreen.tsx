@@ -6,7 +6,10 @@ import { Alert, Platform } from "react-native";
 import { authClient } from "@/lib/auth-client";
 import { useAuthState } from "@/providers/AuthStateProvider";
 import { APP_ROUTES } from "@/constants/routes";
-import { SETTINGS_COLORS } from "@/constants/settings";
+import {
+    SETTINGS_ANDROID_FOOTNOTE_FONT_SIZE,
+    SETTINGS_COLORS,
+} from "@/constants/settings";
 import { getStoreAccountLabel } from "@/constants/subscription";
 import {
     getRevenueCatCustomerInfo,
@@ -14,8 +17,8 @@ import {
     hasRevenueCatConfig,
     isRevenueCatSupportedPlatform,
 } from "@/lib/revenuecat";
-import SettingsForm from "@/components/settings/SettingsForm";
-import SettingsRow from "@/components/settings/SettingsRow";
+import SettingsForm from "@/components/settings/ui/SettingsForm";
+import SettingsRow from "@/components/settings/ui/SettingsRow";
 import { triggerErrorHaptic, triggerLightImpactHaptic, triggerStrongImpactHaptic } from "@/lib/haptics";
 
 const getDeleteAccountAlertMessage = (args: {
@@ -133,7 +136,12 @@ export default function DataControlsScreen() {
                 <FieldGroup.SectionFooter>
                     <Text
                         modifiers={Platform.OS === "ios" ? [font({ textStyle: "footnote", weight: "regular" })] : undefined}
-                        textStyle={{ color: SETTINGS_COLORS.mutedText, fontSize: Platform.OS === "ios" ? undefined : 13 }}
+                        textStyle={{
+                            color: SETTINGS_COLORS.mutedText,
+                            fontSize: Platform.OS === "ios"
+                                ? undefined
+                                : SETTINGS_ANDROID_FOOTNOTE_FONT_SIZE,
+                        }}
                     >
                         Deleting your account permanently removes your SAPO account and data. Store subscriptions must be cancelled separately.
                     </Text>

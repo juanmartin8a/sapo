@@ -1,4 +1,10 @@
 export const SUBSCRIPTION_LINKED_ELSEWHERE_ALERT_TITLE = "Subscription linked elsewhere";
+export const SUBSCRIPTION_SESSION_CHANGED_ALERT_TITLE = "Session changed";
+
+export const SUBSCRIPTION_PLAN_DISPLAY_NAMES = {
+    FREE: "free",
+    POLYGLOT: "Polyglot",
+} as const;
 
 export function getStoreAccountLabel(platform: string): string {
     if (platform === "android") {

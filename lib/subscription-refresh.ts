@@ -230,8 +230,13 @@ async function requestSubscriptionStateRefresh(
     return parsedResponse.refresh ?? null;
 }
 
-export function getSubscriptionRefreshErrorStatus(error: unknown) {
+function getSubscriptionRefreshErrorStatus(error: unknown) {
     return error instanceof SubscriptionRefreshError ? error.status : undefined;
+}
+
+export function isSubscriptionRefreshAuthMismatch(error: unknown) {
+    const status = getSubscriptionRefreshErrorStatus(error);
+    return status === 401 || status === 409;
 }
 
 function getRefreshKey(userId?: string | null) {
@@ -428,9 +433,13 @@ export function refreshSubscriptionStateAfterRevenueCatUpdate(userId?: string | 
 }
 
 export function retrySubscriptionStateAfterRevenueCatUpdateInBackground(userId?: string | null) {
-    return refreshSubscriptionState({
+    void refreshSubscriptionState({
         userId,
         expectActiveSubscription: true,
         retryDelaysMs: REVENUECAT_UPDATE_BACKGROUND_REFRESH_RETRY_DELAYS_MS,
+    }).catch((error) => {
+        if (__DEV__) {
+            console.warn("Background subscription sync retry failed", error);
+        }
     });
 }

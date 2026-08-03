@@ -10,7 +10,7 @@ import RepeatIcon from "@/assets/icons/repeat.svg";
 import SettingsIconSvg from "@/assets/icons/settings.svg";
 import SlidersHorizontalIcon from "@/assets/icons/sliders-horizontal.svg";
 import TrashIcon from "@/assets/icons/trash.svg";
-import type { SettingsRowIcon } from "@/components/settings/SettingsRow.types";
+import type { SettingsRowIcon } from "@/components/settings/ui/SettingsRow.types";
 
 const ICONS = {
     subscription: EarthIcon,
