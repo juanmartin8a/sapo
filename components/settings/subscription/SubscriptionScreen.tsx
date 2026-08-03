@@ -43,7 +43,7 @@ import {
     retrySubscriptionStateAfterRevenueCatUpdateInBackground,
 } from "@/lib/subscription-refresh";
 import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
-import { triggerErrorHaptic, triggerLightImpactHaptic, triggerStrongImpactHaptic, triggerWarningHaptic } from "@/lib/haptics";
+import { triggerErrorHaptic, triggerLightImpactHaptic, triggerWarningHaptic } from "@/lib/haptics";
 
 const TERMS_OF_USE_URL = "https://sapo.surf/terms-of-use";
 const PRIVACY_POLICY_URL = "https://sapo.surf/privacy-policy";
@@ -315,8 +315,6 @@ export default function SubscriptionScreen() {
                 }
 
                 if (hasActiveAfterLogin) {
-                    triggerStrongImpactHaptic();
-
                     if (loginRefreshFailed) {
                         retrySubscriptionStateAfterRevenueCatUpdateInBackground(userId);
                         Alert.alert("Subscription active", getSubscriptionSyncPendingMessage());
@@ -384,8 +382,6 @@ export default function SubscriptionScreen() {
             }
 
             if (isActive) {
-                triggerStrongImpactHaptic();
-
                 if (purchaseRefreshFailed) {
                     retrySubscriptionStateAfterRevenueCatUpdateInBackground(userId);
                     Alert.alert("Subscription active", getSubscriptionSyncPendingMessage());
@@ -396,7 +392,6 @@ export default function SubscriptionScreen() {
                 return;
             }
 
-            triggerStrongImpactHaptic();
             Alert.alert(
                 "Purchase pending",
                 "The purchase was completed but your subscription could not be verified yet. Please restore purchases from Settings."

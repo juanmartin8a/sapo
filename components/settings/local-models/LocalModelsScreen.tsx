@@ -127,12 +127,12 @@ export default function LocalModelsScreen() {
                     ...current,
                     [model.id]: nextStatus,
                 }));
-                triggerStrongImpactHaptic();
-                Alert.alert(
-                    "Local model ready",
-                    "Translations will use Gemma locally on this device. Respell still uses S A P O online."
-                );
             }
+
+            Alert.alert(
+                "Model downloaded",
+                `${model.displayName} is ready for offline translations`
+            );
         } catch (error) {
             if (mountedRef.current && !isLocalModelAbortError(error)) {
                 if (__DEV__) {
