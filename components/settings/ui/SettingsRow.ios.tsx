@@ -8,7 +8,6 @@ import {
     foregroundStyle,
     imageScale,
     listRowBackground,
-    listRowSeparator,
     shapes,
 } from "@expo/ui/swift-ui/modifiers";
 
@@ -32,7 +31,6 @@ export default function SettingsRow({
                 buttonStyle("plain"),
                 disabled(isDisabled),
                 listRowBackground(SETTINGS_COLORS.surface),
-                listRowSeparator("hidden"),
             ]}
         >
             <HStack
