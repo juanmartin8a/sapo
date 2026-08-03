@@ -54,7 +54,6 @@ export default function useSettingsActions() {
     const isRestorePurchasesDisabled =
         isPending ||
         isSigningOut ||
-        isManagingSubscription ||
         isRestoringPurchases ||
         !userId ||
         !isRevenueCatSupportedPlatform ||
@@ -62,7 +61,6 @@ export default function useSettingsActions() {
     const isManageSubscriptionDisabled =
         isPending ||
         isSigningOut ||
-        isRestoringPurchases ||
         isManagingSubscription ||
         !userId ||
         !isRevenueCatSupportedPlatform ||
@@ -88,7 +86,6 @@ export default function useSettingsActions() {
         if (
             isPending ||
             isSigningOut ||
-            isManagingSubscription ||
             isRestoringPurchases ||
             !userId ||
             !isRevenueCatSupportedPlatform ||
@@ -195,7 +192,6 @@ export default function useSettingsActions() {
         }
     }, [
         canUseRevenueCat,
-        isManagingSubscription,
         isPending,
         isRestoringPurchases,
         isSigningOut,
@@ -208,7 +204,6 @@ export default function useSettingsActions() {
         if (
             isPending ||
             isSigningOut ||
-            isRestoringPurchases ||
             isManagingSubscription ||
             !userId ||
             !isRevenueCatSupportedPlatform ||
@@ -240,7 +235,6 @@ export default function useSettingsActions() {
         canUseRevenueCat,
         isManagingSubscription,
         isPending,
-        isRestoringPurchases,
         isSigningOut,
         storeAccountLabel,
         userId,

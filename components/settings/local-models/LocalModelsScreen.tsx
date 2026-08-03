@@ -21,7 +21,7 @@ import {
     SETTINGS_COLORS,
 } from "@/constants/settings";
 import useLocalModelStore from "@/stores/localModelStore";
-import { triggerErrorHaptic, triggerLightImpactHaptic, triggerStrongImpactHaptic } from "@/lib/haptics";
+import { triggerErrorHaptic, triggerLightImpactHaptic } from "@/lib/haptics";
 
 type ModelStatusById = Partial<Record<LocalTranslationModelId, LocalModelStatus>>;
 
@@ -109,7 +109,7 @@ export default function LocalModelsScreen() {
             : "Local translations run without network requests. Other SAPO features continue to use the online service.";
 
     const handleDownload = useCallback(async (model: LocalTranslationModel) => {
-        if (downloadingModelId || deletingModelId || isLocalModelLoading) {
+        if (downloadingModelId || deletingModelId === model.id || isLocalModelLoading) {
             return;
         }
 
@@ -127,12 +127,12 @@ export default function LocalModelsScreen() {
                     ...current,
                     [model.id]: nextStatus,
                 }));
-                triggerStrongImpactHaptic();
-                Alert.alert(
-                    "Local model ready",
-                    "Translations will use Gemma locally on this device. Respell still uses S A P O online."
-                );
             }
+
+            Alert.alert(
+                "Model downloaded",
+                `${model.displayName} is ready for offline translations`
+            );
         } catch (error) {
             if (mountedRef.current && !isLocalModelAbortError(error)) {
                 if (__DEV__) {
@@ -156,7 +156,12 @@ export default function LocalModelsScreen() {
     }, [cancelDownload, refreshStatus]);
 
     const handleDeleteModel = useCallback((model: LocalTranslationModel) => {
-        if (deletingModelId || downloadingModelId || isLocalModelLoading || !isModelDownloaded(model.id)) {
+        if (
+            deletingModelId ||
+            downloadingModelId === model.id ||
+            isLocalModelLoading ||
+            !isModelDownloaded(model.id)
+        ) {
             return;
         }
 
@@ -172,8 +177,37 @@ export default function LocalModelsScreen() {
                         try {
                             triggerLightImpactHaptic();
                             await deleteModel(model.id);
-                            await refreshStatus();
-                            triggerStrongImpactHaptic();
+
+                            if (mountedRef.current) {
+                                setStatusByModelId((current) => {
+                                    const currentStatus = current[model.id];
+
+                                    return currentStatus
+                                        ? {
+                                            ...current,
+                                            [model.id]: {
+                                                ...currentStatus,
+                                                isDownloaded: false,
+                                                downloadedBytes: 0,
+                                            },
+                                        }
+                                        : current;
+                                });
+
+                                try {
+                                    const nextStatus = await getLocalModelStatus(model.id);
+
+                                    if (mountedRef.current) {
+                                        setStatusByModelId((current) => ({
+                                            ...current,
+                                            [model.id]: nextStatus,
+                                        }));
+                                    }
+                                } catch {
+                                    // The optimistic deleted status remains until the next screen refresh.
+                                }
+                            }
+
                         } catch {
                             triggerErrorHaptic();
                             Alert.alert("Unable to delete model", "Please try again.");
@@ -182,15 +216,20 @@ export default function LocalModelsScreen() {
                 },
             ]
         );
-    }, [deleteModel, deletingModelId, downloadingModelId, isLocalModelLoading, isModelDownloaded, refreshStatus]);
+    }, [deleteModel, deletingModelId, downloadingModelId, isLocalModelLoading, isModelDownloaded]);
 
     const renderModelRow = (model: LocalTranslationModel) => {
         const status = statusByModelId[model.id];
         const isDownloaded = isModelDownloaded(model.id);
         const isDownloading = downloadingModelId === model.id;
         const isDeleting = deletingModelId === model.id;
-        const isBusy = !!downloadingModelId || !!deletingModelId || isLocalModelLoading;
-        const isModelActionDisabled = isRefreshing || !status?.supported || (isBusy && !isDownloading);
+        const hasConflictingOperation = isDownloading
+            ? false
+            : isDownloaded
+              ? !!deletingModelId || downloadingModelId === model.id
+              : !!downloadingModelId || deletingModelId === model.id;
+        const isModelActionDisabled =
+            isRefreshing || !status?.supported || isLocalModelLoading || hasConflictingOperation;
 
         return (
             <LocalModelRow

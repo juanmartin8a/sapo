@@ -119,7 +119,7 @@ const useLocalModelStore = create<LocalModelStoreState>((set, get) => ({
     },
     deleteModel: async (modelId) => {
         const { deletingModelId, downloadingModelId } = get();
-        if (deletingModelId || downloadingModelId) {
+        if (deletingModelId || downloadingModelId === modelId) {
             return;
         }
 
@@ -260,8 +260,12 @@ const useLocalModelStore = create<LocalModelStoreState>((set, get) => ({
     startDownload: async (modelId) => {
         const { deletingModelId, downloadingModelId } = get();
 
-        if (deletingModelId || downloadingModelId) {
+        if (downloadingModelId) {
             return downloadingModelId === modelId ? activeDownloadPromise : null;
+        }
+
+        if (deletingModelId === modelId) {
+            return null;
         }
 
         const model = getLocalTranslationModelById(modelId);

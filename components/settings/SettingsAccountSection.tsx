@@ -50,9 +50,8 @@ export default function SettingsAccountSection({
             ) : null}
             {shouldShowAuthenticatedActions ? (
                 <SettingsRow
-                    label={isManagingSubscription ? "Opening subscriptions..." : "Manage subscription"}
+                    label="Manage subscription"
                     icon="manage"
-                    loading={isManagingSubscription}
                     disabled={isManageSubscriptionDisabled}
                     onPress={() => {
                         void onManageSubscription();
