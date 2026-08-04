@@ -245,6 +245,8 @@ export default function useSettingsActions() {
             return;
         }
 
+        triggerLightImpactHaptic();
+
         try {
             setIsSigningOut(true);
             await authClient.signOut();
