@@ -16,6 +16,7 @@ import {
     useRootNavigationState,
     useRouter,
 } from "expo-router";
+import * as Linking from "expo-linking";
 
 import SapoIcon from "@/assets/icons/sapo.svg";
 import { authClient } from "@/lib/auth-client";
@@ -162,7 +163,6 @@ export default function DeleteAccountConfirmationScreen() {
     const params = useLocalSearchParams<{ token?: string | string[] }>();
     const token = useMemo(() => getTokenParam(params.token), [params.token]);
     const { status: authStatus } = useAuthState();
-    const isPending = authStatus === "checking";
     const [status, setStatus] = useState<ConfirmationStatus>("checking");
     const [visibleStatus, setVisibleStatus] = useState<ConfirmationStatus>("checking");
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -172,6 +172,7 @@ export default function DeleteAccountConfirmationScreen() {
     const lastHapticStatusRef = useRef<ConfirmationStatus | null>(null);
 
     const handleReturnHome = useCallback(() => {
+        Linking.clearInitialURL();
         router.dismissTo(APP_ROUTES.HOME);
     }, [router]);
 
@@ -292,6 +293,7 @@ export default function DeleteAccountConfirmationScreen() {
         };
 
         if (!token) {
+            Linking.clearInitialURL();
             scheduleStatus("home");
             return cleanup;
         }
@@ -332,8 +334,14 @@ export default function DeleteAccountConfirmationScreen() {
             return cleanup;
         }
 
-        if (isPending) {
+        if (authStatus === "checking") {
             scheduleStatus("checking");
+            return cleanup;
+        }
+
+        if (authStatus === "signed_out") {
+            Linking.clearInitialURL();
+            scheduleStatus("home");
             return cleanup;
         }
 
@@ -346,6 +354,7 @@ export default function DeleteAccountConfirmationScreen() {
             }
 
             if (latestAuthState !== "authenticated") {
+                Linking.clearInitialURL();
                 setStatus("home");
                 return;
             }
@@ -373,7 +382,7 @@ export default function DeleteAccountConfirmationScreen() {
         });
 
         return cleanup;
-    }, [isPending, token]);
+    }, [authStatus, token]);
 
     if (status === "home") {
         return <Redirect href={APP_ROUTES.HOME} />;

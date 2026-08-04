@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useRouter } from "expo-router";
 import { Alert, Platform } from "react-native";
 import Purchases from "react-native-purchases";
@@ -46,6 +46,7 @@ export default function useSettingsActions() {
     const [isSigningOut, setIsSigningOut] = useState(false);
     const [isRestoringPurchases, setIsRestoringPurchases] = useState(false);
     const [isManagingSubscription, setIsManagingSubscription] = useState(false);
+    const activeRestoreRef = useRef<symbol | null>(null);
     const isPending = authStatus === "checking";
     const isAuthenticatedUser = authStatus === "authenticated";
     const canUseRevenueCat = hasRevenueCatConfig();
@@ -87,6 +88,7 @@ export default function useSettingsActions() {
             isPending ||
             isSigningOut ||
             isRestoringPurchases ||
+            activeRestoreRef.current !== null ||
             !userId ||
             !isRevenueCatSupportedPlatform ||
             !canUseRevenueCat
@@ -95,17 +97,25 @@ export default function useSettingsActions() {
         }
 
         triggerLightImpactHaptic();
+        const restoreOperation = Symbol("restore-purchases");
+        activeRestoreRef.current = restoreOperation;
 
         try {
             setIsRestoringPurchases(true);
             await configureRevenueCat(userId);
+            if (activeRestoreRef.current !== restoreOperation) return;
 
             const currentAppUserId = await Purchases.getAppUserID();
+            if (activeRestoreRef.current !== restoreOperation) return;
+
             if (currentAppUserId !== userId) {
                 await Purchases.logIn(userId);
+                if (activeRestoreRef.current !== restoreOperation) return;
             }
 
             const customerInfo = await Purchases.restorePurchases();
+            if (activeRestoreRef.current !== restoreOperation) return;
+
             const hasActiveClientSubscription = hasActiveRevenueCatSubscription(customerInfo);
             let hasActiveServerSubscription = false;
             let refreshFailed = false;
@@ -115,8 +125,12 @@ export default function useSettingsActions() {
                 const refreshResult = hasActiveClientSubscription
                     ? await refreshSubscriptionStateAfterRevenueCatUpdate(userId)
                     : await refreshSubscriptionState({ userId });
+                if (activeRestoreRef.current !== restoreOperation) return;
+
                 hasActiveServerSubscription = refreshResult?.has_active_subscription === true;
             } catch (error) {
+                if (activeRestoreRef.current !== restoreOperation) return;
+
                 refreshFailed = true;
                 refreshAuthMismatch = isSubscriptionRefreshAuthMismatch(error);
 
@@ -163,6 +177,8 @@ export default function useSettingsActions() {
             triggerWarningHaptic();
             Alert.alert("No purchases found", "No active subscriptions were found for this account.");
         } catch (error) {
+            if (activeRestoreRef.current !== restoreOperation) return;
+
             if (isReceiptAlreadyInUseRevenueCatError(error)) {
                 if (!setSubscriptionForUser(userId, false)) {
                     triggerWarningHaptic();
@@ -188,7 +204,10 @@ export default function useSettingsActions() {
             triggerErrorHaptic();
             Alert.alert("Restore failed", RESTORE_PURCHASES_ERROR_MESSAGE);
         } finally {
-            setIsRestoringPurchases(false);
+            if (activeRestoreRef.current === restoreOperation) {
+                activeRestoreRef.current = null;
+                setIsRestoringPurchases(false);
+            }
         }
     }, [
         canUseRevenueCat,
@@ -241,9 +260,16 @@ export default function useSettingsActions() {
     ]);
 
     const handleSignOut = useCallback(async () => {
-        if (isPending || isSigningOut || isRestoringPurchases || isManagingSubscription) {
+        if (isPending || isSigningOut || isManagingSubscription) {
             return;
         }
+
+        if (activeRestoreRef.current !== null) {
+            activeRestoreRef.current = null;
+            setIsRestoringPurchases(false);
+        }
+
+        triggerLightImpactHaptic();
 
         try {
             setIsSigningOut(true);
@@ -253,7 +279,7 @@ export default function useSettingsActions() {
             Alert.alert("Something went wrong", "Unable to sign out. Please try again.");
             setIsSigningOut(false);
         }
-    }, [isManagingSubscription, isPending, isRestoringPurchases, isSigningOut, router]);
+    }, [isManagingSubscription, isPending, isSigningOut, router]);
 
     return {
         handleManageSubscription,

@@ -5,7 +5,6 @@ import SettingsRow from "@/components/settings/ui/SettingsRow";
 interface SettingsSessionSectionProps {
     isPending: boolean;
     isSigningOut: boolean;
-    isRestoringPurchases: boolean;
     isManagingSubscription: boolean;
     shouldShowAuthenticatedActions: boolean;
     onSignIn: () => void;
@@ -15,7 +14,6 @@ interface SettingsSessionSectionProps {
 export default function SettingsSessionSection({
     isPending,
     isSigningOut,
-    isRestoringPurchases,
     isManagingSubscription,
     shouldShowAuthenticatedActions,
     onSignIn,
@@ -34,7 +32,7 @@ export default function SettingsSessionSection({
                 icon={shouldShowAuthenticatedActions ? "signOut" : "signIn"}
                 loading={isSigningOut}
                 destructive={shouldShowAuthenticatedActions}
-                disabled={isPending || isSigningOut || isRestoringPurchases || isManagingSubscription}
+                disabled={isPending || isSigningOut || isManagingSubscription}
                 onPress={() => {
                     if (!shouldShowAuthenticatedActions) {
                         onSignIn();

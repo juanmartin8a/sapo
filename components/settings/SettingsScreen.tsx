@@ -38,7 +38,6 @@ export default function SettingsScreen() {
             <SettingsSessionSection
                 isPending={actions.isPending}
                 isSigningOut={actions.isSigningOut}
-                isRestoringPurchases={actions.isRestoringPurchases}
                 isManagingSubscription={actions.isManagingSubscription}
                 shouldShowAuthenticatedActions={actions.shouldShowAuthenticatedActions}
                 onSignIn={actions.handleSignIn}
