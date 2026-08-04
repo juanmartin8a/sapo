@@ -3,6 +3,7 @@ import { Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react
 import * as AppleAuthentication from 'expo-apple-authentication';
 import AppleLogo from '@/assets/icons/apple_logo.svg';
 import { authClient } from '@/lib/auth-client';
+import { triggerLightImpactHaptic } from '@/lib/haptics';
 
 export type SocialProvider = 'google' | 'apple';
 
@@ -127,6 +128,7 @@ const SocialSignInButton = ({
             return;
         }
 
+        triggerLightImpactHaptic();
         onSignInStart?.(provider);
 
         try {
