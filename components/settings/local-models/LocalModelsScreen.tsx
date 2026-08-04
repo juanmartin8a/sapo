@@ -129,6 +129,8 @@ export default function LocalModelsScreen() {
                 }));
             }
 
+            await refreshStatus();
+
             Alert.alert(
                 "Model downloaded",
                 `${model.displayName} is ready for offline translations`
@@ -193,21 +195,9 @@ export default function LocalModelsScreen() {
                                         }
                                         : current;
                                 });
-
-                                try {
-                                    const nextStatus = await getLocalModelStatus(model.id);
-
-                                    if (mountedRef.current) {
-                                        setStatusByModelId((current) => ({
-                                            ...current,
-                                            [model.id]: nextStatus,
-                                        }));
-                                    }
-                                } catch {
-                                    // The optimistic deleted status remains until the next screen refresh.
-                                }
                             }
 
+                            await refreshStatus();
                         } catch {
                             triggerErrorHaptic();
                             Alert.alert("Unable to delete model", "Please try again.");
@@ -216,7 +206,7 @@ export default function LocalModelsScreen() {
                 },
             ]
         );
-    }, [deleteModel, deletingModelId, downloadingModelId, isLocalModelLoading, isModelDownloaded]);
+    }, [deleteModel, deletingModelId, downloadingModelId, isLocalModelLoading, isModelDownloaded, refreshStatus]);
 
     const renderModelRow = (model: LocalTranslationModel) => {
         const status = statusByModelId[model.id];
