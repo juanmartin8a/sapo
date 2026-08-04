@@ -28,7 +28,7 @@ const TextToTranslateInput = () => {
     const hasAlertedRef = useRef(false)
     const inputLimit = getInputLimit(operation, effectiveSubscriptionStatus, isLocalModelEnabled)
     const textLength = getCharacterCount(text)
-    const isLimitReached = inputLimit !== null && textLength >= inputLimit
+    const isLimitExceeded = inputLimit !== null && textLength > inputLimit
     const handleTextChange = (nextText: string) => {
         if (inputLimit !== null && getCharacterCount(nextText) > inputLimit) {
             const operationLabel = operation === "respell" ? "respelling" : "translating"
@@ -43,17 +43,17 @@ const TextToTranslateInput = () => {
     }
 
     useEffect(() => {
-        if (inputLimit !== null && isLimitReached && !hasAlertedRef.current) {
+        if (inputLimit !== null && isLimitExceeded && !hasAlertedRef.current) {
             hasAlertedRef.current = true
             const operationLabel = operation === "respell" ? "respelling" : "translating"
             Alert.alert(
                 "Input limit reached",
                 `You can use up to ${inputLimit} characters while ${operationLabel}.`
             )
-        } else if (!isLimitReached && hasAlertedRef.current) {
+        } else if (!isLimitExceeded && hasAlertedRef.current) {
             hasAlertedRef.current = false
         }
-    }, [inputLimit, isLimitReached, operation])
+    }, [inputLimit, isLimitExceeded, operation])
 
     return (
         <KeyboardAwareScrollView
