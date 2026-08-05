@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 
 import {
+    DEFAULT_SUBSCRIPTION_PLAN_LIMITS,
     SUBSCRIPTION_PLAN_KEYS,
     SUBSCRIPTION_USAGE_OPERATIONS,
     type SubscriptionPlanKey,
@@ -25,21 +26,6 @@ export const subscriptionPlanLimitInputValidator = v.object({
     respell_monthly_char_limit: v.number(),
     is_active: v.boolean(),
 });
-
-const DEFAULT_SUBSCRIPTION_PLAN_LIMITS = {
-    free: {
-        translate_input_char_limit: 500,
-        respell_input_char_limit: 0,
-        translate_monthly_char_limit: 5_000,
-        respell_monthly_char_limit: 0,
-    },
-    polyglot: {
-        translate_input_char_limit: 10_000,
-        respell_input_char_limit: 2_000,
-        translate_monthly_char_limit: 500_000,
-        respell_monthly_char_limit: 100_000,
-    },
-} as const;
 
 export type { SubscriptionPlanKey, SubscriptionUsageOperation };
 export type SubscriptionPlanLimits = {
