@@ -17,6 +17,7 @@ const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL as strin
 
 export default function RootLayout() {
     return (
+        // @ts-expect-error @convex-dev/better-auth 0.12.5 intersects client plugin and option types.
         <ConvexBetterAuthProvider client={convex} authClient={authClient}>
             <AuthStateProvider>
                 <KeyboardProvider>
