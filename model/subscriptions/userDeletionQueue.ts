@@ -12,11 +12,8 @@ export {
     USER_DELETION_LATE_AUTH_WAIT_STATUS,
 };
 
-export const userDeletionQueueStatuses = USER_DELETION_QUEUE_STATUSES;
-export const userDeletionCleanupSteps = USER_DELETION_CLEANUP_STEPS;
-
-export type UserDeletionQueueStatus = (typeof userDeletionQueueStatuses)[number];
-export type UserDeletionCleanupStep = (typeof userDeletionCleanupSteps)[number];
+export type UserDeletionQueueStatus = (typeof USER_DELETION_QUEUE_STATUSES)[number];
+export type UserDeletionCleanupStep = (typeof USER_DELETION_CLEANUP_STEPS)[number];
 
 export type UserDeletionSubscriptionSnapshot<TQuotaPeriodId extends string = string> = {
     has_active_subscription: boolean;

@@ -5,6 +5,13 @@ import { internal } from "./_generated/api";
 const crons = cronJobs();
 
 crons.interval(
+    "purge retained resend emails",
+    { hours: 24 },
+    internal.email.cleanupResend,
+    {}
+);
+
+crons.interval(
     "process queued user deletions",
     { minutes: 15 },
     internal.subscriptionsWorkers.processQueuedUserDeletions,
@@ -21,7 +28,7 @@ crons.interval(
 crons.interval(
     "recover cleanup dead letters",
     { hours: 1 },
-    (internal as any).subscriptionsWorkers.recoverCleanupDeadLetterUserDeletions,
+    internal.subscriptionsWorkers.recoverCleanupDeadLetterUserDeletions,
     {}
 );
 
@@ -42,7 +49,7 @@ crons.interval(
 crons.interval(
     "check user deletion dead letters",
     { minutes: 30 },
-    (internal as any).subscriptionsWorkers.checkUserDeletionDeadLetterHealth,
+    internal.subscriptionsWorkers.checkUserDeletionDeadLetterHealth,
     {}
 );
 
@@ -70,14 +77,14 @@ crons.interval(
 crons.interval(
     "purge stale refresh rate limits",
     { hours: 24 },
-    (internal as any).subscriptionsWorkers.purgeStaleRefreshRateLimits,
+    internal.subscriptionsWorkers.purgeStaleRefreshRateLimits,
     {}
 );
 
 crons.interval(
     "purge resolved operational alerts",
     { hours: 24 },
-    (internal as any).operationalAlerts.purgeResolvedOperationalAlerts,
+    internal.operationalAlerts.purgeResolvedOperationalAlerts,
     {}
 );
 

@@ -7,7 +7,7 @@ import {
     isRevenueCatApiErrorWithStatus,
     RevenueCatApiError,
     shouldIgnoreStaleReconciledSubscriptionState,
-} from "../../model/subscriptions/revenueCatApi";
+} from "../model/subscriptions/revenueCatApi";
 
 const originalEnv = process.env;
 const originalFetch = globalThis.fetch;

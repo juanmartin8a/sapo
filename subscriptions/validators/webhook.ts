@@ -1,14 +1,12 @@
 import { v, type ObjectType } from "convex/values";
 import { REVENUECAT_WEBHOOK_EVENT_STATUSES } from "../../constants/revenueCat";
 import {
-    USER_DELETION_CLEANUP_STEPS,
-    USER_DELETION_QUEUE_STATUSES,
-} from "../../constants/userDeletion";
-import {
     USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS,
     USER_DELETION_CLEANUP_DEAD_LETTER_STATUS,
+    USER_DELETION_CLEANUP_STEP,
     USER_DELETION_LATE_AUTH_WAIT_STATUS,
-} from "../../model/subscriptions/userDeletionQueue";
+    USER_DELETION_QUEUE_STATUS,
+} from "../../constants/userDeletion";
 import {
     subscriptionPlanLimitInputValidator,
     subscriptionUsageOperationValidator,
@@ -74,23 +72,23 @@ const reconciliationSnapshotValidator = v.object({
 });
 
 const userDeletionQueueStatusValidator = v.union(
-    v.literal(USER_DELETION_QUEUE_STATUSES[0]),
-    v.literal(USER_DELETION_QUEUE_STATUSES[1]),
+    v.literal(USER_DELETION_QUEUE_STATUS.PREPARING),
+    v.literal(USER_DELETION_QUEUE_STATUS.AWAITING_AUTH_DELETE),
     v.literal(USER_DELETION_LATE_AUTH_WAIT_STATUS),
     v.literal(USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS),
     v.literal(USER_DELETION_CLEANUP_DEAD_LETTER_STATUS),
-    v.literal(USER_DELETION_QUEUE_STATUSES[5]),
-    v.literal(USER_DELETION_QUEUE_STATUSES[6]),
-    v.literal(USER_DELETION_QUEUE_STATUSES[7]),
-    v.literal(USER_DELETION_QUEUE_STATUSES[8]),
+    v.literal(USER_DELETION_QUEUE_STATUS.READY_FOR_CLEANUP),
+    v.literal(USER_DELETION_QUEUE_STATUS.WAITING_FOR_QUIESCENCE),
+    v.literal(USER_DELETION_QUEUE_STATUS.RETRYABLE_ERROR),
+    v.literal(USER_DELETION_QUEUE_STATUS.CLEANUP_IN_PROGRESS),
 );
 
 const userDeletionCleanupStepValidator = v.union(
-    v.literal(USER_DELETION_CLEANUP_STEPS[0]),
-    v.literal(USER_DELETION_CLEANUP_STEPS[1]),
-    v.literal(USER_DELETION_CLEANUP_STEPS[3]),
-    v.literal(USER_DELETION_CLEANUP_STEPS[4]),
-    v.literal(USER_DELETION_CLEANUP_STEPS[2]),
+    v.literal(USER_DELETION_CLEANUP_STEP.ACQUIRED),
+    v.literal(USER_DELETION_CLEANUP_STEP.WAITING_FOR_QUIESCENCE),
+    v.literal(USER_DELETION_CLEANUP_STEP.DELETING_SUBSCRIPTION_DATA),
+    v.literal(USER_DELETION_CLEANUP_STEP.FINALIZING_SUBSCRIPTION_DATA),
+    v.literal(USER_DELETION_CLEANUP_STEP.DELETING_REVENUECAT_SUBSCRIBER),
 );
 
 export const upsertSubscriptionPlanLimitsArgs = {

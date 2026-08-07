@@ -5,6 +5,7 @@ import { buildCorsResponseHeaders, isAllowedCorsRequest } from "./cors";
 import { isRecord, readBoundedJsonRequestBody } from "./requestBody";
 import { getRefreshRateLimitConfig } from "../subscriptions/config";
 import { refreshSubscriptionStateFromRevenueCatHandler } from "../subscriptions/workers";
+import { GET_POST_OPTIONS_METHODS } from "../../constants/http";
 import {
     SUBSCRIPTION_PLAN_KEYS,
     type SubscriptionPlanKey,
@@ -16,7 +17,7 @@ export function responseHeaders(request: Request) {
     return buildCorsResponseHeaders(request, {
         contentType: "application/json",
         cacheControl: "no-store",
-        allowedMethods: "GET, POST, OPTIONS",
+        allowedMethods: GET_POST_OPTIONS_METHODS,
     });
 }
 
@@ -133,7 +134,7 @@ export async function handleRefreshRequest(
             ok: false,
             error: "Method not allowed",
         }, {
-            Allow: "GET, POST, OPTIONS",
+            Allow: GET_POST_OPTIONS_METHODS,
         });
     }
 

@@ -13,11 +13,7 @@ import {
     reserveSapopinguinoQuota,
 } from "./quota";
 import type { Id } from "../../subscriptions/_generated/dataModel";
-import {
-    streamOpenAIResponses,
-    STREAM_END_MARKER,
-    STREAM_ERROR_MARKER,
-} from "./openAiResponses";
+import { streamOpenAIResponses } from "./openAiResponses";
 import { createAbortableStream } from "./abortableStream";
 import { closeStreamOutput, tryEnqueueStreamOutput } from "./streamOutput";
 import { ABORT_ERROR_NAME } from "../../constants/errors";
@@ -26,7 +22,15 @@ import {
     POST_OPTIONS_METHODS,
     SAPOPINGUINO_STREAM_CACHE_CONTROL,
 } from "../../constants/http";
-import { SUBSCRIPTION_USAGE_OPERATIONS } from "../../constants/subscriptions";
+import {
+    SUBSCRIPTION_QUOTA_ERROR_CODES,
+    SUBSCRIPTION_USAGE_OPERATIONS,
+} from "../../constants/subscriptions";
+import {
+    SAPOPINGUINO_SSE_EVENTS,
+    STREAM_END_MARKER,
+    STREAM_ERROR_MARKER,
+} from "../../constants/sapopinguino";
 import { refreshSubscriptionStateFromRevenueCatHandler } from "../subscriptions/workers";
 
 type StreamRequestBody = {
@@ -51,7 +55,10 @@ export function responseHeaders(
     });
 }
 
-function formatSSEEvent(event: "token" | "done" | "error", data: string) {
+type SapopinguinoSSEEvent =
+    (typeof SAPOPINGUINO_SSE_EVENTS)[keyof typeof SAPOPINGUINO_SSE_EVENTS];
+
+function formatSSEEvent(event: SapopinguinoSSEEvent, data: string) {
     const lines = data.split("\n");
     const payload = [`event: ${event}`, ...lines.map((line) => `data: ${line}`), ""];
     return `${payload.join("\n")}\n`;
@@ -60,7 +67,7 @@ function formatSSEEvent(event: "token" | "done" | "error", data: string) {
 function enqueueEvent(
     controller: ReadableStreamDefaultController<Uint8Array>,
     encoder: TextEncoder,
-    event: "token" | "done" | "error",
+    event: SapopinguinoSSEEvent,
     data: string,
 ) {
     return tryEnqueueStreamOutput(controller, encoder, formatSSEEvent(event, data));
@@ -99,7 +106,7 @@ export async function handleSapopinguinoTranslateRequest(
 
     const bodyResult = await readSapopinguinoJsonRequestBody<StreamRequestBody>(request);
     if (!bodyResult.ok) {
-        return new Response(formatSSEEvent("error", STREAM_ERROR_MARKER), {
+        return new Response(formatSSEEvent(SAPOPINGUINO_SSE_EVENTS.ERROR, STREAM_ERROR_MARKER), {
             status: bodyResult.status,
             headers: responseHeaders(request),
         });
@@ -108,7 +115,7 @@ export async function handleSapopinguinoTranslateRequest(
     const body = bodyResult.body;
 
     if (typeof body.input !== "string" || body.input.length === 0) {
-        return new Response(formatSSEEvent("error", STREAM_ERROR_MARKER), {
+        return new Response(formatSSEEvent(SAPOPINGUINO_SSE_EVENTS.ERROR, STREAM_ERROR_MARKER), {
             status: 400,
             headers: responseHeaders(request),
         });
@@ -117,14 +124,14 @@ export async function handleSapopinguinoTranslateRequest(
     const sanitizedInput = sanitizeSapopinguinoInputPayload(body.input);
 
     if (!sanitizedInput) {
-        return new Response(formatSSEEvent("error", STREAM_ERROR_MARKER), {
+        return new Response(formatSSEEvent(SAPOPINGUINO_SSE_EVENTS.ERROR, STREAM_ERROR_MARKER), {
             status: 400,
             headers: responseHeaders(request),
         });
     }
 
     if (typeof body.streamId !== "string" || !isValidSapopinguinoStreamId(body.streamId)) {
-        return new Response(formatSSEEvent("error", STREAM_ERROR_MARKER), {
+        return new Response(formatSSEEvent(SAPOPINGUINO_SSE_EVENTS.ERROR, STREAM_ERROR_MARKER), {
             status: 400,
             headers: responseHeaders(request),
         });
@@ -135,25 +142,29 @@ export async function handleSapopinguinoTranslateRequest(
     });
 
     if (refreshResult.status === "refresh_failed" && refreshResult.should_block_requests) {
-        return new Response(formatSSEEvent("error", STREAM_ERROR_MARKER), {
+        return new Response(formatSSEEvent(SAPOPINGUINO_SSE_EVENTS.ERROR, STREAM_ERROR_MARKER), {
             status: 503,
             headers: responseHeaders(request),
         });
     }
 
     if (refreshResult.status === "deletion_in_progress") {
-        return sapopinguinoQuotaErrorResponse(request, 409, "user_deletion_in_progress");
+        return sapopinguinoQuotaErrorResponse(
+            request,
+            409,
+            SUBSCRIPTION_QUOTA_ERROR_CODES.USER_DELETION_IN_PROGRESS
+        );
     }
 
     if (refreshResult.status === "user_missing") {
-        return new Response(formatSSEEvent("error", STREAM_ERROR_MARKER), {
+        return new Response(formatSSEEvent(SAPOPINGUINO_SSE_EVENTS.ERROR, STREAM_ERROR_MARKER), {
             status: 409,
             headers: responseHeaders(request),
         });
     }
 
     if (refreshResult.status === "pending_active" || refreshResult.status === "sync_in_progress") {
-        return new Response(formatSSEEvent("error", STREAM_ERROR_MARKER), {
+        return new Response(formatSSEEvent(SAPOPINGUINO_SSE_EVENTS.ERROR, STREAM_ERROR_MARKER), {
             status: 425,
             headers: responseHeaders(request),
         });
@@ -180,7 +191,7 @@ export async function handleSapopinguinoTranslateRequest(
         }
 
         if (quotaReservation.status === "error") {
-            return new Response(formatSSEEvent("error", STREAM_ERROR_MARKER), {
+            return new Response(formatSSEEvent(SAPOPINGUINO_SSE_EVENTS.ERROR, STREAM_ERROR_MARKER), {
                 status: 500,
                 headers: responseHeaders(request),
             });
@@ -188,7 +199,7 @@ export async function handleSapopinguinoTranslateRequest(
 
         usageEventId = quotaReservation.usageEventId;
     } catch {
-        return new Response(formatSSEEvent("error", STREAM_ERROR_MARKER), {
+        return new Response(formatSSEEvent(SAPOPINGUINO_SSE_EVENTS.ERROR, STREAM_ERROR_MARKER), {
             status: 500,
             headers: responseHeaders(request),
         });
@@ -246,11 +257,16 @@ export async function handleSapopinguinoTranslateRequest(
                         }
 
                         if (!(await ensureQuotaCharged())) {
-                            enqueueEvent(controller, encoder, "error", STREAM_ERROR_MARKER);
+                            enqueueEvent(
+                                controller,
+                                encoder,
+                                SAPOPINGUINO_SSE_EVENTS.ERROR,
+                                STREAM_ERROR_MARKER
+                            );
                             return "errored";
                         }
 
-                        if (!enqueueEvent(controller, encoder, "token", delta)) {
+                        if (!enqueueEvent(controller, encoder, SAPOPINGUINO_SSE_EVENTS.TOKEN, delta)) {
                             upstream.abort();
                             return "errored";
                         }
@@ -258,13 +274,28 @@ export async function handleSapopinguinoTranslateRequest(
                     },
                     onCompleted: () => {
                         if (hasChargedQuota) {
-                            enqueueEvent(controller, encoder, "done", STREAM_END_MARKER);
+                            enqueueEvent(
+                                controller,
+                                encoder,
+                                SAPOPINGUINO_SSE_EVENTS.DONE,
+                                STREAM_END_MARKER
+                            );
                         } else {
-                            enqueueEvent(controller, encoder, "error", STREAM_ERROR_MARKER);
+                            enqueueEvent(
+                                controller,
+                                encoder,
+                                SAPOPINGUINO_SSE_EVENTS.ERROR,
+                                STREAM_ERROR_MARKER
+                            );
                         }
                     },
                     onErrored: () => {
-                        enqueueEvent(controller, encoder, "error", STREAM_ERROR_MARKER);
+                        enqueueEvent(
+                            controller,
+                            encoder,
+                            SAPOPINGUINO_SSE_EVENTS.ERROR,
+                            STREAM_ERROR_MARKER
+                        );
                     },
                 });
 
@@ -284,7 +315,12 @@ export async function handleSapopinguinoTranslateRequest(
                     await finalizeFailure();
                 } else {
                     await finalizeFailure();
-                    enqueueEvent(controller, encoder, "error", STREAM_ERROR_MARKER);
+                    enqueueEvent(
+                        controller,
+                        encoder,
+                        SAPOPINGUINO_SSE_EVENTS.ERROR,
+                        STREAM_ERROR_MARKER
+                    );
                 }
             } finally {
                 request.signal.removeEventListener("abort", upstream.abort);

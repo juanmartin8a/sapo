@@ -4,7 +4,7 @@ import {
     filterRevenueCatEventUserReferences,
     pruneRevenueCatEventUserReferences,
     summarizeRevenueCatEventUsers,
-} from "../../model/subscriptions/revenueCatEventUsers";
+} from "../model/subscriptions/revenueCatEventUsers";
 
 describe("RevenueCat event user helpers", () => {
     it("does not infer per-user status from target references alone", () => {

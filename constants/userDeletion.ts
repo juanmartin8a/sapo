@@ -1,23 +1,46 @@
-export const USER_DELETION_LATE_AUTH_WAIT_STATUS = "awaiting_auth_delete_late" as const;
-export const USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS = "auth_delete_dead_letter" as const;
-export const USER_DELETION_CLEANUP_DEAD_LETTER_STATUS = "cleanup_dead_letter" as const;
+export const USER_DELETION_QUEUE_STATUS = {
+    PREPARING: "preparing",
+    AWAITING_AUTH_DELETE: "awaiting_auth_delete",
+    AWAITING_AUTH_DELETE_LATE: "awaiting_auth_delete_late",
+    AUTH_DELETE_DEAD_LETTER: "auth_delete_dead_letter",
+    CLEANUP_DEAD_LETTER: "cleanup_dead_letter",
+    READY_FOR_CLEANUP: "ready_for_cleanup",
+    WAITING_FOR_QUIESCENCE: "waiting_for_quiescence",
+    RETRYABLE_ERROR: "retryable_error",
+    CLEANUP_IN_PROGRESS: "cleanup_in_progress",
+} as const;
+
+export const USER_DELETION_LATE_AUTH_WAIT_STATUS =
+    USER_DELETION_QUEUE_STATUS.AWAITING_AUTH_DELETE_LATE;
+export const USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS =
+    USER_DELETION_QUEUE_STATUS.AUTH_DELETE_DEAD_LETTER;
+export const USER_DELETION_CLEANUP_DEAD_LETTER_STATUS =
+    USER_DELETION_QUEUE_STATUS.CLEANUP_DEAD_LETTER;
 
 export const USER_DELETION_QUEUE_STATUSES = [
-    "preparing",
-    "awaiting_auth_delete",
-    USER_DELETION_LATE_AUTH_WAIT_STATUS,
-    USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS,
-    USER_DELETION_CLEANUP_DEAD_LETTER_STATUS,
-    "ready_for_cleanup",
-    "waiting_for_quiescence",
-    "retryable_error",
-    "cleanup_in_progress",
+    USER_DELETION_QUEUE_STATUS.PREPARING,
+    USER_DELETION_QUEUE_STATUS.AWAITING_AUTH_DELETE,
+    USER_DELETION_QUEUE_STATUS.AWAITING_AUTH_DELETE_LATE,
+    USER_DELETION_QUEUE_STATUS.AUTH_DELETE_DEAD_LETTER,
+    USER_DELETION_QUEUE_STATUS.CLEANUP_DEAD_LETTER,
+    USER_DELETION_QUEUE_STATUS.READY_FOR_CLEANUP,
+    USER_DELETION_QUEUE_STATUS.WAITING_FOR_QUIESCENCE,
+    USER_DELETION_QUEUE_STATUS.RETRYABLE_ERROR,
+    USER_DELETION_QUEUE_STATUS.CLEANUP_IN_PROGRESS,
 ] as const;
 
+export const USER_DELETION_CLEANUP_STEP = {
+    ACQUIRED: "acquired",
+    WAITING_FOR_QUIESCENCE: "waiting_for_quiescence",
+    DELETING_REVENUECAT_SUBSCRIBER: "deleting_revenuecat_subscriber",
+    DELETING_SUBSCRIPTION_DATA: "deleting_subscription_data",
+    FINALIZING_SUBSCRIPTION_DATA: "finalizing_subscription_data",
+} as const;
+
 export const USER_DELETION_CLEANUP_STEPS = [
-    "acquired",
-    "waiting_for_quiescence",
-    "deleting_revenuecat_subscriber",
-    "deleting_subscription_data",
-    "finalizing_subscription_data",
+    USER_DELETION_CLEANUP_STEP.ACQUIRED,
+    USER_DELETION_CLEANUP_STEP.WAITING_FOR_QUIESCENCE,
+    USER_DELETION_CLEANUP_STEP.DELETING_REVENUECAT_SUBSCRIBER,
+    USER_DELETION_CLEANUP_STEP.DELETING_SUBSCRIPTION_DATA,
+    USER_DELETION_CLEANUP_STEP.FINALIZING_SUBSCRIPTION_DATA,
 ] as const;
