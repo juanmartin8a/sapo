@@ -1,13 +1,18 @@
 import { fetch as expoFetch } from "expo/fetch";
 
 import { ABORT_ERROR_NAME } from "@/constants/errors";
+import {
+    HTTP_ROUTES,
+    SAPOPINGUINO_SSE_EVENTS,
+    STREAM_END_MARKER,
+    STREAM_ERROR_MARKER,
+} from "@/constants/http";
+import { SUBSCRIPTION_QUOTA_ERROR_CODES } from "@/constants/subscription";
 import { getConvexAccessTokenWithUserId } from "@/lib/auth-client";
 import type { TransformationOperation } from "@/types/translation";
 
-const STREAM_END_MARKER = "<end:)>";
-const STREAM_ERROR_MARKER = "<error:/>";
 const STREAM_RESPONSE_TIMEOUT_MS = 15_000;
-const STREAM_IDLE_TIMEOUT_MS = 20_000;
+const STREAM_IDLE_TIMEOUT_MS = 25_000;
 const STREAM_TOTAL_TIMEOUT_MS = 135_000;
 
 export type TranslationStreamToken = {
@@ -58,7 +63,9 @@ type PayloadResult =
     | { type: "protocol-error"; error: unknown };
 
 export function getTranslationStreamEndpointPath(operation: TransformationOperation) {
-    return operation === "translate" ? "/sapopinguino-translate" : "/sapopinguino";
+    return operation === "translate"
+        ? HTTP_ROUTES.SAPOPINGUINO_TRANSLATE
+        : HTTP_ROUTES.SAPOPINGUINO_RESPELL;
 }
 
 function splitSSEEventsFromChunkBuffer(chunkBuffer: string): { events: string[]; remainder: string } {
@@ -128,15 +135,15 @@ function parseSSEEvent(rawEvent: string): ParsedSSEEvent {
 }
 
 function getStreamErrorMessageFromCode(errorCode: string | null, status: number) {
-    if (errorCode === "monthly_limit_exceeded" || status === 429) {
+    if (errorCode === SUBSCRIPTION_QUOTA_ERROR_CODES.MONTHLY_LIMIT_EXCEEDED || status === 429) {
         return "Quota limit reached.";
     }
 
-    if (errorCode === "input_limit_exceeded") {
+    if (errorCode === SUBSCRIPTION_QUOTA_ERROR_CODES.INPUT_LIMIT_EXCEEDED) {
         return "Input limit reached.";
     }
 
-    if (errorCode === "user_deletion_in_progress") {
+    if (errorCode === SUBSCRIPTION_QUOTA_ERROR_CODES.USER_DELETION_IN_PROGRESS) {
         return "Account deletion is in progress.";
     }
 
@@ -225,7 +232,7 @@ function processSSEEvent(
         return { type: "continue" };
     }
 
-    if (event === "error") {
+    if (event === SAPOPINGUINO_SSE_EVENTS.ERROR) {
         callbacks.onStreamError(
             data === STREAM_ERROR_MARKER ? "An error occurred" : resolveStreamErrorMessage(data, 500),
             "event"
@@ -233,7 +240,7 @@ function processSSEEvent(
         return { type: "stop" };
     }
 
-    if (event === "done") {
+    if (event === SAPOPINGUINO_SSE_EVENTS.DONE) {
         callbacks.onDone();
         return { type: "stop" };
     }

@@ -155,7 +155,7 @@ function shouldAnimateStatusChange(
     );
 }
 
-export default function DeleteAccountConfirmationScreen() {
+export default function DeleteAccountScreen() {
     const { width: windowWidth } = useWindowDimensions();
     const router = useRouter();
     const rootNavigation = useNavigationContainerRef();

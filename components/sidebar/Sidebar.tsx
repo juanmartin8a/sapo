@@ -19,18 +19,19 @@ import useHomeBottomSheetStore from '@/stores/homeBottomSheetStore';
 import useLocalModelStore from '@/stores/localModelStore';
 import { HomeBottomSheetKey } from '@/types/bottomSheets';
 import { LOCAL_TRANSLATION_MODELS } from '@/constants/localModelCatalog';
-import SideBarFooter from './SidebarFooter';
+import SidebarFooter from './SidebarFooter';
 import useSubscriptionStatusStore from '@/stores/subscriptionStatusStore';
 import { useAuthState } from '@/providers/AuthStateProvider';
 import { triggerErrorHaptic, triggerLightImpactHaptic, triggerSelectionHaptic } from '@/lib/haptics';
+import { UI_DISABLED_OPACITY } from '@/constants/ui';
 
 export const SIDEBAR_WIDTH = Dimensions.get("window").width * 0.7;
 
-type SideBarProps = {
+type SidebarProps = {
     translationX: SharedValue<number>
 }
 
-const SideBar = ({ translationX }: SideBarProps) => {
+const Sidebar = ({ translationX }: SidebarProps) => {
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const { status: authStatus, userId } = useAuthState();
@@ -515,7 +516,7 @@ const SideBar = ({ translationX }: SideBarProps) => {
                         </TouchableOpacity>
                 </View>
             </View>
-            <SideBarFooter />
+            <SidebarFooter />
         </Animated.View>
     );
 };
@@ -624,7 +625,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
     },
     localModelActionButtonDisabled: {
-        opacity: 0.45,
+        opacity: UI_DISABLED_OPACITY,
     },
     localModelActionButtonText: {
         color: '#fff',
@@ -665,7 +666,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#000',
     },
     operationOptionDisabled: {
-        opacity: 0.45,
+        opacity: UI_DISABLED_OPACITY,
     },
     operationOptionText: {
         fontSize: 14,
@@ -738,4 +739,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default SideBar;
+export default Sidebar;

@@ -1,7 +1,7 @@
 import React, { cloneElement, isValidElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import AppleLogo from '@/assets/icons/apple_logo.svg';
+import AppleLogo from '@/assets/icons/apple-logo.svg';
 import { authClient } from '@/lib/auth-client';
 import { triggerLightImpactHaptic } from '@/lib/haptics';
 

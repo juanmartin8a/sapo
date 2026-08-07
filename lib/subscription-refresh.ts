@@ -1,5 +1,12 @@
 import { getConvexAccessToken } from "@/lib/auth-client";
 import { ABORT_ERROR_NAME } from "@/constants/errors";
+import { HTTP_ROUTES } from "@/constants/http";
+import {
+    SUBSCRIPTION_REFRESH_COOLDOWN_KINDS,
+    type SubscriptionPlanKey,
+    type SubscriptionRefreshRateLimitKind as RefreshCooldownKind,
+} from "@/constants/subscription";
+import { getRequiredConvexSiteUrl } from "@/lib/client-config";
 
 type RefreshSubscriptionResponse = {
     ok?: boolean;
@@ -8,7 +15,7 @@ type RefreshSubscriptionResponse = {
     limited_kind?: RefreshCooldownKind;
     refresh?: {
         has_active_subscription?: boolean;
-        plan_key?: "free" | "polyglot";
+        plan_key?: SubscriptionPlanKey;
     };
 };
 
@@ -20,8 +27,6 @@ type RefreshSubscriptionStateOptions = {
     expectActiveSubscription?: boolean;
     retryDelaysMs?: readonly number[];
 };
-
-type RefreshCooldownKind = "refresh_normal" | "refresh_purchase" | "refresh_daily";
 
 const REVENUECAT_UPDATE_REFRESH_RETRY_DELAYS_MS = [1_000, 2_000, 4_000] as const;
 const REVENUECAT_UPDATE_BACKGROUND_REFRESH_RETRY_DELAYS_MS = [15_000] as const;
@@ -65,7 +70,7 @@ type ActiveRefresh = {
     promise: Promise<RefreshSubscriptionResult | null>;
 };
 
-const REFRESH_COOLDOWN_KINDS = ["refresh_normal", "refresh_purchase", "refresh_daily"] as const;
+const REFRESH_COOLDOWN_KINDS = SUBSCRIPTION_REFRESH_COOLDOWN_KINDS;
 const activeRefreshesByUserId = new Map<string, ActiveRefresh>();
 const refreshCooldownsByUserId = new Map<
     string,
@@ -78,13 +83,7 @@ function sleep(milliseconds: number) {
 }
 
 function getRefreshUrl() {
-    const baseUrl = process.env.EXPO_PUBLIC_CONVEX_SITE_URL ?? "";
-
-    if (baseUrl.length === 0) {
-        throw new Error("Missing EXPO_PUBLIC_CONVEX_SITE_URL");
-    }
-
-    return `${baseUrl.replace(/\/$/, "")}/refresh`;
+    return `${getRequiredConvexSiteUrl()}${HTTP_ROUTES.SUBSCRIPTION_REFRESH}`;
 }
 
 function getRefreshErrorMessage(status: number) {
@@ -92,11 +91,7 @@ function getRefreshErrorMessage(status: number) {
 }
 
 function isRefreshCooldownKind(value: unknown): value is RefreshCooldownKind {
-    return (
-        value === "refresh_normal" ||
-        value === "refresh_purchase" ||
-        value === "refresh_daily"
-    );
+    return REFRESH_COOLDOWN_KINDS.some((kind) => kind === value);
 }
 
 function parsePositiveNumber(value: unknown) {

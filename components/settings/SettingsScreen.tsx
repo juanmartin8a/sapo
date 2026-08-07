@@ -15,7 +15,6 @@ export default function SettingsScreen() {
             <SettingsAccountSection
                 isSigningOut={actions.isSigningOut}
                 isRestoringPurchases={actions.isRestoringPurchases}
-                isManagingSubscription={actions.isManagingSubscription}
                 isRestorePurchasesDisabled={actions.isRestorePurchasesDisabled}
                 isManageSubscriptionDisabled={actions.isManageSubscriptionDisabled}
                 shouldShowAuthenticatedActions={actions.shouldShowAuthenticatedActions}

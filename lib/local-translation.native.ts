@@ -6,10 +6,13 @@ import {
 } from "@/lib/local-model";
 import { ABORT_ERROR_NAME } from "@/constants/errors";
 import { AUTO_DETECT_LANGUAGE_LABEL } from "@/constants/languages";
-import { LOCAL_TRANSLATIONS_MOBILE_ONLY_ERROR } from "@/constants/localModels";
+import {
+    LOCAL_TRANSLATION_INPUT_LIMIT,
+    LOCAL_TRANSLATIONS_MOBILE_ONLY_ERROR,
+} from "@/constants/localModels";
 import type { LocalTranslationModelId } from "@/types/localModels";
 import type { LocalTranslationArgs, LocalTranslationOptions } from "@/types/localTranslation";
-import { getCharacterCount, LOCAL_TRANSLATION_INPUT_LIMIT } from "@/utils/inputLimits";
+import { getCharacterCount } from "@/utils/inputLimits";
 import type { LiteRTLMInstance } from "react-native-litert-lm";
 
 declare const require: (moduleName: string) => unknown;

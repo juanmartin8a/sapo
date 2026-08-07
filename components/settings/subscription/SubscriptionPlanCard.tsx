@@ -1,9 +1,12 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 import CheckIcon from "@/assets/icons/check.svg";
-import { SETTINGS_COLORS, SETTINGS_DISABLED_OPACITY } from "@/constants/settings";
-import { SUBSCRIPTION_PLAN_DISPLAY_NAMES } from "@/constants/subscription";
-import { DEFAULT_SUBSCRIPTION_PLAN_LIMITS } from "@/convex/constants/subscriptions";
+import { SETTINGS_COLORS } from "@/constants/settings";
+import {
+    SUBSCRIPTION_PLAN_DISPLAY_NAMES,
+    SUBSCRIPTION_PLAN_LIMITS,
+} from "@/constants/subscription";
+import { UI_DISABLED_OPACITY } from "@/constants/ui";
 
 interface SubscriptionPlanCardProps {
     displayPrice: string;
@@ -18,7 +21,7 @@ interface SubscriptionPlanCardProps {
     onOpenPrivacyPolicy: () => void;
 }
 
-const polyglotPlanLimits = DEFAULT_SUBSCRIPTION_PLAN_LIMITS.polyglot;
+const polyglotPlanLimits = SUBSCRIPTION_PLAN_LIMITS.polyglot;
 const PLAN_FEATURES = [
     `${polyglotPlanLimits.respell_monthly_char_limit.toLocaleString("en-US")} respell input characters`,
     `${polyglotPlanLimits.translate_monthly_char_limit.toLocaleString("en-US")} translate input characters`,
@@ -196,7 +199,7 @@ const styles = StyleSheet.create({
         opacity: 0.78,
     },
     subscribeButtonDisabled: {
-        opacity: SETTINGS_DISABLED_OPACITY,
+        opacity: UI_DISABLED_OPACITY,
     },
     subscribeButtonText: {
         color: PLAN_CARD_COLORS.white,

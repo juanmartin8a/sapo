@@ -6,7 +6,6 @@ import { SETTINGS_ROUTES } from "@/constants/routes";
 interface SettingsAccountSectionProps {
     isSigningOut: boolean;
     isRestoringPurchases: boolean;
-    isManagingSubscription: boolean;
     isRestorePurchasesDisabled: boolean;
     isManageSubscriptionDisabled: boolean;
     shouldShowAuthenticatedActions: boolean;
@@ -19,7 +18,6 @@ interface SettingsAccountSectionProps {
 export default function SettingsAccountSection({
     isSigningOut,
     isRestoringPurchases,
-    isManagingSubscription,
     isRestorePurchasesDisabled,
     isManageSubscriptionDisabled,
     shouldShowAuthenticatedActions,

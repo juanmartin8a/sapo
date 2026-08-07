@@ -8,7 +8,7 @@ Compact guidance for future OpenCode sessions in this repo.
 - `app/_layout.tsx` wires the global providers: Convex, Better Auth, auth gating, RevenueCat identity sync, and keyboard handling.
 - App state is in Zustand stores under `stores/`; reusable React behavior is in `hooks/`; app-wide lifecycle components are in `providers/`; external and native integrations are in `lib/`.
 - `convex/` is both backend code and a configured git submodule (`.gitmodules`); edits there are in the nested repo and root git status only shows the submodule pointer. If it is missing after clone, run `git submodule update --init --recursive`.
-- Convex is componentized: root `convex/convex.config.ts` uses `betterAuth`, `sapopinguino`, `subscriptions`, and `@convex-dev/resend` components.
+- Convex is componentized: root `convex/convex.config.ts` uses `betterAuth`, `operations`, `subscriptions`, and `@convex-dev/resend` components.
 
 ## Commands
 
@@ -32,10 +32,9 @@ Compact guidance for future OpenCode sessions in this repo.
 
 ## Generated And Integration Files
 
-- Do not hand-edit Convex generated output: `convex/_generated/`, `convex/betterAuth/_generated/`, `convex/sapopinguino/_generated/`, or `convex/subscriptions/_generated/`. Regenerate with `npm exec convex dev`.
+- Do not hand-edit Convex generated output: `convex/_generated/`, `convex/betterAuth/_generated/`, `convex/operations/_generated/`, or `convex/subscriptions/_generated/`. Regenerate with `npm exec convex dev`.
 - Do not hand-edit `expo-env.d.ts`; Expo owns it.
 - SVGs are imported as React components; `metro.config.js` removes `svg` from asset extensions and uses `react-native-svg-transformer/expo`.
-- Metro has `resolver.unstable_enablePackageExports = true`; avoid removing it while debugging package resolution.
 
 ## Environment Gotchas
 
