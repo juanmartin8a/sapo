@@ -11,6 +11,10 @@
     "preview": {
       "distribution": "internal"
     },
+    "production-test": {
+      "distribution": "internal",
+      "environment":"production" 
+    },
     "production": {
       "autoIncrement": true
     }
