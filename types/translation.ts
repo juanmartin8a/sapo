@@ -1,1 +1,1 @@
-export type TransformationOperation = "translate" | "respell";
+export type { TransformationOperation } from "@/constants/subscription";

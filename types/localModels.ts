@@ -1,4 +1,7 @@
-export type LocalTranslationModelId = "gemma4-e2b-it" | "gemma4-e4b-it";
+import { LOCAL_TRANSLATION_MODEL_IDS } from "@/constants/localModels";
+
+export type LocalTranslationModelId =
+    (typeof LOCAL_TRANSLATION_MODEL_IDS)[keyof typeof LOCAL_TRANSLATION_MODEL_IDS];
 export type SelectedLocalTranslationModelId = LocalTranslationModelId | null;
 
 export type LocalTranslationModel = {

@@ -6,28 +6,34 @@ import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
-function createNativeAuthClient() {
+import { CONVEX_SITE_URL } from "@/lib/client-config";
+
+// Migrating to typescript 7 would remove the need for doing this but eslint does not support typescript 7 yet.
+type AuthClient = ReturnType<
+    typeof createAuthClient<{ plugins: [ReturnType<typeof convexClient>] }>
+>;
+
+function createNativeAuthClient(): AuthClient {
     return createAuthClient({
-        baseURL: process.env.EXPO_PUBLIC_CONVEX_SITE_URL,
+        baseURL: CONVEX_SITE_URL ?? undefined,
         plugins: [
             convexClient(),
+            // @ts-expect-error @better-auth/expo 1.6.26 uses an incompatible BetterFetch generic.
             expoClient({
                 scheme: Constants.expoConfig?.scheme as string,
                 storagePrefix: Constants.expoConfig?.scheme as string,
                 storage: SecureStore,
             }),
         ],
-    });
+    }) as unknown as AuthClient;
 }
-
-type AuthClient = ReturnType<typeof createNativeAuthClient>;
 
 function createWebAuthClient(): AuthClient {
     // crossDomainClient touches localStorage, so only construct it on web.
     const webAuthClientPlugin = crossDomainClient() as unknown as BetterAuthClientPlugin;
 
     return createAuthClient({
-        baseURL: process.env.EXPO_PUBLIC_CONVEX_SITE_URL,
+        baseURL: CONVEX_SITE_URL ?? undefined,
         plugins: [convexClient(), webAuthClientPlugin],
     }) as unknown as AuthClient;
 }

@@ -5,9 +5,9 @@ import SettingsIcon from "@/components/settings/ui/SettingsIcon";
 import type { SettingsRowProps } from "@/components/settings/ui/SettingsRow.types";
 import {
     SETTINGS_COLORS,
-    SETTINGS_DISABLED_OPACITY,
     SETTINGS_ROW_CONTENT_SPACING,
 } from "@/constants/settings";
+import { UI_DISABLED_OPACITY } from "@/constants/ui";
 
 export default function SettingsRow({
     label,
@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
         color: SETTINGS_COLORS.destructiveText,
     },
     disabled: {
-        opacity: SETTINGS_DISABLED_OPACITY,
+        opacity: UI_DISABLED_OPACITY,
     },
     pressed: {
         opacity: 0.65,

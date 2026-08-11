@@ -11,6 +11,7 @@ import {
     runTranslationStream,
     type TranslationStreamToken,
 } from "@/lib/translation-stream";
+import { CONVEX_SITE_URL } from "@/lib/client-config";
 import {
     DEFAULT_SOURCE_LANGUAGE_ID,
     DEFAULT_TARGET_LANGUAGE_ID,
@@ -164,7 +165,7 @@ const useTranslationStore = create<TranslationStoreState>((set, get) => {
 
             const operation = useTransformationOperationStore.getState().operation;
             const endpointPath = getTranslationStreamEndpointPath(operation);
-            const convexSiteUrl = process.env.EXPO_PUBLIC_CONVEX_SITE_URL;
+            const convexSiteUrl = CONVEX_SITE_URL;
             const streamId = globalThis.crypto?.randomUUID?.()
                 ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
             const isLatestSendMessage = () => activeSendMessageId === streamId;

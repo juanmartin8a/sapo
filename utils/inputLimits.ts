@@ -1,9 +1,6 @@
+import { LOCAL_TRANSLATION_INPUT_LIMIT } from "@/constants/localModels";
+import { SUBSCRIPTION_PLAN_LIMITS } from "@/constants/subscription";
 import type { TransformationOperation } from "@/types/translation";
-
-export const LOCAL_TRANSLATION_INPUT_LIMIT = 2_000;
-export const FREE_TRANSLATION_INPUT_LIMIT = 500;
-export const PAID_TRANSLATION_INPUT_LIMIT = 10_000;
-export const PAID_RESPELL_INPUT_LIMIT = 2_000;
 
 export const getInputLimit = (
     operation: TransformationOperation,
@@ -19,10 +16,14 @@ export const getInputLimit = (
     }
 
     if (!hasActiveSubscription) {
-        return operation === "translate" ? FREE_TRANSLATION_INPUT_LIMIT : 0;
+        return operation === "translate"
+            ? SUBSCRIPTION_PLAN_LIMITS.free.translate_input_char_limit
+            : SUBSCRIPTION_PLAN_LIMITS.free.respell_input_char_limit;
     }
 
-    return operation === "respell" ? PAID_RESPELL_INPUT_LIMIT : PAID_TRANSLATION_INPUT_LIMIT;
+    return operation === "respell"
+        ? SUBSCRIPTION_PLAN_LIMITS.polyglot.respell_input_char_limit
+        : SUBSCRIPTION_PLAN_LIMITS.polyglot.translate_input_char_limit;
 };
 
 export const getCharacterCount = (text: string) => Array.from(text).length;

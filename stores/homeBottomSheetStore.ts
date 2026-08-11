@@ -1,32 +1,4 @@
-// Bottom-sheet Flow for Home Bottom-sheets (written by me)
-
-// When a bottom sheet is in screen and a new bottom sheet is triggered to open then the current bottom sheet has to close
-// This can be known by the bottom sheet that needs to close if `loading` is equal to true, the value of `bottomSheetToOpen` is not equal to the bottom sheet key that represents the component, and `bottomSheet` is equal to the bottom sheet key that represents the component
-// If the above is true then the component (bottom sheet) will close and trigger the `onClose` event which will convert the value of `bottomSheet` to the value of `bottomSheetToOpen`
-// At this point `bottomSheet` = `bottomSheetToOpen`, `bottomSheetToOpen` = `bottomSheetToOpen`, and `loading` = true
-// `loading` cannot be set to false until the requested bottom sheet is fully open at at least snap index 0
-// The bottom sheet component checks that both `bottomSheetToOpen` and `bottomSheet` are equal to the bottom sheet key representing the component
-// and `bottomSheet` is checked for that too except that it can also be undefined in cases where there was no bottom sheet
-// When that is true then the bottom sheet uses `.snapToIndex(0)`
-// The process is now complete but there is just one step missing
-// When the bottom sheet reaches at least index 0 then
-// the `bottomSheetOpened()` function from this store is triggered and `bottomSheetToOpen` is set to undefined, `loading` to false, and `bottomSheet` remains being the currently opened bottom sheet
-
-// When a bottom sheet is openening and a user grabs the bottom sheet before it fully opens, `loading` stays true because it never got to a snap index of at least 0
-// In this case loading remains true, then no bottom sheet will be able to slide up again
-// To prevent this issue, each bottom sheet component that represents a key from `HomeBottomSheetKey`
-// has a `initSnapSuccess` boolean variable that starts of as false and flips to true when the bottom sheet reaches its first snap position (index 0)
-// The variable later returns to false again on a `onClose` event
-// When the bottom sheet is closed and `"initSnapSuccess" === false` then it most probably means that the bottom sheet was cancelled before it opened
-// so `true` is passed as a parameter to the `bottomSheetClosed` function in this store to reset the values of the variables in this store.
-
-// If the bottom sheet is opened when there was no bottom sheet previously in the screen
-// Then `bottomSheetClosed()`, the one responsible for setting `bottomSheet` = `bottomSheetToOpen`, is never called and `bottomSheetOpened()` is called directly when the bottom sheet fully expands to at least snap index 0
-// In this exclusive case, then `bottomSheet` has a value of undefined, therefore we can add a conditional that checks for `bottomSheet` being equal to undefined to give it the value of `bottomSheetToOpen`
-// And then making the same changes as before `bottomSheetToOpen` = undefined and `loading` = false
-
-
-// Home bottom-sheet flow overview (written by codex):
+// Home bottom-sheet flow overview:
 // 1. When a sheet is already visible and a different sheet is requested, we set `loading` to true and store the key in
 //    `bottomSheetToOpen`. The currently visible sheet compares its key (stored in `bottomSheet`) against `bottomSheetToOpen`.
 //    If the keys differ while `loading` is true, the sheet closes itself and triggers `onClose`, which copies

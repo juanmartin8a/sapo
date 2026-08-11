@@ -8,9 +8,9 @@ import TrashIcon from "@/assets/icons/trash.svg";
 import {
     SETTINGS_ANDROID_FOOTNOTE_FONT_SIZE,
     SETTINGS_COLORS,
-    SETTINGS_DISABLED_OPACITY,
     SETTINGS_ROW_CONTENT_SPACING,
 } from "@/constants/settings";
+import { UI_DISABLED_OPACITY } from "@/constants/ui";
 import type {
     LocalModelDownloadProgress,
     LocalModelStatus,
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
         width: 36,
     },
     disabledButton: {
-        opacity: SETTINGS_DISABLED_OPACITY,
+        opacity: UI_DISABLED_OPACITY,
     },
     pressedButton: {
         opacity: 0.6,

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, NativeSyntheticEvent, NativeScrollEvent, TextLayoutEventData, Dimensions } from 'react-native';
 import useTranslationStore from '@/stores/translationStore';
 import SapoIcon from "../../assets/icons/sapo.svg"
-import SapoBocaAbiertaIcon from "../../assets/icons/sapo_boca_abierta.svg"
+import SapoBocaAbiertaIcon from "../../assets/icons/sapo-boca-abierta.svg"
 import { triggerLightImpactHaptic } from '@/lib/haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 

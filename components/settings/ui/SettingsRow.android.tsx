@@ -7,9 +7,9 @@ import SettingsIcon from "@/components/settings/ui/SettingsIcon";
 import type { SettingsRowProps } from "@/components/settings/ui/SettingsRow.types";
 import {
     SETTINGS_COLORS,
-    SETTINGS_DISABLED_OPACITY,
     SETTINGS_ROW_CONTENT_SPACING,
 } from "@/constants/settings";
+import { UI_DISABLED_OPACITY } from "@/constants/ui";
 
 export default function SettingsRow({
     label,
@@ -27,7 +27,7 @@ export default function SettingsRow({
             disabled={disabled}
             modifiers={[fillMaxWidth()]}
             onPress={onPress}
-            style={disabled ? { opacity: SETTINGS_DISABLED_OPACITY } : undefined}
+            style={disabled ? { opacity: UI_DISABLED_OPACITY } : undefined}
         >
             <RNHostView matchContents>
                 <SettingsIcon

@@ -7,7 +7,7 @@ import { APP_ROUTES } from '@/constants/routes';
 import { SUBSCRIPTION_PLAN_DISPLAY_NAMES } from '@/constants/subscription';
 import { useAuthState } from '@/providers/AuthStateProvider';
 
-const SideBarFooter = () => {
+const SidebarFooter = () => {
     const router = useRouter();
     const { status, userId, email } = useAuthState();
     const subscriptionUserId = useSubscriptionStatusStore((state) => state.userId);
@@ -173,4 +173,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default SideBarFooter;
+export default SidebarFooter;

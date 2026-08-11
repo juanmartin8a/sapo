@@ -12,7 +12,7 @@ import Animated, {
     Easing,
 } from 'react-native-reanimated';
 import { runOnJS } from 'react-native-worklets';
-import SideBar, { SIDEBAR_WIDTH } from "@/components/sidebar/Sidebar";
+import Sidebar, { SIDEBAR_WIDTH } from "@/components/sidebar/Sidebar";
 import Translate from "@/components/home/Translate";
 import useSidebarStore from "@/stores/sidebarStore";
 import useTransformationOperationStore from "@/stores/transformationOperationStore";
@@ -245,7 +245,7 @@ export default function HomeScreen() {
             <GestureHandlerRootView style={{ flex: 1 }}>
                 <GestureDetector gesture={panGesture}>
                     <View style={{ flex: 1 }}>
-                        <SideBar translationX={sideBarTranslationX} />
+                        <Sidebar translationX={sideBarTranslationX} />
 
                         <Animated.View style={[styles.mainContent, mainContentAnimatedStyle]}>
                             <Header

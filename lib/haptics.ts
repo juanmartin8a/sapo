@@ -17,15 +17,6 @@ const trigger = (haptic: () => Promise<void>) => {
     }
 };
 
-export const triggerSoftSelectionHaptic = () => {
-    if (Platform.OS === 'android') {
-        trigger(() => Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Segment_Tick));
-        return;
-    }
-
-    trigger(() => Haptics.selectionAsync());
-};
-
 export const triggerSelectionHaptic = () => {
     if (Platform.OS === 'android') {
         trigger(() => Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Context_Click));
@@ -60,15 +51,6 @@ export const triggerStrongImpactHaptic = () => {
     }
 
     trigger(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy));
-};
-
-export const triggerStopHaptic = () => {
-    if (Platform.OS === 'android') {
-        trigger(() => Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Gesture_End));
-        return;
-    }
-
-    trigger(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid));
 };
 
 export const triggerWarningHaptic = () => {
