@@ -13,11 +13,7 @@ import {
     readSapopinguinoJsonRequestBody,
     sanitizeSapopinguinoInputPayload,
 } from "./input";
-import {
-    streamOpenAIResponses,
-    STREAM_END_MARKER,
-    STREAM_ERROR_MARKER,
-} from "./openAiResponses";
+import { streamOpenAIResponses } from "./openAiResponses";
 import { createAbortableStream } from "./abortableStream";
 import { closeStreamOutput, tryEnqueueStreamOutput } from "./streamOutput";
 import { ABORT_ERROR_NAME } from "../../constants/errors";
@@ -26,7 +22,14 @@ import {
     POST_OPTIONS_METHODS,
     SAPOPINGUINO_STREAM_CACHE_CONTROL,
 } from "../../constants/http";
-import { SUBSCRIPTION_USAGE_OPERATIONS } from "../../constants/subscriptions";
+import {
+    SUBSCRIPTION_QUOTA_ERROR_CODES,
+    SUBSCRIPTION_USAGE_OPERATIONS,
+} from "../../constants/subscriptions";
+import {
+    STREAM_END_MARKER,
+    STREAM_ERROR_MARKER,
+} from "../../constants/sapopinguino";
 import { refreshSubscriptionStateFromRevenueCatHandler } from "../subscriptions/workers";
 
 type StreamRequestBody = {
@@ -57,13 +60,13 @@ export function responseHeaders(
 
 function getQuotaErrorMessage(reason: string) {
     switch (reason) {
-        case "monthly_limit_exceeded":
+        case SUBSCRIPTION_QUOTA_ERROR_CODES.MONTHLY_LIMIT_EXCEEDED:
             return "Quota limit reached.";
-        case "input_limit_exceeded":
+        case SUBSCRIPTION_QUOTA_ERROR_CODES.INPUT_LIMIT_EXCEEDED:
             return "Input limit reached.";
-        case "subscription_required":
+        case SUBSCRIPTION_QUOTA_ERROR_CODES.SUBSCRIPTION_REQUIRED:
             return "An active subscription is required for respelling.";
-        case "user_deletion_in_progress":
+        case SUBSCRIPTION_QUOTA_ERROR_CODES.USER_DELETION_IN_PROGRESS:
             return "Account deletion is in progress.";
         default:
             return "Unable to start this request.";
@@ -159,7 +162,11 @@ export async function handleSapopinguinoRequest(
     }
 
     if (refreshResult.status === "deletion_in_progress") {
-        return sapopinguinoQuotaErrorResponse(request, 409, "user_deletion_in_progress");
+        return sapopinguinoQuotaErrorResponse(
+            request,
+            409,
+            SUBSCRIPTION_QUOTA_ERROR_CODES.USER_DELETION_IN_PROGRESS
+        );
     }
 
     if (refreshResult.status === "user_missing") {

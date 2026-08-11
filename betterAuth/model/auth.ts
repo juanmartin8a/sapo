@@ -1,12 +1,15 @@
 import { createClient } from "@convex-dev/better-auth";
 import { convex, crossDomain } from "@convex-dev/better-auth/plugins";
-import type { GenericCtx } from "@convex-dev/better-auth/utils";
+import {
+    requireActionCtx,
+    type GenericCtx,
+} from "@convex-dev/better-auth/utils";
 import { betterAuth, type BetterAuthOptions } from "better-auth/minimal";
 import { internal, components } from "../../_generated/api";
 import type { DataModel } from "../../_generated/dataModel";
 import authConfig from "../../auth.config";
 import schema from "../schema";
-import { sendEmail } from "../../model/email";
+import { sendAccountDeletionVerificationEmail } from "../../model/email";
 import { expo } from "@better-auth/expo";
 import { resolveBetterAuthUserId } from "./user";
 import {
@@ -413,6 +416,15 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
         secret: process.env.BETTER_AUTH_SECRET,
         trustedOrigins: [APP_SCHEME_ORIGIN, ...clientOrigins, "https://appleid.apple.com"],
         database: authComponent.adapter(ctx),
+        rateLimit: {
+            storage: "database",
+            customRules: {
+                "/delete-user": {
+                    window: 60 * 60,
+                    max: 3,
+                },
+            },
+        },
         session: {
             cookieCache: {
                 enabled: true,
@@ -437,20 +449,13 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
         user: {
             deleteUser: {
                 enabled: true,
-                sendDeleteAccountVerification: async ({ user, url, token }) => {
-                    const verificationUrl = token ? buildDeleteAccountVerificationUrl(token) : url;
-
-                    await sendEmail(
-                        ctx,
+                deleteTokenExpiresIn: 60 * 60,
+                sendDeleteAccountVerification: async ({ user, token }) => {
+                    await sendAccountDeletionVerificationEmail(
+                        requireActionCtx(ctx),
                         user.email,
-                        "Verify Account Deletion",
-                        {
-                            id: 'verify_account_deletion',
-                            variables: {
-                                URL: verificationUrl
-                            }
-                        }
-                    )
+                        buildDeleteAccountVerificationUrl(token),
+                    );
                 },
                 beforeDelete: async (user) => {
                     await prepareAuthenticatedUserDeletion(ctx, user);
@@ -462,7 +467,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
                         console.error("Failed to mark queued account deletion after auth delete:", error);
                     }
                 },
-            }
+            },
         },
         socialProviders: {
             google: {
@@ -474,9 +479,6 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
                 clientId: process.env.APPLE_CLIENT_ID as string,
                 clientSecret: await generateAppleClientSecret(getAppleWebClientId()),
                 appBundleIdentifier: process.env.APPLE_APP_BUNDLE_IDENTIFIER as string,
-                mapProfileToUser: (profile) => ({
-                    email: profile.email ?? `${profile.sub}@apple.sapo.local`,
-                }),
             }),
         },
         plugins: [

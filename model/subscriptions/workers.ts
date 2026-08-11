@@ -7,6 +7,10 @@ import {
     type SubscriptionPlanKey,
 } from "../../constants/subscriptions";
 import {
+    REVENUECAT_TERMINAL_WEBHOOK_EVENT_STATUSES,
+    type RevenueCatWebhookEventStatus,
+} from "../../constants/revenueCat";
+import {
     USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS,
     USER_DELETION_CLEANUP_DEAD_LETTER_STATUS,
     USER_DELETION_LATE_AUTH_WAIT_STATUS,
@@ -135,10 +139,7 @@ type SubscriptionStateRefreshResult =
 
 type RevenueCatWebhookProcessingStatus =
     | "missing"
-    | "processed"
-    | "ignored"
-    | "failed"
-    | "dead_letter"
+    | Exclude<RevenueCatWebhookEventStatus, "pending">
     | "deferred";
 
 function mapProgressMutationStatusToProcessingStatus(
@@ -2100,11 +2101,7 @@ export const purgeExpiredRevenueCatEvents = async (ctx: ActionCtx) => {
         const retentionMs = getRevenueCatEventsRetentionMs();
         const olderThanMs = getRevenueCatEventsRetentionCutoffMs(nowMs, retentionMs);
 
-        const statusesToPurge: ("processed" | "ignored" | "dead_letter")[] = [
-            "processed",
-            "ignored",
-            "dead_letter",
-        ];
+        const statusesToPurge = REVENUECAT_TERMINAL_WEBHOOK_EVENT_STATUSES;
 
         let deletedCount = 0;
 

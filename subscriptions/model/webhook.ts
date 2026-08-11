@@ -90,10 +90,14 @@ import { getExclusiveLeaseOwnershipFailure } from "./leaseOwnership";
 import { MAX_PERSISTED_ERROR_MESSAGE_CHARS } from "../../constants/limits";
 import { FAR_FUTURE_TIMESTAMP_MS } from "../../constants/time";
 import {
+    SUBSCRIPTION_QUOTA_ERROR_CODES,
     SUBSCRIPTION_PLAN_KEYS,
+    SUBSCRIPTION_REFRESH_RATE_LIMIT_KINDS,
     SUBSCRIPTION_USAGE_OPERATIONS,
+    type SubscriptionRefreshRateLimitKind,
 } from "../../constants/subscriptions";
 import { REVENUECAT_TERMINAL_WEBHOOK_EVENT_STATUS_SET } from "../../constants/revenueCat";
+import { USER_DELETION_QUEUE_STATUS } from "../../constants/userDeletion";
 
 const TERMINAL_EVENT_STATUSES = REVENUECAT_TERMINAL_WEBHOOK_EVENT_STATUS_SET;
 const SUBSCRIPTION_SYNC_LEASE_MAX_MS = 30_000;
@@ -108,7 +112,7 @@ type RetryConfig = {
     retry_base_delay_ms: number;
     retry_max_delay_ms: number;
 };
-type RefreshRateLimitKind = "refresh_normal" | "refresh_purchase" | "refresh_daily";
+type RefreshRateLimitKind = SubscriptionRefreshRateLimitKind;
 type RefreshRateLimitBucketPlan = {
     kind: RefreshRateLimitKind;
     window_ms: number;
@@ -169,13 +173,13 @@ type MutableRevenueCatEventFields = Partial<
 type MutableUsageEventFields = Partial<Omit<Doc<"usage_events">, "_id" | "_creationTime">>;
 
 const AUTOMATIC_USER_DELETION_RETRY_STATUSES: UserDeletionQueueStatus[] = [
-    "preparing",
-    "awaiting_auth_delete",
+    USER_DELETION_QUEUE_STATUS.PREPARING,
+    USER_DELETION_QUEUE_STATUS.AWAITING_AUTH_DELETE,
     USER_DELETION_LATE_AUTH_WAIT_STATUS,
-    "ready_for_cleanup",
-    "waiting_for_quiescence",
-    "retryable_error",
-    "cleanup_in_progress",
+    USER_DELETION_QUEUE_STATUS.READY_FOR_CLEANUP,
+    USER_DELETION_QUEUE_STATUS.WAITING_FOR_QUIESCENCE,
+    USER_DELETION_QUEUE_STATUS.RETRYABLE_ERROR,
+    USER_DELETION_QUEUE_STATUS.CLEANUP_IN_PROGRESS,
 ];
 
 function resolveNextExpirationReconciliationAtMs(
@@ -1376,7 +1380,7 @@ async function evaluateQuotaAvailability(
     ) {
         return {
             allowed: false as const,
-            reason: "subscription_required" as const,
+            reason: SUBSCRIPTION_QUOTA_ERROR_CODES.SUBSCRIPTION_REQUIRED,
             plan_key: quotaContext.planKey,
             input_limit: quotaContext.operationLimits.input_limit,
             monthly_limit: quotaContext.operationLimits.period_limit,
@@ -1391,7 +1395,7 @@ async function evaluateQuotaAvailability(
     ) {
         return {
             allowed: false as const,
-            reason: "input_limit_exceeded" as const,
+            reason: SUBSCRIPTION_QUOTA_ERROR_CODES.INPUT_LIMIT_EXCEEDED,
             plan_key: quotaContext.planKey,
             input_limit: quotaContext.operationLimits.input_limit,
             monthly_limit: quotaContext.operationLimits.period_limit,
@@ -1431,7 +1435,7 @@ async function evaluateQuotaAvailability(
     ) {
         return {
             allowed: false as const,
-            reason: "monthly_limit_exceeded" as const,
+            reason: SUBSCRIPTION_QUOTA_ERROR_CODES.MONTHLY_LIMIT_EXCEEDED,
             plan_key: quotaContext.planKey,
             input_limit: reservationSnapshot.input_limit,
             monthly_limit: reservationSnapshot.period_limit,
@@ -1508,7 +1512,7 @@ export const reserveSubscriptionQuotaUsage = async (ctx: MutationCtx, args: Webh
         if (doesUserDeletionStatusBlockProcessing(activeDeletionOperation?.status)) {
             return {
                 allowed: false,
-                reason: "user_deletion_in_progress",
+                reason: SUBSCRIPTION_QUOTA_ERROR_CODES.USER_DELETION_IN_PROGRESS,
             };
         }
 
@@ -2196,19 +2200,19 @@ export const deleteFrozenQuotaPeriodsEligibleForRetentionPurge = async (ctx: Mut
 export const consumeRefreshRateLimit = async (ctx: MutationCtx, args: WebhookArgs.ConsumeRefreshRateLimitArgs) => {
         const requestBucket: RefreshRateLimitBucketPlan = args.expects_active_subscription
             ? {
-                  kind: "refresh_purchase",
+                  kind: SUBSCRIPTION_REFRESH_RATE_LIMIT_KINDS.PURCHASE,
                   window_ms: args.config.purchase_window_ms,
                   max_count: args.config.purchase_max_count,
               }
             : {
-                  kind: "refresh_normal",
+                  kind: SUBSCRIPTION_REFRESH_RATE_LIMIT_KINDS.NORMAL,
                   window_ms: args.config.normal_window_ms,
                   max_count: args.config.normal_max_count,
               };
         const bucketPlans: RefreshRateLimitBucketPlan[] = [
             requestBucket,
             {
-                kind: "refresh_daily",
+                kind: SUBSCRIPTION_REFRESH_RATE_LIMIT_KINDS.DAILY,
                 window_ms: args.config.daily_window_ms,
                 max_count: args.config.daily_max_count,
             },

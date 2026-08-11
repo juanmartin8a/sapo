@@ -1,5 +1,6 @@
 import { components } from "../../_generated/api";
 import type { SubscriptionPlanKey } from "../../constants/subscriptions";
+import type { RevenueCatWebhookEventStatus } from "../../constants/revenueCat";
 import type { ActionCtx } from "../../_generated/server";
 import type { UserDeletionCleanupStep, UserDeletionQueueStatus } from "./userDeletionQueue";
 
@@ -40,7 +41,7 @@ export type RevenueCatWebhookEventForProcessing = {
     event_id: string;
     event_type: string;
     event_at_ms: number;
-    status: "pending" | "failed" | "processed" | "ignored" | "dead_letter";
+    status: RevenueCatWebhookEventStatus;
     user_id?: string;
     transaction_id?: string;
     target_user_ids: string[];
@@ -69,7 +70,7 @@ export type SubscriptionStateReconciliationLeaseResult =
       };
 
 export type RevenueCatEventProgressMutationResult = {
-    status: "missing" | "pending" | "failed" | "processed" | "ignored" | "dead_letter";
+    status: "missing" | RevenueCatWebhookEventStatus;
     pending_user_ids?: string[];
     processed_user_ids?: string[];
     ignored_user_ids?: string[];
@@ -79,7 +80,7 @@ export type RevenueCatEventProgressMutationResult = {
 };
 
 export type RevenueCatEventProcessingLeaseAcquisitionResult = {
-    status: "missing" | "pending" | "failed" | "processed" | "ignored" | "dead_letter";
+    status: "missing" | RevenueCatWebhookEventStatus;
     acquired_user_ids: string[];
     active_processing_user_ids: string[];
     blocked_user_ids: string[];

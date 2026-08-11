@@ -4,9 +4,6 @@ const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 const OPENAI_RESPONSES_TOTAL_TIMEOUT_MS = 120_000;
 const OPENAI_RESPONSES_STREAM_IDLE_TIMEOUT_MS = 20_000;
 
-export const STREAM_END_MARKER = "<end:)>";
-export const STREAM_ERROR_MARKER = "<error:/>";
-
 type OpenAIStreamEvent = {
     type?: string;
     delta?: string;

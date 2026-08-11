@@ -1,7 +1,6 @@
 const APPLE_BASE_URL = "https://appleid.apple.com";
-export const APPLE_TOKEN_URL = `${APPLE_BASE_URL}/auth/token`;
-export const APPLE_TOKEN_REVOCATION_URL = `${APPLE_BASE_URL}/auth/revoke`;
-const APPLE_CLIENT_SECRET_MAX_AGE_SECONDS = 15777000;
+const APPLE_TOKEN_URL = `${APPLE_BASE_URL}/auth/token`;
+const APPLE_TOKEN_REVOCATION_URL = `${APPLE_BASE_URL}/auth/revoke`;
 const APPLE_CLIENT_SECRET_AGE_SECONDS = 60 * 60;
 const TRANSIENT_REVOKE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
 
@@ -10,7 +9,6 @@ type AppleTokenResponse = {
     expires_in?: unknown;
     id_token?: unknown;
     refresh_token?: unknown;
-    token_type?: unknown;
 };
 
 type JwtClaims = {
@@ -124,7 +122,7 @@ export async function generateAppleClientSecret(clientId: string) {
     const keyId = requireAppleEnv("APPLE_KEY_ID");
     const privateKey = requireAppleEnv("APPLE_PRIVATE_KEY");
     const nowSeconds = Math.floor(Date.now() / 1000);
-    const expiresAtSeconds = nowSeconds + Math.min(APPLE_CLIENT_SECRET_AGE_SECONDS, APPLE_CLIENT_SECRET_MAX_AGE_SECONDS);
+    const expiresAtSeconds = nowSeconds + APPLE_CLIENT_SECRET_AGE_SECONDS;
     const key = await crypto.subtle.importKey(
         "pkcs8",
         getPkcs8PrivateKeyBytes(privateKey),

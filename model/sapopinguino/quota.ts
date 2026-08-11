@@ -1,7 +1,10 @@
 import { components } from "../../_generated/api";
 import type { ActionCtx } from "../../_generated/server";
 import type { Id } from "../../subscriptions/_generated/dataModel";
-import type { SubscriptionUsageOperation } from "../../constants/subscriptions";
+import {
+    SUBSCRIPTION_QUOTA_ERROR_CODES,
+    type SubscriptionUsageOperation,
+} from "../../constants/subscriptions";
 
 export type SapopinguinoQuotaOperation = SubscriptionUsageOperation;
 export type SapopinguinoQuotaOutcome = "completed" | "failed";
@@ -107,7 +110,7 @@ export async function reserveSapopinguinoQuota(
     if (!reservationResult.allowed) {
         const httpStatus =
             reservationResult.reason === "duplicate_req_id" ||
-            reservationResult.reason === "user_deletion_in_progress"
+            reservationResult.reason === SUBSCRIPTION_QUOTA_ERROR_CODES.USER_DELETION_IN_PROGRESS
                 ? 409
                 : 429;
 
