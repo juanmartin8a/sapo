@@ -12,6 +12,8 @@ const SidebarFooter = () => {
     const { status, userId, email } = useAuthState();
     const subscriptionUserId = useSubscriptionStatusStore((state) => state.userId);
     const hasActiveSubscription = useSubscriptionStatusStore((state) => state.hasActiveSubscription);
+    const isSubscriptionPending = status === 'authenticated' &&
+        (subscriptionUserId !== userId || hasActiveSubscription === null);
     const subscriptionLabel = useMemo(() => {
         const isCurrentUserSubscribed = subscriptionUserId === userId &&
             hasActiveSubscription === true;
@@ -41,8 +43,17 @@ const SidebarFooter = () => {
                 >
                     <View style={styles.skeletonAvatar} />
                     <View style={styles.skeletonTextContainer}>
-                        <View style={styles.skeletonPrimaryText} />
-                        <View style={styles.skeletonSecondaryText} />
+                        <Text
+                            style={[styles.emailText, styles.skeletonText, styles.emailSkeleton]}
+                            numberOfLines={1}
+                        >
+                            {email ?? 'Account'}
+                        </Text>
+                        <Text
+                            style={[styles.planText, styles.planLine, styles.skeletonText, styles.subscriptionSkeleton]}
+                        >
+                            {subscriptionLabel}
+                        </Text>
                     </View>
                 </View>
             ) : status === 'authenticated' ? (
@@ -59,7 +70,22 @@ const SidebarFooter = () => {
                             <Text style={styles.emailText} numberOfLines={1}>
                                 {email ?? 'Account'}
                             </Text>
-                            <Text style={styles.planText}>{subscriptionLabel}</Text>
+                            {isSubscriptionPending ? (
+                                <Text
+                                    style={[
+                                        styles.planText,
+                                        styles.planLine,
+                                        styles.skeletonText,
+                                        styles.subscriptionSkeleton,
+                                    ]}
+                                    accessibilityElementsHidden
+                                    importantForAccessibility="no-hide-descendants"
+                                >
+                                    {subscriptionLabel}
+                                </Text>
+                            ) : (
+                                <Text style={[styles.planText, styles.planLine]}>{subscriptionLabel}</Text>
+                            )}
                         </View>
                     </TouchableOpacity>
                 </View>
@@ -104,19 +130,22 @@ const styles = StyleSheet.create({
     },
     skeletonTextContainer: {
         flex: 1,
-        gap: 7,
     },
-    skeletonPrimaryText: {
-        width: '72%',
-        height: 12,
+    skeletonText: {
+        alignSelf: 'flex-start',
+        maxWidth: '100%',
+        color: 'transparent',
+    },
+    emailSkeleton: {
         borderRadius: 6,
         backgroundColor: '#e7e7e7',
     },
-    skeletonSecondaryText: {
-        width: '32%',
-        height: 9,
+    subscriptionSkeleton: {
         borderRadius: 5,
         backgroundColor: '#eeeeee',
+    },
+    planLine: {
+        marginTop: 4,
     },
     userContainer: {
         flexDirection: 'row',
@@ -148,7 +177,6 @@ const styles = StyleSheet.create({
     planText: {
         color: '#888',
         fontSize: 12,
-        marginTop: 4,
     },
     signInButton: {
         width: '100%',

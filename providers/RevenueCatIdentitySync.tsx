@@ -16,6 +16,8 @@ import {
 import { useAuthState } from "@/providers/AuthStateProvider";
 import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
 
+const identitySyncRetryDelaysMs = [1_000, 2_000, 4_000];
+
 export default function RevenueCatIdentitySync() {
     const { status, userId } = useAuthState();
     const isAuthPending = status === "checking";
@@ -183,44 +185,59 @@ export default function RevenueCatIdentitySync() {
         authenticatedSessionUserIdRef.current = userId;
 
         let isCancelled = false;
+        let cancelRetryDelay: (() => void) | null = null;
+
+        const waitForRetry = (delayMs: number) => new Promise<void>((resolve) => {
+            const timeout = setTimeout(() => {
+                cancelRetryDelay = null;
+                resolve();
+            }, delayMs);
+
+            cancelRetryDelay = () => {
+                clearTimeout(timeout);
+                cancelRetryDelay = null;
+                resolve();
+            };
+        });
 
         const syncRevenueCatIdentity = async () => {
-            try {
-                await revenueCatLogoutPromiseRef.current;
+            await revenueCatLogoutPromiseRef.current;
 
-                if (isCancelled) {
-                    return;
-                }
+            if (isCancelled) {
+                return;
+            }
 
-                if (receiptConflictUserIdRef.current === userId) {
-                    if (!isCancelled) {
-                        publishSubscriptionStatus(false);
+            if (receiptConflictUserIdRef.current === userId) {
+                publishSubscriptionStatus(false);
+                return;
+            }
+
+            for (let attempt = 0; ; attempt += 1) {
+                try {
+                    const isConfigured = await configureRevenueCat(userId);
+
+                    if (!isConfigured || isCancelled) {
+                        if (!isConfigured && !isCancelled) {
+                            publishSubscriptionStatus(false);
+                        }
+
+                        return;
                     }
 
-                    return;
-                }
+                    const currentAppUserId = await Purchases.getAppUserID();
 
-                const isConfigured = await configureRevenueCat(userId);
+                    let customerInfo: CustomerInfo;
 
-                if (!isConfigured || isCancelled) {
-                    if (!isConfigured && !isCancelled) {
-                        publishSubscriptionStatus(false);
+                    if (currentAppUserId !== userId) {
+                        customerInfo = (await Purchases.logIn(userId)).customerInfo;
+                    } else {
+                        customerInfo = await Purchases.getCustomerInfo();
                     }
 
-                    return;
-                }
+                    if (isCancelled) {
+                        return;
+                    }
 
-                const currentAppUserId = await Purchases.getAppUserID();
-
-                let customerInfo: CustomerInfo;
-
-                if (currentAppUserId !== userId) {
-                    customerInfo = (await Purchases.logIn(userId)).customerInfo;
-                } else {
-                    customerInfo = await Purchases.getCustomerInfo();
-                }
-
-                if (!isCancelled) {
                     receiptConflictUserIdRef.current = null;
                     syncedRevenueCatUserIdRef.current = userId;
                     const hasActiveSubscription = hasActiveRevenueCatSubscription(customerInfo);
@@ -245,20 +262,37 @@ export default function RevenueCatIdentitySync() {
                             }
                         });
                     }
-                }
-            } catch (error) {
-                if (!isCancelled && isReceiptAlreadyInUseRevenueCatError(error)) {
-                    receiptConflictUserIdRef.current = userId;
-                    lastRevenueCatActiveRef.current = false;
-                    publishSubscriptionStatus(false);
+
                     return;
-                }
+                } catch (error) {
+                    if (isCancelled) {
+                        return;
+                    }
 
-                if (__DEV__) {
-                    console.warn("RevenueCat identity sync failed", error);
-                }
+                    if (isReceiptAlreadyInUseRevenueCatError(error)) {
+                        receiptConflictUserIdRef.current = userId;
+                        lastRevenueCatActiveRef.current = false;
+                        publishSubscriptionStatus(false);
+                        return;
+                    }
 
-                // Preserve an existing status; a transient sync error does not prove inactivity.
+                    const retryDelayMs = identitySyncRetryDelaysMs[attempt];
+
+                    if (retryDelayMs === undefined) {
+                        if (__DEV__) {
+                            console.warn("RevenueCat identity sync failed after retries", error);
+                        }
+
+                        // Preserve an existing status; a transient sync error does not prove inactivity.
+                        return;
+                    }
+
+                    await waitForRetry(retryDelayMs);
+
+                    if (isCancelled) {
+                        return;
+                    }
+                }
             }
         };
 
@@ -266,6 +300,7 @@ export default function RevenueCatIdentitySync() {
 
         return () => {
             isCancelled = true;
+            cancelRetryDelay?.();
         };
     }, [isAuthPending, publishSubscriptionStatus, userId]);
 
