@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo } from 'react';
-import { StyleSheet, TouchableOpacity, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Animated, StyleSheet, TouchableOpacity, Text, View } from 'react-native';
 import LogInIcon from '@/assets/icons/log-in.svg';
 import useSubscriptionStatusStore from '@/stores/subscriptionStatusStore';
 import { APP_ROUTES } from '@/constants/routes';
@@ -12,6 +12,8 @@ const SidebarFooter = () => {
     const { status, userId, email } = useAuthState();
     const subscriptionUserId = useSubscriptionStatusStore((state) => state.userId);
     const hasActiveSubscription = useSubscriptionStatusStore((state) => state.hasActiveSubscription);
+    const [skeletonOpacity] = useState(() => new Animated.Value(1));
+    const shouldShowAuthSkeleton = status === 'checking';
     const isSubscriptionPending = status === 'authenticated' &&
         (subscriptionUserId !== userId || hasActiveSubscription === null);
     const subscriptionLabel = useMemo(() => {
@@ -25,6 +27,35 @@ const SidebarFooter = () => {
         return email?.[0]?.toUpperCase() ?? '?';
     }, [email])
 
+    useEffect(() => {
+        if (!shouldShowAuthSkeleton && !isSubscriptionPending) {
+            skeletonOpacity.setValue(1);
+            return;
+        }
+
+        const pulseAnimation = Animated.loop(
+            Animated.sequence([
+                Animated.timing(skeletonOpacity, {
+                    toValue: 0.7,
+                    duration: 900,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(skeletonOpacity, {
+                    toValue: 1,
+                    duration: 900,
+                    useNativeDriver: true,
+                }),
+            ])
+        );
+
+        pulseAnimation.start();
+
+        return () => {
+            pulseAnimation.stop();
+            skeletonOpacity.setValue(1);
+        };
+    }, [isSubscriptionPending, shouldShowAuthSkeleton, skeletonOpacity]);
+
     const handleSignInPress = useCallback(() => {
         router.push(APP_ROUTES.AUTH);
     }, [router]);
@@ -35,9 +66,9 @@ const SidebarFooter = () => {
 
     return (
         <View style={styles.footer}>
-            {status === 'checking' ? (
-                <View
-                    style={styles.skeletonContainer}
+            {shouldShowAuthSkeleton ? (
+                <Animated.View
+                    style={[styles.skeletonContainer, { opacity: skeletonOpacity }]}
                     accessibilityElementsHidden
                     importantForAccessibility="no-hide-descendants"
                 >
@@ -55,7 +86,7 @@ const SidebarFooter = () => {
                             {subscriptionLabel}
                         </Text>
                     </View>
-                </View>
+                </Animated.View>
             ) : status === 'authenticated' ? (
                 <View style={styles.userActionsContainer}>
                     <TouchableOpacity
@@ -71,18 +102,19 @@ const SidebarFooter = () => {
                                 {email ?? 'Account'}
                             </Text>
                             {isSubscriptionPending ? (
-                                <Text
+                                <Animated.Text
                                     style={[
                                         styles.planText,
                                         styles.planLine,
                                         styles.skeletonText,
                                         styles.subscriptionSkeleton,
+                                        { opacity: skeletonOpacity },
                                     ]}
                                     accessibilityElementsHidden
                                     importantForAccessibility="no-hide-descendants"
                                 >
                                     {subscriptionLabel}
-                                </Text>
+                                </Animated.Text>
                             ) : (
                                 <Text style={[styles.planText, styles.planLine]}>{subscriptionLabel}</Text>
                             )}
