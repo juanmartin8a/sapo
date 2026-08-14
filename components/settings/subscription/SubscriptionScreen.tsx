@@ -220,7 +220,7 @@ export default function SubscriptionScreen() {
         }
 
         if (isLoadingSubscription) {
-            return "Loading plans...";
+            return "Loading plan...";
         }
 
         if (isSubscriptionLinkedElsewhere) {
@@ -468,6 +468,7 @@ export default function SubscriptionScreen() {
                 renewalPeriodLabel={renewalPeriodLabel}
                 storeAccountLabel={storeAccountLabel}
                 buttonLabel={buttonLabel}
+                isLoadingPlan={isLoadingSubscription}
                 isPurchasing={isPurchasing}
                 isSubscribeDisabled={isSubscribeDisabled}
                 onSubscribe={() => {
