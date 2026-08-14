@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import SocialSignInButton, { type SocialProvider } from '@/components/auth/SocialSignInButton';
 import SapoIcon from '@/assets/icons/sapo.svg';
@@ -9,6 +9,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const SIGN_IN_TITLE = 'Sign in :)';
 const SIGNING_IN_TITLE = 'Signing in...';
+const TERMS_OF_USE_URL = 'https://sapo.surf/terms-of-use';
+const PRIVACY_POLICY_URL = 'https://sapo.surf/privacy-policy';
 const TITLE_FADE_DURATION = 300;
 const TITLE_FADE_EASING = Easing.out(Easing.cubic);
 
@@ -16,6 +18,7 @@ const AuthScreen = () => {
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const [pendingProvider, setPendingProvider] = useState<SocialProvider | null>(null);
+    const [pressedLegalLink, setPressedLegalLink] = useState<'terms' | 'privacy' | null>(null);
     const [titleTransitionProgress] = useState(() => new Animated.Value(0));
 
     const handleSignInEnd = useCallback((provider: SocialProvider) => {
@@ -30,6 +33,14 @@ const AuthScreen = () => {
 
         router.replace('/');
     }, [router]);
+
+    const handleOpenTermsOfUse = useCallback(() => {
+        void Linking.openURL(TERMS_OF_USE_URL);
+    }, []);
+
+    const handleOpenPrivacyPolicy = useCallback(() => {
+        void Linking.openURL(PRIVACY_POLICY_URL);
+    }, []);
 
     const isSignInPending = pendingProvider !== null;
 
@@ -127,6 +138,31 @@ const AuthScreen = () => {
                         onSignInCancel={handleSignInEnd}
                         onSignInError={handleSignInEnd}
                     />
+                    <Text style={styles.legalNotice}>
+                        {'By continuing, you agree to our '}
+                        <Text
+                            accessibilityRole="link"
+                            onPress={handleOpenTermsOfUse}
+                            onPressIn={() => setPressedLegalLink('terms')}
+                            onPressOut={() => setPressedLegalLink(null)}
+                            style={[styles.legalLink, pressedLegalLink === 'terms' && styles.legalLinkPressed]}
+                            suppressHighlighting
+                        >
+                            Terms of Use
+                        </Text>
+                        {' and acknowledge our '}
+                        <Text
+                            accessibilityRole="link"
+                            onPress={handleOpenPrivacyPolicy}
+                            onPressIn={() => setPressedLegalLink('privacy')}
+                            onPressOut={() => setPressedLegalLink(null)}
+                            style={[styles.legalLink, pressedLegalLink === 'privacy' && styles.legalLinkPressed]}
+                            suppressHighlighting
+                        >
+                            Privacy Policy
+                        </Text>
+                        .
+                    </Text>
                 </View>
             </View>
         </View>
@@ -184,6 +220,19 @@ const styles = StyleSheet.create({
     },
     buttons: {
         gap: 14,
+    },
+    legalNotice: {
+        color: '#666',
+        fontSize: 12,
+        lineHeight: 18,
+        textAlign: 'center',
+    },
+    legalLink: {
+        color: '#1C1C1E',
+        fontWeight: '600',
+    },
+    legalLinkPressed: {
+        color: '#8E8E93',
     },
 });
 
