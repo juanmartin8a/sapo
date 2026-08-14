@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo } from 'react';
-import { StyleSheet, TouchableOpacity, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Animated, StyleSheet, TouchableOpacity, Text, View } from 'react-native';
 import LogInIcon from '@/assets/icons/log-in.svg';
 import useSubscriptionStatusStore from '@/stores/subscriptionStatusStore';
 import { APP_ROUTES } from '@/constants/routes';
@@ -12,6 +12,10 @@ const SidebarFooter = () => {
     const { status, userId, email } = useAuthState();
     const subscriptionUserId = useSubscriptionStatusStore((state) => state.userId);
     const hasActiveSubscription = useSubscriptionStatusStore((state) => state.hasActiveSubscription);
+    const [skeletonOpacity] = useState(() => new Animated.Value(1));
+    const shouldShowAuthSkeleton = status === 'checking';
+    const isSubscriptionPending = status === 'authenticated' &&
+        (subscriptionUserId !== userId || hasActiveSubscription === null);
     const subscriptionLabel = useMemo(() => {
         const isCurrentUserSubscribed = subscriptionUserId === userId &&
             hasActiveSubscription === true;
@@ -23,6 +27,35 @@ const SidebarFooter = () => {
         return email?.[0]?.toUpperCase() ?? '?';
     }, [email])
 
+    useEffect(() => {
+        if (!shouldShowAuthSkeleton && !isSubscriptionPending) {
+            skeletonOpacity.setValue(1);
+            return;
+        }
+
+        const pulseAnimation = Animated.loop(
+            Animated.sequence([
+                Animated.timing(skeletonOpacity, {
+                    toValue: 0.7,
+                    duration: 900,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(skeletonOpacity, {
+                    toValue: 1,
+                    duration: 900,
+                    useNativeDriver: true,
+                }),
+            ])
+        );
+
+        pulseAnimation.start();
+
+        return () => {
+            pulseAnimation.stop();
+            skeletonOpacity.setValue(1);
+        };
+    }, [isSubscriptionPending, shouldShowAuthSkeleton, skeletonOpacity]);
+
     const handleSignInPress = useCallback(() => {
         router.push(APP_ROUTES.AUTH);
     }, [router]);
@@ -33,18 +66,27 @@ const SidebarFooter = () => {
 
     return (
         <View style={styles.footer}>
-            {status === 'checking' ? (
-                <View
-                    style={styles.skeletonContainer}
+            {shouldShowAuthSkeleton ? (
+                <Animated.View
+                    style={[styles.skeletonContainer, { opacity: skeletonOpacity }]}
                     accessibilityElementsHidden
                     importantForAccessibility="no-hide-descendants"
                 >
                     <View style={styles.skeletonAvatar} />
                     <View style={styles.skeletonTextContainer}>
-                        <View style={styles.skeletonPrimaryText} />
-                        <View style={styles.skeletonSecondaryText} />
+                        <Text
+                            style={[styles.emailText, styles.skeletonText, styles.emailSkeleton]}
+                            numberOfLines={1}
+                        >
+                            {email ?? 'Account'}
+                        </Text>
+                        <Text
+                            style={[styles.planText, styles.planLine, styles.skeletonText, styles.subscriptionSkeleton]}
+                        >
+                            {subscriptionLabel}
+                        </Text>
                     </View>
-                </View>
+                </Animated.View>
             ) : status === 'authenticated' ? (
                 <View style={styles.userActionsContainer}>
                     <TouchableOpacity
@@ -59,7 +101,23 @@ const SidebarFooter = () => {
                             <Text style={styles.emailText} numberOfLines={1}>
                                 {email ?? 'Account'}
                             </Text>
-                            <Text style={styles.planText}>{subscriptionLabel}</Text>
+                            {isSubscriptionPending ? (
+                                <Animated.Text
+                                    style={[
+                                        styles.planText,
+                                        styles.planLine,
+                                        styles.skeletonText,
+                                        styles.subscriptionSkeleton,
+                                        { opacity: skeletonOpacity },
+                                    ]}
+                                    accessibilityElementsHidden
+                                    importantForAccessibility="no-hide-descendants"
+                                >
+                                    {subscriptionLabel}
+                                </Animated.Text>
+                            ) : (
+                                <Text style={[styles.planText, styles.planLine]}>{subscriptionLabel}</Text>
+                            )}
                         </View>
                     </TouchableOpacity>
                 </View>
@@ -104,19 +162,22 @@ const styles = StyleSheet.create({
     },
     skeletonTextContainer: {
         flex: 1,
-        gap: 7,
     },
-    skeletonPrimaryText: {
-        width: '72%',
-        height: 12,
+    skeletonText: {
+        alignSelf: 'flex-start',
+        maxWidth: '100%',
+        color: 'transparent',
+    },
+    emailSkeleton: {
         borderRadius: 6,
         backgroundColor: '#e7e7e7',
     },
-    skeletonSecondaryText: {
-        width: '32%',
-        height: 9,
+    subscriptionSkeleton: {
         borderRadius: 5,
         backgroundColor: '#eeeeee',
+    },
+    planLine: {
+        marginTop: 4,
     },
     userContainer: {
         flexDirection: 'row',
@@ -148,7 +209,6 @@ const styles = StyleSheet.create({
     planText: {
         color: '#888',
         fontSize: 12,
-        marginTop: 4,
     },
     signInButton: {
         width: '100%',
