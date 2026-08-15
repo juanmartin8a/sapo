@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Linking, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import SocialSignInButton, { type SocialProvider } from '@/components/auth/SocialSignInButton';
 import SapoIcon from '@/assets/icons/sapo.svg';
@@ -18,7 +18,6 @@ const AuthScreen = () => {
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const [pendingProvider, setPendingProvider] = useState<SocialProvider | null>(null);
-    const [pressedLegalLink, setPressedLegalLink] = useState<'terms' | 'privacy' | null>(null);
     const [titleTransitionProgress] = useState(() => new Animated.Value(0));
 
     const handleSignInEnd = useCallback((provider: SocialProvider) => {
@@ -138,31 +137,35 @@ const AuthScreen = () => {
                         onSignInCancel={handleSignInEnd}
                         onSignInError={handleSignInEnd}
                     />
-                    <Text style={styles.legalNotice}>
-                        {'By continuing, you agree to our '}
-                        <Text
+                    <View style={styles.legalNotice}>
+                        <Text style={styles.legalNoticeText}>By continuing, you agree to our </Text>
+                        <Pressable
                             accessibilityRole="link"
                             onPress={handleOpenTermsOfUse}
-                            onPressIn={() => setPressedLegalLink('terms')}
-                            onPressOut={() => setPressedLegalLink(null)}
-                            style={[styles.legalLink, pressedLegalLink === 'terms' && styles.legalLinkPressed]}
-                            suppressHighlighting
+                            pressRetentionOffset={{ top: 0, right: 0, bottom: 0, left: 0 }}
+                            style={styles.legalLinkPressable}
                         >
-                            Terms of Use
-                        </Text>
-                        {' and acknowledge our '}
-                        <Text
+                            {({ pressed }) => (
+                                <Text style={[styles.legalLink, pressed && styles.legalLinkPressed]}>
+                                    Terms of Use
+                                </Text>
+                            )}
+                        </Pressable>
+                        <Text style={styles.legalNoticeText}> and acknowledge our </Text>
+                        <Pressable
+                            accessibilityLabel="Privacy Policy"
                             accessibilityRole="link"
                             onPress={handleOpenPrivacyPolicy}
-                            onPressIn={() => setPressedLegalLink('privacy')}
-                            onPressOut={() => setPressedLegalLink(null)}
-                            style={[styles.legalLink, pressedLegalLink === 'privacy' && styles.legalLinkPressed]}
-                            suppressHighlighting
+                            pressRetentionOffset={{ top: 0, right: 0, bottom: 0, left: 0 }}
+                            style={styles.legalLinkPressable}
                         >
-                            Privacy Policy
-                        </Text>
-                        .
-                    </Text>
+                            {({ pressed }) => (
+                                <Text style={[styles.legalLink, pressed && styles.legalLinkPressed]}>
+                                    Privacy Policy.
+                                </Text>
+                            )}
+                        </Pressable>
+                    </View>
                 </View>
             </View>
         </View>
@@ -222,17 +225,27 @@ const styles = StyleSheet.create({
         gap: 14,
     },
     legalNotice: {
+        alignItems: 'center',
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+    },
+    legalNoticeText: {
         color: '#666',
         fontSize: 12,
         lineHeight: 18,
-        textAlign: 'center',
     },
     legalLink: {
         color: '#1C1C1E',
+        fontSize: 12,
         fontWeight: '600',
+        lineHeight: 18,
     },
     legalLinkPressed: {
         color: '#8E8E93',
+    },
+    legalLinkPressable: {
+        // padding: 0,
     },
 });
 
