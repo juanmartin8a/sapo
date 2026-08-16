@@ -31,6 +31,7 @@ export default function AuthLegalNotice() {
 
 const styles = StyleSheet.create({
     host: {
+        marginTop: 4,
         width: '100%',
     },
 });

@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
         height: 24,
     },
     buttons: {
-        gap: 14,
+        gap: 12,
     },
 });
 

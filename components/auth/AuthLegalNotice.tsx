@@ -31,13 +31,12 @@ const styles = StyleSheet.create({
     notice: {
         color: '#666',
         fontSize: 12,
-        lineHeight: 18,
+        marginTop: 4,
         textAlign: 'center',
     },
     link: {
         color: '#1C1C1E',
         fontSize: 12,
         fontWeight: '600',
-        lineHeight: 18,
     },
 });
