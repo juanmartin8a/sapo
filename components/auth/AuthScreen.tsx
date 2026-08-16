@@ -112,7 +112,7 @@ const AuthScreen = () => {
                     <SocialSignInButton
                         provider="google"
                         label="Sign in with Google"
-                        icon={<GoogleGIcon width="44" height="44" />}
+                        icon={<GoogleGIcon />}
                         loading={pendingProvider === 'google'}
                         disabled={isSignInPending}
                         onSignInStart={setPendingProvider}

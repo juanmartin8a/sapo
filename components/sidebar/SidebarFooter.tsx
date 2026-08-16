@@ -1,18 +1,21 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Animated, StyleSheet, TouchableOpacity, Text, View } from 'react-native';
 import LogInIcon from '@/assets/icons/log-in.svg';
 import useSubscriptionStatusStore from '@/stores/subscriptionStatusStore';
 import { APP_ROUTES } from '@/constants/routes';
 import { SUBSCRIPTION_PLAN_DISPLAY_NAMES } from '@/constants/subscription';
+import { UI_SKELETON_BACKGROUND_COLOR } from '@/constants/ui';
+import useSkeletonPulse from '@/hooks/useSkeletonPulse';
 import { useAuthState } from '@/providers/AuthStateProvider';
+
+const SIDEBAR_AVATAR_SIZE = 40;
 
 const SidebarFooter = () => {
     const router = useRouter();
     const { status, userId, email } = useAuthState();
     const subscriptionUserId = useSubscriptionStatusStore((state) => state.userId);
     const hasActiveSubscription = useSubscriptionStatusStore((state) => state.hasActiveSubscription);
-    const [skeletonOpacity] = useState(() => new Animated.Value(1));
     const shouldShowAuthSkeleton = status === 'checking';
     const isSubscriptionPending = status === 'authenticated' &&
         (subscriptionUserId !== userId || hasActiveSubscription === null);
@@ -27,34 +30,7 @@ const SidebarFooter = () => {
         return email?.[0]?.toUpperCase() ?? '?';
     }, [email])
 
-    useEffect(() => {
-        if (!shouldShowAuthSkeleton && !isSubscriptionPending) {
-            skeletonOpacity.setValue(1);
-            return;
-        }
-
-        const pulseAnimation = Animated.loop(
-            Animated.sequence([
-                Animated.timing(skeletonOpacity, {
-                    toValue: 0.7,
-                    duration: 900,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(skeletonOpacity, {
-                    toValue: 1,
-                    duration: 900,
-                    useNativeDriver: true,
-                }),
-            ])
-        );
-
-        pulseAnimation.start();
-
-        return () => {
-            pulseAnimation.stop();
-            skeletonOpacity.setValue(1);
-        };
-    }, [isSubscriptionPending, shouldShowAuthSkeleton, skeletonOpacity]);
+    const skeletonOpacity = useSkeletonPulse(shouldShowAuthSkeleton || isSubscriptionPending);
 
     const handleSignInPress = useCallback(() => {
         router.push(APP_ROUTES.AUTH);
@@ -149,16 +125,16 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     skeletonContainer: {
-        minHeight: 40,
+        minHeight: SIDEBAR_AVATAR_SIZE,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
     },
     skeletonAvatar: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#e7e7e7',
+        width: SIDEBAR_AVATAR_SIZE,
+        height: SIDEBAR_AVATAR_SIZE,
+        borderRadius: SIDEBAR_AVATAR_SIZE / 2,
+        backgroundColor: UI_SKELETON_BACKGROUND_COLOR,
     },
     skeletonTextContainer: {
         flex: 1,
@@ -170,7 +146,7 @@ const styles = StyleSheet.create({
     },
     emailSkeleton: {
         borderRadius: 6,
-        backgroundColor: '#e7e7e7',
+        backgroundColor: UI_SKELETON_BACKGROUND_COLOR,
     },
     subscriptionSkeleton: {
         borderRadius: 5,
@@ -186,9 +162,9 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     avatar: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: SIDEBAR_AVATAR_SIZE,
+        height: SIDEBAR_AVATAR_SIZE,
+        borderRadius: SIDEBAR_AVATAR_SIZE / 2,
         backgroundColor: '#000',
         alignItems: 'center',
         justifyContent: 'center',

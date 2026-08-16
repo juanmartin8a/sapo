@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from "react-native";
 
 import CheckIcon from "@/assets/icons/check.svg";
@@ -7,7 +6,8 @@ import {
     SUBSCRIPTION_PLAN_DISPLAY_NAMES,
     SUBSCRIPTION_PLAN_LIMITS,
 } from "@/constants/subscription";
-import { UI_DISABLED_OPACITY } from "@/constants/ui";
+import { UI_DISABLED_OPACITY, UI_SKELETON_BACKGROUND_COLOR } from "@/constants/ui";
+import useSkeletonPulse from "@/hooks/useSkeletonPulse";
 
 interface SubscriptionPlanCardProps {
     displayPrice: string;
@@ -54,36 +54,7 @@ export default function SubscriptionPlanCard({
     onOpenTermsOfUse,
     onOpenPrivacyPolicy,
 }: SubscriptionPlanCardProps) {
-    const [skeletonOpacity] = useState(() => new Animated.Value(1));
-
-    useEffect(() => {
-        if (!isLoadingPlan) {
-            skeletonOpacity.setValue(1);
-            return;
-        }
-
-        const pulseAnimation = Animated.loop(
-            Animated.sequence([
-                Animated.timing(skeletonOpacity, {
-                    toValue: 0.7,
-                    duration: 900,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(skeletonOpacity, {
-                    toValue: 1,
-                    duration: 900,
-                    useNativeDriver: true,
-                }),
-            ])
-        );
-
-        pulseAnimation.start();
-
-        return () => {
-            pulseAnimation.stop();
-            skeletonOpacity.setValue(1);
-        };
-    }, [isLoadingPlan, skeletonOpacity]);
+    const skeletonOpacity = useSkeletonPulse(isLoadingPlan);
 
     return (
         <View style={styles.card}>
@@ -209,7 +180,7 @@ const styles = StyleSheet.create({
         overflow: "hidden",
     },
     priceSkeleton: {
-        backgroundColor: "#E7E7E7",
+        backgroundColor: UI_SKELETON_BACKGROUND_COLOR,
         borderRadius: 8,
     },
     planDescription: {
