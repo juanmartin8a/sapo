@@ -15,7 +15,7 @@ const textModifiers = [
     font({ size: 12 }),
     foregroundStyle('#666'),
     tint('#1C1C1E'),
-    lineSpacing(6),
+    lineSpacing(5),
     multilineTextAlignment('center'),
 ];
 

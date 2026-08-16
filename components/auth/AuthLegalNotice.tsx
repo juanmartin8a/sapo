@@ -31,6 +31,7 @@ const styles = StyleSheet.create({
     notice: {
         color: '#666',
         fontSize: 12,
+        lineHeight: 17,
         marginTop: 4,
         textAlign: 'center',
     },
@@ -38,5 +39,6 @@ const styles = StyleSheet.create({
         color: '#1C1C1E',
         fontSize: 12,
         fontWeight: '600',
+        lineHeight: 17,
     },
 });
