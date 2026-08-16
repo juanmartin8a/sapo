@@ -2,8 +2,11 @@ import React, { cloneElement, isValidElement, useCallback, useEffect, useMemo, u
 import { Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import AppleLogo from '@/assets/icons/apple-logo.svg';
+import { UI_DISABLED_OPACITY } from '@/constants/ui';
 import { authClient } from '@/lib/auth-client';
 import { triggerLightImpactHaptic } from '@/lib/haptics';
+
+const SOCIAL_SIGN_IN_BUTTON_HEIGHT = 44;
 
 export type SocialProvider = 'google' | 'apple';
 
@@ -91,8 +94,8 @@ const SocialSignInButton = ({
         if (icon) {
             if (isValidElement(icon)) {
                 return cloneElement(icon, {
-                    width: 44,
-                    height: 44,
+                    width: SOCIAL_SIGN_IN_BUTTON_HEIGHT,
+                    height: SOCIAL_SIGN_IN_BUTTON_HEIGHT,
                 });
             }
 
@@ -100,7 +103,12 @@ const SocialSignInButton = ({
         }
 
         if (isApple) {
-            return <AppleLogo width={44} height={44} />;
+            return (
+                <AppleLogo
+                    width={SOCIAL_SIGN_IN_BUTTON_HEIGHT}
+                    height={SOCIAL_SIGN_IN_BUTTON_HEIGHT}
+                />
+            );
         }
 
         return null;
@@ -249,7 +257,7 @@ const SocialSignInButton = ({
 const styles = StyleSheet.create({
     button: {
         width: '100%',
-        height: 44,
+        height: SOCIAL_SIGN_IN_BUTTON_HEIGHT,
         borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
@@ -266,8 +274,8 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     leadingElement: {
-        width: 44,
-        height: 44,
+        width: SOCIAL_SIGN_IN_BUTTON_HEIGHT,
+        height: SOCIAL_SIGN_IN_BUTTON_HEIGHT,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -282,7 +290,7 @@ const styles = StyleSheet.create({
         color: '#fff',
     },
     disabled: {
-        opacity: 0.5,
+        opacity: UI_DISABLED_OPACITY,
     },
 });
 
