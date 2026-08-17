@@ -62,6 +62,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           active_signal_at_ms?: number;
           active_signal_ttl_ms?: number;
           allow_user_deletion_in_progress?: boolean;
+          clear_pending_active_signal?: boolean;
           expects_active_subscription?: boolean;
           expiration_reconciliation_delay_ms: number;
           revenuecat_app_user_id: string;
@@ -93,10 +94,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {
           active_signal_at_ms?: number;
           active_signal_ttl_ms?: number;
+          clear_pending_active_signal?: boolean;
+          client_reconciliation?: boolean;
           expects_active_subscription?: boolean;
           lease_duration_ms: number;
           now_ms: number;
           revenuecat_app_user_id: string;
+          revenuecat_event_at_ms?: number;
           signup_at_ms?: number;
           sync_attempt_id: string;
           trusted_active_signal?: boolean;
@@ -109,6 +113,19 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "mutation",
         "internal",
         { now_ms: number; usage_event_id: string },
+        any,
+        Name
+      >;
+      claimPendingActiveRetry: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          active_signal_at_ms: number;
+          next_retry_at_ms: number;
+          now_ms: number;
+          retry_index: number;
+          user_id: string;
+        },
         any,
         Name
       >;
@@ -126,25 +143,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         any,
         Name
       >;
-      consumeRefreshRateLimit: FunctionReference<
-        "mutation",
-        "internal",
-        {
-          config: {
-            daily_max_count: number;
-            daily_window_ms: number;
-            normal_max_count: number;
-            normal_window_ms: number;
-            purchase_max_count: number;
-            purchase_window_ms: number;
-          };
-          expects_active_subscription: boolean;
-          now_ms: number;
-          user_id: string;
-        },
-        any,
-        Name
-      >;
       deferSubscriptionStateReconciliation: FunctionReference<
         "mutation",
         "internal",
@@ -153,13 +151,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Name
       >;
       deleteFrozenQuotaPeriodsEligibleForRetentionPurge: FunctionReference<
-        "mutation",
-        "internal",
-        { limit: number; older_than_ms: number },
-        any,
-        Name
-      >;
-      deleteRefreshRateLimitsEligibleForRetentionPurge: FunctionReference<
         "mutation",
         "internal",
         { limit: number; older_than_ms: number },
@@ -285,6 +276,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Name
       >;
       listDueUserDeletionOperations: FunctionReference<
+        "query",
+        "internal",
+        { limit: number; now_ms: number },
+        any,
+        Name
+      >;
+      listPendingActiveRetriesDue: FunctionReference<
         "query",
         "internal",
         { limit: number; now_ms: number },

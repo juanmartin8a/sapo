@@ -10,7 +10,7 @@ import { type CurrentSubscriptionState } from "../model/subscriptions/revenueCat
 
 const originalEnv = process.env;
 const originalFetch = globalThis.fetch;
-const PENDING_ACTIVE_SIGNAL_TTL_MS = 2 * 60 * 1000;
+const PENDING_ACTIVE_SIGNAL_TTL_MS = 5 * 60 * 1000;
 
 function jsonResponse(status: number, payload: unknown) {
     return ({
@@ -43,10 +43,12 @@ function createWebhookProcessingCtx(args: {
 }) {
     const progressMutations: Record<string, unknown>[] = [];
     const leaseAcquisitionMutations: Record<string, unknown>[] = [];
+    const scheduler = { runAfter: jest.fn(async () => null) };
     let subscriptionStateQueryCount = 0;
     let deletionStateQueryCount = 0;
 
     const ctx = {
+        scheduler,
         runQuery: jest.fn(async (_functionRef: unknown, queryArgs: Record<string, unknown>) => {
             if (typeof queryArgs.event_doc_id === "string") {
                 return {
@@ -132,6 +134,7 @@ function createWebhookProcessingCtx(args: {
                         plan_key: args.existing_state?.plan_key ?? "free",
                         has_active_subscription: args.existing_state?.has_active_subscription ?? false,
                         last_synced_at_ms: args.existing_state?.last_synced_at_ms ?? 0,
+                        pending_active_signal_at_ms: activeSignalAtMs,
                     };
                 }
 
@@ -175,6 +178,7 @@ function createWebhookProcessingCtx(args: {
         ctx,
         progressMutations,
         leaseAcquisitionMutations,
+        scheduler,
         getSubscriptionStateQueryCount: () => subscriptionStateQueryCount,
         getDeletionStateQueryCount: () => deletionStateQueryCount,
     };
@@ -271,7 +275,7 @@ describe("RevenueCat webhook worker processing", () => {
         };
         const fetchMock = jest.fn(async () => jsonResponse(200, { items: [] })) as jest.MockedFunction<typeof fetch>;
         globalThis.fetch = fetchMock;
-        const { ctx, progressMutations, leaseAcquisitionMutations } = createWebhookProcessingCtx({
+        const { ctx, progressMutations, leaseAcquisitionMutations, scheduler } = createWebhookProcessingCtx({
             event_at_ms: 1_000,
             event_type: "RENEWAL",
             existing_state: createSubscriptionState({ last_synced_at_ms: 10_000 }),
@@ -295,6 +299,7 @@ describe("RevenueCat webhook worker processing", () => {
             processing_attempt_id: leaseAcquisitionMutations[0].processing_attempt_id,
         });
         expect(typeof progressMutations[0].status_message).toBe("string");
+        expect(scheduler.runAfter).toHaveBeenCalledTimes(1);
     });
 
     it("processes stale active webhooks instead of deferring forever", async () => {

@@ -51,15 +51,6 @@ const retryConfigValidator = v.object({
     retry_max_delay_ms: v.number(),
 });
 
-const refreshRateLimitConfigValidator = v.object({
-    normal_window_ms: v.number(),
-    normal_max_count: v.number(),
-    purchase_window_ms: v.number(),
-    purchase_max_count: v.number(),
-    daily_window_ms: v.number(),
-    daily_max_count: v.number(),
-});
-
 const reconciliationSnapshotValidator = v.object({
     has_active_subscription: v.boolean(),
     entitlement_id: v.optional(v.string()),
@@ -252,26 +243,6 @@ export type DeleteFrozenQuotaPeriodsEligibleForRetentionPurgeArgs = ObjectType<
     typeof deleteFrozenQuotaPeriodsEligibleForRetentionPurgeArgs
 >;
 
-export const consumeRefreshRateLimitArgs = {
-    user_id: v.string(),
-    expects_active_subscription: v.boolean(),
-    now_ms: v.number(),
-    config: refreshRateLimitConfigValidator,
-};
-
-export type ConsumeRefreshRateLimitArgs = ObjectType<
-    typeof consumeRefreshRateLimitArgs
->;
-
-export const deleteRefreshRateLimitsEligibleForRetentionPurgeArgs = {
-    older_than_ms: v.number(),
-    limit: v.number(),
-};
-
-export type DeleteRefreshRateLimitsEligibleForRetentionPurgeArgs = ObjectType<
-    typeof deleteRefreshRateLimitsEligibleForRetentionPurgeArgs
->;
-
 export const getSubscriptionStateByUserIdArgs = {
     user_id: v.string(),
 };
@@ -291,10 +262,34 @@ export const beginSubscriptionStateReconciliationArgs = {
     trusted_active_signal: v.optional(v.boolean()),
     active_signal_at_ms: v.optional(v.number()),
     active_signal_ttl_ms: v.optional(v.number()),
+    client_reconciliation: v.optional(v.boolean()),
+    clear_pending_active_signal: v.optional(v.boolean()),
+    revenuecat_event_at_ms: v.optional(v.number()),
 };
 
 export type BeginSubscriptionStateReconciliationArgs = ObjectType<
     typeof beginSubscriptionStateReconciliationArgs
+>;
+
+export const claimPendingActiveRetryArgs = {
+    user_id: v.string(),
+    active_signal_at_ms: v.number(),
+    retry_index: v.number(),
+    now_ms: v.number(),
+    next_retry_at_ms: v.number(),
+};
+
+export type ClaimPendingActiveRetryArgs = ObjectType<
+    typeof claimPendingActiveRetryArgs
+>;
+
+export const listPendingActiveRetriesDueArgs = {
+    now_ms: v.number(),
+    limit: v.number(),
+};
+
+export type ListPendingActiveRetriesDueArgs = ObjectType<
+    typeof listPendingActiveRetriesDueArgs
 >;
 
 export const releaseSubscriptionStateReconciliationArgs = {
@@ -389,6 +384,7 @@ export const applyReconciledSubscriptionStateArgs = {
     trusted_active_signal: v.optional(v.boolean()),
     active_signal_at_ms: v.optional(v.number()),
     active_signal_ttl_ms: v.optional(v.number()),
+    clear_pending_active_signal: v.optional(v.boolean()),
     revenuecat_event_id: v.optional(v.string()),
     revenuecat_event_at_ms: v.optional(v.number()),
     snapshot: reconciliationSnapshotValidator,

@@ -92,40 +92,27 @@ import { FAR_FUTURE_TIMESTAMP_MS } from "../../constants/time";
 import {
     SUBSCRIPTION_QUOTA_ERROR_CODES,
     SUBSCRIPTION_PLAN_KEYS,
-    SUBSCRIPTION_REFRESH_RATE_LIMIT_KINDS,
+    SUBSCRIPTION_ACTIVATION_RETRY_DELAYS_MS,
     SUBSCRIPTION_USAGE_OPERATIONS,
-    type SubscriptionRefreshRateLimitKind,
 } from "../../constants/subscriptions";
 import { REVENUECAT_TERMINAL_WEBHOOK_EVENT_STATUS_SET } from "../../constants/revenueCat";
 import { USER_DELETION_QUEUE_STATUS } from "../../constants/userDeletion";
 
 const TERMINAL_EVENT_STATUSES = REVENUECAT_TERMINAL_WEBHOOK_EVENT_STATUS_SET;
-const SUBSCRIPTION_SYNC_LEASE_MAX_MS = 30_000;
+const SUBSCRIPTION_SYNC_LEASE_MAX_MS = 90_000;
 const PENDING_ACTIVE_SIGNAL_MAX_TTL_MS = 5 * 60 * 1000;
 
 const NEVER_RECONCILE_AT_MS = FAR_FUTURE_TIMESTAMP_MS;
 const QUOTA_USAGE_RESERVATION_WATCHDOG_DELAY_MS = 5 * 60 * 1000;
 const USER_DELETION_BATCH_LIMIT = 500;
+const CLIENT_RECONCILIATION_TOKEN_CAPACITY = 3;
+const CLIENT_RECONCILIATION_TOKEN_REFILL_MS = 60 * 60 * 1000;
 
 type RetryConfig = {
     max_retry_count: number;
     retry_base_delay_ms: number;
     retry_max_delay_ms: number;
 };
-type RefreshRateLimitKind = SubscriptionRefreshRateLimitKind;
-type RefreshRateLimitBucketPlan = {
-    kind: RefreshRateLimitKind;
-    window_ms: number;
-    max_count: number;
-};
-type RefreshRateLimitBucketState = RefreshRateLimitBucketPlan & {
-    window_start_ms: number;
-    window_end_ms: number;
-    count: number;
-    retained_entry: Doc<"refresh_rate_limits"> | null;
-    duplicate_entries: Doc<"refresh_rate_limits">[];
-};
-
 type SubscriptionStateRecord = Omit<Doc<"subscription_states">, "_id" | "_creationTime">;
 type QuotaPeriodSyncSource = {
     window_key: string;
@@ -198,84 +185,45 @@ function isFiniteTimestampMs(value: number | undefined): value is number {
     return typeof value === "number" && Number.isFinite(value);
 }
 
-function getFixedWindowStartMs(nowMs: number, windowMs: number) {
-    return Math.floor(nowMs / windowMs) * windowMs;
-}
-
-function getLatestRefreshRateLimitEntry(entries: Doc<"refresh_rate_limits">[]) {
-    return [...entries].sort((left, right) => {
-        if (right.updated_at_ms !== left.updated_at_ms) {
-            return right.updated_at_ms - left.updated_at_ms;
-        }
-
-        return right._creationTime - left._creationTime;
-    })[0] ?? null;
-}
-
-async function getRefreshRateLimitBucketState(
-    ctx: Pick<MutationCtx, "db">,
-    userId: string,
-    plan: RefreshRateLimitBucketPlan,
+export function getClientReconciliationTokenState(
+    state: Record<string, unknown> | null,
     nowMs: number
-): Promise<RefreshRateLimitBucketState> {
-    const safeWindowMs = Math.max(1, Math.floor(plan.window_ms));
-    const windowStartMs = getFixedWindowStartMs(nowMs, safeWindowMs);
-    const windowEndMs = windowStartMs + safeWindowMs;
-    const entries = await ctx.db
-        .query("refresh_rate_limits")
-        .withIndex("by_user_id_kind_and_window_start_ms", (query) =>
-            query
-                .eq("user_id", userId)
-                .eq("kind", plan.kind)
-                .eq("window_start_ms", windowStartMs)
-        )
-        .collect();
-    const currentWindowEntries = entries.filter(
-        (entry) =>
-            entry.window_start_ms === windowStartMs && entry.window_end_ms === windowEndMs
+) {
+    const storedTokens = typeof state?.client_reconcile_tokens === "number"
+        ? state.client_reconcile_tokens
+        : CLIENT_RECONCILIATION_TOKEN_CAPACITY;
+    const storedRefilledAtMs = typeof state?.client_reconcile_refilled_at_ms === "number"
+        ? state.client_reconcile_refilled_at_ms
+        : nowMs;
+    const refillCount = Math.floor(
+        Math.max(0, nowMs - storedRefilledAtMs) / CLIENT_RECONCILIATION_TOKEN_REFILL_MS
     );
-    const retainedEntry = getLatestRefreshRateLimitEntry(currentWindowEntries);
+    const tokens = Math.min(
+        CLIENT_RECONCILIATION_TOKEN_CAPACITY,
+        Math.max(0, storedTokens) + refillCount
+    );
+    const refilledAtMs = refillCount > 0
+        ? storedRefilledAtMs + refillCount * CLIENT_RECONCILIATION_TOKEN_REFILL_MS
+        : storedRefilledAtMs;
 
     return {
-        ...plan,
-        window_ms: safeWindowMs,
-        max_count: Math.max(1, Math.floor(plan.max_count)),
-        window_start_ms: windowStartMs,
-        window_end_ms: windowEndMs,
-        count: currentWindowEntries.reduce((total, entry) => total + Math.max(0, entry.count), 0),
-        retained_entry: retainedEntry,
-        duplicate_entries: entries.filter((entry) => entry._id !== retainedEntry?._id),
+        tokens,
+        refilled_at_ms: refilledAtMs,
+        retry_at_ms: refilledAtMs + CLIENT_RECONCILIATION_TOKEN_REFILL_MS,
     };
 }
 
-async function persistRefreshRateLimitBucketState(
-    ctx: Pick<MutationCtx, "db">,
-    userId: string,
-    state: RefreshRateLimitBucketState,
-    nextCount: number,
-    nowMs: number
-) {
-    if (state.retained_entry) {
-        await ctx.db.patch("refresh_rate_limits", state.retained_entry._id, {
-            window_start_ms: state.window_start_ms,
-            window_end_ms: state.window_end_ms,
-            count: nextCount,
-            updated_at_ms: nowMs,
-        });
-    } else {
-        await ctx.db.insert("refresh_rate_limits", {
-            user_id: userId,
-            kind: state.kind,
-            window_start_ms: state.window_start_ms,
-            window_end_ms: state.window_end_ms,
-            count: nextCount,
-            updated_at_ms: nowMs,
-        });
-    }
-
-    for (const duplicateEntry of state.duplicate_entries) {
-        await ctx.db.delete("refresh_rate_limits", duplicateEntry._id);
-    }
+export function isActiveReconciliationSuperseded(args: {
+    expects_active_subscription?: boolean;
+    active_signal_at_ms?: number;
+    pending_active_superseded_at_ms?: number;
+}) {
+    return (
+        args.expects_active_subscription === true &&
+        typeof args.active_signal_at_ms === "number" &&
+        typeof args.pending_active_superseded_at_ms === "number" &&
+        args.active_signal_at_ms <= args.pending_active_superseded_at_ms
+    );
 }
 
 function assertPreservedQuotaPeriodBelongsToDeletionUser(args: {
@@ -2197,97 +2145,6 @@ export const deleteFrozenQuotaPeriodsEligibleForRetentionPurge = async (ctx: Mut
         };
     };
 
-export const consumeRefreshRateLimit = async (ctx: MutationCtx, args: WebhookArgs.ConsumeRefreshRateLimitArgs) => {
-        const requestBucket: RefreshRateLimitBucketPlan = args.expects_active_subscription
-            ? {
-                  kind: SUBSCRIPTION_REFRESH_RATE_LIMIT_KINDS.PURCHASE,
-                  window_ms: args.config.purchase_window_ms,
-                  max_count: args.config.purchase_max_count,
-              }
-            : {
-                  kind: SUBSCRIPTION_REFRESH_RATE_LIMIT_KINDS.NORMAL,
-                  window_ms: args.config.normal_window_ms,
-                  max_count: args.config.normal_max_count,
-              };
-        const bucketPlans: RefreshRateLimitBucketPlan[] = [
-            requestBucket,
-            {
-                kind: SUBSCRIPTION_REFRESH_RATE_LIMIT_KINDS.DAILY,
-                window_ms: args.config.daily_window_ms,
-                max_count: args.config.daily_max_count,
-            },
-        ];
-        const bucketStates: RefreshRateLimitBucketState[] = [];
-
-        for (const plan of bucketPlans) {
-            bucketStates.push(
-                await getRefreshRateLimitBucketState(ctx, args.user_id, plan, args.now_ms)
-            );
-        }
-
-        const limitedBuckets = bucketStates.filter((state) => state.count >= state.max_count);
-
-        if (limitedBuckets.length > 0) {
-            for (const bucketState of bucketStates) {
-                await persistRefreshRateLimitBucketState(
-                    ctx,
-                    args.user_id,
-                    bucketState,
-                    bucketState.count,
-                    args.now_ms
-                );
-            }
-
-            const retryAfterMs = Math.max(
-                0,
-                ...limitedBuckets.map((state) => state.window_end_ms - args.now_ms)
-            );
-            const limitedBucket = limitedBuckets.sort(
-                (left, right) => right.window_end_ms - left.window_end_ms
-            )[0];
-
-            return {
-                allowed: false as const,
-                limited_kind: limitedBucket.kind,
-                retry_after_ms: retryAfterMs,
-                window_end_ms: limitedBucket.window_end_ms,
-            };
-        }
-
-        for (const bucketState of bucketStates) {
-            await persistRefreshRateLimitBucketState(
-                ctx,
-                args.user_id,
-                bucketState,
-                bucketState.count + 1,
-                args.now_ms
-            );
-        }
-
-        return {
-            allowed: true as const,
-        };
-    };
-
-export const deleteRefreshRateLimitsEligibleForRetentionPurge = async (ctx: MutationCtx, args: WebhookArgs.DeleteRefreshRateLimitsEligibleForRetentionPurgeArgs) => {
-        const safeLimit = Math.max(1, Math.min(args.limit, 500));
-        const docs = await ctx.db
-            .query("refresh_rate_limits")
-            .withIndex("by_updated_at_ms", (query) =>
-                query.lte("updated_at_ms", args.older_than_ms)
-            )
-            .take(safeLimit);
-
-        for (const doc of docs) {
-            await ctx.db.delete("refresh_rate_limits", doc._id);
-        }
-
-        return {
-            scanned_count: docs.length,
-            deleted_count: docs.length,
-        };
-    };
-
 export const getSubscriptionStateByUserId = async (ctx: QueryCtx, args: WebhookArgs.GetSubscriptionStateByUserIdArgs) => {
         const state = await getLatestSubscriptionStateByUserId(ctx, args.user_id);
 
@@ -2347,9 +2204,23 @@ export const beginSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
         );
         const signalAtMs = Math.min(args.active_signal_at_ms ?? nowMs, nowMs);
         const activeSignalExpiresAtMs = signalAtMs + activeSignalTtlMs;
+        const existingPendingSignalAtMs =
+            typeof existingStateRecord?.pending_active_signal_at_ms === "number"
+                ? existingStateRecord.pending_active_signal_at_ms
+                : undefined;
+        const existingSupersededAtMs =
+            typeof existingStateRecord?.pending_active_superseded_at_ms === "number"
+                ? existingStateRecord.pending_active_superseded_at_ms
+                : undefined;
+        const shouldSupersedePendingSignal =
+            args.clear_pending_active_signal === true &&
+            typeof args.revenuecat_event_at_ms === "number" &&
+            (typeof existingPendingSignalAtMs !== "number" ||
+                args.revenuecat_event_at_ms >= existingPendingSignalAtMs);
         const shouldRecordActiveSignal =
             args.expects_active_subscription === true &&
             activeSignalExpiresAtMs > nowMs &&
+            signalAtMs > (existingSupersededAtMs ?? 0) &&
             (args.trusted_active_signal === true || existingState?.has_active_subscription !== true);
         const existingPendingExpiresAtMs =
             typeof existingStateRecord?.pending_active_expires_at_ms === "number"
@@ -2357,6 +2228,8 @@ export const beginSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
                 : undefined;
         const existingPendingIsLive =
             typeof existingPendingExpiresAtMs === "number" && existingPendingExpiresAtMs > nowMs;
+        const shouldPreserveExistingPendingSignal =
+            existingPendingIsLive && !shouldSupersedePendingSignal;
         const nextPendingActiveSignalAtMs = shouldRecordActiveSignal
             ? Math.max(
                   typeof existingStateRecord?.pending_active_signal_at_ms === "number"
@@ -2364,26 +2237,55 @@ export const beginSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
                       : 0,
                   signalAtMs
               )
-            : existingPendingIsLive
-              ? typeof existingStateRecord?.pending_active_signal_at_ms === "number"
-                  ? existingStateRecord.pending_active_signal_at_ms
+            : shouldPreserveExistingPendingSignal
+              ? typeof existingPendingSignalAtMs === "number"
+                  ? existingPendingSignalAtMs
                   : undefined
               : undefined;
         const nextPendingActiveExpiresAtMs = shouldRecordActiveSignal
             ? Math.max(
-                  existingPendingIsLive ? existingPendingExpiresAtMs : 0,
+                  shouldPreserveExistingPendingSignal ? existingPendingExpiresAtMs : 0,
                   signalAtMs + activeSignalTtlMs
               )
-            : existingPendingIsLive
+            : shouldPreserveExistingPendingSignal
               ? existingPendingExpiresAtMs
               : undefined;
+        const isNewActiveSignal =
+            shouldRecordActiveSignal && signalAtMs > (existingPendingSignalAtMs ?? 0);
         const pendingActivePatch = {
+            ...(shouldSupersedePendingSignal
+                ? {
+                      pending_active_superseded_at_ms: Math.max(
+                          existingSupersededAtMs ?? 0,
+                          args.revenuecat_event_at_ms ?? 0
+                      ),
+                  }
+                : typeof existingSupersededAtMs === "number"
+                  ? { pending_active_superseded_at_ms: existingSupersededAtMs }
+                  : {}),
             ...(typeof nextPendingActiveSignalAtMs === "number"
                 ? { pending_active_signal_at_ms: nextPendingActiveSignalAtMs }
                 : { pending_active_signal_at_ms: undefined }),
             ...(typeof nextPendingActiveExpiresAtMs === "number"
                 ? { pending_active_expires_at_ms: nextPendingActiveExpiresAtMs }
                 : { pending_active_expires_at_ms: undefined }),
+            ...(typeof nextPendingActiveExpiresAtMs === "number"
+                ? {
+                      pending_active_retry_count: isNewActiveSignal
+                          ? 0
+                          : typeof existingStateRecord?.pending_active_retry_count === "number"
+                            ? existingStateRecord.pending_active_retry_count
+                            : 0,
+                      pending_active_next_retry_at_ms: isNewActiveSignal
+                          ? nowMs + SUBSCRIPTION_ACTIVATION_RETRY_DELAYS_MS[0]
+                          : typeof existingStateRecord?.pending_active_next_retry_at_ms === "number"
+                            ? existingStateRecord.pending_active_next_retry_at_ms
+                            : nowMs + SUBSCRIPTION_ACTIVATION_RETRY_DELAYS_MS[0],
+                  }
+                : {
+                      pending_active_retry_count: undefined,
+                      pending_active_next_retry_at_ms: undefined,
+                  }),
         } as Record<string, unknown>;
 
         if (existingState) {
@@ -2402,7 +2304,11 @@ export const beginSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
                 currentSyncExpiresAtMs > nowMs;
 
             if (isOwnedByAnotherLiveAttempt) {
-                if (shouldRecordActiveSignal || !existingPendingIsLive) {
+                if (
+                    shouldRecordActiveSignal ||
+                    shouldSupersedePendingSignal ||
+                    !existingPendingIsLive
+                ) {
                     await ctx.db.patch("subscription_states", existingState._id, {
                         ...pendingActivePatch,
                         updated_at_ms: nowMs,
@@ -2423,6 +2329,31 @@ export const beginSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
                 };
             }
 
+            const clientTokenState = getClientReconciliationTokenState(
+                existingStateRecord,
+                nowMs
+            );
+            if (args.client_reconciliation === true && clientTokenState.tokens < 1) {
+                await ctx.db.patch("subscription_states", existingState._id, {
+                    client_reconcile_tokens: clientTokenState.tokens,
+                    client_reconcile_refilled_at_ms: clientTokenState.refilled_at_ms,
+                    updated_at_ms: nowMs,
+                });
+
+                return {
+                    status: "rate_limited" as const,
+                    revenuecat_app_user_id:
+                        existingState.revenuecat_app_user_id ?? args.revenuecat_app_user_id,
+                    retry_at_ms: clientTokenState.retry_at_ms,
+                    has_active_subscription: existingState.has_active_subscription,
+                    plan_key: existingState.plan_key,
+                    last_synced_at_ms: existingState.last_synced_at_ms,
+                    ...(typeof existingState.billing_cycle_end_at_ms === "number"
+                        ? { billing_cycle_end_at_ms: existingState.billing_cycle_end_at_ms }
+                        : {}),
+                };
+            }
+
             await ctx.db.patch("subscription_states", existingState._id, {
                 revenuecat_app_user_id:
                     existingState.revenuecat_app_user_id ?? args.revenuecat_app_user_id,
@@ -2430,6 +2361,12 @@ export const beginSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
                 sync_started_at_ms: nowMs,
                 sync_expires_at_ms: leaseExpiresAtMs,
                 ...pendingActivePatch,
+                ...(args.client_reconciliation === true
+                    ? {
+                          client_reconcile_tokens: clientTokenState.tokens - 1,
+                          client_reconcile_refilled_at_ms: clientTokenState.refilled_at_ms,
+                      }
+                    : {}),
                 updated_at_ms: nowMs,
             });
 
@@ -2462,6 +2399,12 @@ export const beginSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
             sync_started_at_ms: nowMs,
             sync_expires_at_ms: leaseExpiresAtMs,
             ...pendingActivePatch,
+            ...(args.client_reconciliation === true
+                ? {
+                      client_reconcile_tokens: CLIENT_RECONCILIATION_TOKEN_CAPACITY - 1,
+                      client_reconcile_refilled_at_ms: nowMs,
+                  }
+                : {}),
             last_synced_at_ms: 0,
             stale_after_at_ms: nowMs,
             created_at_ms: nowMs,
@@ -2478,6 +2421,89 @@ export const beginSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
             last_synced_at_ms: 0,
         };
     };
+
+export const claimPendingActiveRetry = async (
+    ctx: MutationCtx,
+    args: WebhookArgs.ClaimPendingActiveRetryArgs
+) => {
+    const state = await getLatestSubscriptionStateByUserId(ctx, args.user_id);
+    const stateRecord = state as Record<string, unknown> | null;
+    const retryCount = typeof stateRecord?.pending_active_retry_count === "number"
+        ? stateRecord.pending_active_retry_count
+        : 0;
+    const pendingExpiresAtMs = typeof stateRecord?.pending_active_expires_at_ms === "number"
+        ? stateRecord.pending_active_expires_at_ms
+        : undefined;
+    const isExpired =
+        Boolean(state) &&
+        stateRecord?.pending_active_signal_at_ms === args.active_signal_at_ms &&
+        typeof pendingExpiresAtMs === "number" &&
+        pendingExpiresAtMs <= args.now_ms;
+
+    if (state && isExpired) {
+        await ctx.db.patch("subscription_states", state._id, {
+            pending_active_signal_at_ms: undefined,
+            pending_active_expires_at_ms: undefined,
+            pending_active_retry_count: undefined,
+            pending_active_next_retry_at_ms: undefined,
+            pending_active_superseded_at_ms: undefined,
+            updated_at_ms: args.now_ms,
+        } as Record<string, unknown>);
+        return { claimed: false as const, expired: true as const };
+    }
+
+    const canClaim =
+        Boolean(state) &&
+        stateRecord?.pending_active_signal_at_ms === args.active_signal_at_ms &&
+        typeof pendingExpiresAtMs === "number" &&
+        pendingExpiresAtMs > args.now_ms &&
+        retryCount === args.retry_index;
+
+    if (!state || !canClaim) {
+        return { claimed: false as const };
+    }
+
+    await ctx.db.patch("subscription_states", state._id, {
+        pending_active_retry_count: retryCount + 1,
+        pending_active_next_retry_at_ms: Math.min(
+            args.next_retry_at_ms,
+            pendingExpiresAtMs
+        ),
+        updated_at_ms: args.now_ms,
+    });
+
+    return { claimed: true as const };
+};
+
+export const listPendingActiveRetriesDue = async (
+    ctx: QueryCtx,
+    args: WebhookArgs.ListPendingActiveRetriesDueArgs
+) => {
+    const safeLimit = Math.max(1, Math.min(args.limit, 50));
+    const states = await ctx.db
+        .query("subscription_states")
+        .withIndex("by_pending_active_next_retry_at_ms", (query) =>
+            query
+                .gte("pending_active_next_retry_at_ms", 0)
+                .lte("pending_active_next_retry_at_ms", args.now_ms)
+        )
+        .take(safeLimit);
+
+    return states.flatMap((state) => {
+        if (
+            typeof state.pending_active_signal_at_ms !== "number" ||
+            typeof state.pending_active_retry_count !== "number"
+        ) {
+            return [];
+        }
+
+        return [{
+            user_id: state.user_id,
+            active_signal_at_ms: state.pending_active_signal_at_ms,
+            retry_index: state.pending_active_retry_count,
+        }];
+    });
+};
 
 export const releaseSubscriptionStateReconciliation = async (ctx: MutationCtx, args: WebhookArgs.ReleaseSubscriptionStateReconciliationArgs) => {
         const existingState = await getLatestSubscriptionStateByUserId(ctx, args.user_id);
@@ -2802,6 +2828,38 @@ export const applyReconciledSubscriptionState = async (ctx: MutationCtx, args: W
             };
         }
 
+        const pendingActiveSupersededAtMs =
+            typeof existingStateRecord?.pending_active_superseded_at_ms === "number"
+                ? existingStateRecord.pending_active_superseded_at_ms
+                : undefined;
+        const activeAttemptWasSuperseded = isActiveReconciliationSuperseded({
+            expects_active_subscription: args.expects_active_subscription,
+            active_signal_at_ms: args.active_signal_at_ms,
+            pending_active_superseded_at_ms: pendingActiveSupersededAtMs,
+        });
+
+        if (existingState && activeAttemptWasSuperseded) {
+            await ctx.db.patch("subscription_states", existingState._id, {
+                sync_attempt_id: undefined,
+                sync_started_at_ms: undefined,
+                sync_expires_at_ms: undefined,
+                updated_at_ms: Math.max(existingState.updated_at_ms, args.synced_at_ms),
+            } as Record<string, unknown>);
+
+            return {
+                status: "unchanged" as const,
+                plan_key: existingState.plan_key,
+                has_active_subscription: existingState.has_active_subscription,
+                last_synced_at_ms: existingState.last_synced_at_ms,
+                superseded: true,
+                owner_mismatch: false,
+                lease_expired: false,
+                ...(typeof existingState.billing_cycle_end_at_ms === "number"
+                    ? { billing_cycle_end_at_ms: existingState.billing_cycle_end_at_ms }
+                    : {}),
+            };
+        }
+
         if (existingState && shouldIgnoreStaleReconciledSubscriptionState(existingState, args.synced_at_ms)) {
             await ctx.db.patch("subscription_states", existingState._id, {
                 sync_attempt_id: undefined,
@@ -2835,11 +2893,23 @@ export const applyReconciledSubscriptionState = async (ctx: MutationCtx, args: W
         const activeSignalCanHoldInactive =
             args.expects_active_subscription === true &&
             activeSignalExpiresAtMs > args.synced_at_ms &&
+            safeActiveSignalAtMs > (pendingActiveSupersededAtMs ?? 0) &&
             (args.trusted_active_signal === true || existingState?.has_active_subscription !== true);
+        const pendingActiveSignalAtMs =
+            typeof existingStateRecord?.pending_active_signal_at_ms === "number"
+                ? existingStateRecord.pending_active_signal_at_ms
+                : undefined;
+        const shouldClearPendingActiveSignal =
+            args.clear_pending_active_signal === true &&
+            typeof args.revenuecat_event_at_ms === "number" &&
+            (typeof pendingActiveSignalAtMs !== "number" ||
+                args.revenuecat_event_at_ms >= pendingActiveSignalAtMs);
         const shouldHoldInactiveForActiveSignal =
             !args.snapshot.has_active_subscription &&
             (activeSignalCanHoldInactive ||
-                hasUnexpiredPendingActiveSignal(existingStateRecord, args.synced_at_ms));
+                (!shouldClearPendingActiveSignal &&
+                    (pendingActiveSignalAtMs ?? 0) > (pendingActiveSupersededAtMs ?? 0) &&
+                    hasUnexpiredPendingActiveSignal(existingStateRecord, args.synced_at_ms)));
 
         if (shouldHoldInactiveForActiveSignal && existingState) {
             const existingPendingSignalAtMs =
@@ -2872,6 +2942,18 @@ export const applyReconciledSubscriptionState = async (ctx: MutationCtx, args: W
                 sync_expires_at_ms: undefined,
                 pending_active_signal_at_ms: signalAtMs,
                 pending_active_expires_at_ms: nextPendingActiveExpiresAtMs,
+                pending_active_retry_count:
+                    signalAtMs > (existingPendingSignalAtMs ?? 0)
+                        ? 0
+                        : typeof existingStateRecord?.pending_active_retry_count === "number"
+                          ? existingStateRecord.pending_active_retry_count
+                          : 0,
+                pending_active_next_retry_at_ms:
+                    signalAtMs > (existingPendingSignalAtMs ?? 0)
+                        ? args.synced_at_ms + SUBSCRIPTION_ACTIVATION_RETRY_DELAYS_MS[0]
+                        : typeof existingStateRecord?.pending_active_next_retry_at_ms === "number"
+                          ? existingStateRecord.pending_active_next_retry_at_ms
+                          : args.synced_at_ms + SUBSCRIPTION_ACTIVATION_RETRY_DELAYS_MS[0],
                 updated_at_ms: args.synced_at_ms,
             } as Record<string, unknown>);
 
@@ -2881,6 +2963,7 @@ export const applyReconciledSubscriptionState = async (ctx: MutationCtx, args: W
                 has_active_subscription: existingState.has_active_subscription,
                 last_synced_at_ms: existingState.last_synced_at_ms,
                 pending_active_expires_at_ms: nextPendingActiveExpiresAtMs,
+                pending_active_signal_at_ms: signalAtMs,
                 owner_mismatch: false,
                 lease_expired: false,
                 ...(typeof existingState.billing_cycle_end_at_ms === "number"
@@ -2970,6 +3053,15 @@ export const applyReconciledSubscriptionState = async (ctx: MutationCtx, args: W
             stale_after_at_ms: staleAfterAtMs,
             created_at_ms: existingState?.created_at_ms ?? args.synced_at_ms,
             updated_at_ms: args.synced_at_ms,
+            ...(typeof existingStateRecord?.client_reconcile_tokens === "number"
+                ? { client_reconcile_tokens: existingStateRecord.client_reconcile_tokens }
+                : {}),
+            ...(typeof existingStateRecord?.client_reconcile_refilled_at_ms === "number"
+                ? {
+                      client_reconcile_refilled_at_ms:
+                          existingStateRecord.client_reconcile_refilled_at_ms,
+                  }
+                : {}),
         };
 
         const nextState = {

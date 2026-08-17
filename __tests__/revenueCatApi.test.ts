@@ -63,13 +63,8 @@ describe("RevenueCat API reconciliation", () => {
         });
         const fetchMock = jest.fn() as jest.MockedFunction<typeof fetch>;
         globalThis.fetch = fetchMock;
-        jest.spyOn(console, "error").mockImplementation(() => undefined);
-        jest.spyOn(console, "warn").mockImplementation(() => undefined);
-
         await expect(fetchRevenueCatSubscriberSnapshot("user_with_public_product_ids", Date.now()))
-            .resolves.toEqual({
-                has_active_subscription: false,
-            });
+            .rejects.toThrow("Missing RevenueCat Polyglot entitlement or product ID configuration");
         expect(fetchMock).not.toHaveBeenCalled();
     });
 

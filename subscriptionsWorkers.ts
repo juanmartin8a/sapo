@@ -2,9 +2,13 @@ import { internalAction } from "./_generated/server";
 import * as Workers from "./model/subscriptions/workers";
 import * as WorkerArgs from "./validators/subscriptionsWorkers";
 
-export const refreshSubscriptionStateFromRevenueCat = internalAction({
-    args: WorkerArgs.refreshSubscriptionStateFromRevenueCatArgs,
-    handler: Workers.refreshSubscriptionStateFromRevenueCatHandler,
+export const retryPendingSubscriptionActivation = internalAction({
+    args: WorkerArgs.retryPendingSubscriptionActivationArgs,
+    handler: Workers.retryPendingSubscriptionActivation,
+});
+export const retryPendingSubscriptionActivations = internalAction({
+    args: WorkerArgs.retryPendingSubscriptionActivationsArgs,
+    handler: Workers.retryPendingSubscriptionActivations,
 });
 export const prepareUserAccountDeletion = internalAction({
     args: WorkerArgs.prepareUserAccountDeletionArgs,
@@ -49,10 +53,6 @@ export const reconcileExpiredSubscriptionStates = internalAction({
 export const purgeExpiredRevenueCatEvents = internalAction({
     args: WorkerArgs.purgeExpiredRevenueCatEventsArgs,
     handler: Workers.purgeExpiredRevenueCatEvents,
-});
-export const purgeStaleRefreshRateLimits = internalAction({
-    args: WorkerArgs.purgeStaleRefreshRateLimitsArgs,
-    handler: Workers.purgeStaleRefreshRateLimits,
 });
 export const purgeExpiredFrozenQuotaPeriods = internalAction({
     args: WorkerArgs.purgeExpiredFrozenQuotaPeriodsArgs,

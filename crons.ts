@@ -40,6 +40,13 @@ crons.interval(
 );
 
 crons.interval(
+    "retry pending subscription activations",
+    { minutes: 1 },
+    internal.subscriptionsWorkers.retryPendingSubscriptionActivations,
+    {}
+);
+
+crons.interval(
     "check revenuecat pipeline health",
     { minutes: 30 },
     internal.subscriptionsWorkers.checkRevenueCatPipelineHealth,
@@ -71,13 +78,6 @@ crons.interval(
     "purge expired frozen quota periods",
     { hours: 24 },
     internal.subscriptionsWorkers.purgeExpiredFrozenQuotaPeriods,
-    {}
-);
-
-crons.interval(
-    "purge stale refresh rate limits",
-    { hours: 24 },
-    internal.subscriptionsWorkers.purgeStaleRefreshRateLimits,
     {}
 );
 

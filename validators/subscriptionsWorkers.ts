@@ -1,14 +1,20 @@
 import { v, type ObjectType } from "convex/values";
 
-export const refreshSubscriptionStateFromRevenueCatArgs = {
+export const retryPendingSubscriptionActivationArgs = {
     user_id: v.string(),
-    force: v.optional(v.boolean()),
-    expects_active_subscription: v.optional(v.boolean()),
-    active_signal_at_ms: v.optional(v.number()),
+    active_signal_at_ms: v.number(),
+    retry_index: v.number(),
+    event_doc_id: v.optional(v.string()),
 };
 
-export type RefreshSubscriptionStateFromRevenueCatArgs = ObjectType<
-    typeof refreshSubscriptionStateFromRevenueCatArgs
+export type RetryPendingSubscriptionActivationArgs = ObjectType<
+    typeof retryPendingSubscriptionActivationArgs
+>;
+
+export const retryPendingSubscriptionActivationsArgs = {};
+
+export type RetryPendingSubscriptionActivationsArgs = ObjectType<
+    typeof retryPendingSubscriptionActivationsArgs
 >;
 
 export const prepareUserAccountDeletionArgs = {
@@ -92,12 +98,6 @@ export const purgeExpiredRevenueCatEventsArgs = {};
 
 export type PurgeExpiredRevenueCatEventsArgs = ObjectType<
     typeof purgeExpiredRevenueCatEventsArgs
->;
-
-export const purgeStaleRefreshRateLimitsArgs = {};
-
-export type PurgeStaleRefreshRateLimitsArgs = ObjectType<
-    typeof purgeStaleRefreshRateLimitsArgs
 >;
 
 export const purgeExpiredFrozenQuotaPeriodsArgs = {};

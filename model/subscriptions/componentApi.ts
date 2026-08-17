@@ -2,9 +2,11 @@ import { components } from "../../_generated/api";
 import type { SubscriptionPlanKey } from "../../constants/subscriptions";
 import type { RevenueCatWebhookEventStatus } from "../../constants/revenueCat";
 import type { ActionCtx } from "../../_generated/server";
+import type { CurrentSubscriptionState } from "./revenueCatApi";
 import type { UserDeletionCleanupStep, UserDeletionQueueStatus } from "./userDeletionQueue";
 
 export type SubscriptionStateReconciliationCtx = Pick<ActionCtx, "runQuery" | "runMutation">;
+type SubscriptionStateQueryCtx = Pick<ActionCtx, "runQuery">;
 
 export type UserDeletionSnapshot = {
     has_active_subscription: boolean;
@@ -67,6 +69,15 @@ export type SubscriptionStateReconciliationLeaseResult =
           last_synced_at_ms: number;
           billing_cycle_end_at_ms?: number;
           retry_at_ms?: number;
+      }
+    | {
+          status: "rate_limited";
+          revenuecat_app_user_id: string;
+          has_active_subscription: boolean;
+          plan_key: SubscriptionPlanKey;
+          last_synced_at_ms: number;
+          billing_cycle_end_at_ms?: number;
+          retry_at_ms: number;
       };
 
 export type RevenueCatEventProgressMutationResult = {
@@ -85,6 +96,46 @@ export type RevenueCatEventProcessingLeaseAcquisitionResult = {
     active_processing_user_ids: string[];
     blocked_user_ids: string[];
 };
+
+export async function getSubscriptionStateByUserId(
+    ctx: SubscriptionStateQueryCtx,
+    userId: string
+) {
+    return (await ctx.runQuery(
+        components.subscriptions.webhook.getSubscriptionStateByUserId,
+        { user_id: userId }
+    )) as CurrentSubscriptionState | null;
+}
+
+export async function claimPendingActiveRetry(
+    ctx: SubscriptionStateReconciliationCtx,
+    args: {
+        user_id: string;
+        active_signal_at_ms: number;
+        retry_index: number;
+        now_ms: number;
+        next_retry_at_ms: number;
+    }
+) {
+    return (await ctx.runMutation(
+        components.subscriptions.webhook.claimPendingActiveRetry,
+        args
+    )) as { claimed: boolean; expired?: boolean };
+}
+
+export async function listPendingActiveRetriesDue(
+    ctx: SubscriptionStateQueryCtx,
+    args: { now_ms: number; limit: number }
+) {
+    return (await ctx.runQuery(
+        components.subscriptions.webhook.listPendingActiveRetriesDue,
+        args
+    )) as {
+        user_id: string;
+        active_signal_at_ms: number;
+        retry_index: number;
+    }[];
+}
 
 export async function recordRevenueCatEventProcessingProgress(
     ctx: SubscriptionStateReconciliationCtx,
@@ -145,6 +196,9 @@ export async function beginSubscriptionStateReconciliation(
         trusted_active_signal?: boolean;
         active_signal_at_ms?: number;
         active_signal_ttl_ms?: number;
+        client_reconciliation?: boolean;
+        clear_pending_active_signal?: boolean;
+        revenuecat_event_at_ms?: number;
     }
 ) {
     return (await (ctx as any).runMutation(

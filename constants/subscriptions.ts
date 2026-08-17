@@ -23,18 +23,6 @@ export const SUBSCRIPTION_USAGE_OPERATIONS = {
     RESPELL: "respell",
 } as const;
 
-export const SUBSCRIPTION_REFRESH_RATE_LIMIT_KINDS = {
-    NORMAL: "refresh_normal",
-    PURCHASE: "refresh_purchase",
-    DAILY: "refresh_daily",
-} as const;
-
-export const SUBSCRIPTION_REFRESH_RATE_LIMIT_KIND_VALUES = [
-    SUBSCRIPTION_REFRESH_RATE_LIMIT_KINDS.NORMAL,
-    SUBSCRIPTION_REFRESH_RATE_LIMIT_KINDS.PURCHASE,
-    SUBSCRIPTION_REFRESH_RATE_LIMIT_KINDS.DAILY,
-] as const;
-
 export const SUBSCRIPTION_QUOTA_ERROR_CODES = {
     SUBSCRIPTION_REQUIRED: "subscription_required",
     INPUT_LIMIT_EXCEEDED: "input_limit_exceeded",
@@ -43,11 +31,16 @@ export const SUBSCRIPTION_QUOTA_ERROR_CODES = {
 } as const;
 
 export const INPUT_CHARACTERS_QUOTA_UNIT = "input_characters";
-export const PENDING_ACTIVE_SIGNAL_TTL_MS = 2 * 60 * 1000;
+export const PENDING_ACTIVE_SIGNAL_TTL_MS = 5 * 60 * 1000;
+export const SUBSCRIPTION_ACTIVATION_RETRY_DELAYS_MS = [
+    5_000,
+    15_000,
+    30_000,
+    60_000,
+    120_000,
+] as const;
 
 export type SubscriptionPlanKey =
     (typeof SUBSCRIPTION_PLAN_KEYS)[keyof typeof SUBSCRIPTION_PLAN_KEYS];
 export type SubscriptionUsageOperation =
     (typeof SUBSCRIPTION_USAGE_OPERATIONS)[keyof typeof SUBSCRIPTION_USAGE_OPERATIONS];
-export type SubscriptionRefreshRateLimitKind =
-    (typeof SUBSCRIPTION_REFRESH_RATE_LIMIT_KINDS)[keyof typeof SUBSCRIPTION_REFRESH_RATE_LIMIT_KINDS];

@@ -3,7 +3,10 @@ import { httpAction } from "./_generated/server";
 import { authComponent, createAuth } from "./betterAuth/auth";
 import { HTTP_ROUTES } from "./constants/http";
 import { handleResendWebhook } from "./model/email";
-import { refresh, refreshOptions } from "./refresh";
+import {
+    subscriptionReconciliation,
+    subscriptionReconciliationOptions,
+} from "./subscriptionReconciliation";
 import {
     sapopinguino,
     sapopinguinoOptions,
@@ -49,21 +52,15 @@ http.route({
 });
 
 http.route({
-    path: HTTP_ROUTES.SUBSCRIPTION_REFRESH,
-    method: "GET",
-    handler: refresh,
-});
-
-http.route({
-    path: HTTP_ROUTES.SUBSCRIPTION_REFRESH,
+    path: HTTP_ROUTES.SUBSCRIPTION_RECONCILIATION,
     method: "POST",
-    handler: refresh,
+    handler: subscriptionReconciliation,
 });
 
 http.route({
-    path: HTTP_ROUTES.SUBSCRIPTION_REFRESH,
+    path: HTTP_ROUTES.SUBSCRIPTION_RECONCILIATION,
     method: "OPTIONS",
-    handler: refreshOptions,
+    handler: subscriptionReconciliationOptions,
 });
 
 http.route({

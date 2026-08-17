@@ -543,11 +543,7 @@ export async function fetchRevenueCatSubscriberSnapshot(
     const configuredProductIdSet = new Set(configuredProductIds);
 
     if (!hasPolyglotSubscriptionFilters()) {
-        console.error("Missing RevenueCat Polyglot entitlement or product ID");
-
-        return {
-            has_active_subscription: false,
-        };
+        throw new Error("Missing RevenueCat Polyglot entitlement or product ID configuration");
     }
 
     const parsedSubscriptions = await fetchRevenueCatSubscriptions(appUserId);
