@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "expo-router";
 import { Alert, Platform } from "react-native";
 import Purchases from "react-native-purchases";
@@ -26,11 +26,10 @@ import {
     openRevenueCatManagementUrl,
 } from "@/lib/revenuecat";
 import {
-    isSubscriptionRefreshAuthMismatch,
-    refreshSubscriptionState,
-    refreshSubscriptionStateAfterRevenueCatUpdate,
-    retrySubscriptionStateAfterRevenueCatUpdateInBackground,
-} from "@/lib/subscription-refresh";
+    isSubscriptionReconciliationAuthMismatch,
+    isPendingSubscriptionReconciliation,
+    reconcileObservedSubscriptionState,
+} from "@/lib/subscription-reconciliation";
 import { useAuthState } from "@/providers/AuthStateProvider";
 import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
 
@@ -42,16 +41,22 @@ const RESTORE_SESSION_CHANGED_MESSAGE =
 export default function useSettingsActions() {
     const router = useRouter();
     const { status: authStatus, userId } = useAuthState();
-    const setSubscriptionForUser = useSubscriptionStatusStore((state) => state.setForUser);
     const [isSigningOut, setIsSigningOut] = useState(false);
-    const [isRestoringPurchases, setIsRestoringPurchases] = useState(false);
+    const [restoringUserId, setRestoringUserId] = useState<string | null>(null);
     const [isManagingSubscription, setIsManagingSubscription] = useState(false);
     const activeRestoreRef = useRef<symbol | null>(null);
+    const isRestoringPurchases = Boolean(userId && restoringUserId === userId);
     const isPending = authStatus === "checking";
     const isAuthenticatedUser = authStatus === "authenticated";
     const canUseRevenueCat = hasRevenueCatConfig();
     const storeAccountLabel = getStoreAccountLabel(Platform.OS);
     const shouldShowAuthenticatedActions = isAuthenticatedUser || isSigningOut;
+
+    useEffect(() => {
+        return () => {
+            activeRestoreRef.current = null;
+        };
+    }, []);
     const isRestorePurchasesDisabled =
         isPending ||
         isSigningOut ||
@@ -99,48 +104,63 @@ export default function useSettingsActions() {
         triggerLightImpactHaptic();
         const restoreOperation = Symbol("restore-purchases");
         activeRestoreRef.current = restoreOperation;
+        const isCurrentRestore = () =>
+            activeRestoreRef.current === restoreOperation &&
+            useSubscriptionStatusStore.getState().userId === userId;
 
         try {
-            setIsRestoringPurchases(true);
+            setRestoringUserId(userId);
             await configureRevenueCat(userId);
-            if (activeRestoreRef.current !== restoreOperation) return;
+            if (!isCurrentRestore()) return;
 
             const currentAppUserId = await Purchases.getAppUserID();
-            if (activeRestoreRef.current !== restoreOperation) return;
+            if (!isCurrentRestore()) return;
 
             if (currentAppUserId !== userId) {
                 await Purchases.logIn(userId);
-                if (activeRestoreRef.current !== restoreOperation) return;
+                if (!isCurrentRestore()) return;
             }
 
             const customerInfo = await Purchases.restorePurchases();
-            if (activeRestoreRef.current !== restoreOperation) return;
+            if (!isCurrentRestore()) return;
+
+            const confirmedAppUserId = await Purchases.getAppUserID();
+            if (!isCurrentRestore()) return;
+
+            if (confirmedAppUserId !== userId) {
+                triggerWarningHaptic();
+                Alert.alert(
+                    SUBSCRIPTION_SESSION_CHANGED_ALERT_TITLE,
+                    RESTORE_SESSION_CHANGED_MESSAGE
+                );
+                return;
+            }
 
             const hasActiveClientSubscription = hasActiveRevenueCatSubscription(customerInfo);
-            let hasActiveServerSubscription = false;
-            let refreshFailed = false;
-            let refreshAuthMismatch = false;
+            let reconciliationStatus: Awaited<
+                ReturnType<typeof reconcileObservedSubscriptionState>
+            >["status"] | null = null;
+            let reconciliationError: unknown = null;
 
             try {
-                const refreshResult = hasActiveClientSubscription
-                    ? await refreshSubscriptionStateAfterRevenueCatUpdate(userId)
-                    : await refreshSubscriptionState({ userId });
-                if (activeRestoreRef.current !== restoreOperation) return;
+                const reconciliationResult = await reconcileObservedSubscriptionState({
+                    userId,
+                    observedActive: hasActiveClientSubscription,
+                });
+                if (!isCurrentRestore()) return;
 
-                hasActiveServerSubscription = refreshResult?.has_active_subscription === true;
+                reconciliationStatus = reconciliationResult.status;
             } catch (error) {
-                if (activeRestoreRef.current !== restoreOperation) return;
+                if (!isCurrentRestore()) return;
 
-                refreshFailed = true;
-                refreshAuthMismatch = isSubscriptionRefreshAuthMismatch(error);
+                reconciliationError = error;
 
                 if (__DEV__) {
-                    console.warn("Failed to refresh subscription state after restore", error);
+                    console.warn("Failed to reconcile subscription state after restore", error);
                 }
             }
 
-            if (refreshAuthMismatch) {
-                setSubscriptionForUser(userId, false);
+            if (isSubscriptionReconciliationAuthMismatch(reconciliationError)) {
                 triggerWarningHaptic();
                 Alert.alert(
                     SUBSCRIPTION_SESSION_CHANGED_ALERT_TITLE,
@@ -149,8 +169,23 @@ export default function useSettingsActions() {
                 return;
             }
 
-            const isActive = hasActiveClientSubscription || hasActiveServerSubscription;
-            if (!setSubscriptionForUser(userId, isActive)) {
+            if (reconciliationError) {
+                if (!hasActiveClientSubscription) {
+                    throw reconciliationError;
+                }
+
+                triggerWarningHaptic();
+                Alert.alert(
+                    "Purchases restored",
+                    "Your subscription was found, but SAPO could not verify it yet. Please try restoring again shortly."
+                );
+                return;
+            }
+
+            if (
+                !reconciliationStatus ||
+                useSubscriptionStatusStore.getState().userId !== userId
+            ) {
                 triggerWarningHaptic();
                 Alert.alert(
                     SUBSCRIPTION_SESSION_CHANGED_ALERT_TITLE,
@@ -159,28 +194,28 @@ export default function useSettingsActions() {
                 return;
             }
 
-            if (isActive) {
+            if (reconciliationStatus === "active") {
                 triggerStrongImpactHaptic();
+                Alert.alert("Purchases restored", "Your subscription is active on this account.");
+                return;
+            }
 
-                if (refreshFailed) {
-                    retrySubscriptionStateAfterRevenueCatUpdateInBackground(userId);
-                    Alert.alert(
-                        "Purchases restored",
-                        "Your subscription is active. We are still syncing it to SAPO and will keep trying automatically."
-                    );
-                } else {
-                    Alert.alert("Purchases restored", "Your subscription is active on this account.");
-                }
+            if (isPendingSubscriptionReconciliation(reconciliationStatus)) {
+                triggerWarningHaptic();
+                Alert.alert(
+                    "Purchases restored",
+                    "Your subscription was found and is still syncing to SAPO. Please check again shortly."
+                );
                 return;
             }
 
             triggerWarningHaptic();
             Alert.alert("No purchases found", "No active subscriptions were found for this account.");
         } catch (error) {
-            if (activeRestoreRef.current !== restoreOperation) return;
+            if (!isCurrentRestore()) return;
 
             if (isReceiptAlreadyInUseRevenueCatError(error)) {
-                if (!setSubscriptionForUser(userId, false)) {
+                if (useSubscriptionStatusStore.getState().userId !== userId) {
                     triggerWarningHaptic();
                     Alert.alert(
                         SUBSCRIPTION_SESSION_CHANGED_ALERT_TITLE,
@@ -206,7 +241,7 @@ export default function useSettingsActions() {
         } finally {
             if (activeRestoreRef.current === restoreOperation) {
                 activeRestoreRef.current = null;
-                setIsRestoringPurchases(false);
+                setRestoringUserId(null);
             }
         }
     }, [
@@ -214,7 +249,6 @@ export default function useSettingsActions() {
         isPending,
         isRestoringPurchases,
         isSigningOut,
-        setSubscriptionForUser,
         storeAccountLabel,
         userId,
     ]);
@@ -266,7 +300,7 @@ export default function useSettingsActions() {
 
         if (activeRestoreRef.current !== null) {
             activeRestoreRef.current = null;
-            setIsRestoringPurchases(false);
+            setRestoringUserId(null);
         }
 
         triggerLightImpactHaptic();

@@ -6,6 +6,7 @@ describe("subscription status store", () => {
     beforeEach(() => {
         useSubscriptionStatusStore.setState({
             userId: null,
+            status: "inactive",
             hasActiveSubscription: false,
         });
     });
@@ -14,12 +15,13 @@ describe("subscription status store", () => {
         const store = useSubscriptionStatusStore.getState();
 
         store.setCurrentUser("user-a");
-        expect(store.setForUser("user-a", true)).toBe(true);
+        expect(store.setForUser("user-a", "active")).toBe(true);
         expect(useSubscriptionStatusStore.getState().hasActiveSubscription).toBe(true);
 
         store.setCurrentUser("user-b");
         expect(useSubscriptionStatusStore.getState()).toMatchObject({
             userId: "user-b",
+            status: "checking",
             hasActiveSubscription: null,
         });
     });
@@ -28,10 +30,28 @@ describe("subscription status store", () => {
         const store = useSubscriptionStatusStore.getState();
 
         store.setCurrentUser("user-b");
-        expect(store.setForUser("user-a", true)).toBe(false);
+        expect(store.setForUser("user-a", "active")).toBe(false);
         expect(useSubscriptionStatusStore.getState()).toMatchObject({
             userId: "user-b",
+            status: "checking",
             hasActiveSubscription: null,
+        });
+    });
+
+    it("derives paid access only from active status", () => {
+        const store = useSubscriptionStatusStore.getState();
+
+        store.setCurrentUser("user-a");
+        store.setForUser("user-a", "activating");
+        expect(useSubscriptionStatusStore.getState()).toMatchObject({
+            status: "activating",
+            hasActiveSubscription: false,
+        });
+
+        store.setForUser("user-a", "active");
+        expect(useSubscriptionStatusStore.getState()).toMatchObject({
+            status: "active",
+            hasActiveSubscription: true,
         });
     });
 });

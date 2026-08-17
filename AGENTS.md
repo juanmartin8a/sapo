@@ -38,7 +38,7 @@ Compact guidance for future OpenCode sessions in this repo.
 
 ## Environment Gotchas
 
-- Client startup requires `EXPO_PUBLIC_CONVEX_URL`; auth and SSE/refresh calls use `EXPO_PUBLIC_CONVEX_SITE_URL`.
+- Client startup requires `EXPO_PUBLIC_CONVEX_URL`; auth, SSE, and subscription reconciliation calls use `EXPO_PUBLIC_CONVEX_SITE_URL`.
 - RevenueCat client config is optional but platform-specific: `EXPO_PUBLIC_REVENUE_CAT_APPLE_API_KEY`, `EXPO_PUBLIC_REVENUE_CAT_GOOGLE_API_KEY`, product IDs, and entitlement ID.
 - Convex server env is separate from Expo public env; backend code reads OpenAI, Better Auth, Apple/Google auth, RevenueCat webhook/API, Resend, and `CLIENT_ORIGIN` values.
 - Never expose server-only env values by adding an `EXPO_PUBLIC_` prefix.
