@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Linking, Platform, StyleSheet } from "react-native";
 import Purchases, {
     type CustomerInfo,
@@ -37,11 +37,11 @@ import {
     isRevenueCatSupportedPlatform,
 } from "@/lib/revenuecat";
 import {
-    isSubscriptionRefreshAuthMismatch,
-    refreshSubscriptionState,
-    refreshSubscriptionStateAfterRevenueCatUpdate,
-    retrySubscriptionStateAfterRevenueCatUpdateInBackground,
-} from "@/lib/subscription-refresh";
+    isSubscriptionReconciliationAuthMismatch,
+    isPendingSubscriptionReconciliation,
+    reconcileObservedSubscriptionState,
+    type SubscriptionReconciliationStatus,
+} from "@/lib/subscription-reconciliation";
 import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
 import { triggerErrorHaptic, triggerLightImpactHaptic, triggerWarningHaptic } from "@/lib/haptics";
 
@@ -51,7 +51,7 @@ const PRIVACY_POLICY_URL = "https://sapo.surf/privacy-policy";
 const PURCHASE_ERROR_MESSAGE = "Unable to complete the purchase. Please try again.";
 
 const getSubscriptionSyncPendingMessage = () => {
-    return "Your purchase is active. We are still syncing it to SAPO and will keep trying automatically.";
+    return "Your purchase was completed and is still syncing to SAPO. Please check again shortly.";
 };
 
 const getSubscriptionSessionChangedMessage = () => {
@@ -61,14 +61,18 @@ const getSubscriptionSessionChangedMessage = () => {
 export default function SubscriptionScreen() {
     const { userId } = useAuthState();
     const [isLoadingSubscription, setIsLoadingSubscription] = useState(true);
-    const [isPurchasing, setIsPurchasing] = useState(false);
+    const [purchasingUserId, setPurchasingUserId] = useState<string | null>(null);
     const [isSubscriptionLinkedElsewhere, setIsSubscriptionLinkedElsewhere] = useState(false);
+    const activePurchaseRef = useRef<symbol | null>(null);
     const [subscriptionPackage, setSubscriptionPackage] = useState<PurchasesPackage | null>(null);
     const [subscriptionProduct, setSubscriptionProduct] = useState<PurchasesStoreProduct | null>(null);
     const subscriptionUserId = useSubscriptionStatusStore((state) => state.userId);
+    const storedSubscriptionStatus = useSubscriptionStatusStore((state) => state.status);
     const storedHasActiveSubscription = useSubscriptionStatusStore((state) => state.hasActiveSubscription);
-    const setSubscriptionForUser = useSubscriptionStatusStore((state) => state.setForUser);
     const hasActiveSubscription = subscriptionUserId === userId && storedHasActiveSubscription === true;
+    const isPurchasing = Boolean(userId && purchasingUserId === userId);
+    const isActivatingSubscription =
+        subscriptionUserId === userId && storedSubscriptionStatus === "activating";
     const canUseRevenueCat = hasRevenueCatConfig();
     const storeAccountLabel = getStoreAccountLabel(Platform.OS);
 
@@ -79,9 +83,15 @@ export default function SubscriptionScreen() {
         );
     }, [storeAccountLabel]);
 
-    const setCurrentSubscriptionStatus = useCallback((isActive: boolean | null) => {
-        return userId ? setSubscriptionForUser(userId, isActive) : false;
-    }, [setSubscriptionForUser, userId]);
+    const isCurrentSubscriptionUser = useCallback(() => {
+        return Boolean(userId && useSubscriptionStatusStore.getState().userId === userId);
+    }, [userId]);
+
+    useEffect(() => {
+        return () => {
+            activePurchaseRef.current = null;
+        };
+    }, []);
 
     useEffect(() => {
         let isMounted = true;
@@ -94,7 +104,6 @@ export default function SubscriptionScreen() {
 
                 setSubscriptionPackage(null);
                 setSubscriptionProduct(null);
-                setCurrentSubscriptionStatus(false);
                 setIsSubscriptionLinkedElsewhere(false);
                 setIsLoadingSubscription(false);
                 return;
@@ -118,12 +127,22 @@ export default function SubscriptionScreen() {
                         } else {
                             customerInfo = await Purchases.getCustomerInfo();
                         }
+
+                        const confirmedAppUserId = await Purchases.getAppUserID();
+                        if (confirmedAppUserId === userId) {
+                            await reconcileObservedSubscriptionState({
+                                userId,
+                                observedActive: hasActiveRevenueCatSubscription(customerInfo),
+                            });
+                        }
                     } catch (error) {
                         if (!isReceiptAlreadyInUseRevenueCatError(error)) {
-                            throw error;
+                            if (__DEV__) {
+                                console.warn("Failed to reconcile loaded subscription state", error);
+                            }
+                        } else {
+                            isLinkedElsewhere = true;
                         }
-
-                        isLinkedElsewhere = true;
                     }
                 }
 
@@ -153,9 +172,6 @@ export default function SubscriptionScreen() {
 
                 setSubscriptionPackage(selectedPackage);
                 setSubscriptionProduct(fallbackProduct);
-                setCurrentSubscriptionStatus(
-                    customerInfo ? hasActiveRevenueCatSubscription(customerInfo) : false
-                );
                 setIsSubscriptionLinkedElsewhere(isLinkedElsewhere);
 
                 if (isLinkedElsewhere) {
@@ -194,7 +210,7 @@ export default function SubscriptionScreen() {
         return () => {
             isMounted = false;
         };
-    }, [canUseRevenueCat, setCurrentSubscriptionStatus, showSubscriptionLinkedElsewhereAlert, userId]);
+    }, [canUseRevenueCat, showSubscriptionLinkedElsewhereAlert, userId]);
 
     const displayPrice = formatDisplayPrice(
         subscriptionPackage?.product.priceString ?? subscriptionProduct?.priceString
@@ -231,6 +247,10 @@ export default function SubscriptionScreen() {
             return "Subscribed";
         }
 
+        if (isActivatingSubscription) {
+            return "Activating subscription...";
+        }
+
         if (!subscriptionPackage && !subscriptionProduct) {
             return "No plans available";
         }
@@ -239,6 +259,7 @@ export default function SubscriptionScreen() {
     }, [
         canUseRevenueCat,
         hasActiveSubscription,
+        isActivatingSubscription,
         isLoadingSubscription,
         isSubscriptionLinkedElsewhere,
         subscriptionPackage,
@@ -254,45 +275,65 @@ export default function SubscriptionScreen() {
             (!subscriptionPackage && !subscriptionProduct) ||
             isLoadingSubscription ||
             isPurchasing ||
+            activePurchaseRef.current !== null ||
             isSubscriptionLinkedElsewhere ||
+            isActivatingSubscription ||
             hasActiveSubscription
         ) {
             return;
         }
 
         triggerLightImpactHaptic();
+        const purchaseOperation = Symbol("purchase-subscription");
+        activePurchaseRef.current = purchaseOperation;
+        const isCurrentPurchase = () =>
+            activePurchaseRef.current === purchaseOperation && isCurrentSubscriptionUser();
 
         try {
-            setIsPurchasing(true);
+            setPurchasingUserId(userId);
 
             await configureRevenueCat(userId);
+            if (!isCurrentPurchase()) return;
 
             const currentAppUserId = await Purchases.getAppUserID();
+            if (!isCurrentPurchase()) return;
 
             if (currentAppUserId !== userId) {
                 const loggedInCustomerInfo = (await Purchases.logIn(userId)).customerInfo;
+                if (!isCurrentPurchase()) return;
                 const hasActiveClientSubscriptionAfterLogin = hasActiveRevenueCatSubscription(loggedInCustomerInfo);
-                let hasActiveServerSubscriptionAfterLogin = false;
-                let loginRefreshFailed = false;
-                let loginRefreshAuthMismatch = false;
+                let loginReconciliationStatus: SubscriptionReconciliationStatus | null = null;
+                let loginReconciliationError: unknown = null;
 
                 try {
-                    const refreshResult = hasActiveClientSubscriptionAfterLogin
-                        ? await refreshSubscriptionStateAfterRevenueCatUpdate(userId)
-                        : await refreshSubscriptionState({ userId });
-                    hasActiveServerSubscriptionAfterLogin = refreshResult?.has_active_subscription === true;
+                    const confirmedAppUserId = await Purchases.getAppUserID();
+                    if (!isCurrentPurchase()) return;
+                    if (confirmedAppUserId !== userId) {
+                        triggerWarningHaptic();
+                        Alert.alert(
+                            SUBSCRIPTION_SESSION_CHANGED_ALERT_TITLE,
+                            getSubscriptionSessionChangedMessage()
+                        );
+                        return;
+                    }
+
+                    const reconciliationResult = await reconcileObservedSubscriptionState({
+                        userId,
+                        observedActive: hasActiveClientSubscriptionAfterLogin,
+                    });
+                    if (!isCurrentPurchase()) return;
+                    loginReconciliationStatus = reconciliationResult.status;
                 } catch (error) {
-                    loginRefreshFailed = true;
-                    loginRefreshAuthMismatch = isSubscriptionRefreshAuthMismatch(error);
+                    if (!isCurrentPurchase()) return;
+                    loginReconciliationError = error;
 
                     if (__DEV__) {
-                        console.warn("Failed to refresh subscription state after login", error);
+                        console.warn("Failed to reconcile subscription state after login", error);
                     }
                 }
 
-                if (loginRefreshAuthMismatch) {
+                if (isSubscriptionReconciliationAuthMismatch(loginReconciliationError)) {
                     setIsSubscriptionLinkedElsewhere(false);
-                    setCurrentSubscriptionStatus(false);
                     triggerWarningHaptic();
                     Alert.alert(
                         SUBSCRIPTION_SESSION_CHANGED_ALERT_TITLE,
@@ -300,12 +341,10 @@ export default function SubscriptionScreen() {
                     );
                     return;
                 }
-
-                const hasActiveAfterLogin =
-                    hasActiveClientSubscriptionAfterLogin || hasActiveServerSubscriptionAfterLogin;
 
                 setIsSubscriptionLinkedElsewhere(false);
-                if (!setCurrentSubscriptionStatus(hasActiveAfterLogin)) {
+
+                if (loginReconciliationStatus && !isCurrentSubscriptionUser()) {
                     triggerWarningHaptic();
                     Alert.alert(
                         SUBSCRIPTION_SESSION_CHANGED_ALERT_TITLE,
@@ -314,22 +353,28 @@ export default function SubscriptionScreen() {
                     return;
                 }
 
-                if (hasActiveAfterLogin) {
-                    if (loginRefreshFailed) {
-                        retrySubscriptionStateAfterRevenueCatUpdateInBackground(userId);
-                        Alert.alert("Subscription active", getSubscriptionSyncPendingMessage());
-                    } else {
-                        Alert.alert(
-                            "Subscription active",
-                            "Your SAPO subscription is already active on this account."
-                        );
-                    }
-
+                if (loginReconciliationStatus === "active") {
+                    Alert.alert(
+                        "Subscription active",
+                        "Your SAPO subscription is already active on this account."
+                    );
                     return;
                 }
+
+                if (isPendingSubscriptionReconciliation(loginReconciliationStatus)) {
+                    Alert.alert("Subscription pending", getSubscriptionSyncPendingMessage());
+                    return;
+                }
+
+                if (hasActiveClientSubscriptionAfterLogin) {
+                    Alert.alert("Subscription pending", getSubscriptionSyncPendingMessage());
+                    return;
+                }
+
             }
 
             let customerInfo: CustomerInfo;
+            if (!isCurrentPurchase()) return;
 
             if (subscriptionPackage) {
                 customerInfo = (await Purchases.purchasePackage(subscriptionPackage)).customerInfo;
@@ -338,29 +383,41 @@ export default function SubscriptionScreen() {
             } else {
                 return;
             }
+            if (!isCurrentPurchase()) return;
 
             const hasActiveClientSubscription = hasActiveRevenueCatSubscription(customerInfo);
-            let hasActiveServerSubscription = false;
-            let purchaseRefreshFailed = false;
-            let purchaseRefreshAuthMismatch = false;
+            let purchaseReconciliationStatus: SubscriptionReconciliationStatus | null = null;
+            let purchaseReconciliationError: unknown = null;
 
             try {
-                const refreshResult = hasActiveClientSubscription
-                    ? await refreshSubscriptionStateAfterRevenueCatUpdate(userId)
-                    : await refreshSubscriptionState({ userId });
-                hasActiveServerSubscription = refreshResult?.has_active_subscription === true;
+                const confirmedAppUserId = await Purchases.getAppUserID();
+                if (!isCurrentPurchase()) return;
+                if (confirmedAppUserId !== userId) {
+                    triggerWarningHaptic();
+                    Alert.alert(
+                        SUBSCRIPTION_SESSION_CHANGED_ALERT_TITLE,
+                        getSubscriptionSessionChangedMessage()
+                    );
+                    return;
+                }
+
+                const reconciliationResult = await reconcileObservedSubscriptionState({
+                    userId,
+                    observedActive: hasActiveClientSubscription,
+                });
+                if (!isCurrentPurchase()) return;
+                purchaseReconciliationStatus = reconciliationResult.status;
             } catch (error) {
-                purchaseRefreshFailed = true;
-                purchaseRefreshAuthMismatch = isSubscriptionRefreshAuthMismatch(error);
+                if (!isCurrentPurchase()) return;
+                purchaseReconciliationError = error;
 
                 if (__DEV__) {
-                    console.warn("Failed to refresh subscription state after purchase", error);
+                    console.warn("Failed to reconcile subscription state after purchase", error);
                 }
             }
 
-            if (purchaseRefreshAuthMismatch) {
+            if (isSubscriptionReconciliationAuthMismatch(purchaseReconciliationError)) {
                 setIsSubscriptionLinkedElsewhere(false);
-                setCurrentSubscriptionStatus(false);
                 triggerWarningHaptic();
                 Alert.alert(
                     SUBSCRIPTION_SESSION_CHANGED_ALERT_TITLE,
@@ -368,11 +425,9 @@ export default function SubscriptionScreen() {
                 );
                 return;
             }
-
-            const isActive = hasActiveClientSubscription || hasActiveServerSubscription;
 
             setIsSubscriptionLinkedElsewhere(false);
-            if (!setCurrentSubscriptionStatus(isActive)) {
+            if (purchaseReconciliationStatus && !isCurrentSubscriptionUser()) {
                 triggerWarningHaptic();
                 Alert.alert(
                     SUBSCRIPTION_SESSION_CHANGED_ALERT_TITLE,
@@ -381,14 +436,16 @@ export default function SubscriptionScreen() {
                 return;
             }
 
-            if (isActive) {
-                if (purchaseRefreshFailed) {
-                    retrySubscriptionStateAfterRevenueCatUpdateInBackground(userId);
-                    Alert.alert("Subscription active", getSubscriptionSyncPendingMessage());
-                } else {
-                    Alert.alert("Subscription active", "Your SAPO subscription is now active.");
-                }
+            if (purchaseReconciliationStatus === "active") {
+                Alert.alert("Subscription active", "Your SAPO subscription is now active.");
+                return;
+            }
 
+            if (
+                purchaseReconciliationError ||
+                isPendingSubscriptionReconciliation(purchaseReconciliationStatus)
+            ) {
+                Alert.alert("Purchase pending", getSubscriptionSyncPendingMessage());
                 return;
             }
 
@@ -397,12 +454,14 @@ export default function SubscriptionScreen() {
                 "The purchase was completed but your subscription could not be verified yet. Please restore purchases from Settings."
             );
         } catch (error) {
+            if (!isCurrentPurchase()) return;
+
             if (isPurchaseCancelledError(error)) {
                 return;
             }
 
             if (isReceiptAlreadyInUseRevenueCatError(error)) {
-                if (!setCurrentSubscriptionStatus(false)) {
+                if (!isCurrentSubscriptionUser()) {
                     triggerWarningHaptic();
                     Alert.alert(
                         SUBSCRIPTION_SESSION_CHANGED_ALERT_TITLE,
@@ -424,15 +483,19 @@ export default function SubscriptionScreen() {
             triggerErrorHaptic();
             Alert.alert("Purchase failed", PURCHASE_ERROR_MESSAGE);
         } finally {
-            setIsPurchasing(false);
+            if (activePurchaseRef.current === purchaseOperation) {
+                activePurchaseRef.current = null;
+                setPurchasingUserId(null);
+            }
         }
     }, [
         canUseRevenueCat,
         hasActiveSubscription,
+        isActivatingSubscription,
         isLoadingSubscription,
         isPurchasing,
         isSubscriptionLinkedElsewhere,
-        setCurrentSubscriptionStatus,
+        isCurrentSubscriptionUser,
         showSubscriptionLinkedElsewhereAlert,
         subscriptionPackage,
         subscriptionProduct,
@@ -447,6 +510,7 @@ export default function SubscriptionScreen() {
         isLoadingSubscription ||
         isPurchasing ||
         isSubscriptionLinkedElsewhere ||
+        isActivatingSubscription ||
         hasActiveSubscription;
 
     const handleOpenTermsOfUse = useCallback(() => {

@@ -1,15 +1,27 @@
 import { create } from "zustand";
 
+export type SubscriptionStatus = "checking" | "inactive" | "activating" | "active";
+
 interface SubscriptionStatusStoreProps {
     userId: string | null;
+    status: SubscriptionStatus;
     hasActiveSubscription: boolean | null;
 
     setCurrentUser: (userId: string | null) => void;
-    setForUser: (userId: string, hasActiveSubscription: boolean | null) => boolean;
+    setForUser: (userId: string, status: SubscriptionStatus) => boolean;
+}
+
+function getHasActiveSubscription(status: SubscriptionStatus) {
+    if (status === "checking") {
+        return null;
+    }
+
+    return status === "active";
 }
 
 const useSubscriptionStatusStore = create<SubscriptionStatusStoreProps>((set) => ({
     userId: null,
+    status: "inactive",
     hasActiveSubscription: false,
     setCurrentUser: (userId) => {
         set((state) => {
@@ -19,11 +31,12 @@ const useSubscriptionStatusStore = create<SubscriptionStatusStoreProps>((set) =>
 
             return {
                 userId,
+                status: userId ? "checking" : "inactive",
                 hasActiveSubscription: userId ? null : false,
             };
         });
     },
-    setForUser: (userId, hasActiveSubscription) => {
+    setForUser: (userId, status) => {
         let didSet = false;
 
         set((state) => {
@@ -32,9 +45,12 @@ const useSubscriptionStatusStore = create<SubscriptionStatusStoreProps>((set) =>
             }
 
             didSet = true;
-            return state.hasActiveSubscription === hasActiveSubscription
+            return state.status === status
                 ? state
-                : { hasActiveSubscription };
+                : {
+                      status,
+                      hasActiveSubscription: getHasActiveSubscription(status),
+                  };
         });
 
         return didSet;

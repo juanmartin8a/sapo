@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
+import { useQuery } from "convex/react";
 import Purchases, { type CustomerInfo } from "react-native-purchases";
 
+import { api } from "@/convex/_generated/api";
 import {
     configureRevenueCat,
     hasActiveRevenueCatSubscription,
@@ -9,152 +11,54 @@ import {
     isRevenueCatSupportedPlatform,
     logOutRevenueCatIdentity,
 } from "@/lib/revenuecat";
-import {
-    refreshSubscriptionState,
-    refreshSubscriptionStateAfterRevenueCatUpdate,
-} from "@/lib/subscription-refresh";
+import { reconcileObservedSubscriptionState } from "@/lib/subscription-reconciliation";
 import { useAuthState } from "@/providers/AuthStateProvider";
 import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
 
-const identitySyncRetryDelaysMs = [1_000, 2_000, 4_000];
+const identitySyncRetryDelaysMs = [1_000, 2_000, 4_000] as const;
 
 export default function RevenueCatIdentitySync() {
-    const { status, userId } = useAuthState();
-    const isAuthPending = status === "checking";
+    const { status: authStatus, userId } = useAuthState();
+    const serverSubscription = useQuery(
+        api.subscription.getCurrentSubscriptionStatus,
+        authStatus === "authenticated" && userId
+            ? { expected_user_id: userId }
+            : "skip"
+    );
     const setCurrentSubscriptionUser = useSubscriptionStatusStore((state) => state.setCurrentUser);
     const setSubscriptionForUser = useSubscriptionStatusStore((state) => state.setForUser);
     const receiptConflictUserIdRef = useRef<string | null>(null);
-    const authenticatedSessionUserIdRef = useRef<string | null>(null);
     const syncedRevenueCatUserIdRef = useRef<string | null>(null);
     const lastRevenueCatActiveRef = useRef<boolean | null>(null);
     const revenueCatLogoutPromiseRef = useRef<Promise<unknown> | null>(null);
 
-    const publishSubscriptionStatus = useCallback((hasActiveSubscription: boolean | null) => {
-        return userId ? setSubscriptionForUser(userId, hasActiveSubscription) : false;
-    }, [setSubscriptionForUser, userId]);
-
     useEffect(() => {
-        if (!isAuthPending) {
+        if (authStatus !== "checking") {
             setCurrentSubscriptionUser(userId);
         }
-    }, [isAuthPending, setCurrentSubscriptionUser, userId]);
+    }, [authStatus, setCurrentSubscriptionUser, userId]);
 
     useEffect(() => {
-        if (isAuthPending) {
+        if (
+            !userId ||
+            serverSubscription === undefined ||
+            (serverSubscription !== null && serverSubscription.user_id !== userId)
+        ) {
             return;
         }
 
-        if (!isRevenueCatSupportedPlatform || !hasRevenueCatConfig()) {
-            publishSubscriptionStatus(false);
+        setSubscriptionForUser(userId, serverSubscription?.status ?? "inactive");
+    }, [serverSubscription, setSubscriptionForUser, userId]);
+
+    useEffect(() => {
+        if (authStatus === "checking") {
             return;
         }
 
         if (!userId) {
-            return;
-        }
-
-        let isCancelled = false;
-        let isCustomerInfoListenerAttached = false;
-
-        const handleCustomerInfoUpdate = (customerInfo: CustomerInfo) => {
-            if (isCancelled) {
-                return;
-            }
-
-            if (receiptConflictUserIdRef.current === userId) {
-                lastRevenueCatActiveRef.current = false;
-                publishSubscriptionStatus(false);
-                return;
-            }
-
-            const hasActiveSubscription = hasActiveRevenueCatSubscription(customerInfo);
-
-            void (async () => {
-                const currentAppUserId = await Purchases.getAppUserID();
-
-                if (isCancelled || currentAppUserId !== userId) {
-                    return;
-                }
-
-                const previousHasActiveSubscription = lastRevenueCatActiveRef.current;
-                const subscriptionState = useSubscriptionStatusStore.getState();
-                const previousStoredHasActiveSubscription = subscriptionState.userId === userId
-                    ? subscriptionState.hasActiveSubscription
-                    : null;
-                const shouldRefreshServerState = previousHasActiveSubscription === null
-                    ? hasActiveSubscription || previousStoredHasActiveSubscription === true
-                    : previousHasActiveSubscription !== hasActiveSubscription;
-
-                lastRevenueCatActiveRef.current = hasActiveSubscription;
-                publishSubscriptionStatus(hasActiveSubscription);
-
-                if (!shouldRefreshServerState) {
-                    return;
-                }
-
-                if (hasActiveSubscription) {
-                    await refreshSubscriptionStateAfterRevenueCatUpdate(userId);
-                    return;
-                }
-
-                await refreshSubscriptionState({ userId });
-            })().catch((error) => {
-                if (__DEV__) {
-                    console.warn("RevenueCat listener subscription sync failed", error);
-                }
-            });
-        };
-
-        const initializeCustomerInfoListener = async () => {
-            try {
-                const isConfigured = await configureRevenueCat(userId);
-
-                if (!isConfigured || isCancelled) {
-                    if (!isConfigured && !isCancelled) {
-                        publishSubscriptionStatus(false);
-                    }
-
-                    return;
-                }
-
-                Purchases.addCustomerInfoUpdateListener(handleCustomerInfoUpdate);
-                isCustomerInfoListenerAttached = true;
-            } catch (error) {
-                if (__DEV__) {
-                    console.warn("RevenueCat customer info setup failed", error);
-                }
-
-                // Preserve an existing status; a transient setup error does not prove inactivity.
-            }
-        };
-
-        void initializeCustomerInfoListener();
-
-        return () => {
-            isCancelled = true;
-
-            if (isCustomerInfoListenerAttached) {
-                Purchases.removeCustomerInfoUpdateListener(handleCustomerInfoUpdate);
-            }
-        };
-    }, [isAuthPending, publishSubscriptionStatus, userId]);
-
-    useEffect(() => {
-        if (isAuthPending) {
-            return;
-        }
-
-        if (!isRevenueCatSupportedPlatform || !hasRevenueCatConfig()) {
-            publishSubscriptionStatus(false);
-            return;
-        }
-
-        if (!userId) {
-            const previousRevenueCatUserId =
-                syncedRevenueCatUserIdRef.current ?? authenticatedSessionUserIdRef.current;
+            const previousRevenueCatUserId = syncedRevenueCatUserIdRef.current;
 
             receiptConflictUserIdRef.current = null;
-            authenticatedSessionUserIdRef.current = null;
             syncedRevenueCatUserIdRef.current = null;
             lastRevenueCatActiveRef.current = null;
 
@@ -178,13 +82,12 @@ export default function RevenueCatIdentitySync() {
             return;
         }
 
-        if (authenticatedSessionUserIdRef.current !== userId) {
-            lastRevenueCatActiveRef.current = null;
+        if (!isRevenueCatSupportedPlatform || !hasRevenueCatConfig()) {
+            return;
         }
 
-        authenticatedSessionUserIdRef.current = userId;
-
         let isCancelled = false;
+        let isCustomerInfoListenerAttached = false;
         let cancelRetryDelay: (() => void) | null = null;
 
         const waitForRetry = (delayMs: number) => new Promise<void>((resolve) => {
@@ -200,98 +103,85 @@ export default function RevenueCatIdentitySync() {
             };
         });
 
+        const reconcileCustomerInfo = async (customerInfo: CustomerInfo, isStartup = false) => {
+            if (isCancelled || receiptConflictUserIdRef.current === userId) {
+                return;
+            }
+
+            const currentAppUserId = await Purchases.getAppUserID();
+            if (isCancelled || currentAppUserId !== userId) {
+                return;
+            }
+
+            const observedActive = hasActiveRevenueCatSubscription(customerInfo);
+            if (!isStartup && lastRevenueCatActiveRef.current === observedActive) {
+                return;
+            }
+
+            await reconcileObservedSubscriptionState({ userId, observedActive });
+
+            if (!isCancelled) {
+                lastRevenueCatActiveRef.current = observedActive;
+            }
+        };
+
+        const handleCustomerInfoUpdate = (customerInfo: CustomerInfo) => {
+            void reconcileCustomerInfo(customerInfo).catch((error) => {
+                if (__DEV__) {
+                    console.warn("RevenueCat subscription reconciliation failed", error);
+                }
+            });
+        };
+
         const syncRevenueCatIdentity = async () => {
             await revenueCatLogoutPromiseRef.current;
 
-            if (isCancelled) {
-                return;
-            }
-
-            if (receiptConflictUserIdRef.current === userId) {
-                publishSubscriptionStatus(false);
-                return;
-            }
-
-            for (let attempt = 0; ; attempt += 1) {
+            for (let attempt = 0; !isCancelled; attempt += 1) {
                 try {
                     const isConfigured = await configureRevenueCat(userId);
-
-                    if (!isConfigured || isCancelled) {
-                        if (!isConfigured && !isCancelled) {
-                            publishSubscriptionStatus(false);
-                        }
-
-                        return;
-                    }
+                    if (!isConfigured || isCancelled) return;
 
                     const currentAppUserId = await Purchases.getAppUserID();
+                    const customerInfo = currentAppUserId === userId
+                        ? await Purchases.getCustomerInfo()
+                        : (await Purchases.logIn(userId)).customerInfo;
+                    const confirmedAppUserId = await Purchases.getAppUserID();
 
-                    let customerInfo: CustomerInfo;
-
-                    if (currentAppUserId !== userId) {
-                        customerInfo = (await Purchases.logIn(userId)).customerInfo;
-                    } else {
-                        customerInfo = await Purchases.getCustomerInfo();
-                    }
-
-                    if (isCancelled) {
+                    if (isCancelled || confirmedAppUserId !== userId) {
                         return;
                     }
 
                     receiptConflictUserIdRef.current = null;
                     syncedRevenueCatUserIdRef.current = userId;
-                    const hasActiveSubscription = hasActiveRevenueCatSubscription(customerInfo);
-                    const subscriptionState = useSubscriptionStatusStore.getState();
-                    const previousStoredHasActiveSubscription = subscriptionState.userId === userId
-                        ? subscriptionState.hasActiveSubscription
-                        : null;
+                    lastRevenueCatActiveRef.current = null;
 
-                    lastRevenueCatActiveRef.current = hasActiveSubscription;
-                    publishSubscriptionStatus(hasActiveSubscription);
+                    Purchases.addCustomerInfoUpdateListener(handleCustomerInfoUpdate);
+                    isCustomerInfoListenerAttached = true;
 
-                    if (hasActiveSubscription) {
-                        void refreshSubscriptionStateAfterRevenueCatUpdate(userId).catch((error) => {
-                            if (__DEV__) {
-                                console.warn("RevenueCat active subscription sync failed", error);
-                            }
-                        });
-                    } else if (previousStoredHasActiveSubscription === true) {
-                        void refreshSubscriptionState({ userId }).catch((error) => {
-                            if (__DEV__) {
-                                console.warn("RevenueCat inactive subscription sync failed", error);
-                            }
-                        });
-                    }
-
+                    void reconcileCustomerInfo(customerInfo, true).catch((error) => {
+                        if (__DEV__) {
+                            console.warn("RevenueCat subscription reconciliation failed", error);
+                        }
+                    });
                     return;
                 } catch (error) {
-                    if (isCancelled) {
-                        return;
-                    }
+                    if (isCancelled) return;
 
                     if (isReceiptAlreadyInUseRevenueCatError(error)) {
                         receiptConflictUserIdRef.current = userId;
                         lastRevenueCatActiveRef.current = false;
-                        publishSubscriptionStatus(false);
                         return;
                     }
 
                     const retryDelayMs = identitySyncRetryDelaysMs[attempt];
-
-                    if (retryDelayMs === undefined) {
+                    if (typeof retryDelayMs !== "number") {
                         if (__DEV__) {
                             console.warn("RevenueCat identity sync failed after retries", error);
                         }
-
-                        // Preserve an existing status; a transient sync error does not prove inactivity.
                         return;
                     }
 
                     await waitForRetry(retryDelayMs);
-
-                    if (isCancelled) {
-                        return;
-                    }
                 }
             }
         };
@@ -301,8 +191,12 @@ export default function RevenueCatIdentitySync() {
         return () => {
             isCancelled = true;
             cancelRetryDelay?.();
+
+            if (isCustomerInfoListenerAttached) {
+                Purchases.removeCustomerInfoUpdateListener(handleCustomerInfoUpdate);
+            }
         };
-    }, [isAuthPending, publishSubscriptionStatus, userId]);
+    }, [authStatus, setSubscriptionForUser, userId]);
 
     return null;
 }
