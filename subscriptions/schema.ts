@@ -3,7 +3,6 @@ import { v } from "convex/values";
 import {
     INPUT_CHARACTERS_QUOTA_UNIT,
     SUBSCRIPTION_PLAN_KEYS,
-    SUBSCRIPTION_REFRESH_RATE_LIMIT_KINDS,
     SUBSCRIPTION_USAGE_OPERATIONS,
 } from "../constants/subscriptions";
 import { REVENUECAT_WEBHOOK_EVENT_STATUSES } from "../constants/revenueCat";
@@ -52,6 +51,11 @@ export default defineSchema({
         sync_expires_at_ms: v.optional(v.number()),
         pending_active_signal_at_ms: v.optional(v.number()),
         pending_active_expires_at_ms: v.optional(v.number()),
+        pending_active_retry_count: v.optional(v.number()),
+        pending_active_next_retry_at_ms: v.optional(v.number()),
+        pending_active_superseded_at_ms: v.optional(v.number()),
+        client_reconcile_tokens: v.optional(v.number()),
+        client_reconcile_refilled_at_ms: v.optional(v.number()),
         last_synced_at_ms: v.number(),
         stale_after_at_ms: v.number(),
         created_at_ms: v.number(),
@@ -59,6 +63,7 @@ export default defineSchema({
     })
         .index("by_user_id", ["user_id"])
         .index("by_user_id_and_updated_at_ms", ["user_id", "updated_at_ms"])
+        .index("by_pending_active_next_retry_at_ms", ["pending_active_next_retry_at_ms"])
         .index("by_stale_after_at_ms", ["stale_after_at_ms"]),
 
     quota_periods: defineTable({
@@ -258,19 +263,4 @@ export default defineSchema({
             "processing_expires_at_ms",
         ]),
 
-    refresh_rate_limits: defineTable({
-        user_id: v.string(),
-        kind: v.union(
-            v.literal(SUBSCRIPTION_REFRESH_RATE_LIMIT_KINDS.NORMAL),
-            v.literal(SUBSCRIPTION_REFRESH_RATE_LIMIT_KINDS.PURCHASE),
-            v.literal(SUBSCRIPTION_REFRESH_RATE_LIMIT_KINDS.DAILY)
-        ),
-        window_start_ms: v.number(),
-        window_end_ms: v.number(),
-        count: v.number(),
-        updated_at_ms: v.number(),
-    })
-        .index("by_user_id_and_kind", ["user_id", "kind"])
-        .index("by_user_id_kind_and_window_start_ms", ["user_id", "kind", "window_start_ms"])
-        .index("by_updated_at_ms", ["updated_at_ms"]),
 });

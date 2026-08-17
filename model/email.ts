@@ -11,10 +11,10 @@ const resend: Resend = new Resend(components.resend, {
 type ResendMutationContext = Parameters<Resend["handleResendEventWebhook"]>[0];
 
 function toResendMutationContext(ctx: ActionCtx): ResendMutationContext {
-    // Resend 0.2.3 was typed against an older Convex runMutation signature.
+    // Resend is typed against an older Convex runMutation signature.
     return {
         runMutation: ctx.runMutation as ResendMutationContext["runMutation"],
-    };
+    } as unknown as ResendMutationContext;
 }
 
 export function handleResendWebhook(ctx: ActionCtx, request: Request) {

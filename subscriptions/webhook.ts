@@ -66,14 +66,6 @@ export const deleteFrozenQuotaPeriodsEligibleForRetentionPurge = mutation({
     args: WebhookArgs.deleteFrozenQuotaPeriodsEligibleForRetentionPurgeArgs,
     handler: Webhook.deleteFrozenQuotaPeriodsEligibleForRetentionPurge,
 });
-export const consumeRefreshRateLimit = mutation({
-    args: WebhookArgs.consumeRefreshRateLimitArgs,
-    handler: Webhook.consumeRefreshRateLimit,
-});
-export const deleteRefreshRateLimitsEligibleForRetentionPurge = mutation({
-    args: WebhookArgs.deleteRefreshRateLimitsEligibleForRetentionPurgeArgs,
-    handler: Webhook.deleteRefreshRateLimitsEligibleForRetentionPurge,
-});
 export const getSubscriptionStateByUserId = query({
     args: WebhookArgs.getSubscriptionStateByUserIdArgs,
     handler: Webhook.getSubscriptionStateByUserId,
@@ -81,6 +73,14 @@ export const getSubscriptionStateByUserId = query({
 export const beginSubscriptionStateReconciliation = mutation({
     args: WebhookArgs.beginSubscriptionStateReconciliationArgs,
     handler: Webhook.beginSubscriptionStateReconciliation,
+});
+export const claimPendingActiveRetry = mutation({
+    args: WebhookArgs.claimPendingActiveRetryArgs,
+    handler: Webhook.claimPendingActiveRetry,
+});
+export const listPendingActiveRetriesDue = query({
+    args: WebhookArgs.listPendingActiveRetriesDueArgs,
+    handler: Webhook.listPendingActiveRetriesDue,
 });
 export const releaseSubscriptionStateReconciliation = mutation({
     args: WebhookArgs.releaseSubscriptionStateReconciliationArgs,

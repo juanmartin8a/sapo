@@ -30,7 +30,7 @@ import {
     STREAM_END_MARKER,
     STREAM_ERROR_MARKER,
 } from "../../constants/sapopinguino";
-import { refreshSubscriptionStateFromRevenueCatHandler } from "../subscriptions/workers";
+import { reconcileSubscriptionStateForUsage } from "../subscriptions/workers";
 
 type StreamRequestBody = {
     input?: string;
@@ -150,7 +150,7 @@ export async function handleSapopinguinoRequest(
         });
     }
 
-    const refreshResult = await refreshSubscriptionStateFromRevenueCatHandler(ctx, {
+    const refreshResult = await reconcileSubscriptionStateForUsage(ctx, {
         user_id: auth.userId,
     });
 
@@ -176,7 +176,7 @@ export async function handleSapopinguinoRequest(
         });
     }
 
-    if (refreshResult.status === "pending_active" || refreshResult.status === "sync_in_progress") {
+    if (refreshResult.status === "sync_in_progress") {
         return new Response(STREAM_ERROR_MARKER, {
             status: 425,
             headers: responseHeaders(request),

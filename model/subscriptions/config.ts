@@ -9,12 +9,6 @@ const DEFAULT_RECONCILIATION_FAILURE_BACKOFF_MS = 30 * 60 * 1000;
 const DEFAULT_FROZEN_QUOTA_PERIOD_RETENTION_MS = 60 * 24 * 60 * 60 * 1000;
 const DEFAULT_REVENUECAT_EVENTS_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
 const DEFAULT_OPERATIONAL_ALERTS_RESOLVED_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
-const DEFAULT_REFRESH_RATE_LIMIT_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
-const DEFAULT_REFRESH_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
-const DEFAULT_REFRESH_RATE_LIMIT_MAX_COUNT = 10;
-const DEFAULT_PURCHASE_REFRESH_RATE_LIMIT_MAX_COUNT = 20;
-const DEFAULT_DAILY_REFRESH_RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const DEFAULT_DAILY_REFRESH_RATE_LIMIT_MAX_COUNT = 100;
 
 function parseNumber(value: unknown): number | null {
     if (typeof value === "number" && Number.isFinite(value)) {
@@ -59,18 +53,12 @@ function parsePositiveIntegerEnvValue(value: string | undefined, defaultValue: n
 }
 
 export function getPolyglotEntitlementId() {
-    return (
-        parseString(process.env.REVENUECAT_POLYGLOT_ENTITLEMENT_ID) ??
-        parseString(process.env.EXPO_PUBLIC_REVENUE_CAT_ENTITLEMENT_ID) ??
-        ""
-    );
+    return parseString(process.env.REVENUECAT_POLYGLOT_ENTITLEMENT_ID) ?? "";
 }
 
 export function getPolyglotProductIds() {
     const configured = [
         parseString(process.env.REVENUECAT_POLYGLOT_PRODUCT_ID),
-        parseString(process.env.EXPO_PUBLIC_IOS_SUBSCRIPTION_PRODUCT_ID),
-        parseString(process.env.EXPO_PUBLIC_ANDR_SUBSCRIPTION_PRODUCT_ID),
     ];
     const commaSeparated = parseString(process.env.REVENUECAT_POLYGLOT_PRODUCT_IDS);
 
@@ -175,40 +163,4 @@ export function getOperationalAlertsResolvedRetentionMs() {
         process.env.OPERATIONAL_ALERTS_RESOLVED_RETENTION_MS,
         DEFAULT_OPERATIONAL_ALERTS_RESOLVED_RETENTION_MS
     );
-}
-
-export function getRefreshRateLimitRetentionMs() {
-    return parsePositiveIntegerEnvValue(
-        process.env.REFRESH_RATE_LIMIT_RETENTION_MS,
-        DEFAULT_REFRESH_RATE_LIMIT_RETENTION_MS
-    );
-}
-
-export function getRefreshRateLimitConfig() {
-    return {
-        normal_window_ms: parsePositiveIntegerEnvValue(
-            process.env.REFRESH_RATE_LIMIT_WINDOW_MS,
-            DEFAULT_REFRESH_RATE_LIMIT_WINDOW_MS
-        ),
-        normal_max_count: parsePositiveIntegerEnvValue(
-            process.env.REFRESH_RATE_LIMIT_MAX_COUNT,
-            DEFAULT_REFRESH_RATE_LIMIT_MAX_COUNT
-        ),
-        purchase_window_ms: parsePositiveIntegerEnvValue(
-            process.env.PURCHASE_REFRESH_RATE_LIMIT_WINDOW_MS,
-            DEFAULT_REFRESH_RATE_LIMIT_WINDOW_MS
-        ),
-        purchase_max_count: parsePositiveIntegerEnvValue(
-            process.env.PURCHASE_REFRESH_RATE_LIMIT_MAX_COUNT,
-            DEFAULT_PURCHASE_REFRESH_RATE_LIMIT_MAX_COUNT
-        ),
-        daily_window_ms: parsePositiveIntegerEnvValue(
-            process.env.REFRESH_RATE_LIMIT_DAILY_WINDOW_MS,
-            DEFAULT_DAILY_REFRESH_RATE_LIMIT_WINDOW_MS
-        ),
-        daily_max_count: parsePositiveIntegerEnvValue(
-            process.env.REFRESH_RATE_LIMIT_DAILY_MAX_COUNT,
-            DEFAULT_DAILY_REFRESH_RATE_LIMIT_MAX_COUNT
-        ),
-    };
 }
