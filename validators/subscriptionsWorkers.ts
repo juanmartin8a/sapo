@@ -1,20 +1,57 @@
 import { v, type ObjectType } from "convex/values";
 
-export const retryPendingSubscriptionActivationArgs = {
+const pendingSubscriptionActivationRetryArgs = {
     user_id: v.string(),
     active_signal_at_ms: v.number(),
     retry_index: v.number(),
     event_doc_id: v.optional(v.string()),
 };
 
-export type RetryPendingSubscriptionActivationArgs = ObjectType<
-    typeof retryPendingSubscriptionActivationArgs
+export const executePendingSubscriptionActivationRetryArgs = {
+    ...pendingSubscriptionActivationRetryArgs,
+};
+
+export type ExecutePendingSubscriptionActivationRetryArgs = ObjectType<
+    typeof executePendingSubscriptionActivationRetryArgs
 >;
 
-export const retryPendingSubscriptionActivationsArgs = {};
+export const beginSubscriptionStateReconciliationAndScheduleActivationArgs = {
+    user_id: v.string(),
+    revenuecat_app_user_id: v.string(),
+    signup_at_ms: v.optional(v.number()),
+    sync_attempt_id: v.string(),
+    now_ms: v.number(),
+    lease_duration_ms: v.number(),
+    expects_active_subscription: v.optional(v.boolean()),
+    trusted_active_signal: v.optional(v.boolean()),
+    active_signal_at_ms: v.optional(v.number()),
+    active_signal_ttl_ms: v.optional(v.number()),
+    client_reconciliation: v.optional(v.boolean()),
+    clear_pending_active_signal: v.optional(v.boolean()),
+    revenuecat_event_at_ms: v.optional(v.number()),
+    event_doc_id: v.optional(v.string()),
+};
 
-export type RetryPendingSubscriptionActivationsArgs = ObjectType<
-    typeof retryPendingSubscriptionActivationsArgs
+export type BeginSubscriptionStateReconciliationAndScheduleActivationArgs = ObjectType<
+    typeof beginSubscriptionStateReconciliationAndScheduleActivationArgs
+>;
+
+export const tickPendingSubscriptionActivationArgs = {
+    ...pendingSubscriptionActivationRetryArgs,
+};
+
+export type TickPendingSubscriptionActivationArgs = ObjectType<
+    typeof tickPendingSubscriptionActivationArgs
+>;
+
+export const expirePendingSubscriptionActivationArgs = {
+    user_id: v.string(),
+    active_signal_at_ms: v.number(),
+    event_doc_id: v.optional(v.string()),
+};
+
+export type ExpirePendingSubscriptionActivationArgs = ObjectType<
+    typeof expirePendingSubscriptionActivationArgs
 >;
 
 export const prepareUserAccountDeletionArgs = {

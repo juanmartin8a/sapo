@@ -52,49 +52,21 @@ function parsePositiveIntegerEnvValue(value: string | undefined, defaultValue: n
     return Math.floor(parsed);
 }
 
-export function getPolyglotEntitlementId() {
-    return parseString(process.env.REVENUECAT_POLYGLOT_ENTITLEMENT_ID) ?? "";
-}
-
-export function getPolyglotProductIds() {
-    const configured = [
-        parseString(process.env.REVENUECAT_POLYGLOT_PRODUCT_ID),
-    ];
-    const commaSeparated = parseString(process.env.REVENUECAT_POLYGLOT_PRODUCT_IDS);
-
-    if (commaSeparated) {
-        configured.push(
-            ...commaSeparated
-                .split(",")
-                .map((value) => parseString(value))
-        );
-    }
-
-    return Array.from(
-        new Set(configured.filter((value): value is string => typeof value === "string"))
-    );
-}
-
 export function getRevenueCatProjectId() {
     return parseString(process.env.REVENUECAT_PROJECT_ID) ?? "";
 }
 
-export function getSubscriptionProcessingConfig() {
-    const polyglotEntitlementId = getPolyglotEntitlementId();
+export function getPolyglotEntitlementId() {
+    return parseString(process.env.REVENUECAT_POLYGLOT_ENTITLEMENT_ID) ?? "";
+}
 
+export function getSubscriptionProcessingConfig() {
     return {
-        ...(polyglotEntitlementId.length > 0
-            ? { polyglot_entitlement_id: polyglotEntitlementId }
-            : {}),
         expiration_reconciliation_delay_ms: parseIntegerEnvValue(
             process.env.REVENUECAT_EXP_RECONCILIATION_DELAY_MS,
             DEFAULT_EXPIRATION_RECONCILIATION_DELAY_MS
         ),
     };
-}
-
-export function hasPolyglotSubscriptionFilters() {
-    return getPolyglotEntitlementId().length > 0 || getPolyglotProductIds().length > 0;
 }
 
 export function getOnDemandSubscriptionRefreshIntervalMs() {

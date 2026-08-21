@@ -60,6 +60,10 @@ export type SubscriptionStateReconciliationLeaseResult =
           plan_key: SubscriptionPlanKey;
           last_synced_at_ms: number;
           billing_cycle_end_at_ms?: number;
+          pending_active_signal_at_ms?: number;
+          pending_active_expires_at_ms?: number;
+          pending_active_retry_count?: number;
+          pending_active_next_retry_at_ms?: number;
       }
     | {
           status: "in_progress";
@@ -69,6 +73,10 @@ export type SubscriptionStateReconciliationLeaseResult =
           last_synced_at_ms: number;
           billing_cycle_end_at_ms?: number;
           retry_at_ms?: number;
+          pending_active_signal_at_ms?: number;
+          pending_active_expires_at_ms?: number;
+          pending_active_retry_count?: number;
+          pending_active_next_retry_at_ms?: number;
       }
     | {
           status: "rate_limited";
@@ -78,6 +86,10 @@ export type SubscriptionStateReconciliationLeaseResult =
           last_synced_at_ms: number;
           billing_cycle_end_at_ms?: number;
           retry_at_ms: number;
+          pending_active_signal_at_ms?: number;
+          pending_active_expires_at_ms?: number;
+          pending_active_retry_count?: number;
+          pending_active_next_retry_at_ms?: number;
       };
 
 export type RevenueCatEventProgressMutationResult = {
@@ -120,21 +132,32 @@ export async function claimPendingActiveRetry(
     return (await ctx.runMutation(
         components.subscriptions.webhook.claimPendingActiveRetry,
         args
-    )) as { claimed: boolean; expired?: boolean };
+    )) as {
+        claimed: boolean;
+        expired?: boolean;
+        sync_in_progress?: boolean;
+        not_due?: boolean;
+        retry_at_ms?: number;
+        next_retry_at_ms?: number;
+    };
 }
 
-export async function listPendingActiveRetriesDue(
-    ctx: SubscriptionStateQueryCtx,
-    args: { now_ms: number; limit: number }
-) {
-    return (await ctx.runQuery(
-        components.subscriptions.webhook.listPendingActiveRetriesDue,
-        args
-    )) as {
+export async function expirePendingActiveSignal(
+    ctx: SubscriptionStateReconciliationCtx,
+    args: {
         user_id: string;
         active_signal_at_ms: number;
-        retry_index: number;
-    }[];
+        now_ms: number;
+    }
+) {
+    return (await ctx.runMutation(
+        components.subscriptions.webhook.expirePendingActiveSignal,
+        args
+    )) as {
+        expired: boolean;
+        stale?: boolean;
+        retry_at_ms?: number;
+    };
 }
 
 export async function recordRevenueCatEventProcessingProgress(

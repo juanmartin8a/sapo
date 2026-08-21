@@ -176,6 +176,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         any,
         Name
       >;
+      expirePendingActiveSignal: FunctionReference<
+        "mutation",
+        "internal",
+        { active_signal_at_ms: number; now_ms: number; user_id: string },
+        any,
+        Name
+      >;
       finalizeDeletedUserSubscriptionData: FunctionReference<
         "mutation",
         "internal",
@@ -276,13 +283,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Name
       >;
       listDueUserDeletionOperations: FunctionReference<
-        "query",
-        "internal",
-        { limit: number; now_ms: number },
-        any,
-        Name
-      >;
-      listPendingActiveRetriesDue: FunctionReference<
         "query",
         "internal",
         { limit: number; now_ms: number },

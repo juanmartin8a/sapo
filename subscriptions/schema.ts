@@ -63,7 +63,6 @@ export default defineSchema({
     })
         .index("by_user_id", ["user_id"])
         .index("by_user_id_and_updated_at_ms", ["user_id", "updated_at_ms"])
-        .index("by_pending_active_next_retry_at_ms", ["pending_active_next_retry_at_ms"])
         .index("by_stale_after_at_ms", ["stale_after_at_ms"]),
 
     quota_periods: defineTable({

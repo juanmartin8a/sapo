@@ -1,14 +1,22 @@
-import { internalAction } from "./_generated/server";
+import { internalAction, internalMutation } from "./_generated/server";
 import * as Workers from "./model/subscriptions/workers";
 import * as WorkerArgs from "./validators/subscriptionsWorkers";
 
-export const retryPendingSubscriptionActivation = internalAction({
-    args: WorkerArgs.retryPendingSubscriptionActivationArgs,
-    handler: Workers.retryPendingSubscriptionActivation,
+export const executePendingSubscriptionActivationRetry = internalAction({
+    args: WorkerArgs.executePendingSubscriptionActivationRetryArgs,
+    handler: Workers.executePendingSubscriptionActivationRetry,
 });
-export const retryPendingSubscriptionActivations = internalAction({
-    args: WorkerArgs.retryPendingSubscriptionActivationsArgs,
-    handler: Workers.retryPendingSubscriptionActivations,
+export const beginSubscriptionStateReconciliationAndScheduleActivation = internalMutation({
+    args: WorkerArgs.beginSubscriptionStateReconciliationAndScheduleActivationArgs,
+    handler: Workers.beginSubscriptionStateReconciliationAndScheduleActivation,
+});
+export const tickPendingSubscriptionActivation = internalMutation({
+    args: WorkerArgs.tickPendingSubscriptionActivationArgs,
+    handler: Workers.tickPendingSubscriptionActivation,
+});
+export const expirePendingSubscriptionActivation = internalMutation({
+    args: WorkerArgs.expirePendingSubscriptionActivationArgs,
+    handler: Workers.expirePendingSubscriptionActivation,
 });
 export const prepareUserAccountDeletion = internalAction({
     args: WorkerArgs.prepareUserAccountDeletionArgs,

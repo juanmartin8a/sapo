@@ -283,13 +283,14 @@ export type ClaimPendingActiveRetryArgs = ObjectType<
     typeof claimPendingActiveRetryArgs
 >;
 
-export const listPendingActiveRetriesDueArgs = {
+export const expirePendingActiveSignalArgs = {
+    user_id: v.string(),
+    active_signal_at_ms: v.number(),
     now_ms: v.number(),
-    limit: v.number(),
 };
 
-export type ListPendingActiveRetriesDueArgs = ObjectType<
-    typeof listPendingActiveRetriesDueArgs
+export type ExpirePendingActiveSignalArgs = ObjectType<
+    typeof expirePendingActiveSignalArgs
 >;
 
 export const releaseSubscriptionStateReconciliationArgs = {
