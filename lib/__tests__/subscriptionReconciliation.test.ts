@@ -7,12 +7,10 @@ jest.mock("@/lib/auth-client", () => ({
 jest.mock("@/lib/client-config", () => ({
     getRequiredConvexSiteUrl: () => "https://example.convex.site",
 }));
-const originalEnv = process.env;
 const originalFetch = globalThis.fetch;
 
 describe("subscription reconciliation client", () => {
     afterEach(() => {
-        process.env = originalEnv;
         globalThis.fetch = originalFetch;
         jest.restoreAllMocks();
     });

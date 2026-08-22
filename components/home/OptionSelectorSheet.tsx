@@ -2,11 +2,10 @@ import BottomSheet, { BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import CheckIcon from "@/assets/icons/check.svg";
-import React from "react";
-import { BottomSheetMethods } from "@gorhom/bottom-sheet/lib/typescript/types";
+import type { RefObject } from "react";
 
 interface OptionSelectorSheetProps {
-    ref: React.RefObject<BottomSheetMethods | null>;
+    ref: RefObject<BottomSheet | null>;
     data: ([string, string])[];
     selectedKey: string;
     onClose: () => void;

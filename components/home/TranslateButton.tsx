@@ -15,6 +15,7 @@ import useLocalModelStore from "@/stores/localModelStore";
 import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
 import { triggerErrorHaptic, triggerMediumImpactHaptic } from "@/lib/haptics";
 import { getCharacterCount, getInputLimit } from "@/utils/inputLimits";
+import { getEffectiveSubscriptionStatus } from "@/utils/subscription";
 
 const TranslateButton = () => {
     const translateButtonState = useTranslateButtonStore((state) => state.state)
@@ -58,13 +59,12 @@ const TranslateButton = () => {
             return;
         }
 
-        const effectiveSubscriptionStatus = isAuthPending
-            ? null
-            : !isAuthenticatedUser
-              ? false
-              : subscriptionUserId === userId
-                ? hasActiveSubscription
-                : null;
+        const effectiveSubscriptionStatus = getEffectiveSubscriptionStatus({
+            authStatus,
+            userId,
+            subscriptionUserId,
+            hasActiveSubscription,
+        });
         const inputLimit = getInputLimit(operation, effectiveSubscriptionStatus, isLocalModelEnabled);
 
         if (inputLimit === null) {
@@ -109,7 +109,7 @@ const TranslateButton = () => {
         }
 
         goToPage(1);
-    }, [goToPage, hasActiveSubscription, isAuthPending, isAuthenticatedUser, isLocalModelEnabled, lastInput, operation, repeatLastTranslation, sendMessage, stopStream, subscriptionUserId, text, translateButtonState, userId]);
+    }, [authStatus, goToPage, hasActiveSubscription, isAuthPending, isAuthenticatedUser, isLocalModelEnabled, lastInput, operation, repeatLastTranslation, sendMessage, stopStream, subscriptionUserId, text, translateButtonState, userId]);
 
 
     return (

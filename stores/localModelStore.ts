@@ -210,10 +210,9 @@ const useLocalModelStore = create<LocalModelStoreState>((set, get) => ({
                 }
 
                 set((state) => ({
-                ...selectionState,
-                downloadedModelIds,
-                isLoaded: state.loadedModelId === selectionState.selectedModelId,
-                isLoading: state.isLoading,
+                    ...selectionState,
+                    downloadedModelIds,
+                    isLoaded: state.loadedModelId === selectionState.selectedModelId,
                 }));
 
                 return selectionState.isDownloaded;
@@ -247,7 +246,6 @@ const useLocalModelStore = create<LocalModelStoreState>((set, get) => ({
             ...selectionState,
             downloadedModelIds,
             isLoaded: state.loadedModelId === selectionState.selectedModelId,
-            isLoading: state.isLoading,
         }));
     },
     setLoaded: (isLoaded) => {

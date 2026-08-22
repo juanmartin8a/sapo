@@ -8,6 +8,7 @@ import { getCharacterCount, getInputLimit } from "@/utils/inputLimits";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import useLocalModelStore from "@/stores/localModelStore";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { getEffectiveSubscriptionStatus } from "@/utils/subscription";
 
 const TextToTranslateInput = () => {
     const insets = useSafeAreaInsets();
@@ -18,13 +19,12 @@ const TextToTranslateInput = () => {
     const hasActiveSubscription = useSubscriptionStatusStore((state) => state.hasActiveSubscription)
     const { status: authStatus, userId } = useAuthState()
     const isLocalModelEnabled = useLocalModelStore((state) => state.isEnabled)
-    const effectiveSubscriptionStatus = authStatus === "checking"
-        ? null
-        : authStatus !== "authenticated"
-          ? false
-          : subscriptionUserId === userId
-            ? hasActiveSubscription
-            : null
+    const effectiveSubscriptionStatus = getEffectiveSubscriptionStatus({
+        authStatus,
+        userId,
+        subscriptionUserId,
+        hasActiveSubscription,
+    })
     const hasAlertedRef = useRef(false)
     const inputLimit = getInputLimit(operation, effectiveSubscriptionStatus, isLocalModelEnabled)
     const textLength = getCharacterCount(text)

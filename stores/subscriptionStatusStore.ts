@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type SubscriptionStatus = "checking" | "inactive" | "activating" | "active";
+type SubscriptionStatus = "checking" | "inactive" | "activating" | "active";
 
 interface SubscriptionStatusStoreProps {
     userId: string | null;

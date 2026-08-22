@@ -100,7 +100,7 @@ const Sidebar = ({ translationX }: SidebarProps) => {
             return false;
         }
 
-        useHomeBottomSheetStore.getState().showBottomSheet(sheet, true);
+        useHomeBottomSheetStore.getState().showBottomSheet(sheet);
         return true;
     }, []);
 

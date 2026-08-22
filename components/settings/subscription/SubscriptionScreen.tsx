@@ -15,6 +15,7 @@ import {
     isPurchaseCancelledError,
 } from "@/components/settings/subscription/subscriptionDisplay";
 import SettingsScrollView from "@/components/settings/ui/SettingsScrollView";
+import { PRIVACY_POLICY_URL, TERMS_OF_USE_URL } from "@/constants/legal";
 import { useAuthState } from "@/providers/AuthStateProvider";
 import {
     SETTINGS_COLORS,
@@ -45,18 +46,11 @@ import {
 import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
 import { triggerErrorHaptic, triggerLightImpactHaptic, triggerWarningHaptic } from "@/lib/haptics";
 
-const TERMS_OF_USE_URL = "https://sapo.surf/terms-of-use";
-const PRIVACY_POLICY_URL = "https://sapo.surf/privacy-policy";
-
 const PURCHASE_ERROR_MESSAGE = "Unable to complete the purchase. Please try again.";
-
-const getSubscriptionSyncPendingMessage = () => {
-    return "Your purchase was completed and is still syncing to SAPO. Please check again shortly.";
-};
-
-const getSubscriptionSessionChangedMessage = () => {
-    return "Your account changed while syncing the subscription. Please sign in again and retry.";
-};
+const SUBSCRIPTION_SYNC_PENDING_MESSAGE =
+    "Your purchase was completed and is still syncing to SAPO. Please check again shortly.";
+const SUBSCRIPTION_SESSION_CHANGED_MESSAGE =
+    "Your account changed while syncing the subscription. Please sign in again and retry.";
 
 export default function SubscriptionScreen() {
     const { userId } = useAuthState();
@@ -312,7 +306,7 @@ export default function SubscriptionScreen() {
                         triggerWarningHaptic();
                         Alert.alert(
                             SUBSCRIPTION_SESSION_CHANGED_ALERT_TITLE,
-                            getSubscriptionSessionChangedMessage()
+                            SUBSCRIPTION_SESSION_CHANGED_MESSAGE
                         );
                         return;
                     }
@@ -337,7 +331,7 @@ export default function SubscriptionScreen() {
                     triggerWarningHaptic();
                     Alert.alert(
                         SUBSCRIPTION_SESSION_CHANGED_ALERT_TITLE,
-                        getSubscriptionSessionChangedMessage()
+                        SUBSCRIPTION_SESSION_CHANGED_MESSAGE
                     );
                     return;
                 }
@@ -348,7 +342,7 @@ export default function SubscriptionScreen() {
                     triggerWarningHaptic();
                     Alert.alert(
                         SUBSCRIPTION_SESSION_CHANGED_ALERT_TITLE,
-                        getSubscriptionSessionChangedMessage()
+                        SUBSCRIPTION_SESSION_CHANGED_MESSAGE
                     );
                     return;
                 }
@@ -362,12 +356,12 @@ export default function SubscriptionScreen() {
                 }
 
                 if (isPendingSubscriptionReconciliation(loginReconciliationStatus)) {
-                    Alert.alert("Subscription pending", getSubscriptionSyncPendingMessage());
+                    Alert.alert("Subscription pending", SUBSCRIPTION_SYNC_PENDING_MESSAGE);
                     return;
                 }
 
                 if (hasActiveClientSubscriptionAfterLogin) {
-                    Alert.alert("Subscription pending", getSubscriptionSyncPendingMessage());
+                    Alert.alert("Subscription pending", SUBSCRIPTION_SYNC_PENDING_MESSAGE);
                     return;
                 }
 
@@ -396,7 +390,7 @@ export default function SubscriptionScreen() {
                     triggerWarningHaptic();
                     Alert.alert(
                         SUBSCRIPTION_SESSION_CHANGED_ALERT_TITLE,
-                        getSubscriptionSessionChangedMessage()
+                        SUBSCRIPTION_SESSION_CHANGED_MESSAGE
                     );
                     return;
                 }
@@ -421,7 +415,7 @@ export default function SubscriptionScreen() {
                 triggerWarningHaptic();
                 Alert.alert(
                     SUBSCRIPTION_SESSION_CHANGED_ALERT_TITLE,
-                    getSubscriptionSessionChangedMessage()
+                    SUBSCRIPTION_SESSION_CHANGED_MESSAGE
                 );
                 return;
             }
@@ -431,7 +425,7 @@ export default function SubscriptionScreen() {
                 triggerWarningHaptic();
                 Alert.alert(
                     SUBSCRIPTION_SESSION_CHANGED_ALERT_TITLE,
-                    getSubscriptionSessionChangedMessage()
+                    SUBSCRIPTION_SESSION_CHANGED_MESSAGE
                 );
                 return;
             }
@@ -445,7 +439,7 @@ export default function SubscriptionScreen() {
                 purchaseReconciliationError ||
                 isPendingSubscriptionReconciliation(purchaseReconciliationStatus)
             ) {
-                Alert.alert("Purchase pending", getSubscriptionSyncPendingMessage());
+                Alert.alert("Purchase pending", SUBSCRIPTION_SYNC_PENDING_MESSAGE);
                 return;
             }
 
@@ -465,7 +459,7 @@ export default function SubscriptionScreen() {
                     triggerWarningHaptic();
                     Alert.alert(
                         SUBSCRIPTION_SESSION_CHANGED_ALERT_TITLE,
-                        getSubscriptionSessionChangedMessage()
+                        SUBSCRIPTION_SESSION_CHANGED_MESSAGE
                     );
                     return;
                 }

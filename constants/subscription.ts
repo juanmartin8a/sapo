@@ -1,6 +1,5 @@
 import {
     DEFAULT_SUBSCRIPTION_PLAN_LIMITS,
-    SUBSCRIPTION_USAGE_OPERATIONS,
     type SubscriptionPlanKey,
     type SubscriptionUsageOperation,
 } from "@/convex/constants/subscriptions";
@@ -14,7 +13,6 @@ export const SUBSCRIPTION_LINKED_ELSEWHERE_ALERT_TITLE = "Subscription linked el
 export const SUBSCRIPTION_SESSION_CHANGED_ALERT_TITLE = "Session changed";
 
 export const SUBSCRIPTION_PLAN_LIMITS = DEFAULT_SUBSCRIPTION_PLAN_LIMITS;
-export const TRANSFORMATION_OPERATIONS = SUBSCRIPTION_USAGE_OPERATIONS;
 
 export type { SubscriptionPlanKey };
 export type TransformationOperation = SubscriptionUsageOperation;
