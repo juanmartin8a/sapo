@@ -1,10 +1,11 @@
 import { components, internal } from "../../_generated/api";
-import type { ActionCtx } from "../../_generated/server";
+import type { ActionCtx, MutationCtx } from "../../_generated/server";
 import type * as WorkerArgs from "../../validators/subscriptionsWorkers";
 import { FAR_FUTURE_TIMESTAMP_MS } from "../../constants/time";
 import {
     PENDING_ACTIVE_SIGNAL_TTL_MS,
     SUBSCRIPTION_ACTIVATION_RETRY_DELAYS_MS,
+    SUBSCRIPTION_PLAN_KEYS,
     type SubscriptionPlanKey,
 } from "../../constants/subscriptions";
 import {
@@ -37,13 +38,16 @@ import {
     getWebhookRetryConfig,
 } from "./config";
 import {
-    deleteRevenueCatSubscriber,
-    fetchRevenueCatSubscriberSnapshot,
+    deleteRevenueCatCustomer,
+    fetchRevenueCatCustomerActiveEntitlementSnapshot,
+    fetchRevenueCatCustomerSubscriptionSnapshot,
     formatErrorMessage,
-    getMissingRevenueCatReadApiV2ConfigMessage,
+    getMissingRevenueCatEntitlementConfigMessage,
     getRevenueCatApiErrorRetryDelayMs,
     getRevenueCatEventsRetentionCutoffMs,
+    hasUnexpiredSubscriptionAccess,
     isRevenueCatApiErrorWithStatus,
+    resolveRevenueCatAccessExpirationAtMs,
     shouldUseExistingSubscriptionState,
     type CurrentSubscriptionState,
 } from "./revenueCatApi";
@@ -53,6 +57,7 @@ import {
     beginSubscriptionStateReconciliation,
     claimPendingActiveRetry,
     clearUserDeletionOperationByUserId,
+    expirePendingActiveSignal,
     getActiveUserDeletionUsageEventCountByUserId,
     getActiveRevenueCatEventProcessingForUserDeletionByUserId,
     getBetterAuthUserCreatedAtMs,
@@ -62,7 +67,6 @@ import {
     listAuthDeleteDeadLetterUserDeletionOperationUserIds,
     listCleanupDeadLetterUserDeletionOperationUserIds,
     listDueUserDeletionOperationUserIds,
-    listPendingActiveRetriesDue,
     markUserDeletionAuthDeletedByUserId,
     recordRevenueCatEventProcessingProgress,
     releaseSubscriptionStateReconciliation,
@@ -92,6 +96,7 @@ const USER_DELETION_SUBSCRIPTION_CLEANUP_MAX_BATCHES = 10;
 const USER_DELETION_TERMINAL_NEXT_RETRY_AT_MS = FAR_FUTURE_TIMESTAMP_MS;
 const REVENUECAT_EVENT_PROCESSING_LEASE_MS = 90_000;
 const SUBSCRIPTION_STATE_RECONCILIATION_LEASE_MS = 90_000;
+const SUBSCRIPTION_USAGE_SYNC_POLL_DELAYS_MS = [250, 500, 1_000] as const;
 type SubscriptionStateRefreshResult =
     | {
           status: "already_fresh" | "created" | "updated" | "unchanged";
@@ -185,36 +190,252 @@ function createSubscriptionReconciliationAttemptId(userId: string) {
     return `${userId}:${Date.now().toString(36)}:${randomSuffix}`;
 }
 
-async function schedulePendingSubscriptionActivationRetry(
-    ctx: Pick<ActionCtx, "scheduler">,
+function canServeActiveSubscriptionStateForUsage(
+    state: CurrentSubscriptionState | null,
+    nowMs: number
+) {
+    return Boolean(
+        state &&
+        state.plan_key === SUBSCRIPTION_PLAN_KEYS.POLYGLOT &&
+        state.has_active_subscription === true &&
+        Number.isFinite(state.last_synced_at_ms) &&
+        state.last_synced_at_ms > 0 &&
+        hasUnexpiredSubscriptionAccess(state, nowMs)
+    );
+}
+
+function hasActiveRefreshBackoff(state: CurrentSubscriptionState | null, nowMs: number) {
+    return (
+        typeof state?.next_refresh_attempt_at_ms === "number" &&
+        Number.isFinite(state.next_refresh_attempt_at_ms) &&
+        nowMs < state.next_refresh_attempt_at_ms
+    );
+}
+
+function waitForSubscriptionSync(delayMs: number) {
+    return new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+}
+
+type PendingActivationTickResult = {
+    status: "claimed" | "expired" | "rescheduled" | "stale";
+    retry_at_ms?: number;
+};
+
+async function schedulePendingActivationExpiryEffects(
+    ctx: Pick<MutationCtx, "scheduler">,
     args: {
         user_id: string;
-        active_signal_at_ms: number;
-        retry_index: number;
         event_doc_id?: string;
     }
 ) {
-    const delayMs = SUBSCRIPTION_ACTIVATION_RETRY_DELAYS_MS[args.retry_index];
-    if (typeof delayMs !== "number") {
-        return;
+    await ctx.scheduler.runAfter(
+        0,
+        internal.operationalAlerts.recordOperationalAlertAndNotify,
+        {
+            kind: "subscription_activation_unconfirmed",
+            entity_key: args.user_id,
+            severity: "error",
+            title: "Subscription activation could not be confirmed",
+            message: `RevenueCat did not confirm the active subscription for ${args.user_id} within the activation window.`,
+        }
+    );
+
+    if (args.event_doc_id) {
+        await ctx.scheduler.runAfter(
+            0,
+            internal.subscriptionsWorkers.processRevenueCatWebhookEvent,
+            { event_doc_id: args.event_doc_id }
+        );
+    }
+}
+
+export async function beginSubscriptionStateReconciliationAndScheduleActivation(
+    ctx: MutationCtx,
+    args: WorkerArgs.BeginSubscriptionStateReconciliationAndScheduleActivationArgs
+) {
+    const { event_doc_id: eventDocId, ...componentArgs } = args;
+    const result = await beginSubscriptionStateReconciliation(ctx, componentArgs);
+
+    const signalAtMs = result.pending_active_signal_at_ms;
+    const expiresAtMs = result.pending_active_expires_at_ms;
+    const retryIndex = result.pending_active_retry_count;
+    const retryAtMs = result.pending_active_next_retry_at_ms;
+    if (
+        typeof signalAtMs !== "number" ||
+        typeof expiresAtMs !== "number" ||
+        typeof retryIndex !== "number" ||
+        typeof retryAtMs !== "number" ||
+        expiresAtMs <= args.now_ms
+    ) {
+        return result;
+    }
+
+    if (
+        retryIndex >= 0 &&
+        retryIndex < SUBSCRIPTION_ACTIVATION_RETRY_DELAYS_MS.length &&
+        retryAtMs < expiresAtMs
+    ) {
+        await ctx.scheduler.runAt(
+            retryAtMs,
+            internal.subscriptionsWorkers.tickPendingSubscriptionActivation,
+            {
+                user_id: args.user_id,
+                active_signal_at_ms: signalAtMs,
+                retry_index: retryIndex,
+                ...(eventDocId ? { event_doc_id: eventDocId } : {}),
+            }
+        );
+    }
+
+    await ctx.scheduler.runAt(
+        expiresAtMs,
+        internal.subscriptionsWorkers.expirePendingSubscriptionActivation,
+        {
+            user_id: args.user_id,
+            active_signal_at_ms: signalAtMs,
+            ...(eventDocId ? { event_doc_id: eventDocId } : {}),
+        }
+    );
+
+    return result;
+}
+
+export async function beginSubscriptionStateReconciliationAndScheduleUsageRefresh(
+    ctx: MutationCtx,
+    args: WorkerArgs.BeginSubscriptionStateReconciliationAndScheduleUsageRefreshArgs
+) {
+    const result = await beginSubscriptionStateReconciliation(ctx, args);
+
+    if (result.status === "acquired") {
+        await ctx.scheduler.runAfter(
+            0,
+            internal.subscriptionsWorkers.executeSubscriptionUsageRefresh,
+            {
+                user_id: args.user_id,
+                sync_attempt_id: args.sync_attempt_id,
+            }
+        );
+    }
+
+    return result;
+}
+
+export async function tickPendingSubscriptionActivation(
+    ctx: MutationCtx,
+    args: WorkerArgs.TickPendingSubscriptionActivationArgs
+): Promise<PendingActivationTickResult> {
+    const nowMs = Date.now();
+    const nextRetryDelayMs = SUBSCRIPTION_ACTIVATION_RETRY_DELAYS_MS[args.retry_index + 1];
+    const claim = await claimPendingActiveRetry(ctx, {
+        user_id: args.user_id,
+        active_signal_at_ms: args.active_signal_at_ms,
+        retry_index: args.retry_index,
+        now_ms: nowMs,
+        next_retry_at_ms: typeof nextRetryDelayMs === "number"
+            ? nowMs + nextRetryDelayMs
+            : Number.MAX_SAFE_INTEGER,
+    });
+
+    if (claim.expired) {
+        await schedulePendingActivationExpiryEffects(ctx, args);
+        return { status: "expired" };
+    }
+
+    if (!claim.claimed) {
+        if (
+            (claim.sync_in_progress || claim.not_due) &&
+            typeof claim.retry_at_ms === "number"
+        ) {
+            await ctx.scheduler.runAt(
+                claim.retry_at_ms,
+                internal.subscriptionsWorkers.tickPendingSubscriptionActivation,
+                args
+            );
+            return {
+                status: "rescheduled",
+                retry_at_ms: claim.retry_at_ms,
+            };
+        }
+
+        return { status: "stale" };
     }
 
     await ctx.scheduler.runAfter(
-        delayMs,
-        internal.subscriptionsWorkers.retryPendingSubscriptionActivation,
+        0,
+        internal.subscriptionsWorkers.executePendingSubscriptionActivationRetry,
         args
     );
+
+    if (
+        typeof nextRetryDelayMs === "number" &&
+        typeof claim.next_retry_at_ms === "number"
+    ) {
+        await ctx.scheduler.runAt(
+            claim.next_retry_at_ms,
+            internal.subscriptionsWorkers.tickPendingSubscriptionActivation,
+            {
+                ...args,
+                retry_index: args.retry_index + 1,
+            }
+        );
+    }
+
+    return { status: "claimed" };
+}
+
+export async function expirePendingSubscriptionActivation(
+    ctx: MutationCtx,
+    args: WorkerArgs.ExpirePendingSubscriptionActivationArgs
+): Promise<PendingActivationTickResult> {
+    const nowMs = Date.now();
+    const result = await expirePendingActiveSignal(ctx, {
+        user_id: args.user_id,
+        active_signal_at_ms: args.active_signal_at_ms,
+        now_ms: nowMs,
+    });
+
+    if (result.expired) {
+        await schedulePendingActivationExpiryEffects(ctx, args);
+        return { status: "expired" };
+    }
+
+    if (typeof result.retry_at_ms === "number") {
+        await ctx.scheduler.runAt(
+            result.retry_at_ms,
+            internal.subscriptionsWorkers.expirePendingSubscriptionActivation,
+            args
+        );
+        return {
+            status: "rescheduled",
+            retry_at_ms: result.retry_at_ms,
+        };
+    }
+
+    if (args.event_doc_id) {
+        await ctx.scheduler.runAfter(
+            0,
+            internal.subscriptionsWorkers.processRevenueCatWebhookEvent,
+            { event_doc_id: args.event_doc_id }
+        );
+    }
+
+    return { status: "stale" };
 }
 
 function isRevenueCatWebhookActiveSignal(eventType: string) {
     return new Set([
         "INITIAL_PURCHASE",
-        "NON_RENEWING_PURCHASE",
         "PRODUCT_CHANGE",
         "RENEWAL",
         "SUBSCRIPTION_EXTENDED",
-        "TEMPORARY_ENTITLEMENT_GRANT",
         "UNCANCELLATION",
+    ]).has(eventType);
+}
+
+function isRevenueCatNonSubscriptionEvent(eventType: string) {
+    return new Set([
+        "NON_RENEWING_PURCHASE",
+        "TEMPORARY_ENTITLEMENT_GRANT",
     ]).has(eventType);
 }
 
@@ -265,16 +486,6 @@ export function shouldUseExistingStateForObservedSubscription(
             state.has_active_subscription === observedActive) &&
         shouldUseExistingSubscriptionState(state, nowMs)
     );
-}
-
-function resolveStoreSubscriptionIdHintFromRevenueCatEvent(
-    eventDoc: Pick<RevenueCatWebhookEventForProcessing, "event_type" | "transaction_id">
-) {
-    if (eventDoc.event_type === "TEMPORARY_ENTITLEMENT_GRANT") {
-        return undefined;
-    }
-
-    return eventDoc.transaction_id;
 }
 
 function resolveUserDeletionContextFromState(
@@ -379,8 +590,6 @@ function isPermanentUserDeletionCleanupError(errorMessage: string, error?: unkno
         errorMessage.includes("Missing RevenueCat customer delete configuration") ||
         errorMessage.includes("Missing RevenueCat v2 project id") ||
         errorMessage.includes("Missing RevenueCat customer delete") ||
-        errorMessage.includes("RevenueCat subscriber delete failed with status 401") ||
-        errorMessage.includes("RevenueCat subscriber delete failed with status 403") ||
         errorMessage.includes("Cannot continue paid-user deletion") ||
         errorMessage.includes("Missing saved deletion context")
     );
@@ -602,6 +811,11 @@ async function reconcileSubscriptionStateFromRevenueCat(
         client_observed_active?: boolean;
         use_confirmed_state_while_activation_pending?: boolean;
         clear_pending_active_signal?: boolean;
+        schedule_pending_activation?: boolean;
+        use_stale_active_state_while_revalidating?: boolean;
+        preacquired_sync_attempt_id?: string;
+        event_doc_id?: string;
+        reconciliation_read: "active_entitlements_first" | "subscriptions";
     }
 ): Promise<SubscriptionStateRefreshResult> {
     const existingState = await getSubscriptionStateByUserId(ctx, args.user_id);
@@ -663,7 +877,8 @@ async function reconcileSubscriptionStateFromRevenueCat(
     if (
         args.use_confirmed_state_while_activation_pending === true &&
         existingState &&
-        hasPendingActiveSignal(existingState, args.now_ms)
+        hasPendingActiveSignal(existingState, args.now_ms) &&
+        shouldUseExistingSubscriptionState(existingState, args.now_ms)
     ) {
         return {
             status: "already_fresh",
@@ -698,6 +913,71 @@ async function reconcileSubscriptionStateFromRevenueCat(
         };
     }
 
+    if (!args.force && hasActiveRefreshBackoff(existingState, args.now_ms)) {
+        if (
+            args.use_stale_active_state_while_revalidating === true &&
+            canServeActiveSubscriptionStateForUsage(existingState, args.now_ms)
+        ) {
+            return {
+                status: "already_fresh",
+                revenuecat_app_user_id: revenueCatAppUserId,
+                plan_key: existingState!.plan_key,
+                has_active_subscription: existingState!.has_active_subscription,
+                last_synced_at_ms: existingState!.last_synced_at_ms,
+                billing_cycle_end_at_ms: existingState!.billing_cycle_end_at_ms,
+            };
+        }
+
+        return {
+            status: "refresh_failed",
+            revenuecat_app_user_id: revenueCatAppUserId,
+            error: "RevenueCat refresh is waiting for its retry window",
+            should_block_requests: existingState?.has_active_subscription === true,
+            ...(existingState ? { plan_key: existingState.plan_key } : {}),
+            ...(typeof existingState?.has_active_subscription === "boolean"
+                ? { has_active_subscription: existingState.has_active_subscription }
+                : {}),
+            ...(typeof existingState?.last_synced_at_ms === "number"
+                ? { last_synced_at_ms: existingState.last_synced_at_ms }
+                : {}),
+            ...(typeof existingState?.billing_cycle_end_at_ms === "number"
+                ? { billing_cycle_end_at_ms: existingState.billing_cycle_end_at_ms }
+                : {}),
+        };
+    }
+
+    if (
+        args.use_stale_active_state_while_revalidating === true &&
+        canServeActiveSubscriptionStateForUsage(existingState, args.now_ms)
+    ) {
+        const backgroundSyncAttemptId = createSubscriptionReconciliationAttemptId(args.user_id);
+
+        try {
+            await (ctx as ActionCtx).runMutation(
+                internal.subscriptionsWorkers
+                    .beginSubscriptionStateReconciliationAndScheduleUsageRefresh,
+                {
+                    user_id: args.user_id,
+                    revenuecat_app_user_id: revenueCatAppUserId,
+                    sync_attempt_id: backgroundSyncAttemptId,
+                    now_ms: Date.now(),
+                    lease_duration_ms: SUBSCRIPTION_STATE_RECONCILIATION_LEASE_MS,
+                }
+            );
+        } catch (error) {
+            console.warn("Failed to schedule background subscription refresh", error);
+        }
+
+        return {
+            status: "already_fresh",
+            revenuecat_app_user_id: revenueCatAppUserId,
+            plan_key: existingState!.plan_key,
+            has_active_subscription: existingState!.has_active_subscription,
+            last_synced_at_ms: existingState!.last_synced_at_ms,
+            billing_cycle_end_at_ms: existingState!.billing_cycle_end_at_ms,
+        };
+    }
+
     try {
         const processingConfig = getSubscriptionProcessingConfig();
         const betterAuthUser = await getBetterAuthUserCreatedAtMs(ctx, args.user_id);
@@ -709,9 +989,11 @@ async function reconcileSubscriptionStateFromRevenueCat(
             };
         }
 
-        syncAttemptId = createSubscriptionReconciliationAttemptId(args.user_id);
+        syncAttemptId =
+            args.preacquired_sync_attempt_id ??
+            createSubscriptionReconciliationAttemptId(args.user_id);
         const leaseNowMs = Date.now();
-        const leaseResult = await beginSubscriptionStateReconciliation(ctx, {
+        const beginArgs = {
             user_id: args.user_id,
             revenuecat_app_user_id: revenueCatAppUserId,
             ...(typeof betterAuthUser.created_at_ms === "number"
@@ -739,7 +1021,17 @@ async function reconcileSubscriptionStateFromRevenueCat(
             ...(typeof args.revenuecat_event_at_ms === "number"
                 ? { revenuecat_event_at_ms: args.revenuecat_event_at_ms }
                 : {}),
-        });
+        };
+        const leaseResult = args.schedule_pending_activation === true
+            ? await (ctx as ActionCtx).runMutation(
+                  internal.subscriptionsWorkers
+                      .beginSubscriptionStateReconciliationAndScheduleActivation,
+                  {
+                      ...beginArgs,
+                      ...(args.event_doc_id ? { event_doc_id: args.event_doc_id } : {}),
+                  }
+              )
+            : await beginSubscriptionStateReconciliation(ctx, beginArgs);
 
         if (leaseResult.status === "in_progress") {
             return {
@@ -769,8 +1061,49 @@ async function reconcileSubscriptionStateFromRevenueCat(
             };
         }
 
-        const snapshotAtMs = Date.now();
-        const snapshot = await fetchRevenueCatSubscriberSnapshot(revenueCatAppUserId, snapshotAtMs);
+        const activeEntitlementSnapshot =
+            args.reconciliation_read === "active_entitlements_first"
+                ? await fetchRevenueCatCustomerActiveEntitlementSnapshot(revenueCatAppUserId)
+                : null;
+        snapshotHasActiveSubscription =
+            activeEntitlementSnapshot?.has_active_subscription === true;
+        const subscriptionSnapshot =
+            activeEntitlementSnapshot?.has_active_subscription === true ||
+            args.reconciliation_read === "subscriptions"
+                ? await fetchRevenueCatCustomerSubscriptionSnapshot(revenueCatAppUserId)
+                : null;
+        if (
+            activeEntitlementSnapshot?.has_active_subscription === true &&
+            subscriptionSnapshot?.has_active_subscription !== true
+        ) {
+            throw new Error(
+                "RevenueCat active Polyglot entitlement is missing an access-granting subscription"
+            );
+        }
+        const subscriptionStatus = subscriptionSnapshot?.subscription_status;
+        const subscriptionMetadata = subscriptionSnapshot
+            ? (({ subscription_status: _subscriptionStatus, ...metadata }) => metadata)(
+                  subscriptionSnapshot
+              )
+            : null;
+        const snapshot =
+            subscriptionMetadata && activeEntitlementSnapshot?.has_active_subscription === true
+                ? (() => {
+                      const accessExpiresAtMs = resolveRevenueCatAccessExpirationAtMs({
+                          subscription_status: subscriptionStatus,
+                          period_end_at_ms: subscriptionMetadata.period_end_at_ms,
+                          entitlement_expires_at_ms:
+                              activeEntitlementSnapshot.access_expires_at_ms,
+                      });
+
+                      return {
+                          ...subscriptionMetadata,
+                          ...(typeof accessExpiresAtMs === "number"
+                              ? { access_expires_at_ms: accessExpiresAtMs }
+                              : {}),
+                      };
+                  })()
+                : (subscriptionMetadata ?? activeEntitlementSnapshot!);
         const applyAtMs = Date.now();
         snapshotHasActiveSubscription = snapshot.has_active_subscription;
         const applyResult: {
@@ -969,17 +1302,25 @@ export async function processRevenueCatWebhookEventById(
                 user_id: userId,
                 force: true,
                 now_ms: args.now_ms,
-                store_subscription_id_hint:
-                    resolveStoreSubscriptionIdHintFromRevenueCatEvent(eventDoc),
+                ...(isRevenueCatNonSubscriptionEvent(eventDoc.event_type)
+                    ? {}
+                    : { store_subscription_id_hint: eventDoc.transaction_id }),
                 ...(isRevenueCatWebhookActiveSignal(eventDoc.event_type)
                     ? {
                           expects_active_subscription: true,
                           trusted_active_signal: true,
                           active_signal_at_ms: eventDoc.event_at_ms,
+                          schedule_pending_activation: true,
                       }
-                    : { clear_pending_active_signal: true }),
+                    : isRevenueCatNonSubscriptionEvent(eventDoc.event_type)
+                      ? {}
+                      : { clear_pending_active_signal: true }),
                 revenuecat_event_id: eventDoc.event_id,
                 revenuecat_event_at_ms: eventDoc.event_at_ms,
+                event_doc_id: args.event_doc_id,
+                reconciliation_read: isRevenueCatNonSubscriptionEvent(eventDoc.event_type)
+                    ? "subscriptions"
+                    : "active_entitlements_first",
             }),
         }))
     );
@@ -1009,19 +1350,6 @@ export async function processRevenueCatWebhookEventById(
         } => attempt.result.status === "pending_active"
     );
 
-    await Promise.all(
-        pendingActiveRefreshes.map((attempt) => {
-            const signalAtMs = attempt.result.pending_active_signal_at_ms;
-            return typeof signalAtMs === "number"
-                ? schedulePendingSubscriptionActivationRetry(ctx, {
-                      user_id: attempt.user_id,
-                      active_signal_at_ms: signalAtMs,
-                      retry_index: 0,
-                      event_doc_id: args.event_doc_id,
-                  })
-                : Promise.resolve();
-        })
-    );
     const syncInProgressRefreshes = reconciliationAttempts.filter(
         (
             attempt
@@ -1158,30 +1486,17 @@ export async function reconcileObservedSubscriptionStateHandler(
         force: false,
         now_ms: nowMs,
         client_observed_active: args.observed_active,
+        reconciliation_read: "active_entitlements_first",
         ...(args.observed_active
             ? { expects_active_subscription: true }
             : {}),
         ...(args.observed_active
             ? { active_signal_at_ms: nowMs }
             : {}),
+        ...(args.observed_active
+            ? { schedule_pending_activation: true }
+            : {}),
     });
-
-    if (
-        result.status === "pending_active" &&
-        typeof result.pending_active_signal_at_ms === "number"
-    ) {
-        await schedulePendingSubscriptionActivationRetry(ctx, {
-            user_id: args.user_id,
-            active_signal_at_ms: result.pending_active_signal_at_ms,
-            retry_index: 0,
-        });
-    } else if (result.status === "refresh_failed" && args.observed_active) {
-        await schedulePendingSubscriptionActivationRetry(ctx, {
-            user_id: args.user_id,
-            active_signal_at_ms: nowMs,
-            retry_index: 0,
-        });
-    }
 
     return result;
 }
@@ -1190,63 +1505,65 @@ export async function reconcileSubscriptionStateForUsage(
     ctx: ActionCtx,
     args: { user_id: string }
 ) {
-    return reconcileSubscriptionStateFromRevenueCat(ctx, {
-        user_id: args.user_id,
-        force: false,
-        now_ms: Date.now(),
-        use_confirmed_state_while_activation_pending: true,
-    });
-}
+    const reconcile = () =>
+        reconcileSubscriptionStateFromRevenueCat(ctx, {
+            user_id: args.user_id,
+            force: false,
+            now_ms: Date.now(),
+            use_confirmed_state_while_activation_pending: true,
+            use_stale_active_state_while_revalidating: true,
+            reconciliation_read: "active_entitlements_first",
+        });
 
-export async function retryPendingSubscriptionActivation(
-    ctx: ActionCtx,
-    args: WorkerArgs.RetryPendingSubscriptionActivationArgs
-) {
-    const nowMs = Date.now();
-    const nextRetryDelayMs = SUBSCRIPTION_ACTIVATION_RETRY_DELAYS_MS[args.retry_index + 1];
-    const claim = await claimPendingActiveRetry(ctx, {
-        user_id: args.user_id,
-        active_signal_at_ms: args.active_signal_at_ms,
-        retry_index: args.retry_index,
-        now_ms: nowMs,
-        next_retry_at_ms: typeof nextRetryDelayMs === "number"
-            ? nowMs + nextRetryDelayMs
-            : Number.MAX_SAFE_INTEGER,
-    });
+    let result = await reconcile();
 
-    if (!claim.claimed) {
-        if (claim.expired) {
-            await recordOperationalAlert(ctx, {
-                kind: "subscription_activation_unconfirmed",
-                entity_key: args.user_id,
-                severity: "error",
-                title: "Subscription activation could not be confirmed",
-                message: `RevenueCat did not confirm the active subscription for ${args.user_id} within the activation window.`,
-            });
+    for (const delayMs of SUBSCRIPTION_USAGE_SYNC_POLL_DELAYS_MS) {
+        if (result.status !== "sync_in_progress") {
+            break;
         }
-        return { status: "stale" as const };
+
+        await waitForSubscriptionSync(delayMs);
+        result = await reconcile();
     }
 
+    return result;
+}
+
+export async function executeSubscriptionUsageRefresh(
+    ctx: ActionCtx,
+    args: WorkerArgs.ExecuteSubscriptionUsageRefreshArgs
+) {
+    const result = await reconcileSubscriptionStateFromRevenueCat(ctx, {
+        user_id: args.user_id,
+        force: true,
+        now_ms: Date.now(),
+        preacquired_sync_attempt_id: args.sync_attempt_id,
+        reconciliation_read: "active_entitlements_first",
+    });
+
+    return { status: result.status };
+}
+
+export async function executePendingSubscriptionActivationRetry(
+    ctx: ActionCtx,
+    args: WorkerArgs.ExecutePendingSubscriptionActivationRetryArgs
+) {
+    const nowMs = Date.now();
     const result = await reconcileSubscriptionStateFromRevenueCat(ctx, {
         user_id: args.user_id,
         force: true,
         now_ms: nowMs,
         expects_active_subscription: true,
         active_signal_at_ms: args.active_signal_at_ms,
+        reconciliation_read: "active_entitlements_first",
     });
 
     if (
-        result.status === "pending_active" ||
-        result.status === "sync_in_progress" ||
-        result.status === "refresh_failed"
+        result.status !== "pending_active" &&
+        result.status !== "sync_in_progress" &&
+        result.status !== "refresh_failed" &&
+        args.event_doc_id
     ) {
-        await schedulePendingSubscriptionActivationRetry(ctx, {
-            user_id: args.user_id,
-            active_signal_at_ms: args.active_signal_at_ms,
-            retry_index: args.retry_index + 1,
-            ...(args.event_doc_id ? { event_doc_id: args.event_doc_id } : {}),
-        });
-    } else if (args.event_doc_id) {
         await ctx.scheduler.runAfter(
             0,
             internal.subscriptionsWorkers.processRevenueCatWebhookEvent,
@@ -1255,25 +1572,6 @@ export async function retryPendingSubscriptionActivation(
     }
 
     return { status: result.status };
-}
-
-export async function retryPendingSubscriptionActivations(ctx: ActionCtx) {
-    const dueRetries = await listPendingActiveRetriesDue(ctx, {
-        now_ms: Date.now(),
-        limit: 50,
-    });
-
-    await Promise.all(
-        dueRetries.map((retry) =>
-            ctx.scheduler.runAfter(
-                0,
-                internal.subscriptionsWorkers.retryPendingSubscriptionActivation,
-                retry
-            )
-        )
-    );
-
-    return { scheduled_count: dueRetries.length };
 }
 
 export const prepareUserAccountDeletion = async (ctx: ActionCtx, args: WorkerArgs.PrepareUserAccountDeletionArgs) => {
@@ -1287,6 +1585,7 @@ export const prepareUserAccountDeletion = async (ctx: ActionCtx, args: WorkerArg
                 force: true,
                 now_ms: nowMs,
                 allow_user_deletion_in_progress: true,
+                reconciliation_read: "subscriptions",
             });
 
             if (refreshResult.status === "refresh_failed") {
@@ -1884,7 +2183,7 @@ export async function finalizeDeletedUserDataHandler(
             }
 
             let revenuecat_delete:
-                | Awaited<ReturnType<typeof deleteRevenueCatSubscriber>>
+                | Awaited<ReturnType<typeof deleteRevenueCatCustomer>>
                 | { deleted: false; skipped: true; already_completed?: true };
 
             if (typeof deletionState.revenuecat_deleted_at_ms === "number") {
@@ -1894,7 +2193,7 @@ export async function finalizeDeletedUserDataHandler(
                     already_completed: true,
                 };
             } else if (deletionContext.revenuecat_app_user_id) {
-                revenuecat_delete = await deleteRevenueCatSubscriber(
+                revenuecat_delete = await deleteRevenueCatCustomer(
                     deletionContext.revenuecat_app_user_id
                 );
 
@@ -2286,7 +2585,8 @@ export const reconcileExpiredSubscriptionStates = async (ctx: ActionCtx): Promis
         | { processed: number; failed: number; scanned: number }
         | { processed: number; failed: number; skipped: string }
     > => {
-        const missingRevenueCatReadConfigMessage = getMissingRevenueCatReadApiV2ConfigMessage();
+        const missingRevenueCatReadConfigMessage =
+            getMissingRevenueCatEntitlementConfigMessage();
         if (missingRevenueCatReadConfigMessage) {
             return {
                 processed: 0,
@@ -2306,6 +2606,7 @@ export const reconcileExpiredSubscriptionStates = async (ctx: ActionCtx): Promis
         ) as {
             user_id: string;
             revenuecat_app_user_id?: string;
+            last_synced_at_ms: number;
         }[];
 
         let processed = 0;
@@ -2316,6 +2617,7 @@ export const reconcileExpiredSubscriptionStates = async (ctx: ActionCtx): Promis
                 user_id: dueState.user_id,
                 force: true,
                 now_ms: Date.now(),
+                reconciliation_read: "active_entitlements_first",
             });
 
             if (refreshResult.status === "sync_in_progress") {
@@ -2333,10 +2635,14 @@ export const reconcileExpiredSubscriptionStates = async (ctx: ActionCtx): Promis
 
             failed += 1;
 
-            await ctx.runMutation(components.subscriptions.webhook.deferSubscriptionStateReconciliation, {
-                user_id: dueState.user_id,
-                next_attempt_at_ms: Date.now() + getReconciliationFailureBackoffMs(),
-            });
+            await ctx.runMutation(
+                components.subscriptions.webhook.deferSubscriptionStateReconciliation,
+                {
+                    user_id: dueState.user_id,
+                    expected_last_synced_at_ms: dueState.last_synced_at_ms,
+                    next_attempt_at_ms: Date.now() + getReconciliationFailureBackoffMs(),
+                }
+            );
         }
 
         return {

@@ -2,9 +2,28 @@ import { describe, expect, it, jest } from "@jest/globals";
 
 import {
     claimPendingActiveRetry,
+    deferSubscriptionStateReconciliation,
+    expirePendingActiveSignal,
     getClientReconciliationTokenState,
     isActiveReconciliationSuperseded,
+    releaseSubscriptionStateReconciliation,
 } from "../model/webhook";
+
+function createPendingStateCtx(state: Record<string, unknown> | null) {
+    const patch = jest.fn(async (..._args: unknown[]) => null);
+    const ctx = {
+        db: {
+            query: jest.fn(() => ({
+                withIndex: jest.fn(() => ({
+                    order: jest.fn(() => ({ first: jest.fn(async () => state) })),
+                })),
+            })),
+            patch,
+        },
+    };
+
+    return { ctx, patch };
+}
 
 describe("client subscription reconciliation tokens", () => {
     it("starts with the full capacity", () => {
@@ -42,17 +61,7 @@ describe("client subscription reconciliation tokens", () => {
             pending_active_expires_at_ms: 2_000,
             pending_active_retry_count: 2,
         };
-        const patch = jest.fn(async () => null);
-        const ctx = {
-            db: {
-                query: jest.fn(() => ({
-                    withIndex: jest.fn(() => ({
-                        order: jest.fn(() => ({ first: jest.fn(async () => state) })),
-                    })),
-                })),
-                patch,
-            },
-        };
+        const { ctx, patch } = createPendingStateCtx(state);
 
         await expect(claimPendingActiveRetry(ctx as any, {
             user_id: "user_1",
@@ -67,6 +76,216 @@ describe("client subscription reconciliation tokens", () => {
             pending_active_retry_count: undefined,
             pending_active_next_retry_at_ms: undefined,
         }));
+    });
+
+    it("does not consume a retry while another reconciliation owns the lease", async () => {
+        const { ctx, patch } = createPendingStateCtx({
+            _id: "state_1",
+            pending_active_signal_at_ms: 1_000,
+            pending_active_expires_at_ms: 10_000,
+            pending_active_retry_count: 0,
+            pending_active_next_retry_at_ms: 2_000,
+            sync_attempt_id: "other_attempt",
+            sync_expires_at_ms: 8_000,
+        });
+
+        await expect(claimPendingActiveRetry(ctx as any, {
+            user_id: "user_1",
+            active_signal_at_ms: 1_000,
+            retry_index: 0,
+            now_ms: 2_000,
+            next_retry_at_ms: 5_000,
+        })).resolves.toEqual({
+            claimed: false,
+            sync_in_progress: true,
+            retry_at_ms: 7_000,
+        });
+        expect(patch).toHaveBeenCalledWith(
+            "subscription_states",
+            "state_1",
+            expect.objectContaining({
+                pending_active_next_retry_at_ms: 7_000,
+            })
+        );
+        expect(patch.mock.calls[0][2]).not.toHaveProperty("pending_active_retry_count");
+    });
+
+    it("keeps an early retry at the persisted deadline", async () => {
+        const { ctx, patch } = createPendingStateCtx({
+            _id: "state_1",
+            pending_active_signal_at_ms: 1_000,
+            pending_active_expires_at_ms: 10_000,
+            pending_active_retry_count: 0,
+            pending_active_next_retry_at_ms: 3_000,
+        });
+
+        await expect(claimPendingActiveRetry(ctx as any, {
+            user_id: "user_1",
+            active_signal_at_ms: 1_000,
+            retry_index: 0,
+            now_ms: 2_000,
+            next_retry_at_ms: 5_000,
+        })).resolves.toEqual({
+            claimed: false,
+            not_due: true,
+            retry_at_ms: 3_000,
+        });
+        expect(patch).not.toHaveBeenCalled();
+    });
+
+    it("claims a due retry and persists its successor deadline", async () => {
+        const { ctx, patch } = createPendingStateCtx({
+            _id: "state_1",
+            pending_active_signal_at_ms: 1_000,
+            pending_active_expires_at_ms: 10_000,
+            pending_active_retry_count: 1,
+            pending_active_next_retry_at_ms: 2_000,
+        });
+
+        await expect(claimPendingActiveRetry(ctx as any, {
+            user_id: "user_1",
+            active_signal_at_ms: 1_000,
+            retry_index: 1,
+            now_ms: 2_000,
+            next_retry_at_ms: 5_000,
+        })).resolves.toEqual({
+            claimed: true,
+            next_retry_at_ms: 5_000,
+        });
+        expect(patch).toHaveBeenCalledWith(
+            "subscription_states",
+            "state_1",
+            expect.objectContaining({
+                pending_active_retry_count: 2,
+                pending_active_next_retry_at_ms: 5_000,
+            })
+        );
+    });
+
+    it("expires only the matching pending activation generation", async () => {
+        const { ctx, patch } = createPendingStateCtx({
+            _id: "state_1",
+            pending_active_signal_at_ms: 1_000,
+            pending_active_expires_at_ms: 2_000,
+            pending_active_retry_count: 4,
+        });
+
+        await expect(expirePendingActiveSignal(ctx as any, {
+            user_id: "user_1",
+            active_signal_at_ms: 1_000,
+            now_ms: 2_000,
+        })).resolves.toEqual({ expired: true });
+        expect(patch).toHaveBeenCalledWith(
+            "subscription_states",
+            "state_1",
+            expect.objectContaining({
+                pending_active_signal_at_ms: undefined,
+                pending_active_expires_at_ms: undefined,
+                pending_active_retry_count: undefined,
+                pending_active_next_retry_at_ms: undefined,
+            })
+        );
+    });
+
+    it("leaves a newer generation untouched when an old expiry runs", async () => {
+        const { ctx, patch } = createPendingStateCtx({
+            _id: "state_1",
+            pending_active_signal_at_ms: 2_000,
+            pending_active_expires_at_ms: 4_000,
+        });
+
+        await expect(expirePendingActiveSignal(ctx as any, {
+            user_id: "user_1",
+            active_signal_at_ms: 1_000,
+            now_ms: 3_000,
+        })).resolves.toEqual({ expired: false, stale: true });
+        expect(patch).not.toHaveBeenCalled();
+    });
+
+    it("does not shorten a future expiration deadline when storing refresh backoff", async () => {
+        const { ctx, patch } = createPendingStateCtx({
+            _id: "state_1",
+            sync_attempt_id: "attempt_1",
+            sync_expires_at_ms: 2_000,
+            stale_after_at_ms: 10_000,
+            updated_at_ms: 900,
+        });
+
+        await expect(releaseSubscriptionStateReconciliation(ctx as any, {
+            user_id: "user_1",
+            sync_attempt_id: "attempt_1",
+            now_ms: 1_000,
+            next_attempt_at_ms: 5_000,
+        })).resolves.toEqual({ status: "released" });
+
+        expect(patch).toHaveBeenCalledWith(
+            "subscription_states",
+            "state_1",
+            expect.objectContaining({
+                sync_attempt_id: undefined,
+                next_refresh_attempt_at_ms: 5_000,
+            })
+        );
+        expect(patch.mock.calls[0][2]).not.toHaveProperty("stale_after_at_ms");
+    });
+
+    it("extends an upcoming expiration deadline through refresh backoff", async () => {
+        const { ctx, patch } = createPendingStateCtx({
+            _id: "state_1",
+            sync_attempt_id: "attempt_1",
+            sync_expires_at_ms: 2_000,
+            stale_after_at_ms: 4_000,
+            updated_at_ms: 900,
+        });
+
+        await releaseSubscriptionStateReconciliation(ctx as any, {
+            user_id: "user_1",
+            sync_attempt_id: "attempt_1",
+            now_ms: 1_000,
+            next_attempt_at_ms: 5_000,
+        });
+
+        expect(patch).toHaveBeenCalledWith(
+            "subscription_states",
+            "state_1",
+            expect.objectContaining({
+                stale_after_at_ms: 5_000,
+                next_refresh_attempt_at_ms: 5_000,
+            })
+        );
+    });
+
+    it("does not defer a state replaced by a newer reconciliation", async () => {
+        const { ctx, patch } = createPendingStateCtx({
+            _id: "state_1",
+            last_synced_at_ms: 2_000,
+        });
+
+        await expect(deferSubscriptionStateReconciliation(ctx as any, {
+            user_id: "user_1",
+            expected_last_synced_at_ms: 1_000,
+            next_attempt_at_ms: 5_000,
+        })).resolves.toEqual({ status: "stale" });
+
+        expect(patch).not.toHaveBeenCalled();
+    });
+
+    it("reschedules an expiry invocation that arrives early", async () => {
+        const { ctx, patch } = createPendingStateCtx({
+            _id: "state_1",
+            pending_active_signal_at_ms: 1_000,
+            pending_active_expires_at_ms: 4_000,
+        });
+
+        await expect(expirePendingActiveSignal(ctx as any, {
+            user_id: "user_1",
+            active_signal_at_ms: 1_000,
+            now_ms: 3_000,
+        })).resolves.toEqual({
+            expired: false,
+            retry_at_ms: 4_000,
+        });
+        expect(patch).not.toHaveBeenCalled();
     });
 
     it("rejects an active result superseded by a newer inactive event", () => {

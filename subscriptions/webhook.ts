@@ -2,10 +2,6 @@ import { mutation, internalMutation, query } from "./_generated/server";
 import * as Webhook from "./model/webhook";
 import * as WebhookArgs from "./validators/webhook";
 
-export const upsertSubscriptionPlanLimits = mutation({
-    args: WebhookArgs.upsertSubscriptionPlanLimitsArgs,
-    handler: Webhook.upsertSubscriptionPlanLimits,
-});
 export const reserveSubscriptionQuotaUsage = mutation({
     args: WebhookArgs.reserveSubscriptionQuotaUsageArgs,
     handler: Webhook.reserveSubscriptionQuotaUsage,
@@ -78,9 +74,9 @@ export const claimPendingActiveRetry = mutation({
     args: WebhookArgs.claimPendingActiveRetryArgs,
     handler: Webhook.claimPendingActiveRetry,
 });
-export const listPendingActiveRetriesDue = query({
-    args: WebhookArgs.listPendingActiveRetriesDueArgs,
-    handler: Webhook.listPendingActiveRetriesDue,
+export const expirePendingActiveSignal = mutation({
+    args: WebhookArgs.expirePendingActiveSignalArgs,
+    handler: Webhook.expirePendingActiveSignal,
 });
 export const releaseSubscriptionStateReconciliation = mutation({
     args: WebhookArgs.releaseSubscriptionStateReconciliationArgs,

@@ -70,6 +70,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           revenuecat_event_id?: string;
           signup_at_ms?: number;
           snapshot: {
+            access_expires_at_ms?: number;
             entitlement_id?: string;
             environment?: string;
             has_active_subscription: boolean;
@@ -146,7 +147,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       deferSubscriptionStateReconciliation: FunctionReference<
         "mutation",
         "internal",
-        { next_attempt_at_ms: number; user_id: string },
+        {
+          expected_last_synced_at_ms: number;
+          next_attempt_at_ms: number;
+          user_id: string;
+        },
         any,
         Name
       >;
@@ -173,6 +178,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "mutation",
         "internal",
         { now_ms: number; user_id: string },
+        any,
+        Name
+      >;
+      expirePendingActiveSignal: FunctionReference<
+        "mutation",
+        "internal",
+        { active_signal_at_ms: number; now_ms: number; user_id: string },
         any,
         Name
       >;
@@ -276,13 +288,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Name
       >;
       listDueUserDeletionOperations: FunctionReference<
-        "query",
-        "internal",
-        { limit: number; now_ms: number },
-        any,
-        Name
-      >;
-      listPendingActiveRetriesDue: FunctionReference<
         "query",
         "internal",
         { limit: number; now_ms: number },
@@ -463,23 +468,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "mutation",
         "internal",
         { now_ms: number; user_id: string },
-        any,
-        Name
-      >;
-      upsertSubscriptionPlanLimits: FunctionReference<
-        "mutation",
-        "internal",
-        {
-          now_ms: number;
-          plans: Array<{
-            is_active: boolean;
-            plan_key: "free" | "polyglot";
-            respell_input_char_limit: number;
-            respell_monthly_char_limit: number;
-            translate_input_char_limit: number;
-            translate_monthly_char_limit: number;
-          }>;
-        },
         any,
         Name
       >;

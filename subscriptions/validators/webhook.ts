@@ -7,10 +7,7 @@ import {
     USER_DELETION_LATE_AUTH_WAIT_STATUS,
     USER_DELETION_QUEUE_STATUS,
 } from "../../constants/userDeletion";
-import {
-    subscriptionPlanLimitInputValidator,
-    subscriptionUsageOperationValidator,
-} from "../model/planLimits";
+import { subscriptionUsageOperationValidator } from "../model/planLimits";
 
 const webhookEventStatusValidator = v.union(
     v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.PENDING),
@@ -53,6 +50,7 @@ const retryConfigValidator = v.object({
 
 const reconciliationSnapshotValidator = v.object({
     has_active_subscription: v.boolean(),
+    access_expires_at_ms: v.optional(v.number()),
     entitlement_id: v.optional(v.string()),
     product_id: v.optional(v.string()),
     store_subscription_id: v.optional(v.string()),
@@ -81,15 +79,6 @@ const userDeletionCleanupStepValidator = v.union(
     v.literal(USER_DELETION_CLEANUP_STEP.FINALIZING_SUBSCRIPTION_DATA),
     v.literal(USER_DELETION_CLEANUP_STEP.DELETING_REVENUECAT_SUBSCRIBER),
 );
-
-export const upsertSubscriptionPlanLimitsArgs = {
-    plans: v.array(subscriptionPlanLimitInputValidator),
-    now_ms: v.number(),
-};
-
-export type UpsertSubscriptionPlanLimitsArgs = ObjectType<
-    typeof upsertSubscriptionPlanLimitsArgs
->;
 
 export const reserveSubscriptionQuotaUsageArgs = {
     req_id: v.string(),
@@ -283,13 +272,14 @@ export type ClaimPendingActiveRetryArgs = ObjectType<
     typeof claimPendingActiveRetryArgs
 >;
 
-export const listPendingActiveRetriesDueArgs = {
+export const expirePendingActiveSignalArgs = {
+    user_id: v.string(),
+    active_signal_at_ms: v.number(),
     now_ms: v.number(),
-    limit: v.number(),
 };
 
-export type ListPendingActiveRetriesDueArgs = ObjectType<
-    typeof listPendingActiveRetriesDueArgs
+export type ExpirePendingActiveSignalArgs = ObjectType<
+    typeof expirePendingActiveSignalArgs
 >;
 
 export const releaseSubscriptionStateReconciliationArgs = {
@@ -508,6 +498,7 @@ export type FinalizeDeletedUserSubscriptionDataArgs = ObjectType<
 
 export const deferSubscriptionStateReconciliationArgs = {
     user_id: v.string(),
+    expected_last_synced_at_ms: v.number(),
     next_attempt_at_ms: v.number(),
 };
 

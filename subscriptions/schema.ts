@@ -39,6 +39,7 @@ export default defineSchema({
         environment: v.optional(v.string()),
         billing_cycle_start_at_ms: v.optional(v.number()),
         billing_cycle_end_at_ms: v.optional(v.number()),
+        access_expires_at_ms: v.optional(v.number()),
         free_period_anchor_at_ms: v.optional(v.number()),
         window_type: v.union(v.literal("anchored_monthly"), v.literal("billing_cycle")),
         window_key: v.string(),
@@ -58,12 +59,12 @@ export default defineSchema({
         client_reconcile_refilled_at_ms: v.optional(v.number()),
         last_synced_at_ms: v.number(),
         stale_after_at_ms: v.number(),
+        next_refresh_attempt_at_ms: v.optional(v.number()),
         created_at_ms: v.number(),
         updated_at_ms: v.number(),
     })
         .index("by_user_id", ["user_id"])
         .index("by_user_id_and_updated_at_ms", ["user_id", "updated_at_ms"])
-        .index("by_pending_active_next_retry_at_ms", ["pending_active_next_retry_at_ms"])
         .index("by_stale_after_at_ms", ["stale_after_at_ms"]),
 
     quota_periods: defineTable({
@@ -92,7 +93,6 @@ export default defineSchema({
         .index("by_user_id_and_period_start_at_ms", ["user_id", "period_start_at_ms"])
         .index("by_store_subscription_period_id", ["store_subscription_period_id"])
         .index("by_status_and_period_start_at_ms", ["status", "period_start_at_ms"])
-        .index("by_status_and_period_end_at_ms", ["status", "period_end_at_ms"])
         .index("by_status_user_id_and_period_end_at_ms", ["status", "user_id", "period_end_at_ms"]),
 
     quota_period_counters: defineTable({
@@ -156,7 +156,6 @@ export default defineSchema({
         updated_at_ms: v.number(),
     })
         .index("by_user_id", ["user_id"])
-        .index("by_next_retry_at_ms", ["next_retry_at_ms"])
         .index("by_status_and_next_retry_at_ms", ["status", "next_retry_at_ms"])
         .index("by_status_and_updated_at_ms", ["status", "updated_at_ms"]),
 
@@ -192,10 +191,8 @@ export default defineSchema({
         created_at_ms: v.number(),
         updated_at_ms: v.number(),
     })
-        .index("by_req_id", ["req_id"])
         .index("by_user_id_and_req_id", ["user_id", "req_id"])
         .index("by_user_id_and_state", ["user_id", "state"])
-        .index("by_quota_period_id", ["quota_period_id"])
         .index("by_quota_period_id_quota_state_operation", [
             "quota_period_id",
             "quota_state",
@@ -255,7 +252,6 @@ export default defineSchema({
         updated_at_ms: v.number(),
     })
         .index("by_event_doc_id_and_user_id", ["event_doc_id", "user_id"])
-        .index("by_event_doc_id_and_status", ["event_doc_id", "status"])
         .index("by_user_id_and_event_doc_id", ["user_id", "event_doc_id"])
         .index("by_user_id_status_and_processing_expires_at_ms", [
             "user_id",

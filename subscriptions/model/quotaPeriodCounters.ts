@@ -1,9 +1,6 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
-import {
-    INPUT_CHARACTERS_QUOTA_UNIT,
-    SUBSCRIPTION_USAGE_OPERATIONS,
-} from "../../constants/subscriptions";
+import { INPUT_CHARACTERS_QUOTA_UNIT } from "../../constants/subscriptions";
 import {
     resolveOperationLimits,
     type SubscriptionPlanLimits,
@@ -12,16 +9,12 @@ import {
 
 export { INPUT_CHARACTERS_QUOTA_UNIT } from "../../constants/subscriptions";
 
-export type SubscriptionQuotaUnit = typeof INPUT_CHARACTERS_QUOTA_UNIT;
-export type QuotaPeriodUsageSnapshot = {
-    translateCharsUsed: number;
-    respellCharsUsed: number;
-};
+type SubscriptionQuotaUnit = typeof INPUT_CHARACTERS_QUOTA_UNIT;
 export type QuotaPeriodCounterUsageSummary = {
     chargedUnits: number;
     lastChargedAtMs: number;
 };
-export type QuotaPeriodCounterInsertDocument = {
+type QuotaPeriodCounterInsertDocument = {
     quota_period_id: Id<"quota_periods">;
     operation: SubscriptionUsageOperation;
     quota_unit: SubscriptionQuotaUnit;
@@ -32,7 +25,7 @@ export type QuotaPeriodCounterInsertDocument = {
     created_at_ms: number;
     updated_at_ms: number;
 };
-export type QuotaPeriodCounterChargePatch = {
+type QuotaPeriodCounterChargePatch = {
     charged_units: number;
     last_charged_at_ms: number;
     updated_at_ms: number;
@@ -47,26 +40,6 @@ function sanitizeCounterUnits(units: number) {
     return Math.max(0, Math.floor(units));
 }
 
-export function createZeroQuotaPeriodUsageSnapshot(): QuotaPeriodUsageSnapshot {
-    return {
-        translateCharsUsed: 0,
-        respellCharsUsed: 0,
-    };
-}
-
-export function addQuotaPeriodUsageSnapshotUnits(
-    usageSnapshot: QuotaPeriodUsageSnapshot,
-    operation: SubscriptionUsageOperation,
-    units: number
-) {
-    if (operation === SUBSCRIPTION_USAGE_OPERATIONS.TRANSLATE) {
-        usageSnapshot.translateCharsUsed += units;
-        return;
-    }
-
-    usageSnapshot.respellCharsUsed += units;
-}
-
 export function resolveQuotaPeriodCounterLimits(
     operation: SubscriptionUsageOperation,
     planLimits: SubscriptionPlanLimits
@@ -79,7 +52,7 @@ export function resolveQuotaPeriodCounterLimits(
     };
 }
 
-export function buildQuotaPeriodCounterInsertDocument(args: {
+function buildQuotaPeriodCounterInsertDocument(args: {
     quota_period_id: Id<"quota_periods">;
     operation: SubscriptionUsageOperation;
     quota_unit?: SubscriptionQuotaUnit;
@@ -104,7 +77,7 @@ export function buildQuotaPeriodCounterInsertDocument(args: {
     };
 }
 
-export function buildQuotaPeriodCounterChargePatch(args: {
+function buildQuotaPeriodCounterChargePatch(args: {
     counter: Pick<Doc<"quota_period_counters">, "charged_units">;
     charged_units: number;
     now_ms: number;
@@ -251,19 +224,6 @@ async function normalizeQuotaPeriodCounterRows(
     };
 }
 
-export async function getQuotaPeriodCounterByOperationUnit(
-    ctx: DbReaderCtx,
-    args: {
-        quota_period_id: Id<"quota_periods">;
-        operation: SubscriptionUsageOperation;
-        quota_unit?: SubscriptionQuotaUnit;
-    }
-) {
-    const counters = await getQuotaPeriodCounterRowsByOperationUnit(ctx, args);
-
-    return sortCounterRowsByCreationTime(counters)[0] ?? null;
-}
-
 export async function getOrCreateQuotaPeriodCounter(
     ctx: Pick<MutationCtx, "db">,
     args: {
@@ -345,24 +305,6 @@ export async function applyQuotaPeriodCounterCharge(
         ...args.counter,
         ...patch,
     };
-}
-
-export async function resolveQuotaPeriodUsageSnapshotFromCounters(
-    ctx: DbReaderCtx,
-    quotaPeriodId: Id<"quota_periods">
-) {
-    const counters = await listQuotaPeriodCountersByQuotaPeriodId(ctx, quotaPeriodId);
-    const usageSnapshot = createZeroQuotaPeriodUsageSnapshot();
-
-    for (const counter of counters) {
-        addQuotaPeriodUsageSnapshotUnits(
-            usageSnapshot,
-            counter.operation,
-            sanitizeCounterUnits(counter.charged_units)
-        );
-    }
-
-    return usageSnapshot;
 }
 
 export async function resolveQuotaPeriodCounterUsageSummary(

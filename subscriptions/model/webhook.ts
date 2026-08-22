@@ -85,7 +85,10 @@ import {
     deleteOrPruneRevenueCatEventForDeletedUser,
     listRevenueCatEventsForUserDeletionBatch,
 } from "./userDeletionRevenueCatEvents";
-import { shouldIgnoreStaleReconciledSubscriptionState } from "../../model/subscriptions/revenueCatApi";
+import {
+    hasUnexpiredSubscriptionAccess,
+    shouldIgnoreStaleReconciledSubscriptionState,
+} from "../../model/subscriptions/revenueCatApi";
 import { getExclusiveLeaseOwnershipFailure } from "./leaseOwnership";
 import { MAX_PERSISTED_ERROR_MESSAGE_CHARS } from "../../constants/limits";
 import { FAR_FUTURE_TIMESTAMP_MS } from "../../constants/time";
@@ -183,6 +186,39 @@ function resolveNextExpirationReconciliationAtMs(
 
 function isFiniteTimestampMs(value: number | undefined): value is number {
     return typeof value === "number" && Number.isFinite(value);
+}
+
+export function resolveSubscriptionAccessExpirationAtMs(args: {
+    has_active_subscription: boolean;
+    snapshot: {
+        access_expires_at_ms?: number;
+        period_start_at_ms?: number;
+        period_end_at_ms?: number;
+    };
+    existing_state?: {
+        has_active_subscription: boolean;
+        access_expires_at_ms?: number;
+        billing_cycle_start_at_ms?: number;
+        billing_cycle_end_at_ms?: number;
+    } | null;
+}) {
+    if (!args.has_active_subscription) {
+        return undefined;
+    }
+
+    if (isFiniteTimestampMs(args.snapshot.access_expires_at_ms)) {
+        return args.snapshot.access_expires_at_ms;
+    }
+
+    const hasSameBillingBounds =
+        args.existing_state?.has_active_subscription === true &&
+        args.existing_state.billing_cycle_start_at_ms === args.snapshot.period_start_at_ms &&
+        args.existing_state.billing_cycle_end_at_ms === args.snapshot.period_end_at_ms;
+
+    return hasSameBillingBounds &&
+        isFiniteTimestampMs(args.existing_state?.access_expires_at_ms)
+        ? args.existing_state.access_expires_at_ms
+        : args.snapshot.period_end_at_ms;
 }
 
 export function getClientReconciliationTokenState(
@@ -467,8 +503,10 @@ async function getMostRelevantQuotaPeriodForWindow(
 function getCurrentPaidBillingCycleWindow(
     existingState:
         | {
+              has_active_subscription: boolean;
               billing_cycle_start_at_ms?: number;
               billing_cycle_end_at_ms?: number;
+              access_expires_at_ms?: number;
               window_start_at_ms: number;
               window_end_at_ms: number;
           }
@@ -489,7 +527,7 @@ function getCurrentPaidBillingCycleWindow(
         billingCycleEndAtMs
     );
 
-    if (!billingCycleWindow || currentTimeMs >= billingCycleWindow.window_end_at_ms) {
+    if (!billingCycleWindow || !hasUnexpiredSubscriptionAccess(existingState, currentTimeMs)) {
         return null;
     }
 
@@ -579,6 +617,7 @@ const SUBSCRIPTION_STATE_COMPARISON_FIELDS = [
     "environment",
     "billing_cycle_start_at_ms",
     "billing_cycle_end_at_ms",
+    "access_expires_at_ms",
     "free_period_anchor_at_ms",
     "window_type",
     "window_key",
@@ -819,7 +858,16 @@ async function resolveCurrentSubscriptionQuotaContext(
 ): Promise<ResolvedSubscriptionQuotaContext> {
     const existingState = await getLatestSubscriptionStateByUserId(ctx, args.user_id);
 
-    const planKey: SubscriptionPlanKey = existingState?.plan_key ?? SUBSCRIPTION_PLAN_KEYS.FREE;
+    const storedPlanKey: SubscriptionPlanKey =
+        existingState?.plan_key ?? SUBSCRIPTION_PLAN_KEYS.FREE;
+    const paidBillingCycleWindow =
+        storedPlanKey === SUBSCRIPTION_PLAN_KEYS.POLYGLOT
+            ? getCurrentPaidBillingCycleWindow(existingState, args.now_ms)
+            : null;
+    const planKey: SubscriptionPlanKey =
+        storedPlanKey === SUBSCRIPTION_PLAN_KEYS.POLYGLOT && !paidBillingCycleWindow
+            ? SUBSCRIPTION_PLAN_KEYS.FREE
+            : storedPlanKey;
     const resolvedPlanLimits = await resolvePlanLimitsForPlanKey(ctx, {
         plan_key: planKey,
         now_ms: args.now_ms,
@@ -838,11 +886,7 @@ async function resolveCurrentSubscriptionQuotaContext(
     const resolvedWindow =
         planKey === SUBSCRIPTION_PLAN_KEYS.FREE
             ? getRequiredAnchoredMonthlyWindow(freePeriodAnchorAtMs ?? args.now_ms, args.now_ms)
-            : getCurrentPaidBillingCycleWindow(existingState, args.now_ms);
-
-    if (!resolvedWindow) {
-        throw new Error("Paid subscription state is stale or missing a billing cycle");
-    }
+            : paidBillingCycleWindow!;
 
     return {
         existingState,
@@ -1402,58 +1446,6 @@ async function evaluateQuotaAvailability(
         quotaContext,
     };
 }
-export const upsertSubscriptionPlanLimits = async (ctx: MutationCtx, args: WebhookArgs.UpsertSubscriptionPlanLimitsArgs) => {
-        const sanitizedPlans = args.plans.map((plan) => ({
-            ...plan,
-            translate_input_char_limit: Math.max(0, Math.floor(plan.translate_input_char_limit)),
-            respell_input_char_limit: Math.max(0, Math.floor(plan.respell_input_char_limit)),
-            translate_monthly_char_limit: Math.max(0, Math.floor(plan.translate_monthly_char_limit)),
-            respell_monthly_char_limit: Math.max(0, Math.floor(plan.respell_monthly_char_limit)),
-        }));
-
-        for (const plan of sanitizedPlans) {
-            const existingPlanLimits = await ctx.db
-                .query("subscription_plan_limits")
-                .withIndex("by_plan_key", (query) => query.eq("plan_key", plan.plan_key))
-                .collect();
-
-            const sortedPlanLimits = [...existingPlanLimits].sort(
-                (left, right) => right.updated_at_ms - left.updated_at_ms
-            );
-            const targetDoc = sortedPlanLimits[0] ?? null;
-
-            const nextDocument = {
-                plan_key: plan.plan_key,
-                translate_input_char_limit: plan.translate_input_char_limit,
-                respell_input_char_limit: plan.respell_input_char_limit,
-                translate_monthly_char_limit: plan.translate_monthly_char_limit,
-                respell_monthly_char_limit: plan.respell_monthly_char_limit,
-                is_active: plan.is_active,
-                updated_at_ms: args.now_ms,
-            };
-
-            if (targetDoc) {
-                await ctx.db.patch("subscription_plan_limits", targetDoc._id, nextDocument);
-            } else {
-                await ctx.db.insert("subscription_plan_limits", nextDocument);
-            }
-
-            for (const duplicateDoc of sortedPlanLimits.slice(1)) {
-                if (duplicateDoc.is_active) {
-                    await ctx.db.patch("subscription_plan_limits", duplicateDoc._id, {
-                        is_active: false,
-                        updated_at_ms: args.now_ms,
-                    });
-                }
-            }
-        }
-
-        return {
-            status: "ok",
-            plans_updated: sanitizedPlans.length,
-        };
-    };
-
 export const reserveSubscriptionQuotaUsage = async (ctx: MutationCtx, args: WebhookArgs.ReserveSubscriptionQuotaUsageArgs) => {
         const activeDeletionOperation = await getLatestUserDeletionQueueEntryByUserId(ctx, args.user_id);
 
@@ -2162,6 +2154,10 @@ export const getSubscriptionStateByUserId = async (ctx: QueryCtx, args: WebhookA
             store_subscription_id: state.store_subscription_id,
             store_subscription_period_id: state.store_subscription_period_id,
             billing_cycle_end_at_ms: state.billing_cycle_end_at_ms,
+            access_expires_at_ms:
+                typeof stateRecord.access_expires_at_ms === "number"
+                    ? stateRecord.access_expires_at_ms
+                    : undefined,
             last_revenuecat_event_id: state.last_revenuecat_event_id,
             last_revenuecat_event_at_ms: state.last_revenuecat_event_at_ms,
             sync_attempt_id:
@@ -2186,6 +2182,10 @@ export const getSubscriptionStateByUserId = async (ctx: QueryCtx, args: WebhookA
                     : undefined,
             last_synced_at_ms: state.last_synced_at_ms,
             stale_after_at_ms: state.stale_after_at_ms,
+            next_refresh_attempt_at_ms:
+                typeof stateRecord.next_refresh_attempt_at_ms === "number"
+                    ? stateRecord.next_refresh_attempt_at_ms
+                    : undefined,
         };
     };
 
@@ -2252,6 +2252,22 @@ export const beginSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
               : undefined;
         const isNewActiveSignal =
             shouldRecordActiveSignal && signalAtMs > (existingPendingSignalAtMs ?? 0);
+        const nextPendingActiveRetryCount =
+            typeof nextPendingActiveExpiresAtMs === "number"
+                ? isNewActiveSignal
+                    ? 0
+                    : typeof existingStateRecord?.pending_active_retry_count === "number"
+                      ? existingStateRecord.pending_active_retry_count
+                      : 0
+                : undefined;
+        const nextPendingActiveRetryAtMs =
+            typeof nextPendingActiveExpiresAtMs === "number"
+                ? isNewActiveSignal
+                    ? nowMs + SUBSCRIPTION_ACTIVATION_RETRY_DELAYS_MS[0]
+                    : typeof existingStateRecord?.pending_active_next_retry_at_ms === "number"
+                      ? existingStateRecord.pending_active_next_retry_at_ms
+                      : nowMs + SUBSCRIPTION_ACTIVATION_RETRY_DELAYS_MS[0]
+                : undefined;
         const pendingActivePatch = {
             ...(shouldSupersedePendingSignal
                 ? {
@@ -2271,16 +2287,8 @@ export const beginSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
                 : { pending_active_expires_at_ms: undefined }),
             ...(typeof nextPendingActiveExpiresAtMs === "number"
                 ? {
-                      pending_active_retry_count: isNewActiveSignal
-                          ? 0
-                          : typeof existingStateRecord?.pending_active_retry_count === "number"
-                            ? existingStateRecord.pending_active_retry_count
-                            : 0,
-                      pending_active_next_retry_at_ms: isNewActiveSignal
-                          ? nowMs + SUBSCRIPTION_ACTIVATION_RETRY_DELAYS_MS[0]
-                          : typeof existingStateRecord?.pending_active_next_retry_at_ms === "number"
-                            ? existingStateRecord.pending_active_next_retry_at_ms
-                            : nowMs + SUBSCRIPTION_ACTIVATION_RETRY_DELAYS_MS[0],
+                      pending_active_retry_count: nextPendingActiveRetryCount,
+                      pending_active_next_retry_at_ms: nextPendingActiveRetryAtMs,
                   }
                 : {
                       pending_active_retry_count: undefined,
@@ -2326,6 +2334,17 @@ export const beginSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
                     ...(typeof existingState.billing_cycle_end_at_ms === "number"
                         ? { billing_cycle_end_at_ms: existingState.billing_cycle_end_at_ms }
                         : {}),
+                    ...(typeof nextPendingActiveSignalAtMs === "number" &&
+                    typeof nextPendingActiveExpiresAtMs === "number" &&
+                    typeof nextPendingActiveRetryCount === "number" &&
+                    typeof nextPendingActiveRetryAtMs === "number"
+                        ? {
+                              pending_active_signal_at_ms: nextPendingActiveSignalAtMs,
+                              pending_active_expires_at_ms: nextPendingActiveExpiresAtMs,
+                              pending_active_retry_count: nextPendingActiveRetryCount,
+                              pending_active_next_retry_at_ms: nextPendingActiveRetryAtMs,
+                          }
+                        : {}),
                 };
             }
 
@@ -2350,6 +2369,20 @@ export const beginSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
                     last_synced_at_ms: existingState.last_synced_at_ms,
                     ...(typeof existingState.billing_cycle_end_at_ms === "number"
                         ? { billing_cycle_end_at_ms: existingState.billing_cycle_end_at_ms }
+                        : {}),
+                    ...(existingPendingIsLive &&
+                    typeof existingPendingSignalAtMs === "number" &&
+                    typeof existingPendingExpiresAtMs === "number" &&
+                    typeof existingStateRecord?.pending_active_retry_count === "number" &&
+                    typeof existingStateRecord.pending_active_next_retry_at_ms === "number"
+                        ? {
+                              pending_active_signal_at_ms: existingPendingSignalAtMs,
+                              pending_active_expires_at_ms: existingPendingExpiresAtMs,
+                              pending_active_retry_count:
+                                  existingStateRecord.pending_active_retry_count,
+                              pending_active_next_retry_at_ms:
+                                  existingStateRecord.pending_active_next_retry_at_ms,
+                          }
                         : {}),
                 };
             }
@@ -2379,6 +2412,17 @@ export const beginSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
                 last_synced_at_ms: existingState.last_synced_at_ms,
                 ...(typeof existingState.billing_cycle_end_at_ms === "number"
                     ? { billing_cycle_end_at_ms: existingState.billing_cycle_end_at_ms }
+                    : {}),
+                ...(typeof nextPendingActiveSignalAtMs === "number" &&
+                typeof nextPendingActiveExpiresAtMs === "number" &&
+                typeof nextPendingActiveRetryCount === "number" &&
+                typeof nextPendingActiveRetryAtMs === "number"
+                    ? {
+                          pending_active_signal_at_ms: nextPendingActiveSignalAtMs,
+                          pending_active_expires_at_ms: nextPendingActiveExpiresAtMs,
+                          pending_active_retry_count: nextPendingActiveRetryCount,
+                          pending_active_next_retry_at_ms: nextPendingActiveRetryAtMs,
+                      }
                     : {}),
             };
         }
@@ -2419,8 +2463,34 @@ export const beginSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
             has_active_subscription: false,
             plan_key: SUBSCRIPTION_PLAN_KEYS.FREE,
             last_synced_at_ms: 0,
+            ...(typeof nextPendingActiveSignalAtMs === "number" &&
+            typeof nextPendingActiveExpiresAtMs === "number" &&
+            typeof nextPendingActiveRetryCount === "number" &&
+            typeof nextPendingActiveRetryAtMs === "number"
+                ? {
+                      pending_active_signal_at_ms: nextPendingActiveSignalAtMs,
+                      pending_active_expires_at_ms: nextPendingActiveExpiresAtMs,
+                      pending_active_retry_count: nextPendingActiveRetryCount,
+                      pending_active_next_retry_at_ms: nextPendingActiveRetryAtMs,
+                  }
+                : {}),
         };
     };
+
+async function clearPendingActiveSignal(
+    ctx: MutationCtx,
+    stateId: Doc<"subscription_states">["_id"],
+    nowMs: number
+) {
+    await ctx.db.patch("subscription_states", stateId, {
+        pending_active_signal_at_ms: undefined,
+        pending_active_expires_at_ms: undefined,
+        pending_active_retry_count: undefined,
+        pending_active_next_retry_at_ms: undefined,
+        pending_active_superseded_at_ms: undefined,
+        updated_at_ms: nowMs,
+    } as Record<string, unknown>);
+}
 
 export const claimPendingActiveRetry = async (
     ctx: MutationCtx,
@@ -2434,75 +2504,114 @@ export const claimPendingActiveRetry = async (
     const pendingExpiresAtMs = typeof stateRecord?.pending_active_expires_at_ms === "number"
         ? stateRecord.pending_active_expires_at_ms
         : undefined;
-    const isExpired =
+    const hasMatchingSignal =
         Boolean(state) &&
-        stateRecord?.pending_active_signal_at_ms === args.active_signal_at_ms &&
-        typeof pendingExpiresAtMs === "number" &&
-        pendingExpiresAtMs <= args.now_ms;
+        stateRecord?.pending_active_signal_at_ms === args.active_signal_at_ms;
 
-    if (state && isExpired) {
-        await ctx.db.patch("subscription_states", state._id, {
-            pending_active_signal_at_ms: undefined,
-            pending_active_expires_at_ms: undefined,
-            pending_active_retry_count: undefined,
-            pending_active_next_retry_at_ms: undefined,
-            pending_active_superseded_at_ms: undefined,
-            updated_at_ms: args.now_ms,
-        } as Record<string, unknown>);
+    if (
+        state &&
+        hasMatchingSignal &&
+        typeof pendingExpiresAtMs === "number" &&
+        pendingExpiresAtMs <= args.now_ms
+    ) {
+        await clearPendingActiveSignal(ctx, state._id, args.now_ms);
         return { claimed: false as const, expired: true as const };
     }
 
-    const canClaim =
-        Boolean(state) &&
-        stateRecord?.pending_active_signal_at_ms === args.active_signal_at_ms &&
+    const hasMatchingRetry =
+        hasMatchingSignal &&
         typeof pendingExpiresAtMs === "number" &&
         pendingExpiresAtMs > args.now_ms &&
-        retryCount === args.retry_index;
+        retryCount === args.retry_index &&
+        args.retry_index >= 0 &&
+        args.retry_index < SUBSCRIPTION_ACTIVATION_RETRY_DELAYS_MS.length;
 
-    if (!state || !canClaim) {
+    if (!state || !hasMatchingRetry) {
         return { claimed: false as const };
     }
 
+    const pendingNextRetryAtMs =
+        typeof stateRecord?.pending_active_next_retry_at_ms === "number"
+            ? stateRecord.pending_active_next_retry_at_ms
+            : args.now_ms;
+    if (pendingNextRetryAtMs > args.now_ms) {
+        return {
+            claimed: false as const,
+            not_due: true as const,
+            retry_at_ms: pendingNextRetryAtMs,
+        };
+    }
+
+    const syncAttemptId = typeof stateRecord?.sync_attempt_id === "string"
+        ? stateRecord.sync_attempt_id
+        : undefined;
+    const syncExpiresAtMs = typeof stateRecord?.sync_expires_at_ms === "number"
+        ? stateRecord.sync_expires_at_ms
+        : undefined;
+    if (
+        typeof syncAttemptId === "string" &&
+        typeof syncExpiresAtMs === "number" &&
+        syncExpiresAtMs > args.now_ms
+    ) {
+        const retryAtMs = Math.min(
+            args.now_ms + SUBSCRIPTION_ACTIVATION_RETRY_DELAYS_MS[0],
+            syncExpiresAtMs,
+            pendingExpiresAtMs
+        );
+        await ctx.db.patch("subscription_states", state._id, {
+            pending_active_next_retry_at_ms: retryAtMs,
+            updated_at_ms: args.now_ms,
+        });
+        return {
+            claimed: false as const,
+            sync_in_progress: true as const,
+            retry_at_ms: retryAtMs,
+        };
+    }
+
+    const nextRetryAtMs = Math.min(args.next_retry_at_ms, pendingExpiresAtMs);
     await ctx.db.patch("subscription_states", state._id, {
         pending_active_retry_count: retryCount + 1,
-        pending_active_next_retry_at_ms: Math.min(
-            args.next_retry_at_ms,
-            pendingExpiresAtMs
-        ),
+        pending_active_next_retry_at_ms: nextRetryAtMs,
         updated_at_ms: args.now_ms,
     });
 
-    return { claimed: true as const };
+    return {
+        claimed: true as const,
+        next_retry_at_ms: nextRetryAtMs,
+    };
 };
 
-export const listPendingActiveRetriesDue = async (
-    ctx: QueryCtx,
-    args: WebhookArgs.ListPendingActiveRetriesDueArgs
+export const expirePendingActiveSignal = async (
+    ctx: MutationCtx,
+    args: WebhookArgs.ExpirePendingActiveSignalArgs
 ) => {
-    const safeLimit = Math.max(1, Math.min(args.limit, 50));
-    const states = await ctx.db
-        .query("subscription_states")
-        .withIndex("by_pending_active_next_retry_at_ms", (query) =>
-            query
-                .gte("pending_active_next_retry_at_ms", 0)
-                .lte("pending_active_next_retry_at_ms", args.now_ms)
-        )
-        .take(safeLimit);
+    const state = await getLatestSubscriptionStateByUserId(ctx, args.user_id);
+    const stateRecord = state as Record<string, unknown> | null;
 
-    return states.flatMap((state) => {
-        if (
-            typeof state.pending_active_signal_at_ms !== "number" ||
-            typeof state.pending_active_retry_count !== "number"
-        ) {
-            return [];
-        }
+    if (
+        !state ||
+        stateRecord?.pending_active_signal_at_ms !== args.active_signal_at_ms
+    ) {
+        return { expired: false as const, stale: true as const };
+    }
 
-        return [{
-            user_id: state.user_id,
-            active_signal_at_ms: state.pending_active_signal_at_ms,
-            retry_index: state.pending_active_retry_count,
-        }];
-    });
+    const pendingExpiresAtMs = typeof stateRecord.pending_active_expires_at_ms === "number"
+        ? stateRecord.pending_active_expires_at_ms
+        : undefined;
+    if (typeof pendingExpiresAtMs !== "number") {
+        return { expired: false as const, stale: true as const };
+    }
+
+    if (pendingExpiresAtMs > args.now_ms) {
+        return {
+            expired: false as const,
+            retry_at_ms: pendingExpiresAtMs,
+        };
+    }
+
+    await clearPendingActiveSignal(ctx, state._id, args.now_ms);
+    return { expired: true as const };
 };
 
 export const releaseSubscriptionStateReconciliation = async (ctx: MutationCtx, args: WebhookArgs.ReleaseSubscriptionStateReconciliationArgs) => {
@@ -2528,6 +2637,10 @@ export const releaseSubscriptionStateReconciliation = async (ctx: MutationCtx, a
             sync_started_at_ms: undefined,
             sync_expires_at_ms: undefined,
             ...(typeof args.next_attempt_at_ms === "number"
+                ? { next_refresh_attempt_at_ms: args.next_attempt_at_ms }
+                : {}),
+            ...(typeof args.next_attempt_at_ms === "number" &&
+            existingState.stale_after_at_ms < args.next_attempt_at_ms
                 ? { stale_after_at_ms: args.next_attempt_at_ms }
                 : {}),
             updated_at_ms: Math.max(existingState.updated_at_ms, args.now_ms),
@@ -2790,6 +2903,7 @@ export const listSubscriptionStatesDueForExpirationReconciliation = async (ctx: 
         return dueStates.map((state) => ({
             user_id: state.user_id,
             revenuecat_app_user_id: state.revenuecat_app_user_id,
+            last_synced_at_ms: state.last_synced_at_ms,
         }));
     };
 
@@ -2986,6 +3100,11 @@ export const applyReconciledSubscriptionState = async (ctx: MutationCtx, args: W
                       args.snapshot.period_end_at_ms
                   )
                 : null;
+        const accessExpiresAtMs = resolveSubscriptionAccessExpirationAtMs({
+            has_active_subscription: hasActiveSubscription,
+            snapshot: args.snapshot,
+            existing_state: existingState,
+        });
         const nextStoreSubscriptionId = resolveNextStoreSubscriptionId({
             existingState,
             snapshot: args.snapshot,
@@ -3029,7 +3148,7 @@ export const applyReconciledSubscriptionState = async (ctx: MutationCtx, args: W
             : true;
         const staleAfterAtMs = resolveNextExpirationReconciliationAtMs(
             hasActiveSubscription,
-            args.snapshot.period_end_at_ms,
+            accessExpiresAtMs,
             args.expiration_reconciliation_delay_ms
         );
 
@@ -3101,6 +3220,9 @@ export const applyReconciledSubscriptionState = async (ctx: MutationCtx, args: W
                 : {}),
             ...(typeof args.snapshot.period_end_at_ms === "number"
                 ? { billing_cycle_end_at_ms: args.snapshot.period_end_at_ms }
+                : {}),
+            ...(isFiniteTimestampMs(accessExpiresAtMs)
+                ? { access_expires_at_ms: accessExpiresAtMs }
                 : {}),
         };
         const changeStatus = hasComparableSubscriptionStateChanged(existingState, nextState)
@@ -3869,8 +3991,15 @@ export const deferSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
             };
         }
 
+        if (existingState.last_synced_at_ms !== args.expected_last_synced_at_ms) {
+            return {
+                status: "stale",
+            };
+        }
+
         await ctx.db.patch("subscription_states", existingState._id, {
             stale_after_at_ms: args.next_attempt_at_ms,
+            next_refresh_attempt_at_ms: args.next_attempt_at_ms,
             updated_at_ms: args.next_attempt_at_ms,
         } as Record<string, unknown>);
 

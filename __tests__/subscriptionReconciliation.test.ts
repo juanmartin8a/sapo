@@ -56,6 +56,21 @@ describe("observed subscription reconciliation", () => {
         ).toBe(false);
     });
 
+    it("keeps matching client state fresh through RevenueCat access expiration", () => {
+        expect(
+            shouldUseExistingStateForObservedSubscription(
+                subscriptionState({
+                    plan_key: "polyglot",
+                    has_active_subscription: true,
+                    billing_cycle_end_at_ms: 8_000,
+                    access_expires_at_ms: 15_000,
+                }),
+                10_000,
+                true
+            )
+        ).toBe(true);
+    });
+
     it("requires a POST body with the authenticated user and SDK observation", async () => {
         const ctx = { runQuery: jest.fn(), runMutation: jest.fn() };
         const auth = { userId: "user_1", user: {} };

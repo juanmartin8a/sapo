@@ -3,6 +3,7 @@ import { authComponent } from "../betterAuth/auth";
 import { resolveBetterAuthUserId } from "../betterAuth/model/user";
 import { SUBSCRIPTION_PLAN_KEYS } from "../constants/subscriptions";
 import { getSubscriptionStateByUserId } from "./subscriptions/componentApi";
+import { hasUnexpiredSubscriptionAccess } from "./subscriptions/revenueCatApi";
 
 export async function getCurrentSubscriptionStatus(
     ctx: QueryCtx,
@@ -16,20 +17,22 @@ export async function getCurrentSubscriptionStatus(
     }
 
     const state = await getSubscriptionStateByUserId(ctx, userId);
+    const nowMs = Date.now();
+    const hasActiveAccess = hasUnexpiredSubscriptionAccess(state, nowMs);
 
     const isActivating =
-        state?.has_active_subscription !== true &&
+        !hasActiveAccess &&
         typeof state?.pending_active_expires_at_ms === "number" &&
-        state.pending_active_expires_at_ms > Date.now();
+        state.pending_active_expires_at_ms > nowMs;
 
     return {
         user_id: userId,
-        status: state?.has_active_subscription === true
+        status: hasActiveAccess
             ? ("active" as const)
             : isActivating
               ? ("activating" as const)
               : ("inactive" as const),
-        has_active_subscription: state?.has_active_subscription === true,
-        plan_key: state?.plan_key ?? SUBSCRIPTION_PLAN_KEYS.FREE,
+        has_active_subscription: hasActiveAccess,
+        plan_key: hasActiveAccess ? state!.plan_key : SUBSCRIPTION_PLAN_KEYS.FREE,
     };
 }
