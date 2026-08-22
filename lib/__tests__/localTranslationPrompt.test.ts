@@ -8,11 +8,11 @@ import {
 describe("local translation prompt", () => {
     it("repeats the output constraint after the source text", () => {
         expect(getTranslationPrompt({
-            inputLanguage: "Mandarin (Standard Chinese)",
+            inputLanguage: "Mandarin Chinese",
             targetLanguage: "English",
             input: "你好",
         })).toBe([
-            "Translate from Mandarin (Standard Chinese) to English.",
+            "Translate from Mandarin Chinese to English.",
             "<text>",
             "你好",
             "</text>",

@@ -7,7 +7,7 @@ import {
 import { getConvexAccessToken } from "@/lib/auth-client";
 import { getRequiredConvexSiteUrl } from "@/lib/client-config";
 
-export const SUBSCRIPTION_RECONCILIATION_STATUSES = {
+const SUBSCRIPTION_RECONCILIATION_STATUSES = {
     ACTIVE: "active",
     INACTIVE: "inactive",
     ACTIVATING: "activating",
@@ -17,7 +17,7 @@ export const SUBSCRIPTION_RECONCILIATION_STATUSES = {
 export type SubscriptionReconciliationStatus =
     (typeof SUBSCRIPTION_RECONCILIATION_STATUSES)[keyof typeof SUBSCRIPTION_RECONCILIATION_STATUSES];
 
-export type SubscriptionReconciliationResult = {
+type SubscriptionReconciliationResult = {
     ok: true;
     status: SubscriptionReconciliationStatus;
     subscription: {

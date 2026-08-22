@@ -8,8 +8,7 @@ import {
 } from '@expo/ui/swift-ui/modifiers';
 import { StyleSheet } from 'react-native';
 
-const TERMS_OF_USE_URL = 'https://sapo.surf/terms-of-use';
-const PRIVACY_POLICY_URL = 'https://sapo.surf/privacy-policy';
+import { PRIVACY_POLICY_URL, TERMS_OF_USE_URL } from '@/constants/legal';
 
 const textModifiers = [
     font({ size: 12 }),

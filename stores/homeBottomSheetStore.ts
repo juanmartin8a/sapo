@@ -28,7 +28,7 @@ interface HomeBottomSheetStoreState {
     loading: boolean
 
     // Prepares a sheet to open by setting `loading` and `bottomSheetToOpen`; only one sheet can animate at a time
-    showBottomSheet: (bottomSheet: HomeBottomSheetKey, loading: boolean) => void,
+    showBottomSheet: (bottomSheet: HomeBottomSheetKey) => void,
 
     // Handles an `onClose` event from the sheet (manual or automatic)
     bottomSheetClosed: (byError?: boolean) => void,
@@ -41,8 +41,8 @@ const useHomeBottomSheetStore = create<HomeBottomSheetStoreState>((set, get) => 
     bottomSheet: undefined,
     bottomSheetToOpen: undefined,
     loading: false,
-    showBottomSheet: (bottomSheet: HomeBottomSheetKey, loading: boolean) => {
-        return set({ bottomSheetToOpen: bottomSheet, loading: loading })
+    showBottomSheet: (bottomSheet: HomeBottomSheetKey) => {
+        return set({ bottomSheetToOpen: bottomSheet, loading: true })
     },
     bottomSheetClosed: (byError: boolean = false) => {
         const { bottomSheetToOpen } = get();

@@ -196,7 +196,7 @@ export default function RevenueCatIdentitySync() {
                 Purchases.removeCustomerInfoUpdateListener(handleCustomerInfoUpdate);
             }
         };
-    }, [authStatus, setSubscriptionForUser, userId]);
+    }, [authStatus, userId]);
 
     return null;
 }

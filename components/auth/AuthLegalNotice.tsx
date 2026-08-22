@@ -1,7 +1,6 @@
 import { Linking, StyleSheet, Text } from 'react-native';
 
-const TERMS_OF_USE_URL = 'https://sapo.surf/terms-of-use';
-const PRIVACY_POLICY_URL = 'https://sapo.surf/privacy-policy';
+import { PRIVACY_POLICY_URL, TERMS_OF_USE_URL } from '@/constants/legal';
 
 export default function AuthLegalNotice() {
     return (
