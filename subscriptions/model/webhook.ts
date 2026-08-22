@@ -85,7 +85,10 @@ import {
     deleteOrPruneRevenueCatEventForDeletedUser,
     listRevenueCatEventsForUserDeletionBatch,
 } from "./userDeletionRevenueCatEvents";
-import { shouldIgnoreStaleReconciledSubscriptionState } from "../../model/subscriptions/revenueCatApi";
+import {
+    hasUnexpiredSubscriptionAccess,
+    shouldIgnoreStaleReconciledSubscriptionState,
+} from "../../model/subscriptions/revenueCatApi";
 import { getExclusiveLeaseOwnershipFailure } from "./leaseOwnership";
 import { MAX_PERSISTED_ERROR_MESSAGE_CHARS } from "../../constants/limits";
 import { FAR_FUTURE_TIMESTAMP_MS } from "../../constants/time";
@@ -183,6 +186,39 @@ function resolveNextExpirationReconciliationAtMs(
 
 function isFiniteTimestampMs(value: number | undefined): value is number {
     return typeof value === "number" && Number.isFinite(value);
+}
+
+export function resolveSubscriptionAccessExpirationAtMs(args: {
+    has_active_subscription: boolean;
+    snapshot: {
+        access_expires_at_ms?: number;
+        period_start_at_ms?: number;
+        period_end_at_ms?: number;
+    };
+    existing_state?: {
+        has_active_subscription: boolean;
+        access_expires_at_ms?: number;
+        billing_cycle_start_at_ms?: number;
+        billing_cycle_end_at_ms?: number;
+    } | null;
+}) {
+    if (!args.has_active_subscription) {
+        return undefined;
+    }
+
+    if (isFiniteTimestampMs(args.snapshot.access_expires_at_ms)) {
+        return args.snapshot.access_expires_at_ms;
+    }
+
+    const hasSameBillingBounds =
+        args.existing_state?.has_active_subscription === true &&
+        args.existing_state.billing_cycle_start_at_ms === args.snapshot.period_start_at_ms &&
+        args.existing_state.billing_cycle_end_at_ms === args.snapshot.period_end_at_ms;
+
+    return hasSameBillingBounds &&
+        isFiniteTimestampMs(args.existing_state?.access_expires_at_ms)
+        ? args.existing_state.access_expires_at_ms
+        : args.snapshot.period_end_at_ms;
 }
 
 export function getClientReconciliationTokenState(
@@ -467,8 +503,10 @@ async function getMostRelevantQuotaPeriodForWindow(
 function getCurrentPaidBillingCycleWindow(
     existingState:
         | {
+              has_active_subscription: boolean;
               billing_cycle_start_at_ms?: number;
               billing_cycle_end_at_ms?: number;
+              access_expires_at_ms?: number;
               window_start_at_ms: number;
               window_end_at_ms: number;
           }
@@ -489,7 +527,7 @@ function getCurrentPaidBillingCycleWindow(
         billingCycleEndAtMs
     );
 
-    if (!billingCycleWindow || currentTimeMs >= billingCycleWindow.window_end_at_ms) {
+    if (!billingCycleWindow || !hasUnexpiredSubscriptionAccess(existingState, currentTimeMs)) {
         return null;
     }
 
@@ -579,6 +617,7 @@ const SUBSCRIPTION_STATE_COMPARISON_FIELDS = [
     "environment",
     "billing_cycle_start_at_ms",
     "billing_cycle_end_at_ms",
+    "access_expires_at_ms",
     "free_period_anchor_at_ms",
     "window_type",
     "window_key",
@@ -2167,6 +2206,10 @@ export const getSubscriptionStateByUserId = async (ctx: QueryCtx, args: WebhookA
             store_subscription_id: state.store_subscription_id,
             store_subscription_period_id: state.store_subscription_period_id,
             billing_cycle_end_at_ms: state.billing_cycle_end_at_ms,
+            access_expires_at_ms:
+                typeof stateRecord.access_expires_at_ms === "number"
+                    ? stateRecord.access_expires_at_ms
+                    : undefined,
             last_revenuecat_event_id: state.last_revenuecat_event_id,
             last_revenuecat_event_at_ms: state.last_revenuecat_event_at_ms,
             sync_attempt_id:
@@ -3109,6 +3152,11 @@ export const applyReconciledSubscriptionState = async (ctx: MutationCtx, args: W
                       args.snapshot.period_end_at_ms
                   )
                 : null;
+        const accessExpiresAtMs = resolveSubscriptionAccessExpirationAtMs({
+            has_active_subscription: hasActiveSubscription,
+            snapshot: args.snapshot,
+            existing_state: existingState,
+        });
         const nextStoreSubscriptionId = resolveNextStoreSubscriptionId({
             existingState,
             snapshot: args.snapshot,
@@ -3152,7 +3200,7 @@ export const applyReconciledSubscriptionState = async (ctx: MutationCtx, args: W
             : true;
         const staleAfterAtMs = resolveNextExpirationReconciliationAtMs(
             hasActiveSubscription,
-            args.snapshot.period_end_at_ms,
+            accessExpiresAtMs,
             args.expiration_reconciliation_delay_ms
         );
 
@@ -3224,6 +3272,9 @@ export const applyReconciledSubscriptionState = async (ctx: MutationCtx, args: W
                 : {}),
             ...(typeof args.snapshot.period_end_at_ms === "number"
                 ? { billing_cycle_end_at_ms: args.snapshot.period_end_at_ms }
+                : {}),
+            ...(isFiniteTimestampMs(accessExpiresAtMs)
+                ? { access_expires_at_ms: accessExpiresAtMs }
                 : {}),
         };
         const changeStatus = hasComparableSubscriptionStateChanged(existingState, nextState)

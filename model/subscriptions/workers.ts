@@ -45,7 +45,9 @@ import {
     getMissingRevenueCatEntitlementConfigMessage,
     getRevenueCatApiErrorRetryDelayMs,
     getRevenueCatEventsRetentionCutoffMs,
+    hasUnexpiredSubscriptionAccess,
     isRevenueCatApiErrorWithStatus,
+    resolveRevenueCatAccessExpirationAtMs,
     shouldUseExistingSubscriptionState,
     type CurrentSubscriptionState,
 } from "./revenueCatApi";
@@ -198,9 +200,7 @@ function canServeActiveSubscriptionStateForUsage(
         state.has_active_subscription === true &&
         Number.isFinite(state.last_synced_at_ms) &&
         state.last_synced_at_ms > 0 &&
-        typeof state.billing_cycle_end_at_ms === "number" &&
-        Number.isFinite(state.billing_cycle_end_at_ms) &&
-        nowMs < state.billing_cycle_end_at_ms
+        hasUnexpiredSubscriptionAccess(state, nowMs)
     );
 }
 
@@ -1080,7 +1080,30 @@ async function reconcileSubscriptionStateFromRevenueCat(
                 "RevenueCat active Polyglot entitlement is missing an access-granting subscription"
             );
         }
-        const snapshot = subscriptionSnapshot ?? activeEntitlementSnapshot!;
+        const subscriptionStatus = subscriptionSnapshot?.subscription_status;
+        const subscriptionMetadata = subscriptionSnapshot
+            ? (({ subscription_status: _subscriptionStatus, ...metadata }) => metadata)(
+                  subscriptionSnapshot
+              )
+            : null;
+        const snapshot =
+            subscriptionMetadata && activeEntitlementSnapshot?.has_active_subscription === true
+                ? (() => {
+                      const accessExpiresAtMs = resolveRevenueCatAccessExpirationAtMs({
+                          subscription_status: subscriptionStatus,
+                          period_end_at_ms: subscriptionMetadata.period_end_at_ms,
+                          entitlement_expires_at_ms:
+                              activeEntitlementSnapshot.access_expires_at_ms,
+                      });
+
+                      return {
+                          ...subscriptionMetadata,
+                          ...(typeof accessExpiresAtMs === "number"
+                              ? { access_expires_at_ms: accessExpiresAtMs }
+                              : {}),
+                      };
+                  })()
+                : (subscriptionMetadata ?? activeEntitlementSnapshot!);
         const applyAtMs = Date.now();
         snapshotHasActiveSubscription = snapshot.has_active_subscription;
         const applyResult: {
@@ -1295,7 +1318,9 @@ export async function processRevenueCatWebhookEventById(
                 revenuecat_event_id: eventDoc.event_id,
                 revenuecat_event_at_ms: eventDoc.event_at_ms,
                 event_doc_id: args.event_doc_id,
-                reconciliation_read: "subscriptions",
+                reconciliation_read: isRevenueCatNonSubscriptionEvent(eventDoc.event_type)
+                    ? "subscriptions"
+                    : "active_entitlements_first",
             }),
         }))
     );
@@ -1461,7 +1486,7 @@ export async function reconcileObservedSubscriptionStateHandler(
         force: false,
         now_ms: nowMs,
         client_observed_active: args.observed_active,
-        reconciliation_read: "subscriptions",
+        reconciliation_read: "active_entitlements_first",
         ...(args.observed_active
             ? { expects_active_subscription: true }
             : {}),

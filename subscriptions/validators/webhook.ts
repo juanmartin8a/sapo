@@ -53,6 +53,7 @@ const retryConfigValidator = v.object({
 
 const reconciliationSnapshotValidator = v.object({
     has_active_subscription: v.boolean(),
+    access_expires_at_ms: v.optional(v.number()),
     entitlement_id: v.optional(v.string()),
     product_id: v.optional(v.string()),
     store_subscription_id: v.optional(v.string()),

@@ -70,6 +70,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           revenuecat_event_id?: string;
           signup_at_ms?: number;
           snapshot: {
+            access_expires_at_ms?: number;
             entitlement_id?: string;
             environment?: string;
             has_active_subscription: boolean;

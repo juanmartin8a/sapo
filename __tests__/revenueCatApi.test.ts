@@ -5,8 +5,10 @@ import {
     fetchRevenueCatCustomerActiveEntitlementSnapshot,
     fetchRevenueCatCustomerSubscriptionSnapshot,
     getRevenueCatApiErrorRetryDelayMs,
+    hasUnexpiredSubscriptionAccess,
     isRevenueCatApiErrorWithStatus,
     RevenueCatApiError,
+    resolveRevenueCatAccessExpirationAtMs,
     shouldIgnoreStaleReconciledSubscriptionState,
 } from "../model/subscriptions/revenueCatApi";
 
@@ -93,7 +95,7 @@ describe("RevenueCat API reconciliation", () => {
             .resolves.toEqual({
                 has_active_subscription: true,
                 entitlement_id: "entl_polyglot",
-                period_end_at_ms: 1_810_000_000_000,
+                access_expires_at_ms: 1_810_000_000_000,
             });
         expect(fetchMock).toHaveBeenCalledTimes(1);
     });
@@ -110,6 +112,47 @@ describe("RevenueCat API reconciliation", () => {
                 has_active_subscription: false,
             });
         expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("uses access expiration ahead of the billing period end", () => {
+        const graceState = {
+            has_active_subscription: true,
+            billing_cycle_end_at_ms: 2_000,
+            access_expires_at_ms: 5_000,
+        };
+
+        expect(hasUnexpiredSubscriptionAccess(graceState, 3_000)).toBe(true);
+        expect(hasUnexpiredSubscriptionAccess(graceState, 5_000)).toBe(false);
+    });
+
+    it("falls back to billing expiration for legacy subscription states", () => {
+        const legacyState = {
+            has_active_subscription: true,
+            billing_cycle_end_at_ms: 2_000,
+        };
+
+        expect(hasUnexpiredSubscriptionAccess(legacyState, 1_999)).toBe(true);
+        expect(hasUnexpiredSubscriptionAccess(legacyState, 2_000)).toBe(false);
+    });
+
+    it("does not combine a new active entitlement with an old active billing period", () => {
+        expect(
+            resolveRevenueCatAccessExpirationAtMs({
+                subscription_status: "active",
+                period_end_at_ms: 2_000,
+                entitlement_expires_at_ms: 5_000,
+            })
+        ).toBe(2_000);
+    });
+
+    it("uses entitlement expiration for an access-granting grace period", () => {
+        expect(
+            resolveRevenueCatAccessExpirationAtMs({
+                subscription_status: "in_grace_period",
+                period_end_at_ms: 2_000,
+                entitlement_expires_at_ms: 5_000,
+            })
+        ).toBe(5_000);
     });
 
     it("does not treat unrelated 404 errors as an inactive customer", async () => {

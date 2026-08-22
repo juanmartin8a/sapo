@@ -39,6 +39,7 @@ export default defineSchema({
         environment: v.optional(v.string()),
         billing_cycle_start_at_ms: v.optional(v.number()),
         billing_cycle_end_at_ms: v.optional(v.number()),
+        access_expires_at_ms: v.optional(v.number()),
         free_period_anchor_at_ms: v.optional(v.number()),
         window_type: v.union(v.literal("anchored_monthly"), v.literal("billing_cycle")),
         window_key: v.string(),

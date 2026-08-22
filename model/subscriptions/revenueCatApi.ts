@@ -40,6 +40,8 @@ export class RevenueCatApiError extends Error {
 
 type RevenueCatReconciliationSnapshot = {
     has_active_subscription: boolean;
+    access_expires_at_ms?: number;
+    subscription_status?: string;
     entitlement_id?: string;
     product_id?: string;
     store_subscription_id?: string;
@@ -57,6 +59,7 @@ export type CurrentSubscriptionState = {
     store_subscription_id?: string;
     store_subscription_period_id?: string;
     billing_cycle_end_at_ms?: number;
+    access_expires_at_ms?: number;
     last_revenuecat_event_id?: string;
     last_revenuecat_event_at_ms?: number;
     sync_attempt_id?: string;
@@ -68,6 +71,41 @@ export type CurrentSubscriptionState = {
     stale_after_at_ms: number;
     next_refresh_attempt_at_ms?: number;
 };
+
+export function hasUnexpiredSubscriptionAccess(
+    state:
+        | Pick<
+              CurrentSubscriptionState,
+              "has_active_subscription" | "access_expires_at_ms" | "billing_cycle_end_at_ms"
+          >
+        | null
+        | undefined,
+    nowMs: number
+) {
+    const accessExpiresAtMs = state?.access_expires_at_ms ?? state?.billing_cycle_end_at_ms;
+
+    return (
+        state?.has_active_subscription === true &&
+        typeof accessExpiresAtMs === "number" &&
+        Number.isFinite(accessExpiresAtMs) &&
+        nowMs < accessExpiresAtMs
+    );
+}
+
+export function resolveRevenueCatAccessExpirationAtMs(args: {
+    subscription_status?: string;
+    period_end_at_ms?: number;
+    entitlement_expires_at_ms?: number;
+}) {
+    const usesBillingPeriodAsAccessBoundary =
+        !args.subscription_status ||
+        args.subscription_status === "active" ||
+        args.subscription_status === "trialing";
+
+    return usesBillingPeriodAsAccessBoundary
+        ? args.period_end_at_ms
+        : args.entitlement_expires_at_ms;
+}
 
 export function shouldIgnoreStaleReconciledSubscriptionState(
     state: Pick<CurrentSubscriptionState, "last_synced_at_ms"> | null | undefined,
@@ -82,6 +120,7 @@ export function shouldIgnoreStaleReconciledSubscriptionState(
 }
 
 type ParsedRevenueCatSubscription = {
+    status?: string;
     product_id?: string;
     purchase_at_ms?: number;
     expiration_at_ms?: number;
@@ -341,10 +380,7 @@ export function shouldUseExistingSubscriptionState(
         return true;
     }
 
-    return (
-        typeof existingState.billing_cycle_end_at_ms === "number" &&
-        nowMs < existingState.billing_cycle_end_at_ms
-    );
+    return hasUnexpiredSubscriptionAccess(existingState, nowMs);
 }
 
 function parseRevenueCatNextPage(value: unknown, operation: string) {
@@ -511,6 +547,7 @@ async function fetchRevenueCatCustomerSubscriptions(
         }
 
         subscriptions.push({
+            status: parseString(subscription.status) ?? undefined,
             product_id: parseString(subscription.product_id) ?? undefined,
             purchase_at_ms:
                 parseTimestampMs(subscription.current_period_starts_at) ??
@@ -629,6 +666,7 @@ export async function fetchRevenueCatCustomerSubscriptionSnapshot(
 
     return {
         has_active_subscription: true,
+        subscription_status: selectedSubscription.status,
         entitlement_id: entitlementResourceId,
         product_id: selectedSubscription.product_id,
         store_subscription_id: selectedSubscription.store_subscription_id,
@@ -662,7 +700,7 @@ export async function fetchRevenueCatCustomerActiveEntitlementSnapshot(
         ? {
               has_active_subscription: true,
               entitlement_id: entitlementResourceId,
-              period_end_at_ms: activePolyglotEntitlement.expiration_at_ms,
+              access_expires_at_ms: activePolyglotEntitlement.expiration_at_ms,
           }
         : {
               has_active_subscription: false,
