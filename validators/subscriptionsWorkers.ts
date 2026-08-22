@@ -104,15 +104,7 @@ export type FinalizeDeletedUserDataArgs = ObjectType<
 
 export const processQueuedUserDeletionsArgs = {};
 
-export type ProcessQueuedUserDeletionsArgs = ObjectType<
-    typeof processQueuedUserDeletionsArgs
->;
-
 export const recoverAuthDeleteDeadLetterUserDeletionsArgs = {};
-
-export type RecoverAuthDeleteDeadLetterUserDeletionsArgs = ObjectType<
-    typeof recoverAuthDeleteDeadLetterUserDeletionsArgs
->;
 
 export const recoverCleanupDeadLetterUserDeletionsArgs = {
     user_id: v.optional(v.string()),
@@ -127,10 +119,6 @@ export type RecoverCleanupDeadLetterUserDeletionsArgs = ObjectType<
 
 export const checkUserDeletionDeadLetterHealthArgs = {};
 
-export type CheckUserDeletionDeadLetterHealthArgs = ObjectType<
-    typeof checkUserDeletionDeadLetterHealthArgs
->;
-
 export const processRevenueCatWebhookEventArgs = {
     // Validate this inside the subscriptions component, not against the app schema.
     event_doc_id: v.string(),
@@ -142,30 +130,10 @@ export type ProcessRevenueCatWebhookEventArgs = ObjectType<
 
 export const retryRevenueCatWebhookEventsArgs = {};
 
-export type RetryRevenueCatWebhookEventsArgs = ObjectType<
-    typeof retryRevenueCatWebhookEventsArgs
->;
-
 export const reconcileExpiredSubscriptionStatesArgs = {};
-
-export type ReconcileExpiredSubscriptionStatesArgs = ObjectType<
-    typeof reconcileExpiredSubscriptionStatesArgs
->;
 
 export const purgeExpiredRevenueCatEventsArgs = {};
 
-export type PurgeExpiredRevenueCatEventsArgs = ObjectType<
-    typeof purgeExpiredRevenueCatEventsArgs
->;
-
 export const purgeExpiredFrozenQuotaPeriodsArgs = {};
 
-export type PurgeExpiredFrozenQuotaPeriodsArgs = ObjectType<
-    typeof purgeExpiredFrozenQuotaPeriodsArgs
->;
-
 export const checkRevenueCatPipelineHealthArgs = {};
-
-export type CheckRevenueCatPipelineHealthArgs = ObjectType<
-    typeof checkRevenueCatPipelineHealthArgs
->;

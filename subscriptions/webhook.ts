@@ -2,10 +2,6 @@ import { mutation, internalMutation, query } from "./_generated/server";
 import * as Webhook from "./model/webhook";
 import * as WebhookArgs from "./validators/webhook";
 
-export const upsertSubscriptionPlanLimits = mutation({
-    args: WebhookArgs.upsertSubscriptionPlanLimitsArgs,
-    handler: Webhook.upsertSubscriptionPlanLimits,
-});
 export const reserveSubscriptionQuotaUsage = mutation({
     args: WebhookArgs.reserveSubscriptionQuotaUsageArgs,
     handler: Webhook.reserveSubscriptionQuotaUsage,

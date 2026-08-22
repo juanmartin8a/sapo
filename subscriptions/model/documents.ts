@@ -74,13 +74,6 @@ export async function prepareQuotaPeriodsForUserDeletionBatch(
     };
 }
 
-export async function listUsageEventsByUserId(ctx: DbReaderCtx, userId: string) {
-    return ctx.db
-        .query("usage_events")
-        .withIndex("by_user_id_and_created_at_ms", (query) => query.eq("user_id", userId))
-        .collect();
-}
-
 export async function listUsageEventsByUserIdBatch(
     ctx: DbReaderCtx,
     userId: string,
@@ -109,15 +102,6 @@ export async function deleteUsageEventsByUserIdBatch(
         deleted_count: usageEvents.length,
         has_more: candidates.length > usageEvents.length,
     };
-}
-
-export async function listActiveUsageEventsByUserId(ctx: DbReaderCtx, userId: string) {
-    return ctx.db
-        .query("usage_events")
-        .withIndex("by_user_id_and_state", (query) =>
-            query.eq("user_id", userId).eq("state", "processing")
-        )
-        .collect();
 }
 
 export async function listActiveUsageEventsByUserIdBatch(

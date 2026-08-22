@@ -18,15 +18,6 @@ export const subscriptionUsageOperationValidator = v.union(
     v.literal(SUBSCRIPTION_USAGE_OPERATIONS.RESPELL)
 );
 
-export const subscriptionPlanLimitInputValidator = v.object({
-    plan_key: subscriptionPlanKeyValidator,
-    translate_input_char_limit: v.number(),
-    respell_input_char_limit: v.number(),
-    translate_monthly_char_limit: v.number(),
-    respell_monthly_char_limit: v.number(),
-    is_active: v.boolean(),
-});
-
 export type { SubscriptionPlanKey, SubscriptionUsageOperation };
 export type SubscriptionPlanLimits = {
     translate_input_char_limit: number;

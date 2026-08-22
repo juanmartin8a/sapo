@@ -471,23 +471,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         any,
         Name
       >;
-      upsertSubscriptionPlanLimits: FunctionReference<
-        "mutation",
-        "internal",
-        {
-          now_ms: number;
-          plans: Array<{
-            is_active: boolean;
-            plan_key: "free" | "polyglot";
-            respell_input_char_limit: number;
-            respell_monthly_char_limit: number;
-            translate_input_char_limit: number;
-            translate_monthly_char_limit: number;
-          }>;
-        },
-        any,
-        Name
-      >;
       upsertUserDeletionPreparation: FunctionReference<
         "mutation",
         "internal",

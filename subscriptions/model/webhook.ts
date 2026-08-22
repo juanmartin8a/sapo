@@ -1446,58 +1446,6 @@ async function evaluateQuotaAvailability(
         quotaContext,
     };
 }
-export const upsertSubscriptionPlanLimits = async (ctx: MutationCtx, args: WebhookArgs.UpsertSubscriptionPlanLimitsArgs) => {
-        const sanitizedPlans = args.plans.map((plan) => ({
-            ...plan,
-            translate_input_char_limit: Math.max(0, Math.floor(plan.translate_input_char_limit)),
-            respell_input_char_limit: Math.max(0, Math.floor(plan.respell_input_char_limit)),
-            translate_monthly_char_limit: Math.max(0, Math.floor(plan.translate_monthly_char_limit)),
-            respell_monthly_char_limit: Math.max(0, Math.floor(plan.respell_monthly_char_limit)),
-        }));
-
-        for (const plan of sanitizedPlans) {
-            const existingPlanLimits = await ctx.db
-                .query("subscription_plan_limits")
-                .withIndex("by_plan_key", (query) => query.eq("plan_key", plan.plan_key))
-                .collect();
-
-            const sortedPlanLimits = [...existingPlanLimits].sort(
-                (left, right) => right.updated_at_ms - left.updated_at_ms
-            );
-            const targetDoc = sortedPlanLimits[0] ?? null;
-
-            const nextDocument = {
-                plan_key: plan.plan_key,
-                translate_input_char_limit: plan.translate_input_char_limit,
-                respell_input_char_limit: plan.respell_input_char_limit,
-                translate_monthly_char_limit: plan.translate_monthly_char_limit,
-                respell_monthly_char_limit: plan.respell_monthly_char_limit,
-                is_active: plan.is_active,
-                updated_at_ms: args.now_ms,
-            };
-
-            if (targetDoc) {
-                await ctx.db.patch("subscription_plan_limits", targetDoc._id, nextDocument);
-            } else {
-                await ctx.db.insert("subscription_plan_limits", nextDocument);
-            }
-
-            for (const duplicateDoc of sortedPlanLimits.slice(1)) {
-                if (duplicateDoc.is_active) {
-                    await ctx.db.patch("subscription_plan_limits", duplicateDoc._id, {
-                        is_active: false,
-                        updated_at_ms: args.now_ms,
-                    });
-                }
-            }
-        }
-
-        return {
-            status: "ok",
-            plans_updated: sanitizedPlans.length,
-        };
-    };
-
 export const reserveSubscriptionQuotaUsage = async (ctx: MutationCtx, args: WebhookArgs.ReserveSubscriptionQuotaUsageArgs) => {
         const activeDeletionOperation = await getLatestUserDeletionQueueEntryByUserId(ctx, args.user_id);
 

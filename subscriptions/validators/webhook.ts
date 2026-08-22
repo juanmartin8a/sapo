@@ -7,10 +7,7 @@ import {
     USER_DELETION_LATE_AUTH_WAIT_STATUS,
     USER_DELETION_QUEUE_STATUS,
 } from "../../constants/userDeletion";
-import {
-    subscriptionPlanLimitInputValidator,
-    subscriptionUsageOperationValidator,
-} from "../model/planLimits";
+import { subscriptionUsageOperationValidator } from "../model/planLimits";
 
 const webhookEventStatusValidator = v.union(
     v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.PENDING),
@@ -82,15 +79,6 @@ const userDeletionCleanupStepValidator = v.union(
     v.literal(USER_DELETION_CLEANUP_STEP.FINALIZING_SUBSCRIPTION_DATA),
     v.literal(USER_DELETION_CLEANUP_STEP.DELETING_REVENUECAT_SUBSCRIBER),
 );
-
-export const upsertSubscriptionPlanLimitsArgs = {
-    plans: v.array(subscriptionPlanLimitInputValidator),
-    now_ms: v.number(),
-};
-
-export type UpsertSubscriptionPlanLimitsArgs = ObjectType<
-    typeof upsertSubscriptionPlanLimitsArgs
->;
 
 export const reserveSubscriptionQuotaUsageArgs = {
     req_id: v.string(),
