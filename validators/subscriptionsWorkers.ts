@@ -36,6 +36,27 @@ export type BeginSubscriptionStateReconciliationAndScheduleActivationArgs = Obje
     typeof beginSubscriptionStateReconciliationAndScheduleActivationArgs
 >;
 
+export const beginSubscriptionStateReconciliationAndScheduleUsageRefreshArgs = {
+    user_id: v.string(),
+    revenuecat_app_user_id: v.string(),
+    sync_attempt_id: v.string(),
+    now_ms: v.number(),
+    lease_duration_ms: v.number(),
+};
+
+export type BeginSubscriptionStateReconciliationAndScheduleUsageRefreshArgs = ObjectType<
+    typeof beginSubscriptionStateReconciliationAndScheduleUsageRefreshArgs
+>;
+
+export const executeSubscriptionUsageRefreshArgs = {
+    user_id: v.string(),
+    sync_attempt_id: v.string(),
+};
+
+export type ExecuteSubscriptionUsageRefreshArgs = ObjectType<
+    typeof executeSubscriptionUsageRefreshArgs
+>;
+
 export const tickPendingSubscriptionActivationArgs = {
     ...pendingSubscriptionActivationRetryArgs,
 };

@@ -819,7 +819,16 @@ async function resolveCurrentSubscriptionQuotaContext(
 ): Promise<ResolvedSubscriptionQuotaContext> {
     const existingState = await getLatestSubscriptionStateByUserId(ctx, args.user_id);
 
-    const planKey: SubscriptionPlanKey = existingState?.plan_key ?? SUBSCRIPTION_PLAN_KEYS.FREE;
+    const storedPlanKey: SubscriptionPlanKey =
+        existingState?.plan_key ?? SUBSCRIPTION_PLAN_KEYS.FREE;
+    const paidBillingCycleWindow =
+        storedPlanKey === SUBSCRIPTION_PLAN_KEYS.POLYGLOT
+            ? getCurrentPaidBillingCycleWindow(existingState, args.now_ms)
+            : null;
+    const planKey: SubscriptionPlanKey =
+        storedPlanKey === SUBSCRIPTION_PLAN_KEYS.POLYGLOT && !paidBillingCycleWindow
+            ? SUBSCRIPTION_PLAN_KEYS.FREE
+            : storedPlanKey;
     const resolvedPlanLimits = await resolvePlanLimitsForPlanKey(ctx, {
         plan_key: planKey,
         now_ms: args.now_ms,
@@ -838,11 +847,7 @@ async function resolveCurrentSubscriptionQuotaContext(
     const resolvedWindow =
         planKey === SUBSCRIPTION_PLAN_KEYS.FREE
             ? getRequiredAnchoredMonthlyWindow(freePeriodAnchorAtMs ?? args.now_ms, args.now_ms)
-            : getCurrentPaidBillingCycleWindow(existingState, args.now_ms);
-
-    if (!resolvedWindow) {
-        throw new Error("Paid subscription state is stale or missing a billing cycle");
-    }
+            : paidBillingCycleWindow!;
 
     return {
         existingState,
@@ -2186,6 +2191,10 @@ export const getSubscriptionStateByUserId = async (ctx: QueryCtx, args: WebhookA
                     : undefined,
             last_synced_at_ms: state.last_synced_at_ms,
             stale_after_at_ms: state.stale_after_at_ms,
+            next_refresh_attempt_at_ms:
+                typeof stateRecord.next_refresh_attempt_at_ms === "number"
+                    ? stateRecord.next_refresh_attempt_at_ms
+                    : undefined,
         };
     };
 
@@ -2637,6 +2646,10 @@ export const releaseSubscriptionStateReconciliation = async (ctx: MutationCtx, a
             sync_started_at_ms: undefined,
             sync_expires_at_ms: undefined,
             ...(typeof args.next_attempt_at_ms === "number"
+                ? { next_refresh_attempt_at_ms: args.next_attempt_at_ms }
+                : {}),
+            ...(typeof args.next_attempt_at_ms === "number" &&
+            existingState.stale_after_at_ms < args.next_attempt_at_ms
                 ? { stale_after_at_ms: args.next_attempt_at_ms }
                 : {}),
             updated_at_ms: Math.max(existingState.updated_at_ms, args.now_ms),
@@ -2899,6 +2912,7 @@ export const listSubscriptionStatesDueForExpirationReconciliation = async (ctx: 
         return dueStates.map((state) => ({
             user_id: state.user_id,
             revenuecat_app_user_id: state.revenuecat_app_user_id,
+            last_synced_at_ms: state.last_synced_at_ms,
         }));
     };
 
@@ -3978,8 +3992,15 @@ export const deferSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
             };
         }
 
+        if (existingState.last_synced_at_ms !== args.expected_last_synced_at_ms) {
+            return {
+                status: "stale",
+            };
+        }
+
         await ctx.db.patch("subscription_states", existingState._id, {
             stale_after_at_ms: args.next_attempt_at_ms,
+            next_refresh_attempt_at_ms: args.next_attempt_at_ms,
             updated_at_ms: args.next_attempt_at_ms,
         } as Record<string, unknown>);
 

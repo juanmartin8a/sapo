@@ -509,6 +509,7 @@ export type FinalizeDeletedUserSubscriptionDataArgs = ObjectType<
 
 export const deferSubscriptionStateReconciliationArgs = {
     user_id: v.string(),
+    expected_last_synced_at_ms: v.number(),
     next_attempt_at_ms: v.number(),
 };
 

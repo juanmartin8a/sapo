@@ -178,8 +178,8 @@ export async function handleSapopinguinoRequest(
 
     if (refreshResult.status === "sync_in_progress") {
         return new Response(STREAM_ERROR_MARKER, {
-            status: 425,
-            headers: responseHeaders(request),
+            status: 503,
+            headers: responseHeaders(request, undefined, { "Retry-After": "1" }),
         });
     }
 

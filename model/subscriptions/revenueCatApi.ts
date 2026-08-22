@@ -66,6 +66,7 @@ export type CurrentSubscriptionState = {
     pending_active_expires_at_ms?: number;
     last_synced_at_ms: number;
     stale_after_at_ms: number;
+    next_refresh_attempt_at_ms?: number;
 };
 
 export function shouldIgnoreStaleReconciledSubscriptionState(

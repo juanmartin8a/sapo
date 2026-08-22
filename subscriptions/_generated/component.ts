@@ -146,7 +146,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       deferSubscriptionStateReconciliation: FunctionReference<
         "mutation",
         "internal",
-        { next_attempt_at_ms: number; user_id: string },
+        {
+          expected_last_synced_at_ms: number;
+          next_attempt_at_ms: number;
+          user_id: string;
+        },
         any,
         Name
       >;

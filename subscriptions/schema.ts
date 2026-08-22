@@ -58,6 +58,7 @@ export default defineSchema({
         client_reconcile_refilled_at_ms: v.optional(v.number()),
         last_synced_at_ms: v.number(),
         stale_after_at_ms: v.number(),
+        next_refresh_attempt_at_ms: v.optional(v.number()),
         created_at_ms: v.number(),
         updated_at_ms: v.number(),
     })

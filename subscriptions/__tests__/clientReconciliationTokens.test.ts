@@ -2,9 +2,11 @@ import { describe, expect, it, jest } from "@jest/globals";
 
 import {
     claimPendingActiveRetry,
+    deferSubscriptionStateReconciliation,
     expirePendingActiveSignal,
     getClientReconciliationTokenState,
     isActiveReconciliationSuperseded,
+    releaseSubscriptionStateReconciliation,
 } from "../model/webhook";
 
 function createPendingStateCtx(state: Record<string, unknown> | null) {
@@ -197,6 +199,74 @@ describe("client subscription reconciliation tokens", () => {
             active_signal_at_ms: 1_000,
             now_ms: 3_000,
         })).resolves.toEqual({ expired: false, stale: true });
+        expect(patch).not.toHaveBeenCalled();
+    });
+
+    it("does not shorten a future expiration deadline when storing refresh backoff", async () => {
+        const { ctx, patch } = createPendingStateCtx({
+            _id: "state_1",
+            sync_attempt_id: "attempt_1",
+            sync_expires_at_ms: 2_000,
+            stale_after_at_ms: 10_000,
+            updated_at_ms: 900,
+        });
+
+        await expect(releaseSubscriptionStateReconciliation(ctx as any, {
+            user_id: "user_1",
+            sync_attempt_id: "attempt_1",
+            now_ms: 1_000,
+            next_attempt_at_ms: 5_000,
+        })).resolves.toEqual({ status: "released" });
+
+        expect(patch).toHaveBeenCalledWith(
+            "subscription_states",
+            "state_1",
+            expect.objectContaining({
+                sync_attempt_id: undefined,
+                next_refresh_attempt_at_ms: 5_000,
+            })
+        );
+        expect(patch.mock.calls[0][2]).not.toHaveProperty("stale_after_at_ms");
+    });
+
+    it("extends an upcoming expiration deadline through refresh backoff", async () => {
+        const { ctx, patch } = createPendingStateCtx({
+            _id: "state_1",
+            sync_attempt_id: "attempt_1",
+            sync_expires_at_ms: 2_000,
+            stale_after_at_ms: 4_000,
+            updated_at_ms: 900,
+        });
+
+        await releaseSubscriptionStateReconciliation(ctx as any, {
+            user_id: "user_1",
+            sync_attempt_id: "attempt_1",
+            now_ms: 1_000,
+            next_attempt_at_ms: 5_000,
+        });
+
+        expect(patch).toHaveBeenCalledWith(
+            "subscription_states",
+            "state_1",
+            expect.objectContaining({
+                stale_after_at_ms: 5_000,
+                next_refresh_attempt_at_ms: 5_000,
+            })
+        );
+    });
+
+    it("does not defer a state replaced by a newer reconciliation", async () => {
+        const { ctx, patch } = createPendingStateCtx({
+            _id: "state_1",
+            last_synced_at_ms: 2_000,
+        });
+
+        await expect(deferSubscriptionStateReconciliation(ctx as any, {
+            user_id: "user_1",
+            expected_last_synced_at_ms: 1_000,
+            next_attempt_at_ms: 5_000,
+        })).resolves.toEqual({ status: "stale" });
+
         expect(patch).not.toHaveBeenCalled();
     });
 
