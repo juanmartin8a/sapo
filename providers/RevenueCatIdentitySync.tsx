@@ -44,13 +44,13 @@ export default function RevenueCatIdentitySync() {
     useEffect(() => {
         if (
             !userId ||
-            serverSubscription === undefined ||
-            (serverSubscription !== null && serverSubscription.user_id !== userId)
+            serverSubscription == null ||
+            serverSubscription.user_id !== userId
         ) {
             return;
         }
 
-        setSubscriptionForUser(userId, serverSubscription?.status ?? "inactive");
+        setSubscriptionForUser(userId, serverSubscription.status);
     }, [serverSubscription, setSubscriptionForUser, userId]);
 
     useEffect(() => {
