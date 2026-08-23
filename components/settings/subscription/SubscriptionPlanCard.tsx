@@ -1,4 +1,4 @@
-import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 import CheckIcon from "@/assets/icons/check.svg";
 import { SETTINGS_COLORS } from "@/constants/settings";
@@ -6,8 +6,7 @@ import {
     SUBSCRIPTION_PLAN_DISPLAY_NAMES,
     SUBSCRIPTION_PLAN_LIMITS,
 } from "@/constants/subscription";
-import { UI_DISABLED_OPACITY, UI_SKELETON_BACKGROUND_COLOR } from "@/constants/ui";
-import useSkeletonPulse from "@/hooks/useSkeletonPulse";
+import { UI_DISABLED_OPACITY } from "@/constants/ui";
 
 interface SubscriptionPlanCardProps {
     displayPrice: string;
@@ -15,7 +14,6 @@ interface SubscriptionPlanCardProps {
     renewalPeriodLabel: string;
     storeAccountLabel: string;
     buttonLabel: string;
-    isLoadingPlan: boolean;
     isPurchasing: boolean;
     isSubscribeDisabled: boolean;
     onSubscribe: () => void;
@@ -47,15 +45,12 @@ export default function SubscriptionPlanCard({
     renewalPeriodLabel,
     storeAccountLabel,
     buttonLabel,
-    isLoadingPlan,
     isPurchasing,
     isSubscribeDisabled,
     onSubscribe,
     onOpenTermsOfUse,
     onOpenPrivacyPolicy,
 }: SubscriptionPlanCardProps) {
-    const skeletonOpacity = useSkeletonPulse(isLoadingPlan);
-
     return (
         <View style={styles.card}>
             <View style={styles.planHeader}>
@@ -64,20 +59,7 @@ export default function SubscriptionPlanCard({
             </View>
 
             <View style={styles.priceRow}>
-                {isLoadingPlan ? (
-                    <Animated.Text
-                        style={[
-                            styles.priceText,
-                            styles.skeletonText,
-                            styles.priceSkeleton,
-                            { opacity: skeletonOpacity },
-                        ]}
-                    >
-                        {displayPrice}
-                    </Animated.Text>
-                ) : (
-                    <Text style={styles.priceText}>{displayPrice}</Text>
-                )}
+                <Text style={styles.priceText}>{displayPrice}</Text>
                 <Text style={styles.priceSuffix}>{billingPeriodLabel}</Text>
             </View>
 
@@ -174,14 +156,6 @@ const styles = StyleSheet.create({
         fontWeight: "500",
         color: PLAN_CARD_COLORS.mutedText,
         marginBottom: 5,
-    },
-    skeletonText: {
-        color: "transparent",
-        overflow: "hidden",
-    },
-    priceSkeleton: {
-        backgroundColor: UI_SKELETON_BACKGROUND_COLOR,
-        borderRadius: 8,
     },
     planDescription: {
         fontSize: 15,

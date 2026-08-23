@@ -4,39 +4,6 @@ import Purchases, {
     type PurchasesStoreProduct,
 } from "react-native-purchases";
 
-import { getRevenueCatSubscriptionProductId } from "@/lib/revenuecat";
-
-export const getAvailablePackagesFromOfferings = (
-    offerings: Awaited<ReturnType<typeof Purchases.getOfferings>>
-) => {
-    const currentPackages = offerings.current?.availablePackages ?? [];
-    const allPackages = Object.values(offerings.all).flatMap(
-        (offering) => offering.availablePackages
-    );
-    const configuredProductId = getRevenueCatSubscriptionProductId();
-
-    if (configuredProductId.length > 0) {
-        const configuredPackage = allPackages.find(
-            (item) => item.product.identifier === configuredProductId
-        );
-
-        if (configuredPackage) {
-            return { selectedPackage: configuredPackage, allPackages, currentPackages };
-        }
-    }
-
-    const packages = currentPackages.length > 0 ? currentPackages : allPackages;
-    const monthlyPackage = packages.find(
-        (item) => item.packageType === Purchases.PACKAGE_TYPE.MONTHLY
-    );
-
-    return {
-        selectedPackage: monthlyPackage ?? packages[0] ?? null,
-        allPackages,
-        currentPackages,
-    };
-};
-
 const getProductBillingPeriodLabel = (subscriptionProduct: PurchasesStoreProduct | null) => {
     const match = subscriptionProduct?.subscriptionPeriod?.match(/^P(\d+)([WMY])$/);
 
