@@ -13,6 +13,7 @@ import {
 } from "@/lib/revenuecat";
 import { reconcileObservedSubscriptionState } from "@/lib/subscription-reconciliation";
 import { useAuthState } from "@/providers/AuthStateProvider";
+import useRevenueCatOfferingStore from "@/stores/revenueCatOfferingStore";
 import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
 
 const identitySyncRetryDelaysMs = [1_000, 2_000, 4_000] as const;
@@ -27,6 +28,8 @@ export default function RevenueCatIdentitySync() {
     );
     const setCurrentSubscriptionUser = useSubscriptionStatusStore((state) => state.setCurrentUser);
     const setSubscriptionForUser = useSubscriptionStatusStore((state) => state.setForUser);
+    const clearRevenueCatOffering = useRevenueCatOfferingStore((state) => state.clear);
+    const loadRevenueCatOffering = useRevenueCatOfferingStore((state) => state.loadForUser);
     const receiptConflictUserIdRef = useRef<string | null>(null);
     const syncedRevenueCatUserIdRef = useRef<string | null>(null);
     const lastRevenueCatActiveRef = useRef<boolean | null>(null);
@@ -56,6 +59,7 @@ export default function RevenueCatIdentitySync() {
         }
 
         if (!userId) {
+            clearRevenueCatOffering();
             const previousRevenueCatUserId = syncedRevenueCatUserIdRef.current;
 
             receiptConflictUserIdRef.current = null;
@@ -83,6 +87,7 @@ export default function RevenueCatIdentitySync() {
         }
 
         if (!isRevenueCatSupportedPlatform || !hasRevenueCatConfig()) {
+            clearRevenueCatOffering();
             return;
         }
 
@@ -155,6 +160,8 @@ export default function RevenueCatIdentitySync() {
                     syncedRevenueCatUserIdRef.current = userId;
                     lastRevenueCatActiveRef.current = null;
 
+                    void loadRevenueCatOffering(userId);
+
                     Purchases.addCustomerInfoUpdateListener(handleCustomerInfoUpdate);
                     isCustomerInfoListenerAttached = true;
 
@@ -196,7 +203,7 @@ export default function RevenueCatIdentitySync() {
                 Purchases.removeCustomerInfoUpdateListener(handleCustomerInfoUpdate);
             }
         };
-    }, [authStatus, userId]);
+    }, [authStatus, clearRevenueCatOffering, loadRevenueCatOffering, userId]);
 
     return null;
 }

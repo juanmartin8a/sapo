@@ -1,15 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Linking, Platform, StyleSheet } from "react-native";
-import Purchases, {
-    type CustomerInfo,
-    type PurchasesPackage,
-    type PurchasesStoreProduct,
-} from "react-native-purchases";
+import { ActivityIndicator, Alert, Linking, Platform, Pressable, StyleSheet, Text } from "react-native";
+import Purchases, { type CustomerInfo } from "react-native-purchases";
 
 import SubscriptionPlanCard from "@/components/settings/subscription/SubscriptionPlanCard";
 import {
     formatDisplayPrice,
-    getAvailablePackagesFromOfferings,
     getPackageBillingPeriodLabel,
     getPackageRenewalPeriodLabel,
     isPurchaseCancelledError,
@@ -31,7 +26,6 @@ import {
 } from "@/constants/subscription";
 import {
     configureRevenueCat,
-    getRevenueCatSubscriptionProductId,
     hasActiveRevenueCatSubscription,
     hasRevenueCatConfig,
     isReceiptAlreadyInUseRevenueCatError,
@@ -43,6 +37,7 @@ import {
     reconcileObservedSubscriptionState,
     type SubscriptionReconciliationStatus,
 } from "@/lib/subscription-reconciliation";
+import useRevenueCatOfferingStore from "@/stores/revenueCatOfferingStore";
 import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
 import { triggerErrorHaptic, triggerLightImpactHaptic, triggerWarningHaptic } from "@/lib/haptics";
 
@@ -54,12 +49,16 @@ const SUBSCRIPTION_SESSION_CHANGED_MESSAGE =
 
 export default function SubscriptionScreen() {
     const { userId } = useAuthState();
-    const [isLoadingSubscription, setIsLoadingSubscription] = useState(true);
     const [purchasingUserId, setPurchasingUserId] = useState<string | null>(null);
     const [isSubscriptionLinkedElsewhere, setIsSubscriptionLinkedElsewhere] = useState(false);
     const activePurchaseRef = useRef<symbol | null>(null);
-    const [subscriptionPackage, setSubscriptionPackage] = useState<PurchasesPackage | null>(null);
-    const [subscriptionProduct, setSubscriptionProduct] = useState<PurchasesStoreProduct | null>(null);
+    const offeringUserId = useRevenueCatOfferingStore((state) => state.userId);
+    const offeringStatus = useRevenueCatOfferingStore((state) => state.status);
+    const storedSubscriptionPackage = useRevenueCatOfferingStore((state) => state.subscriptionPackage);
+    const storedSubscriptionProduct = useRevenueCatOfferingStore((state) => state.subscriptionProduct);
+    const loadRevenueCatOffering = useRevenueCatOfferingStore((state) => state.loadForUser);
+    const subscriptionPackage = offeringUserId === userId ? storedSubscriptionPackage : null;
+    const subscriptionProduct = offeringUserId === userId ? storedSubscriptionProduct : null;
     const subscriptionUserId = useSubscriptionStatusStore((state) => state.userId);
     const storedSubscriptionStatus = useSubscriptionStatusStore((state) => state.status);
     const storedHasActiveSubscription = useSubscriptionStatusStore((state) => state.hasActiveSubscription);
@@ -69,6 +68,19 @@ export default function SubscriptionScreen() {
         subscriptionUserId === userId && storedSubscriptionStatus === "activating";
     const canUseRevenueCat = hasRevenueCatConfig();
     const storeAccountLabel = getStoreAccountLabel(Platform.OS);
+    const isOfferingForCurrentUser = offeringUserId === userId;
+    const hasLoadedPlan = Boolean(subscriptionPackage || subscriptionProduct);
+    const isWaitingForPlan =
+        isRevenueCatSupportedPlatform &&
+        canUseRevenueCat &&
+        !hasLoadedPlan &&
+        !isSubscriptionLinkedElsewhere &&
+        (!isOfferingForCurrentUser || (offeringStatus !== "ready" && offeringStatus !== "error"));
+    const hasPlanLoadError =
+        !isSubscriptionLinkedElsewhere &&
+        isOfferingForCurrentUser &&
+        !hasLoadedPlan &&
+        offeringStatus === "error";
 
     const showSubscriptionLinkedElsewhereAlert = useCallback(() => {
         Alert.alert(
@@ -90,25 +102,18 @@ export default function SubscriptionScreen() {
     useEffect(() => {
         let isMounted = true;
 
-        const loadSubscriptionData = async () => {
+        const syncSubscriptionData = async () => {
             if (!isRevenueCatSupportedPlatform || !canUseRevenueCat) {
                 if (!isMounted) {
                     return;
                 }
 
-                setSubscriptionPackage(null);
-                setSubscriptionProduct(null);
                 setIsSubscriptionLinkedElsewhere(false);
-                setIsLoadingSubscription(false);
                 return;
             }
 
             try {
-                setIsLoadingSubscription(true);
-
                 await configureRevenueCat(userId);
-
-                const offeringsPromise = Purchases.getOfferings();
                 let customerInfo: CustomerInfo | null = null;
                 let isLinkedElsewhere = false;
 
@@ -124,9 +129,14 @@ export default function SubscriptionScreen() {
 
                         const confirmedAppUserId = await Purchases.getAppUserID();
                         if (confirmedAppUserId === userId) {
-                            await reconcileObservedSubscriptionState({
+                            void loadRevenueCatOffering(userId);
+                            void reconcileObservedSubscriptionState({
                                 userId,
                                 observedActive: hasActiveRevenueCatSubscription(customerInfo),
+                            }).catch((error) => {
+                                if (__DEV__) {
+                                    console.warn("Failed to reconcile loaded subscription state", error);
+                                }
                             });
                         }
                     } catch (error) {
@@ -138,73 +148,38 @@ export default function SubscriptionScreen() {
                             isLinkedElsewhere = true;
                         }
                     }
-                }
-
-                const offerings = await offeringsPromise;
-
-                const {
-                    selectedPackage,
-                    allPackages,
-                    currentPackages,
-                } = getAvailablePackagesFromOfferings(offerings);
-
-                let fallbackProduct: PurchasesStoreProduct | null = null;
-                const configuredProductId = getRevenueCatSubscriptionProductId();
-
-                if (!selectedPackage && configuredProductId.length > 0) {
-                    const products = await Purchases.getProducts(
-                        [configuredProductId],
-                        Purchases.PRODUCT_CATEGORY.SUBSCRIPTION
-                    );
-
-                    fallbackProduct = products[0] ?? null;
+                } else {
+                    void loadRevenueCatOffering(null);
                 }
 
                 if (!isMounted) {
                     return;
                 }
 
-                setSubscriptionPackage(selectedPackage);
-                setSubscriptionProduct(fallbackProduct);
                 setIsSubscriptionLinkedElsewhere(isLinkedElsewhere);
 
                 if (isLinkedElsewhere) {
                     showSubscriptionLinkedElsewhereAlert();
-                }
-
-                if (__DEV__) {
-                    console.log("RevenueCat offerings loaded", {
-                        hasCurrentOffering: offerings.current !== null,
-                        currentPackagesCount: currentPackages.length,
-                        allPackagesCount: allPackages.length,
-                        selectedProductId: selectedPackage?.product.identifier ?? fallbackProduct?.identifier ?? null,
-                    });
                 }
             } catch (error) {
                 if (!isMounted) {
                     return;
                 }
 
-                setSubscriptionPackage(null);
-                setSubscriptionProduct(null);
                 setIsSubscriptionLinkedElsewhere(false);
 
                 if (__DEV__) {
-                    console.warn("Failed to load subscription data", error);
-                }
-            } finally {
-                if (isMounted) {
-                    setIsLoadingSubscription(false);
+                    console.warn("Failed to sync subscription data", error);
                 }
             }
         };
 
-        void loadSubscriptionData();
+        void syncSubscriptionData();
 
         return () => {
             isMounted = false;
         };
-    }, [canUseRevenueCat, showSubscriptionLinkedElsewhereAlert, userId]);
+    }, [canUseRevenueCat, loadRevenueCatOffering, showSubscriptionLinkedElsewhereAlert, userId]);
 
     const displayPrice = formatDisplayPrice(
         subscriptionPackage?.product.priceString ?? subscriptionProduct?.priceString
@@ -229,10 +204,6 @@ export default function SubscriptionScreen() {
             return "Sign in to subscribe";
         }
 
-        if (isLoadingSubscription) {
-            return "Loading plan...";
-        }
-
         if (isSubscriptionLinkedElsewhere) {
             return "Sign in to original account";
         }
@@ -254,7 +225,6 @@ export default function SubscriptionScreen() {
         canUseRevenueCat,
         hasActiveSubscription,
         isActivatingSubscription,
-        isLoadingSubscription,
         isSubscriptionLinkedElsewhere,
         subscriptionPackage,
         subscriptionProduct,
@@ -267,7 +237,6 @@ export default function SubscriptionScreen() {
             !canUseRevenueCat ||
             !userId ||
             (!subscriptionPackage && !subscriptionProduct) ||
-            isLoadingSubscription ||
             isPurchasing ||
             activePurchaseRef.current !== null ||
             isSubscriptionLinkedElsewhere ||
@@ -486,7 +455,6 @@ export default function SubscriptionScreen() {
         canUseRevenueCat,
         hasActiveSubscription,
         isActivatingSubscription,
-        isLoadingSubscription,
         isPurchasing,
         isSubscriptionLinkedElsewhere,
         isCurrentSubscriptionUser,
@@ -501,7 +469,6 @@ export default function SubscriptionScreen() {
         !canUseRevenueCat ||
         !userId ||
         (!subscriptionPackage && !subscriptionProduct) ||
-        isLoadingSubscription ||
         isPurchasing ||
         isSubscriptionLinkedElsewhere ||
         isActivatingSubscription ||
@@ -515,6 +482,38 @@ export default function SubscriptionScreen() {
         void Linking.openURL(PRIVACY_POLICY_URL);
     }, []);
 
+    const handleRetryPlanLoad = useCallback(() => {
+        void loadRevenueCatOffering(userId);
+    }, [loadRevenueCatOffering, userId]);
+
+    if (isWaitingForPlan) {
+        return (
+            <SettingsScrollView
+                style={styles.container}
+                contentContainerStyle={[styles.contentContainer, styles.loadStateContent]}
+            >
+                <ActivityIndicator color={SETTINGS_COLORS.primaryText} size="small" />
+            </SettingsScrollView>
+        );
+    }
+
+    if (hasPlanLoadError) {
+        return (
+            <SettingsScrollView
+                style={styles.container}
+                contentContainerStyle={[styles.contentContainer, styles.loadStateContent]}
+            >
+                <Text style={styles.loadErrorText}>Unable to load subscription options.</Text>
+                <Pressable
+                    onPress={handleRetryPlanLoad}
+                    style={({ pressed }) => [styles.retryButton, pressed && styles.retryButtonPressed]}
+                >
+                    <Text style={styles.retryButtonText}>Try again</Text>
+                </Pressable>
+            </SettingsScrollView>
+        );
+    }
+
     return (
         <SettingsScrollView
             style={styles.container}
@@ -526,7 +525,6 @@ export default function SubscriptionScreen() {
                 renewalPeriodLabel={renewalPeriodLabel}
                 storeAccountLabel={storeAccountLabel}
                 buttonLabel={buttonLabel}
-                isLoadingPlan={isLoadingSubscription}
                 isPurchasing={isPurchasing}
                 isSubscribeDisabled={isSubscribeDisabled}
                 onSubscribe={() => {
@@ -547,5 +545,31 @@ const styles = StyleSheet.create({
     contentContainer: {
         paddingHorizontal: SETTINGS_SCREEN_HORIZONTAL_PADDING,
         paddingBottom: SETTINGS_SCREEN_BOTTOM_PADDING,
+    },
+    loadStateContent: {
+        alignItems: "center",
+        gap: 14,
+    },
+    loadErrorText: {
+        color: SETTINGS_COLORS.mutedText,
+        fontSize: 14,
+        lineHeight: 20,
+        textAlign: "center",
+    },
+    retryButton: {
+        minHeight: 40,
+        justifyContent: "center",
+        borderRadius: 10,
+        paddingHorizontal: 18,
+        backgroundColor: SETTINGS_COLORS.primaryText,
+    },
+    retryButtonPressed: {
+        opacity: 0.78,
+    },
+    retryButtonText: {
+        color: SETTINGS_COLORS.surface,
+        fontSize: 14,
+        lineHeight: 20,
+        fontWeight: "600",
     },
 });

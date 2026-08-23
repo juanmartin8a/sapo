@@ -1,5 +1,10 @@
 import { Linking, Platform } from "react-native";
-import Purchases, { type CustomerInfo, type PurchasesError } from "react-native-purchases";
+import Purchases, {
+    type CustomerInfo,
+    type PurchasesError,
+    type PurchasesPackage,
+    type PurchasesStoreProduct,
+} from "react-native-purchases";
 
 const iosRevenueCatApiKey = process.env.EXPO_PUBLIC_REVENUE_CAT_APPLE_API_KEY ?? "";
 const androidRevenueCatApiKey = process.env.EXPO_PUBLIC_REVENUE_CAT_GOOGLE_API_KEY ?? "";
@@ -123,6 +128,48 @@ export const getRevenueCatCustomerInfo = async (appUserId: string): Promise<Cust
     }
 
     return Purchases.getCustomerInfo();
+};
+
+export interface RevenueCatSubscriptionOffering {
+    subscriptionPackage: PurchasesPackage | null;
+    subscriptionProduct: PurchasesStoreProduct | null;
+}
+
+export const getRevenueCatSubscriptionOffering = async (): Promise<RevenueCatSubscriptionOffering> => {
+    const offerings = await Purchases.getOfferings();
+    const currentPackages = offerings.current?.availablePackages ?? [];
+    const allPackages = Object.values(offerings.all).flatMap(
+        (offering) => offering.availablePackages
+    );
+    const configuredProductId = getRevenueCatSubscriptionProductId();
+    const configuredPackage = configuredProductId.length > 0
+        ? allPackages.find((item) => item.product.identifier === configuredProductId)
+        : undefined;
+    const availablePackages = currentPackages.length > 0 ? currentPackages : allPackages;
+    const monthlyPackage = availablePackages.find(
+        (item) => item.packageType === Purchases.PACKAGE_TYPE.MONTHLY
+    );
+    const subscriptionPackage = configuredPackage ?? monthlyPackage ?? availablePackages[0] ?? null;
+
+    let subscriptionProduct: PurchasesStoreProduct | null = null;
+    if (!subscriptionPackage && configuredProductId.length > 0) {
+        const products = await Purchases.getProducts(
+            [configuredProductId],
+            Purchases.PRODUCT_CATEGORY.SUBSCRIPTION
+        );
+        subscriptionProduct = products[0] ?? null;
+    }
+
+    if (__DEV__) {
+        console.log("RevenueCat offerings loaded", {
+            hasCurrentOffering: offerings.current !== null,
+            currentPackagesCount: currentPackages.length,
+            allPackagesCount: allPackages.length,
+            selectedProductId: subscriptionPackage?.product.identifier ?? subscriptionProduct?.identifier ?? null,
+        });
+    }
+
+    return { subscriptionPackage, subscriptionProduct };
 };
 
 export const logOutRevenueCatIdentity = async (expectedAppUserId?: string | null) => {
