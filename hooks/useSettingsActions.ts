@@ -171,7 +171,12 @@ export default function useSettingsActions() {
 
             if (reconciliationError) {
                 if (!hasActiveClientSubscription) {
-                    throw reconciliationError;
+                    triggerWarningHaptic();
+                    Alert.alert(
+                        "Restore completed",
+                        "Purchases were restored, but SAPO could not verify your subscription status. Please try again shortly."
+                    );
+                    return;
                 }
 
                 triggerWarningHaptic();

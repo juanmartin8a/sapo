@@ -1,9 +1,11 @@
 import { Linking, Platform } from "react-native";
 import Purchases, {
     type CustomerInfo,
+    type PurchasesEntitlementInfo,
     type PurchasesError,
     type PurchasesPackage,
     type PurchasesStoreProduct,
+    type PurchasesSubscriptionInfo,
 } from "react-native-purchases";
 
 const iosRevenueCatApiKey = process.env.EXPO_PUBLIC_REVENUE_CAT_APPLE_API_KEY ?? "";
@@ -45,15 +47,42 @@ export const hasRevenueCatConfig = () => {
     return isRevenueCatSupportedPlatform && getRevenueCatApiKey().length > 0;
 };
 
+export const hasCurrentRevenueCatEntitlementAccess = (
+    entitlement: PurchasesEntitlementInfo | undefined,
+    nowMs = Date.now()
+) =>
+    entitlement?.isActive === true &&
+    (entitlement.expirationDateMillis === null || entitlement.expirationDateMillis > nowMs);
+
+export const hasCurrentRevenueCatProductAccess = (
+    subscription: PurchasesSubscriptionInfo | undefined,
+    nowMs = Date.now()
+) => {
+    if (subscription?.isActive !== true) {
+        return false;
+    }
+
+    const accessExpirationDates = [subscription.expiresDate, subscription.gracePeriodExpiresDate]
+        .filter((value): value is string => typeof value === "string")
+        .map((value) => Date.parse(value))
+        .filter(Number.isFinite);
+
+    return accessExpirationDates.length === 0 || nowMs < Math.max(...accessExpirationDates);
+};
+
 export const hasActiveRevenueCatSubscription = (customerInfo: CustomerInfo) => {
     if (revenueCatEntitlementId.length > 0) {
-        return typeof customerInfo.entitlements.active[revenueCatEntitlementId] !== "undefined";
+        return hasCurrentRevenueCatEntitlementAccess(
+            customerInfo.entitlements.active[revenueCatEntitlementId]
+        );
     }
 
     const configuredProductId = getRevenueCatSubscriptionProductId();
 
     if (configuredProductId.length > 0) {
-        return customerInfo.activeSubscriptions.includes(configuredProductId);
+        return hasCurrentRevenueCatProductAccess(
+            customerInfo.subscriptionsByProductIdentifier[configuredProductId]
+        );
     }
 
     return false;
