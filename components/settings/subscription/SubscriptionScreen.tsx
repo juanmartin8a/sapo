@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, Platform, Pressable, StyleSheet, Text } from "react-native";
 import Purchases, { type CustomerInfo } from "react-native-purchases";
 
 import SubscriptionPlanCard from "@/components/settings/subscription/SubscriptionPlanCard";
@@ -488,15 +488,21 @@ export default function SubscriptionScreen() {
 
     if (isWaitingForPlan) {
         return (
-            <View style={styles.loadingContainer}>
+            <SettingsScrollView
+                style={styles.container}
+                contentContainerStyle={[styles.contentContainer, styles.loadStateContent]}
+            >
                 <ActivityIndicator color={SETTINGS_COLORS.primaryText} size="small" />
-            </View>
+            </SettingsScrollView>
         );
     }
 
     if (hasPlanLoadError) {
         return (
-            <View style={styles.loadingContainer}>
+            <SettingsScrollView
+                style={styles.container}
+                contentContainerStyle={[styles.contentContainer, styles.loadStateContent]}
+            >
                 <Text style={styles.loadErrorText}>Unable to load subscription options.</Text>
                 <Pressable
                     onPress={handleRetryPlanLoad}
@@ -504,7 +510,7 @@ export default function SubscriptionScreen() {
                 >
                     <Text style={styles.retryButtonText}>Try again</Text>
                 </Pressable>
-            </View>
+            </SettingsScrollView>
         );
     }
 
@@ -540,13 +546,9 @@ const styles = StyleSheet.create({
         paddingHorizontal: SETTINGS_SCREEN_HORIZONTAL_PADDING,
         paddingBottom: SETTINGS_SCREEN_BOTTOM_PADDING,
     },
-    loadingContainer: {
-        flex: 1,
+    loadStateContent: {
         alignItems: "center",
-        justifyContent: "center",
         gap: 14,
-        paddingHorizontal: SETTINGS_SCREEN_HORIZONTAL_PADDING,
-        backgroundColor: SETTINGS_COLORS.screenBackground,
     },
     loadErrorText: {
         color: SETTINGS_COLORS.mutedText,
