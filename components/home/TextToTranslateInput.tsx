@@ -33,6 +33,16 @@ const TextToTranslateInput = () => {
         const nextTextLength = getCharacterCount(nextText)
 
         if (inputLimit !== null && nextTextLength > inputLimit) {
+            if (nextTextLength < textLength) {
+                setText(nextText, nextTextLength)
+                return
+            }
+
+            if (hasAlertedRef.current) {
+                return
+            }
+
+            hasAlertedRef.current = true
             const operationLabel = operation === "respell" ? "respelling" : "translating"
             Alert.alert(
                 "Input limit reached",
@@ -41,6 +51,7 @@ const TextToTranslateInput = () => {
             return
         }
 
+        hasAlertedRef.current = false
         setText(nextText, nextTextLength)
     }
 

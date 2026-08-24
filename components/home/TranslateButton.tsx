@@ -75,13 +75,13 @@ const TranslateButton = ({ pagerProgress }: TranslateButtonProps) => {
         });
         const inputLimit = getInputLimit(operation, effectiveSubscriptionStatus, isLocalModelEnabled);
 
-        if (inputLimit === null) {
-            Alert.alert("Checking subscription", "Please wait a moment and try again.");
+        if (operation === 'respell' && effectiveSubscriptionStatus === false) {
+            Alert.alert("Subscription required", "Respelling requires an active subscription.");
             return;
         }
 
-        if (operation === 'respell' && !effectiveSubscriptionStatus) {
-            Alert.alert("Subscription required", "Respelling requires an active subscription.");
+        if (inputLimit === null) {
+            Alert.alert("Checking subscription", "Please wait a moment and try again.");
             return;
         }
 

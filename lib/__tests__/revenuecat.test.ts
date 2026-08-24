@@ -1,10 +1,13 @@
 import { describe, expect, it, jest } from "@jest/globals";
 import type {
+    CustomerInfo,
     PurchasesEntitlementInfo,
     PurchasesSubscriptionInfo,
 } from "react-native-purchases";
 
 import {
+    getRevenueCatAccessExpirationAtMs,
+    getRevenueCatSubscriptionFingerprint,
     hasCurrentRevenueCatEntitlementAccess,
     hasCurrentRevenueCatProductAccess,
 } from "@/lib/revenuecat";
@@ -80,5 +83,22 @@ describe("RevenueCat entitlement access", () => {
                 5_000
             )
         ).toBe(false);
+        expect(
+            hasCurrentRevenueCatProductAccess(
+                subscription({ expiresDate: null, gracePeriodExpiresDate: null }),
+                5_000
+            )
+        ).toBe(false);
     });
+
+    it("uses the current access boundary in the customer-info fingerprint", () => {
+        const customerInfo = {
+            entitlements: { active: {} },
+            subscriptionsByProductIdentifier: {},
+        } as unknown as CustomerInfo;
+
+        expect(getRevenueCatAccessExpirationAtMs(customerInfo)).toBeNull();
+        expect(getRevenueCatSubscriptionFingerprint(customerInfo)).toBe("inactive:none");
+    });
+
 });

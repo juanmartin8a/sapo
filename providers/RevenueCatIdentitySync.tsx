@@ -1,15 +1,19 @@
 import { useEffect, useRef } from "react";
 import { useQuery } from "convex/react";
+import { AppState } from "react-native";
 import Purchases, { type CustomerInfo } from "react-native-purchases";
 
 import { api } from "@/convex/_generated/api";
 import {
-    configureRevenueCat,
+    getRevenueCatAccessExpirationAtMs,
+    getRevenueCatSubscriptionFingerprint,
     hasActiveRevenueCatSubscription,
     hasRevenueCatConfig,
     isReceiptAlreadyInUseRevenueCatError,
     isRevenueCatSupportedPlatform,
     logOutRevenueCatIdentity,
+    runRevenueCatOperationForUser,
+    setDesiredRevenueCatAppUserId,
 } from "@/lib/revenuecat";
 import { reconcileObservedSubscriptionState } from "@/lib/subscription-reconciliation";
 import { useAuthState } from "@/providers/AuthStateProvider";
@@ -17,6 +21,7 @@ import useRevenueCatOfferingStore from "@/stores/revenueCatOfferingStore";
 import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
 
 const identitySyncRetryDelaysMs = [1_000, 2_000, 4_000] as const;
+const maximumExpirationTimerDelayMs = 2_000_000_000;
 
 export default function RevenueCatIdentitySync() {
     const { status: authStatus, userId } = useAuthState();
@@ -30,9 +35,17 @@ export default function RevenueCatIdentitySync() {
     const setSubscriptionForUser = useSubscriptionStatusStore((state) => state.setForUser);
     const clearRevenueCatOffering = useRevenueCatOfferingStore((state) => state.clear);
     const loadRevenueCatOffering = useRevenueCatOfferingStore((state) => state.loadForUser);
+    const setLinkedElsewhereUser = useRevenueCatOfferingStore(
+        (state) => state.setLinkedElsewhereUser
+    );
+    const identitySyncRevision = useRevenueCatOfferingStore(
+        (state) => state.identitySyncRevision
+    );
     const receiptConflictUserIdRef = useRef<string | null>(null);
     const syncedRevenueCatUserIdRef = useRef<string | null>(null);
-    const lastRevenueCatActiveRef = useRef<boolean | null>(null);
+    const lastObservedRevenueCatFingerprintRef = useRef<string | null>(null);
+    const lastReconciledRevenueCatFingerprintRef = useRef<string | null>(null);
+    const revenueCatObservationVersionRef = useRef(0);
     const revenueCatLogoutPromiseRef = useRef<Promise<unknown> | null>(null);
 
     useEffect(() => {
@@ -58,17 +71,20 @@ export default function RevenueCatIdentitySync() {
             return;
         }
 
+        setDesiredRevenueCatAppUserId(userId);
+
         if (!userId) {
             clearRevenueCatOffering();
             const previousRevenueCatUserId = syncedRevenueCatUserIdRef.current;
 
             receiptConflictUserIdRef.current = null;
             syncedRevenueCatUserIdRef.current = null;
-            lastRevenueCatActiveRef.current = null;
+            lastObservedRevenueCatFingerprintRef.current = null;
+            lastReconciledRevenueCatFingerprintRef.current = null;
+            revenueCatObservationVersionRef.current += 1;
 
-            if (previousRevenueCatUserId) {
-                const previousLogoutPromise = revenueCatLogoutPromiseRef.current;
-                const logoutPromise = (previousLogoutPromise ?? Promise.resolve())
+            const previousLogoutPromise = revenueCatLogoutPromiseRef.current;
+            const logoutPromise = (previousLogoutPromise ?? Promise.resolve())
                     .then(() => logOutRevenueCatIdentity(previousRevenueCatUserId))
                     .catch((error) => {
                         if (__DEV__) {
@@ -80,8 +96,7 @@ export default function RevenueCatIdentitySync() {
                             revenueCatLogoutPromiseRef.current = null;
                         }
                     });
-                revenueCatLogoutPromiseRef.current = logoutPromise;
-            }
+            revenueCatLogoutPromiseRef.current = logoutPromise;
 
             return;
         }
@@ -93,6 +108,7 @@ export default function RevenueCatIdentitySync() {
 
         let isCancelled = false;
         let isCustomerInfoListenerAttached = false;
+        let expirationRefreshTimeout: ReturnType<typeof setTimeout> | null = null;
         let cancelRetryDelay: (() => void) | null = null;
 
         const waitForRetry = (delayMs: number) => new Promise<void>((resolve) => {
@@ -108,7 +124,37 @@ export default function RevenueCatIdentitySync() {
             };
         });
 
-        const reconcileCustomerInfo = async (customerInfo: CustomerInfo, isStartup = false) => {
+        const clearExpirationRefresh = () => {
+            if (expirationRefreshTimeout !== null) {
+                clearTimeout(expirationRefreshTimeout);
+                expirationRefreshTimeout = null;
+            }
+        };
+
+        const scheduleExpirationRefresh = (customerInfo: CustomerInfo) => {
+            clearExpirationRefresh();
+            const expirationAtMs = getRevenueCatAccessExpirationAtMs(customerInfo);
+
+            if (expirationAtMs === null) {
+                return;
+            }
+
+            const remainingMs = expirationAtMs - Date.now();
+            const delayMs = Math.min(
+                Math.max(remainingMs + 250, 0),
+                maximumExpirationTimerDelayMs
+            );
+            expirationRefreshTimeout = setTimeout(() => {
+                expirationRefreshTimeout = null;
+                void refreshCustomerInfo(customerInfo).catch((error) => {
+                    if (__DEV__) {
+                        console.warn("RevenueCat expiration refresh failed", error);
+                    }
+                });
+            }, delayMs);
+        };
+
+        const reconcileCustomerInfo = async (customerInfo: CustomerInfo, force = false) => {
             if (isCancelled || receiptConflictUserIdRef.current === userId) {
                 return;
             }
@@ -119,14 +165,67 @@ export default function RevenueCatIdentitySync() {
             }
 
             const observedActive = hasActiveRevenueCatSubscription(customerInfo);
-            if (!isStartup && lastRevenueCatActiveRef.current === observedActive) {
+            const fingerprint = getRevenueCatSubscriptionFingerprint(customerInfo);
+            const isNewObservation =
+                lastObservedRevenueCatFingerprintRef.current !== fingerprint;
+
+            if (isNewObservation) {
+                lastObservedRevenueCatFingerprintRef.current = fingerprint;
+                revenueCatObservationVersionRef.current += 1;
+            }
+
+            const observationVersion = revenueCatObservationVersionRef.current;
+            scheduleExpirationRefresh(customerInfo);
+
+            if (isNewObservation && !observedActive) {
+                setSubscriptionForUser(userId, "inactive");
+            }
+
+            if (
+                !force &&
+                !isNewObservation &&
+                lastReconciledRevenueCatFingerprintRef.current === fingerprint
+            ) {
                 return;
             }
 
-            await reconcileObservedSubscriptionState({ userId, observedActive });
+            const result = await reconcileObservedSubscriptionState({ userId, observedActive });
 
-            if (!isCancelled) {
-                lastRevenueCatActiveRef.current = observedActive;
+            if (
+                !isCancelled &&
+                revenueCatObservationVersionRef.current === observationVersion
+            ) {
+                lastReconciledRevenueCatFingerprintRef.current = fingerprint;
+
+                if (result.status !== "reconciling") {
+                    setSubscriptionForUser(userId, result.status);
+                }
+            }
+        };
+
+        const refreshCustomerInfo = async (fallbackCustomerInfo?: CustomerInfo) => {
+            let customerInfo: CustomerInfo | null;
+
+            try {
+                customerInfo = await runRevenueCatOperationForUser(
+                    userId,
+                    async () => {
+                        await Purchases.invalidateCustomerInfoCache();
+                        return Purchases.getCustomerInfo();
+                    },
+                    () => !isCancelled
+                );
+            } catch (error) {
+                if (fallbackCustomerInfo && !isCancelled) {
+                    await reconcileCustomerInfo(fallbackCustomerInfo, true);
+                    return;
+                }
+
+                throw error;
+            }
+
+            if (customerInfo) {
+                await reconcileCustomerInfo(customerInfo);
             }
         };
 
@@ -143,40 +242,60 @@ export default function RevenueCatIdentitySync() {
 
             for (let attempt = 0; !isCancelled; attempt += 1) {
                 try {
-                    const isConfigured = await configureRevenueCat(userId);
-                    if (!isConfigured || isCancelled) return;
+                    const customerInfo = await runRevenueCatOperationForUser(
+                        userId,
+                        (currentCustomerInfo) => currentCustomerInfo,
+                        () => !isCancelled
+                    );
 
-                    const currentAppUserId = await Purchases.getAppUserID();
-                    const customerInfo = currentAppUserId === userId
-                        ? await Purchases.getCustomerInfo()
-                        : (await Purchases.logIn(userId)).customerInfo;
-                    const confirmedAppUserId = await Purchases.getAppUserID();
-
-                    if (isCancelled || confirmedAppUserId !== userId) {
+                    if (!customerInfo || isCancelled) {
                         return;
                     }
 
                     receiptConflictUserIdRef.current = null;
+                    setLinkedElsewhereUser(null);
                     syncedRevenueCatUserIdRef.current = userId;
-                    lastRevenueCatActiveRef.current = null;
+                    lastObservedRevenueCatFingerprintRef.current = null;
+                    lastReconciledRevenueCatFingerprintRef.current = null;
+                    revenueCatObservationVersionRef.current += 1;
 
                     void loadRevenueCatOffering(userId);
 
                     Purchases.addCustomerInfoUpdateListener(handleCustomerInfoUpdate);
                     isCustomerInfoListenerAttached = true;
 
+                    const appStateSubscription = AppState.addEventListener("change", (nextState) => {
+                        if (nextState === "active") {
+                            void refreshCustomerInfo().catch((error) => {
+                                if (__DEV__) {
+                                    console.warn("RevenueCat foreground refresh failed", error);
+                                }
+                            });
+                        }
+                    });
+
                     void reconcileCustomerInfo(customerInfo, true).catch((error) => {
                         if (__DEV__) {
                             console.warn("RevenueCat subscription reconciliation failed", error);
                         }
                     });
+
+                    if (isCancelled) {
+                        appStateSubscription.remove();
+                    } else {
+                        removeAppStateListener = () => appStateSubscription.remove();
+                    }
                     return;
                 } catch (error) {
                     if (isCancelled) return;
 
                     if (isReceiptAlreadyInUseRevenueCatError(error)) {
                         receiptConflictUserIdRef.current = userId;
-                        lastRevenueCatActiveRef.current = false;
+                        setLinkedElsewhereUser(userId);
+                        lastObservedRevenueCatFingerprintRef.current = "inactive:none";
+                        lastReconciledRevenueCatFingerprintRef.current = null;
+                        revenueCatObservationVersionRef.current += 1;
+                        void loadRevenueCatOffering(userId);
                         return;
                     }
 
@@ -193,17 +312,29 @@ export default function RevenueCatIdentitySync() {
             }
         };
 
+        let removeAppStateListener: (() => void) | null = null;
+
         void syncRevenueCatIdentity();
 
         return () => {
             isCancelled = true;
             cancelRetryDelay?.();
+            clearExpirationRefresh();
+            removeAppStateListener?.();
 
             if (isCustomerInfoListenerAttached) {
                 Purchases.removeCustomerInfoUpdateListener(handleCustomerInfoUpdate);
             }
         };
-    }, [authStatus, clearRevenueCatOffering, loadRevenueCatOffering, userId]);
+    }, [
+        authStatus,
+        clearRevenueCatOffering,
+        identitySyncRevision,
+        loadRevenueCatOffering,
+        setLinkedElsewhereUser,
+        setSubscriptionForUser,
+        userId,
+    ]);
 
     return null;
 }

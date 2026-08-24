@@ -18,7 +18,7 @@ export const getInputLimit = (
     if (!hasActiveSubscription) {
         return operation === "translate"
             ? SUBSCRIPTION_PLAN_LIMITS.free.translate_input_char_limit
-            : SUBSCRIPTION_PLAN_LIMITS.free.respell_input_char_limit;
+            : null;
     }
 
     return operation === "respell"

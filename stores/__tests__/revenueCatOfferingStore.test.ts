@@ -36,9 +36,31 @@ describe("RevenueCat offering store", () => {
         expect(mockGetRevenueCatSubscriptionOffering).toHaveBeenCalledTimes(1);
         expect(useRevenueCatOfferingStore.getState()).toMatchObject({
             userId: "user-a",
+            linkedElsewhereUserId: null,
             status: "ready",
             subscriptionPackage,
         });
+    });
+
+    it("tracks receipt conflicts for the affected user only", async () => {
+        const store = useRevenueCatOfferingStore.getState();
+
+        store.setLinkedElsewhereUser("user-a");
+        expect(useRevenueCatOfferingStore.getState().linkedElsewhereUserId).toBe("user-a");
+
+        const identitySyncRevision = useRevenueCatOfferingStore.getState().identitySyncRevision;
+        store.setLinkedElsewhereUser(null);
+        expect(useRevenueCatOfferingStore.getState().identitySyncRevision).toBe(
+            identitySyncRevision + 1
+        );
+        store.setLinkedElsewhereUser("user-a");
+
+        mockGetRevenueCatSubscriptionOffering.mockResolvedValue({
+            subscriptionPackage,
+            subscriptionProduct: null,
+        });
+        await store.loadForUser("user-b");
+        expect(useRevenueCatOfferingStore.getState().linkedElsewhereUserId).toBeNull();
     });
 
     it("keeps the loaded plan visible while refreshing", async () => {

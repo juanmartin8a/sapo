@@ -18,12 +18,12 @@ import {
     triggerWarningHaptic,
 } from "@/lib/haptics";
 import {
-    configureRevenueCat,
     hasActiveRevenueCatSubscription,
     hasRevenueCatConfig,
     isReceiptAlreadyInUseRevenueCatError,
     isRevenueCatSupportedPlatform,
     openRevenueCatManagementUrl,
+    runRevenueCatOperationForUser,
 } from "@/lib/revenuecat";
 import {
     isSubscriptionReconciliationAuthMismatch,
@@ -31,6 +31,7 @@ import {
     reconcileObservedSubscriptionState,
 } from "@/lib/subscription-reconciliation";
 import { useAuthState } from "@/providers/AuthStateProvider";
+import useRevenueCatOfferingStore from "@/stores/revenueCatOfferingStore";
 import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
 
 const RESTORE_PURCHASES_ERROR_MESSAGE = "Unable to restore purchases. Please try again.";
@@ -45,12 +46,20 @@ export default function useSettingsActions() {
     const [restoringUserId, setRestoringUserId] = useState<string | null>(null);
     const [isManagingSubscription, setIsManagingSubscription] = useState(false);
     const activeRestoreRef = useRef<symbol | null>(null);
+    const setLinkedElsewhereUser = useRevenueCatOfferingStore(
+        (state) => state.setLinkedElsewhereUser
+    );
+    const currentUserIdRef = useRef(userId);
     const isRestoringPurchases = Boolean(userId && restoringUserId === userId);
     const isPending = authStatus === "checking";
     const isAuthenticatedUser = authStatus === "authenticated";
     const canUseRevenueCat = hasRevenueCatConfig();
     const storeAccountLabel = getStoreAccountLabel(Platform.OS);
     const shouldShowAuthenticatedActions = isAuthenticatedUser || isSigningOut;
+
+    useEffect(() => {
+        currentUserIdRef.current = userId;
+    }, [userId]);
 
     useEffect(() => {
         return () => {
@@ -106,35 +115,18 @@ export default function useSettingsActions() {
         activeRestoreRef.current = restoreOperation;
         const isCurrentRestore = () =>
             activeRestoreRef.current === restoreOperation &&
+            currentUserIdRef.current === userId &&
             useSubscriptionStatusStore.getState().userId === userId;
 
         try {
             setRestoringUserId(userId);
-            await configureRevenueCat(userId);
-            if (!isCurrentRestore()) return;
-
-            const currentAppUserId = await Purchases.getAppUserID();
-            if (!isCurrentRestore()) return;
-
-            if (currentAppUserId !== userId) {
-                await Purchases.logIn(userId);
-                if (!isCurrentRestore()) return;
-            }
-
-            const customerInfo = await Purchases.restorePurchases();
-            if (!isCurrentRestore()) return;
-
-            const confirmedAppUserId = await Purchases.getAppUserID();
-            if (!isCurrentRestore()) return;
-
-            if (confirmedAppUserId !== userId) {
-                triggerWarningHaptic();
-                Alert.alert(
-                    SUBSCRIPTION_SESSION_CHANGED_ALERT_TITLE,
-                    RESTORE_SESSION_CHANGED_MESSAGE
-                );
-                return;
-            }
+            const customerInfo = await runRevenueCatOperationForUser(
+                userId,
+                () => Purchases.restorePurchases(),
+                isCurrentRestore
+            );
+            if (!customerInfo || !isCurrentRestore()) return;
+            setLinkedElsewhereUser(null);
 
             const hasActiveClientSubscription = hasActiveRevenueCatSubscription(customerInfo);
             let reconciliationStatus: Awaited<
@@ -229,6 +221,7 @@ export default function useSettingsActions() {
                     return;
                 }
 
+                setLinkedElsewhereUser(userId);
                 triggerWarningHaptic();
                 Alert.alert(
                     SUBSCRIPTION_LINKED_ELSEWHERE_ALERT_TITLE,
@@ -254,6 +247,7 @@ export default function useSettingsActions() {
         isPending,
         isRestoringPurchases,
         isSigningOut,
+        setLinkedElsewhereUser,
         storeAccountLabel,
         userId,
     ]);
@@ -272,7 +266,15 @@ export default function useSettingsActions() {
 
         try {
             setIsManagingSubscription(true);
-            const didOpenManagement = await openRevenueCatManagementUrl(userId);
+            const isCurrentManagement = () => currentUserIdRef.current === userId;
+            const didOpenManagement = await openRevenueCatManagementUrl(
+                userId,
+                isCurrentManagement
+            );
+
+            if (!isCurrentManagement()) {
+                return;
+            }
 
             if (!didOpenManagement) {
                 Alert.alert(

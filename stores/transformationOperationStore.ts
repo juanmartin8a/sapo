@@ -8,7 +8,7 @@ interface TransformationOperationStoreProps {
 }
 
 const useTransformationOperationStore = create<TransformationOperationStoreProps>((set) => ({
-    operation: 'respell',
+    operation: 'translate',
     setOperation: (operation: TransformationOperation) => {
         set({ operation });
     },

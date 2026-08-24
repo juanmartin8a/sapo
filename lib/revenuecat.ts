@@ -67,7 +67,7 @@ export const hasCurrentRevenueCatProductAccess = (
         .map((value) => Date.parse(value))
         .filter(Number.isFinite);
 
-    return accessExpirationDates.length === 0 || nowMs < Math.max(...accessExpirationDates);
+    return accessExpirationDates.length > 0 && nowMs < Math.max(...accessExpirationDates);
 };
 
 export const hasActiveRevenueCatSubscription = (customerInfo: CustomerInfo) => {
@@ -88,6 +88,37 @@ export const hasActiveRevenueCatSubscription = (customerInfo: CustomerInfo) => {
     return false;
 };
 
+export const getRevenueCatAccessExpirationAtMs = (customerInfo: CustomerInfo) => {
+    if (revenueCatEntitlementId.length > 0) {
+        const entitlement = customerInfo.entitlements.active[revenueCatEntitlementId];
+        return hasCurrentRevenueCatEntitlementAccess(entitlement)
+            ? entitlement.expirationDateMillis
+            : null;
+    }
+
+    const configuredProductId = getRevenueCatSubscriptionProductId();
+    const subscription = configuredProductId.length > 0
+        ? customerInfo.subscriptionsByProductIdentifier[configuredProductId]
+        : undefined;
+
+    if (!hasCurrentRevenueCatProductAccess(subscription)) {
+        return null;
+    }
+
+    const accessExpirationDates = [subscription?.expiresDate, subscription?.gracePeriodExpiresDate]
+        .filter((value): value is string => typeof value === "string")
+        .map((value) => Date.parse(value))
+        .filter(Number.isFinite);
+
+    return accessExpirationDates.length > 0 ? Math.max(...accessExpirationDates) : null;
+};
+
+export const getRevenueCatSubscriptionFingerprint = (customerInfo: CustomerInfo) => {
+    const isActive = hasActiveRevenueCatSubscription(customerInfo);
+    const expirationAtMs = isActive ? getRevenueCatAccessExpirationAtMs(customerInfo) : null;
+    return `${isActive ? "active" : "inactive"}:${expirationAtMs ?? "none"}`;
+};
+
 export const isReceiptAlreadyInUseRevenueCatError = (error: unknown) => {
     if (!error || typeof error !== "object") {
         return false;
@@ -104,6 +135,21 @@ export const isReceiptAlreadyInUseRevenueCatError = (error: unknown) => {
 };
 
 let configurePromise: Promise<boolean> | null = null;
+let desiredRevenueCatAppUserId: string | null = null;
+let revenueCatIdentityQueue: Promise<void> = Promise.resolve();
+
+export const setDesiredRevenueCatAppUserId = (appUserId: string | null) => {
+    desiredRevenueCatAppUserId = appUserId;
+};
+
+const serializeRevenueCatIdentityOperation = <Result,>(operation: () => Promise<Result>) => {
+    const result = revenueCatIdentityQueue.then(operation, operation);
+    revenueCatIdentityQueue = result.then(
+        () => undefined,
+        () => undefined
+    );
+    return result;
+};
 
 export const configureRevenueCat = async (appUserId: string | null): Promise<boolean> => {
     if (!hasRevenueCatConfig()) {
@@ -143,21 +189,65 @@ export const configureRevenueCat = async (appUserId: string | null): Promise<boo
     return configurePromise;
 };
 
-export const getRevenueCatCustomerInfo = async (appUserId: string): Promise<CustomerInfo | null> => {
+export const runRevenueCatOperationForUser = <Result,>(
+    appUserId: string,
+    operation: (customerInfo: CustomerInfo) => Promise<Result> | Result,
+    shouldContinue: () => boolean = () => true
+): Promise<Result | null> => serializeRevenueCatIdentityOperation(async () => {
+    if (desiredRevenueCatAppUserId !== appUserId || !shouldContinue()) {
+        return null;
+    }
+
     const isConfigured = await configureRevenueCat(appUserId);
 
-    if (!isConfigured) {
+    if (
+        !isConfigured ||
+        desiredRevenueCatAppUserId !== appUserId ||
+        !shouldContinue()
+    ) {
         return null;
     }
 
     const currentAppUserId = await Purchases.getAppUserID();
-
-    if (currentAppUserId !== appUserId) {
-        return (await Purchases.logIn(appUserId)).customerInfo;
+    if (desiredRevenueCatAppUserId !== appUserId || !shouldContinue()) {
+        return null;
     }
 
-    return Purchases.getCustomerInfo();
-};
+    const customerInfo = currentAppUserId === appUserId
+        ? await Purchases.getCustomerInfo()
+        : (await Purchases.logIn(appUserId)).customerInfo;
+    const confirmedAppUserId = await Purchases.getAppUserID();
+
+    if (
+        desiredRevenueCatAppUserId !== appUserId ||
+        confirmedAppUserId !== appUserId ||
+        !shouldContinue()
+    ) {
+        return null;
+    }
+
+    const result = await operation(customerInfo);
+    const finalAppUserId = await Purchases.getAppUserID();
+
+    if (
+        desiredRevenueCatAppUserId !== appUserId ||
+        finalAppUserId !== appUserId ||
+        !shouldContinue()
+    ) {
+        return null;
+    }
+
+    return result;
+});
+
+export const getRevenueCatCustomerInfo = (
+    appUserId: string,
+    shouldContinue?: () => boolean
+): Promise<CustomerInfo | null> => runRevenueCatOperationForUser(
+    appUserId,
+    (customerInfo) => customerInfo,
+    shouldContinue
+);
 
 export interface RevenueCatSubscriptionOffering {
     subscriptionPackage: PurchasesPackage | null;
@@ -201,10 +291,14 @@ export const getRevenueCatSubscriptionOffering = async (): Promise<RevenueCatSub
     return { subscriptionPackage, subscriptionProduct };
 };
 
-export const logOutRevenueCatIdentity = async (expectedAppUserId?: string | null) => {
+export const logOutRevenueCatIdentity = (
+    expectedAppUserId?: string | null
+): Promise<boolean> => serializeRevenueCatIdentityOperation(async () => {
     if (!hasRevenueCatConfig()) {
         return false;
     }
+
+    await configureRevenueCat(null);
 
     if (configurePromise) {
         try {
@@ -226,23 +320,29 @@ export const logOutRevenueCatIdentity = async (expectedAppUserId?: string | null
         return false;
     }
 
-    if (!expectedAppUserId) {
-        return false;
+    if (!expectedAppUserId && (await Purchases.isAnonymous())) {
+        return true;
     }
 
     await Purchases.logOut();
     return true;
-};
+});
 
-const getRevenueCatManagementUrl = async (appUserId: string) => {
-    const customerInfo = await getRevenueCatCustomerInfo(appUserId);
+const getRevenueCatManagementUrl = async (
+    appUserId: string,
+    shouldContinue: () => boolean
+) => {
+    const customerInfo = await getRevenueCatCustomerInfo(appUserId, shouldContinue);
     return customerInfo?.managementURL ?? null;
 };
 
-export const openRevenueCatManagementUrl = async (appUserId: string) => {
-    const managementUrl = await getRevenueCatManagementUrl(appUserId);
+export const openRevenueCatManagementUrl = async (
+    appUserId: string,
+    shouldOpen: () => boolean = () => true
+) => {
+    const managementUrl = await getRevenueCatManagementUrl(appUserId, shouldOpen);
 
-    if (!managementUrl) {
+    if (!managementUrl || !shouldOpen()) {
         return false;
     }
 
