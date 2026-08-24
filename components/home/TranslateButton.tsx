@@ -16,11 +16,16 @@ import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
 import { triggerErrorHaptic, triggerMediumImpactHaptic } from "@/lib/haptics";
 import { getCharacterCount, getInputLimit } from "@/utils/inputLimits";
 import { getEffectiveSubscriptionStatus } from "@/utils/subscription";
+import Animated, { type SharedValue, useAnimatedStyle } from "react-native-reanimated";
 
-const TranslateButton = () => {
+type TranslateButtonProps = {
+    pagerProgress: SharedValue<number>;
+};
+
+const TranslateButton = ({ pagerProgress }: TranslateButtonProps) => {
     const translateButtonState = useTranslateButtonStore((state) => state.state)
     const lastInput = useTranslationStore((state) => state.lastInput)
-    const text = useTranslationInputStore((state) => state.text)
+    const hasText = useTranslationInputStore((state) => state.hasText)
     const { status: authStatus, userId } = useAuthState()
     const isAuthPending = authStatus === 'checking'
     const isAuthenticatedUser = authStatus === 'authenticated'
@@ -28,16 +33,18 @@ const TranslateButton = () => {
     const hasActiveSubscription = useSubscriptionStatusStore((state) => state.hasActiveSubscription)
 
     const goToPage = usePagerStore((state) => state.goToPage)
-    const offset = usePagerStore((state) => state.offset)
     const operation = useTransformationOperationStore((state) => state.operation)
     const isLocalModelEnabled = useLocalModelStore((state) => state.isEnabled)
 
     const sendMessage = useTranslationStore((state) => state.sendMessage)
     const stopStream = useTranslationStore((state) => state.stopStream)
     const repeatLastTranslation = useTranslationStore((state) => state.repeatLastTranslation)
-
-    const arrowOpacity = 1 - offset;
-    const loadingOpacity = offset;
+    const arrowAnimatedStyle = useAnimatedStyle(() => ({
+        opacity: 1 - pagerProgress.get(),
+    }));
+    const repeatAnimatedStyle = useAnimatedStyle(() => ({
+        opacity: pagerProgress.get(),
+    }));
 
     const next = useCallback(() => {
         if (translateButtonState === 'loading') {
@@ -50,10 +57,11 @@ const TranslateButton = () => {
             return;
         }
 
-        if (translateButtonState !== 'repeat' && text.trim().length === 0) {
+        if (translateButtonState !== 'repeat' && !hasText) {
             return;
         }
 
+        const text = useTranslationInputStore.getState().text;
         const input = translateButtonState === 'repeat' ? lastInput : text;
         if (!input) {
             return;
@@ -109,30 +117,30 @@ const TranslateButton = () => {
         }
 
         goToPage(1);
-    }, [authStatus, goToPage, hasActiveSubscription, isAuthPending, isAuthenticatedUser, isLocalModelEnabled, lastInput, operation, repeatLastTranslation, sendMessage, stopStream, subscriptionUserId, text, translateButtonState, userId]);
+    }, [authStatus, goToPage, hasActiveSubscription, hasText, isAuthPending, isAuthenticatedUser, isLocalModelEnabled, lastInput, operation, repeatLastTranslation, sendMessage, stopStream, subscriptionUserId, translateButtonState, userId]);
 
 
     return (
         <Pressable
             onPress={next}
             disabled={
-                (translateButtonState === 'next' && text.trim().length === 0) ||
+                (translateButtonState === 'next' && !hasText) ||
                 (translateButtonState === 'repeat' && lastInput === null)
             }
         >
             <View style={{ padding: 6 }}>
-                {(translateButtonState === 'next' || translateButtonState === 'repeat') &&
+                {(translateButtonState === 'next' || translateButtonState === 'repeat') && (
                     <View style={{ position: 'relative', width: 32, height: 32 }}>
-                        <View style={{ position: 'absolute', opacity: arrowOpacity }}>
-                            <ArrowRightIcon style={{ opacity: text !== "" ? 1.0 : 0.35 }} width={32} height={32} stroke="black" />
-                        </View>
-                        {(lastInput !== null) &&
-                            <View style={{ position: 'absolute', opacity: loadingOpacity }}>
+                        <Animated.View style={[{ position: 'absolute' }, arrowAnimatedStyle]}>
+                            <ArrowRightIcon style={{ opacity: hasText ? 1.0 : 0.35 }} width={32} height={32} stroke="black" />
+                        </Animated.View>
+                        {lastInput !== null && (
+                            <Animated.View style={[{ position: 'absolute' }, repeatAnimatedStyle]}>
                                 <RepeatIcon width={32} height={32} stroke="black" />
-                            </View>
-                        }
+                            </Animated.View>
+                        )}
                     </View>
-                }
+                )}
                 {translateButtonState === 'loading' && <MoreHorizontalIcon width={24} height={24} stroke="black" />}
                 {translateButtonState === 'stop' && <SquareIcon width={18} height={18} stroke="black" fill="black" />}
             </View>

@@ -1,5 +1,6 @@
 import React, { Children, useCallback, useImperativeHandle, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
+import type { SharedValue } from "react-native-reanimated";
 
 import ArrowLeftIcon from "@/assets/icons/arrow-left.svg";
 
@@ -19,12 +20,12 @@ type HomePagerProps = {
     style?: StyleProp<ViewStyle>;
     initialPage?: number;
     onPageScrollStateChanged?: (event: PagerEvent<{ pageScrollState: PageScrollState }>) => void;
-    onPageScroll?: (event: PagerEvent<{ offset: number }>) => void;
     onPageSelected?: (event: PagerEvent<{ position: number }>) => void;
     scrollEnabled?: boolean;
     overScrollMode?: "auto" | "always" | "never";
     keyboardDismissMode?: "none" | "on-drag";
     orientation?: "horizontal" | "vertical";
+    progress: SharedValue<number>;
 };
 
 export default function HomePager({
@@ -33,8 +34,8 @@ export default function HomePager({
     style,
     initialPage = 0,
     onPageScrollStateChanged,
-    onPageScroll,
     onPageSelected,
+    progress,
 }: HomePagerProps) {
     const [selectedPage, setSelectedPage] = useState(initialPage);
     const selectedPageRef = useRef(initialPage);
@@ -49,10 +50,10 @@ export default function HomePager({
 
         selectedPageRef.current = nextPage;
         setSelectedPage(nextPage);
-        onPageScroll?.({ nativeEvent: { offset: 0 } });
+        progress.set(nextPage);
         onPageSelected?.({ nativeEvent: { position: nextPage } });
         onPageScrollStateChanged?.({ nativeEvent: { pageScrollState: "idle" } });
-    }, [onPageScroll, onPageScrollStateChanged, onPageSelected, pages.length]);
+    }, [onPageScrollStateChanged, onPageSelected, pages.length, progress]);
 
     useImperativeHandle(ref, () => ({ setPage: selectPage }), [selectPage]);
 

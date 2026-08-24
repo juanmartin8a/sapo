@@ -4,7 +4,6 @@ import useTranslateButtonStore from "@/stores/translateButtonStore"
 interface PagerStoreState {
     // Page index position. This is the source of truth
     pos: number
-    offset: number
 
     // Just needed to know where to change the pager's page/pos to in order to later animate to its value.
     // onPageSelected will then be triggered and `pos` will be updated.
@@ -12,13 +11,11 @@ interface PagerStoreState {
 
 
     setPos: (pos: number) => void
-    setOffset: (offset: number) => void
     goToPage: (pos: number) => void
 }
 
 const usePagerStore = create<PagerStoreState>((set, get) => ({
     pos: 0,
-    offset: 0,
     newPos: 0,
     setPos: (pos: number) => {
         if (get().pos !== pos) {
@@ -34,12 +31,7 @@ const usePagerStore = create<PagerStoreState>((set, get) => ({
                 }
 
             }
-            set({ pos: pos, offset: pos, newPos: pos })
-        }
-    },
-    setOffset: (offset: number) => {
-        if (offset > 0 && offset < 1) {
-            set({ offset: offset })
+            set({ pos: pos, newPos: pos })
         }
     },
     goToPage: (pos: number) => {

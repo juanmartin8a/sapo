@@ -13,6 +13,7 @@ import { getEffectiveSubscriptionStatus } from "@/utils/subscription";
 const TextToTranslateInput = () => {
     const insets = useSafeAreaInsets();
     const text = useTranslationInputStore((state) => state.text)
+    const textLength = useTranslationInputStore((state) => state.characterCount)
     const setText = useTranslationInputStore((state) => state.setText)
     const operation = useTransformationOperationStore((state) => state.operation)
     const subscriptionUserId = useSubscriptionStatusStore((state) => state.userId)
@@ -27,10 +28,11 @@ const TextToTranslateInput = () => {
     })
     const hasAlertedRef = useRef(false)
     const inputLimit = getInputLimit(operation, effectiveSubscriptionStatus, isLocalModelEnabled)
-    const textLength = getCharacterCount(text)
     const isLimitExceeded = inputLimit !== null && textLength > inputLimit
     const handleTextChange = (nextText: string) => {
-        if (inputLimit !== null && getCharacterCount(nextText) > inputLimit) {
+        const nextTextLength = getCharacterCount(nextText)
+
+        if (inputLimit !== null && nextTextLength > inputLimit) {
             const operationLabel = operation === "respell" ? "respelling" : "translating"
             Alert.alert(
                 "Input limit reached",
@@ -39,7 +41,7 @@ const TextToTranslateInput = () => {
             return
         }
 
-        setText(nextText)
+        setText(nextText, nextTextLength)
     }
 
     useEffect(() => {

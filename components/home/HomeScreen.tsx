@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/immutability -- Reanimated shared values are intentionally mutated in worklets. */
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
-import { StyleSheet, View, Keyboard, Text, TouchableWithoutFeedback, StatusBar } from "react-native";
+import { Platform, StyleSheet, View, Keyboard, Text, TouchableWithoutFeedback, StatusBar, useWindowDimensions } from "react-native";
 import { GestureHandlerRootView, GestureDetector, Gesture } from "react-native-gesture-handler";
 import Animated, {
     cancelAnimation,
@@ -12,7 +12,7 @@ import Animated, {
     Easing,
 } from 'react-native-reanimated';
 import { runOnJS } from 'react-native-worklets';
-import Sidebar, { SIDEBAR_WIDTH } from "@/components/sidebar/Sidebar";
+import Sidebar from "@/components/sidebar/Sidebar";
 import Translate from "@/components/home/Translate";
 import useSidebarStore from "@/stores/sidebarStore";
 import useTransformationOperationStore from "@/stores/transformationOperationStore";
@@ -29,7 +29,10 @@ import { triggerLightImpactHaptic } from "@/lib/haptics";
 import HomePager, { type HomePagerHandle } from "@/components/home/HomePager";
 
 export default function HomeScreen() {
+    const { width: windowWidth } = useWindowDimensions();
+    const sidebarWidth = windowWidth * 0.7;
     const pagerRef = useRef<HomePagerHandle>(null);
+    const pagerProgress = useSharedValue(0);
     const sideBarTranslationX = useSharedValue(0);
     const isAnimating = useSharedValue(false);
     const animationTargetX = useSharedValue(0);
@@ -42,12 +45,13 @@ export default function HomeScreen() {
 
     const pos = useRef<number>(0);
     const sidebarPressCompletedRef = useRef(false);
+    const sidebarPressFrameRef = useRef<number | null>(null);
 
     const [isSidebarOverlayMounted, setIsSidebarOverlayMounted] = useState(false);
     const pagerNativeGesture = useMemo(() => Gesture.Native(), []);
 
+    const isSidebarOpen = useSidebarStore(state => state.isOpen);
     const isSidebarOpenOrClosed = useSidebarStore(state => state.isSidebarOpenOrClosed);
-    const setOffset = usePagerStore(state => state.setOffset);
     const setPos = usePagerStore(state => state.setPos);
 
     const operation = useTransformationOperationStore((state) => state.operation);
@@ -84,7 +88,10 @@ export default function HomeScreen() {
     const animateToTarget = useCallback((target: number, releaseVelocityX?: number) => {
         'worklet';
         if (sideBarTranslationX.value === target) {
+            isAnimating.value = false;
+            animationTargetX.value = target;
             overlayCloseTapLocked.value = false;
+            runOnJS(setSidebarStateJS)(target === sidebarWidth);
             return
         }
 
@@ -95,7 +102,7 @@ export default function HomeScreen() {
             if (!isFinished) return
             isAnimating.value = false;
 
-            const isOpen = target === SIDEBAR_WIDTH
+            const isOpen = target === sidebarWidth
             runOnJS(setSidebarStateJS)(isOpen)
             overlayCloseTapLocked.value = false;
         };
@@ -120,23 +127,28 @@ export default function HomeScreen() {
             },
             onAnimationFinished
         );
-    }, [animationTargetX, isAnimating, overlayCloseTapLocked, setSidebarStateJS, sideBarTranslationX]);
+    }, [animationTargetX, isAnimating, overlayCloseTapLocked, setSidebarStateJS, sideBarTranslationX, sidebarWidth]);
 
     const openSidebar = useCallback(() => {
         if (isAnimating.value) return;
         sidebarPressCompletedRef.current = true;
         triggerSidebarHapticJS();
         Keyboard.dismiss();
-        animateToTarget(SIDEBAR_WIDTH)
-    }, [animateToTarget, isAnimating, triggerSidebarHapticJS]);
+        animateToTarget(sidebarWidth)
+    }, [animateToTarget, isAnimating, sidebarWidth, triggerSidebarHapticJS]);
 
     const handleSidebarPressIn = useCallback(() => {
+        if (sidebarPressFrameRef.current !== null) {
+            cancelAnimationFrame(sidebarPressFrameRef.current);
+            sidebarPressFrameRef.current = null;
+        }
         sidebarPressCompletedRef.current = false;
         setSidebarOverlayMountedJS(true);
     }, [setSidebarOverlayMountedJS]);
 
     const handleSidebarPressOut = useCallback(() => {
-        requestAnimationFrame(() => {
+        sidebarPressFrameRef.current = requestAnimationFrame(() => {
+            sidebarPressFrameRef.current = null;
             if (sidebarPressCompletedRef.current || isAnimating.value || sideBarTranslationX.value > 0) return;
 
             setSidebarOverlayMountedJS(false);
@@ -144,13 +156,18 @@ export default function HomeScreen() {
     }, [isAnimating, setSidebarOverlayMountedJS, sideBarTranslationX]);
 
     const panGesture = useMemo(() => {
+        const gesture = Gesture.Pan()
+            .activeOffsetX([-8, 8])
+            .failOffsetY([-12, 12]);
 
-        return Gesture.Pan()
-            .simultaneousWithExternalGesture(pagerNativeGesture)
-            .requireExternalGestureToFail(pagerNativeGesture)
+        if (Platform.OS !== "web") {
+            gesture.requireExternalGestureToFail(pagerNativeGesture);
+        }
+
+        return gesture
             .onBegin(() => {
                 gestureStartX.value = sideBarTranslationX.value;
-                gestureStartIsOpen.value = sideBarTranslationX.value >= SIDEBAR_WIDTH / 2;
+                gestureStartIsOpen.value = sideBarTranslationX.value >= sidebarWidth / 2;
                 gestureAnimationTargetX.value = animationTargetX.value;
                 gesturePreviousTranslationX.value = 0;
                 hasCapturedSidebarGesture.value = !isAnimating.value;
@@ -160,7 +177,7 @@ export default function HomeScreen() {
                 gesturePreviousTranslationX.value = event.translationX;
 
                 if (!hasCapturedSidebarGesture.value) {
-                    const isDraggingAgainstAnimation = gestureAnimationTargetX.value === SIDEBAR_WIDTH
+                    const isDraggingAgainstAnimation = gestureAnimationTargetX.value === sidebarWidth
                         ? dragDeltaX < 0
                         : dragDeltaX > 0;
 
@@ -177,7 +194,7 @@ export default function HomeScreen() {
 
                 const proposedPosition = gestureStartX.value + event.translationX;
 
-                const clamped = Math.max(0, Math.min(SIDEBAR_WIDTH, proposedPosition))
+                const clamped = Math.max(0, Math.min(sidebarWidth, proposedPosition))
 
                 sideBarTranslationX.value = clamped;
             })
@@ -188,7 +205,7 @@ export default function HomeScreen() {
                 const currentX = sideBarTranslationX.value;
                 const flingVelocity = 400;
 
-                let shouldOpen = currentX > SIDEBAR_WIDTH / 2;
+                let shouldOpen = currentX > sidebarWidth / 2;
 
                 if (event.velocityX > flingVelocity) {
                     shouldOpen = true;
@@ -201,12 +218,17 @@ export default function HomeScreen() {
                 if (didSidebarStateChange) {
                     runOnJS(triggerSidebarHapticJS)();
                 }
-                animateToTarget(shouldOpen ? SIDEBAR_WIDTH : 0, event.velocityX);
+                animateToTarget(shouldOpen ? sidebarWidth : 0, event.velocityX);
             })
-            .onFinalize(() => {
+            .onFinalize((_event, successful) => {
+                const shouldSettle = hasCapturedSidebarGesture.value && !successful && !isAnimating.value;
                 hasCapturedSidebarGesture.value = false;
+
+                if (shouldSettle) {
+                    animateToTarget(gestureStartIsOpen.value ? sidebarWidth : 0);
+                }
             });
-    }, [animateToTarget, animationTargetX, gestureAnimationTargetX, gesturePreviousTranslationX, gestureStartIsOpen, gestureStartX, hasCapturedSidebarGesture, isAnimating, pagerNativeGesture, sideBarTranslationX, triggerSidebarHapticJS]);
+    }, [animateToTarget, animationTargetX, gestureAnimationTargetX, gesturePreviousTranslationX, gestureStartIsOpen, gestureStartX, hasCapturedSidebarGesture, isAnimating, pagerNativeGesture, sideBarTranslationX, sidebarWidth, triggerSidebarHapticJS]);
 
     const overlayTapGesture = useMemo(() => {
         return Gesture.Tap()
@@ -233,6 +255,20 @@ export default function HomeScreen() {
         return () => unsubscribe();
     }, []);
 
+    useEffect(() => {
+        cancelAnimation(sideBarTranslationX);
+        sideBarTranslationX.set(isSidebarOpen ? sidebarWidth : 0);
+        animationTargetX.set(isSidebarOpen ? sidebarWidth : 0);
+        isAnimating.set(false);
+        overlayCloseTapLocked.set(false);
+    }, [animationTargetX, isAnimating, isSidebarOpen, overlayCloseTapLocked, sideBarTranslationX, sidebarWidth]);
+
+    useEffect(() => () => {
+        if (sidebarPressFrameRef.current !== null) {
+            cancelAnimationFrame(sidebarPressFrameRef.current);
+        }
+    }, []);
+
     const mainContentAnimatedStyle = useAnimatedStyle(() => {
         return {
             transform: [{ translateX: sideBarTranslationX.value }],
@@ -245,7 +281,7 @@ export default function HomeScreen() {
             <GestureHandlerRootView style={{ flex: 1 }}>
                 <GestureDetector gesture={panGesture}>
                     <View style={{ flex: 1 }}>
-                        <Sidebar translationX={sideBarTranslationX} />
+                        <Sidebar translationX={sideBarTranslationX} width={sidebarWidth} />
 
                         <Animated.View style={[styles.mainContent, mainContentAnimatedStyle]}>
                             <Header
@@ -261,7 +297,7 @@ export default function HomeScreen() {
                                         </View>
                                     </TouchableWithoutFeedback>
                                 )}
-                                rightComponent={<TranslateButton />}
+                                rightComponent={<TranslateButton pagerProgress={pagerProgress} />}
                             />
                             <View style={{ backgroundColor: 'transparent', paddingHorizontal: 24, paddingTop: 0, paddingBottom: 3 }}>
                                 <Text style={styles.operationText}>{operationLabel}</Text>
@@ -269,6 +305,7 @@ export default function HomeScreen() {
                             <GestureDetector gesture={pagerNativeGesture}>
                                 <HomePager
                                     ref={pagerRef}
+                                    progress={pagerProgress}
                                     style={styles.pagerView}
                                     initialPage={0}
                                     onPageScrollStateChanged={(e) => {
@@ -282,9 +319,6 @@ export default function HomeScreen() {
                                     overScrollMode="never"
                                     keyboardDismissMode="on-drag"
                                     orientation="horizontal"
-                                    onPageScroll={
-                                        (e) => setOffset(e.nativeEvent.offset)
-                                    }
                                     onPageSelected={
                                         (e) => {
                                             pos.current = e.nativeEvent.position

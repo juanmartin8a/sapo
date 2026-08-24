@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import AuthLegalNotice from '@/components/auth/AuthLegalNotice';
 import SocialSignInButton, { type SocialProvider } from '@/components/auth/SocialSignInButton';
-import SapoIcon from '@/assets/icons/sapo.svg';
 import GoogleGIcon from '@/assets/icons/google-g.svg';
 import ArrowLeftIcon from '@/assets/icons/arrow-left.svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -68,7 +67,11 @@ const AuthScreen = () => {
             <View style={styles.content}>
                 <View style={styles.hero}>
                     <View style={styles.iconBadge}>
-                        <SapoIcon width={112} height={112} />
+                        <Image
+                            source={require("@/assets/images/sapo.png")}
+                            resizeMode="contain"
+                            style={styles.icon}
+                        />
                     </View>
                     <View
                         accessibilityLiveRegion="polite"
@@ -162,6 +165,10 @@ const styles = StyleSheet.create({
         height: 120,
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    icon: {
+        width: 112,
+        height: 112,
     },
     title: {
         fontSize: 24,

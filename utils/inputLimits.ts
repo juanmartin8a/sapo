@@ -26,4 +26,26 @@ export const getInputLimit = (
         : SUBSCRIPTION_PLAN_LIMITS.polyglot.translate_input_char_limit;
 };
 
-export const getCharacterCount = (text: string) => Array.from(text).length;
+export const getCharacterCount = (text: string) => {
+    let count = 0;
+
+    for (let index = 0; index < text.length; index += 1) {
+        const codeUnit = text.charCodeAt(index);
+
+        if (
+            codeUnit >= 0xD800 &&
+            codeUnit <= 0xDBFF &&
+            index + 1 < text.length
+        ) {
+            const nextCodeUnit = text.charCodeAt(index + 1);
+
+            if (nextCodeUnit >= 0xDC00 && nextCodeUnit <= 0xDFFF) {
+                index += 1;
+            }
+        }
+
+        count += 1;
+    }
+
+    return count;
+};
