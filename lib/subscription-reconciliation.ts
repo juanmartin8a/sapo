@@ -29,6 +29,7 @@ type SubscriptionReconciliationResult = {
 type ReconcileObservedSubscriptionStateOptions = {
     userId: string;
     observedActive: boolean;
+    observationKey?: string;
     accessToken?: string | null;
 };
 
@@ -36,7 +37,7 @@ const RECONCILIATION_REQUEST_TIMEOUT_MS = 10_000;
 const activeReconciliations = new Map<
     string,
     {
-        observedActive: boolean;
+        observationKey: string;
         promise: Promise<SubscriptionReconciliationResult>;
     }
 >();
@@ -168,8 +169,12 @@ export function reconcileObservedSubscriptionState(
     }
 
     const activeReconciliation = activeReconciliations.get(userId);
+    const observationKey = JSON.stringify([
+        options.observationKey ?? String(options.observedActive),
+        options.accessToken ?? "current-token",
+    ]);
 
-    if (activeReconciliation?.observedActive === options.observedActive) {
+    if (activeReconciliation?.observationKey === observationKey) {
         return activeReconciliation.promise;
     }
 
@@ -184,7 +189,7 @@ export function reconcileObservedSubscriptionState(
     });
 
     activeReconciliations.set(userId, {
-        observedActive: options.observedActive,
+        observationKey,
         promise,
     });
     return promise;

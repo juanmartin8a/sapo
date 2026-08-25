@@ -48,19 +48,28 @@ describe("RevenueCat offering store", () => {
         store.setLinkedElsewhereUser("user-a");
         expect(useRevenueCatOfferingStore.getState().linkedElsewhereUserId).toBe("user-a");
 
-        const identitySyncRevision = useRevenueCatOfferingStore.getState().identitySyncRevision;
-        store.setLinkedElsewhereUser(null);
-        expect(useRevenueCatOfferingStore.getState().identitySyncRevision).toBe(
-            identitySyncRevision + 1
-        );
-        store.setLinkedElsewhereUser("user-a");
-
         mockGetRevenueCatSubscriptionOffering.mockResolvedValue({
             subscriptionPackage,
             subscriptionProduct: null,
         });
         await store.loadForUser("user-b");
         expect(useRevenueCatOfferingStore.getState().linkedElsewhereUserId).toBeNull();
+    });
+
+    it("requests an identity resync explicitly", () => {
+        const store = useRevenueCatOfferingStore.getState();
+        const identitySyncRequestId = store.identitySyncRequestId;
+
+        store.setLinkedElsewhereUser("user-a");
+        store.setLinkedElsewhereUser(null);
+        expect(useRevenueCatOfferingStore.getState().identitySyncRequestId).toBe(
+            identitySyncRequestId
+        );
+
+        store.requestIdentitySync();
+        expect(useRevenueCatOfferingStore.getState().identitySyncRequestId).toBe(
+            identitySyncRequestId + 1
+        );
     });
 
     it("keeps the loaded plan visible while refreshing", async () => {

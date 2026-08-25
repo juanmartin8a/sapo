@@ -8,13 +8,14 @@ type RevenueCatOfferingStatus = "idle" | "loading" | "ready" | "error";
 interface RevenueCatOfferingStoreProps {
     userId: string | null;
     linkedElsewhereUserId: string | null;
-    identitySyncRevision: number;
+    identitySyncRequestId: number;
     status: RevenueCatOfferingStatus;
     subscriptionPackage: PurchasesPackage | null;
     subscriptionProduct: PurchasesStoreProduct | null;
 
     clear: () => void;
     loadForUser: (userId: string | null) => Promise<void>;
+    requestIdentitySync: () => void;
     setLinkedElsewhereUser: (userId: string | null) => void;
 }
 
@@ -24,7 +25,7 @@ let latestRequestId = 0;
 const useRevenueCatOfferingStore = create<RevenueCatOfferingStoreProps>((set) => ({
     userId: null,
     linkedElsewhereUserId: null,
-    identitySyncRevision: 0,
+    identitySyncRequestId: 0,
     status: "idle",
     subscriptionPackage: null,
     subscriptionProduct: null,
@@ -86,14 +87,11 @@ const useRevenueCatOfferingStore = create<RevenueCatOfferingStoreProps>((set) =>
         activeRequest = { userId, promise };
         return promise;
     },
+    requestIdentitySync: () => {
+        set((state) => ({ identitySyncRequestId: state.identitySyncRequestId + 1 }));
+    },
     setLinkedElsewhereUser: (userId) => {
-        set((state) => ({
-            linkedElsewhereUserId: userId,
-            identitySyncRevision:
-                userId === null && state.linkedElsewhereUserId !== null
-                    ? state.identitySyncRevision + 1
-                    : state.identitySyncRevision,
-        }));
+        set({ linkedElsewhereUserId: userId });
     },
 }));
 

@@ -91,7 +91,7 @@ describe("RevenueCat entitlement access", () => {
         ).toBe(false);
     });
 
-    it("uses the current access boundary in the customer-info fingerprint", () => {
+    it("uses a stable fingerprint for inactive customer info", () => {
         const customerInfo = {
             entitlements: { active: {} },
             subscriptionsByProductIdentifier: {},

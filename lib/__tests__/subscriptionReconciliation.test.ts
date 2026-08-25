@@ -115,6 +115,51 @@ describe("subscription reconciliation client", () => {
         await expect(inactive).resolves.toMatchObject({ status: "inactive" });
     });
 
+    it("serializes changed access boundaries with the same active state", async () => {
+        const responses: ((response: Response) => void)[] = [];
+        const fetchMock = jest.fn(() => new Promise<Response>((resolve) => {
+            responses.push(resolve);
+        })) as jest.MockedFunction<typeof fetch>;
+        globalThis.fetch = fetchMock;
+
+        const firstBoundary = reconcileObservedSubscriptionState({
+            userId: "user_1",
+            observedActive: true,
+            observationKey: "active:1000",
+            accessToken: "token_1",
+        });
+        const renewedBoundary = reconcileObservedSubscriptionState({
+            userId: "user_1",
+            observedActive: true,
+            observationKey: "active:2000",
+            accessToken: "token_1",
+        });
+
+        await Promise.resolve();
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        responses[0](new Response(JSON.stringify({
+            ok: true,
+            status: "active",
+            subscription: {
+                has_active_subscription: true,
+                plan_key: "polyglot",
+            },
+        }), { status: 200 }));
+        await expect(firstBoundary).resolves.toMatchObject({ status: "active" });
+
+        await Promise.resolve();
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        responses[1](new Response(JSON.stringify({
+            ok: true,
+            status: "active",
+            subscription: {
+                has_active_subscription: true,
+                plan_key: "polyglot",
+            },
+        }), { status: 200 }));
+        await expect(renewedBoundary).resolves.toMatchObject({ status: "active" });
+    });
+
     it("rejects malformed success payloads", async () => {
         globalThis.fetch = jest.fn(async () => new Response(JSON.stringify({
             ok: true,

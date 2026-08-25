@@ -38,8 +38,8 @@ export default function RevenueCatIdentitySync() {
     const setLinkedElsewhereUser = useRevenueCatOfferingStore(
         (state) => state.setLinkedElsewhereUser
     );
-    const identitySyncRevision = useRevenueCatOfferingStore(
-        (state) => state.identitySyncRevision
+    const identitySyncRequestId = useRevenueCatOfferingStore(
+        (state) => state.identitySyncRequestId
     );
     const receiptConflictUserIdRef = useRef<string | null>(null);
     const syncedRevenueCatUserIdRef = useRef<string | null>(null);
@@ -73,6 +73,11 @@ export default function RevenueCatIdentitySync() {
 
         setDesiredRevenueCatAppUserId(userId);
 
+        if (!isRevenueCatSupportedPlatform || !hasRevenueCatConfig()) {
+            clearRevenueCatOffering();
+            return;
+        }
+
         if (!userId) {
             clearRevenueCatOffering();
             const previousRevenueCatUserId = syncedRevenueCatUserIdRef.current;
@@ -85,24 +90,20 @@ export default function RevenueCatIdentitySync() {
 
             const previousLogoutPromise = revenueCatLogoutPromiseRef.current;
             const logoutPromise = (previousLogoutPromise ?? Promise.resolve())
-                    .then(() => logOutRevenueCatIdentity(previousRevenueCatUserId))
-                    .catch((error) => {
-                        if (__DEV__) {
-                            console.warn("RevenueCat identity logout failed", error);
-                        }
-                    })
-                    .finally(() => {
-                        if (revenueCatLogoutPromiseRef.current === logoutPromise) {
-                            revenueCatLogoutPromiseRef.current = null;
-                        }
-                    });
+                .then(() => logOutRevenueCatIdentity(previousRevenueCatUserId))
+                .then(() => loadRevenueCatOffering(null))
+                .catch((error) => {
+                    if (__DEV__) {
+                        console.warn("RevenueCat identity logout failed", error);
+                    }
+                })
+                .finally(() => {
+                    if (revenueCatLogoutPromiseRef.current === logoutPromise) {
+                        revenueCatLogoutPromiseRef.current = null;
+                    }
+                });
             revenueCatLogoutPromiseRef.current = logoutPromise;
 
-            return;
-        }
-
-        if (!isRevenueCatSupportedPlatform || !hasRevenueCatConfig()) {
-            clearRevenueCatOffering();
             return;
         }
 
@@ -189,12 +190,21 @@ export default function RevenueCatIdentitySync() {
                 return;
             }
 
-            const result = await reconcileObservedSubscriptionState({ userId, observedActive });
+            const result = await reconcileObservedSubscriptionState({
+                userId,
+                observedActive,
+                observationKey: fingerprint,
+            });
 
             if (
                 !isCancelled &&
                 revenueCatObservationVersionRef.current === observationVersion
             ) {
+                if (!observedActive && result.status === "active") {
+                    lastReconciledRevenueCatFingerprintRef.current = null;
+                    return;
+                }
+
                 lastReconciledRevenueCatFingerprintRef.current = fingerprint;
 
                 if (result.status !== "reconciling") {
@@ -329,7 +339,7 @@ export default function RevenueCatIdentitySync() {
     }, [
         authStatus,
         clearRevenueCatOffering,
-        identitySyncRevision,
+        identitySyncRequestId,
         loadRevenueCatOffering,
         setLinkedElsewhereUser,
         setSubscriptionForUser,

@@ -49,6 +49,9 @@ export default function useSettingsActions() {
     const setLinkedElsewhereUser = useRevenueCatOfferingStore(
         (state) => state.setLinkedElsewhereUser
     );
+    const requestRevenueCatIdentitySync = useRevenueCatOfferingStore(
+        (state) => state.requestIdentitySync
+    );
     const currentUserIdRef = useRef(userId);
     const isRestoringPurchases = Boolean(userId && restoringUserId === userId);
     const isPending = authStatus === "checking";
@@ -127,6 +130,7 @@ export default function useSettingsActions() {
             );
             if (!customerInfo || !isCurrentRestore()) return;
             setLinkedElsewhereUser(null);
+            requestRevenueCatIdentitySync();
 
             const hasActiveClientSubscription = hasActiveRevenueCatSubscription(customerInfo);
             let reconciliationStatus: Awaited<
@@ -247,6 +251,7 @@ export default function useSettingsActions() {
         isPending,
         isRestoringPurchases,
         isSigningOut,
+        requestRevenueCatIdentitySync,
         setLinkedElsewhereUser,
         storeAccountLabel,
         userId,
@@ -264,9 +269,10 @@ export default function useSettingsActions() {
             return;
         }
 
+        const isCurrentManagement = () => currentUserIdRef.current === userId;
+
         try {
             setIsManagingSubscription(true);
-            const isCurrentManagement = () => currentUserIdRef.current === userId;
             const didOpenManagement = await openRevenueCatManagementUrl(
                 userId,
                 isCurrentManagement
@@ -283,6 +289,10 @@ export default function useSettingsActions() {
                 );
             }
         } catch (error) {
+            if (!isCurrentManagement()) {
+                return;
+            }
+
             if (__DEV__) {
                 console.warn("Unable to open subscription settings", error);
             }
