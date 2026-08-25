@@ -267,7 +267,21 @@ const useLocalModelStore = create<LocalModelStoreState>((set, get) => ({
         }
 
         const model = getLocalTranslationModelById(modelId);
+        let lastProgressUpdateTime = 0;
+        let lastProgressPhase: LocalModelDownloadProgress["phase"] | null = null;
         const download = createLocalModelDownload((progress) => {
+            const now = Date.now();
+
+            if (
+                progress.phase === lastProgressPhase &&
+                progress.downloadedBytes < progress.expectedBytes &&
+                now - lastProgressUpdateTime < 100
+            ) {
+                return;
+            }
+
+            lastProgressUpdateTime = now;
+            lastProgressPhase = progress.phase;
             set((state) => ({
                 downloadProgressByModelId: {
                     ...state.downloadProgressByModelId,

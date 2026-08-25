@@ -15,7 +15,7 @@ export default function LocalModelSelectorBottomSheet() {
     const router = useRouter();
     const { sheetRef, handleSheetClose, handleSheetChange } =
         useHomeBottomSheetController(HOME_BOTTOM_SHEET_KEYS.LOCAL_MODEL);
-    const isCheckingModelRef = useRef<boolean>(false);
+    const selectionRequestIdRef = useRef(0);
     const selectedModelId = useLocalModelStore((state) => state.selectedModelId);
     const downloadedModelIds = useLocalModelStore((state) => state.downloadedModelIds);
     const selectModel = useLocalModelStore((state) => state.selectModel);
@@ -24,15 +24,15 @@ export default function LocalModelSelectorBottomSheet() {
         .map((model) => [model.id, model.displayName] as [string, string]);
 
     const handleModelSelect = async (key: string) => {
-        if (isCheckingModelRef.current) {
-            return;
-        }
-
         const modelId = key as LocalTranslationModelId;
+        const requestId = ++selectionRequestIdRef.current;
 
         try {
-            isCheckingModelRef.current = true;
             const isDownloaded = await isLocalModelDownloaded(modelId);
+
+            if (requestId !== selectionRequestIdRef.current) {
+                return;
+            }
 
             if (!isDownloaded) {
                 sheetRef.current?.close();
@@ -40,21 +40,23 @@ export default function LocalModelSelectorBottomSheet() {
                 return;
             }
 
-            if (modelId === selectedModelId) {
+            if (modelId === useLocalModelStore.getState().selectedModelId) {
                 return;
             }
 
             triggerSelectionHaptic();
             await selectModel(modelId);
         } catch (error) {
+            if (requestId !== selectionRequestIdRef.current) {
+                return;
+            }
+
             if (__DEV__) {
                 console.warn("Unable to select local model", error);
             }
 
             triggerErrorHaptic();
             Alert.alert("Unable to select model", "Please try again.");
-        } finally {
-            isCheckingModelRef.current = false;
         }
     }
 

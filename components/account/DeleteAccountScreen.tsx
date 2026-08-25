@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     Animated,
     Easing,
+    Image,
     Pressable,
     StyleSheet,
     StatusBar,
@@ -18,7 +19,6 @@ import {
 } from "expo-router";
 import * as Linking from "expo-linking";
 
-import SapoIcon from "@/assets/icons/sapo.svg";
 import { authClient } from "@/lib/auth-client";
 import { APP_ROUTE_NAMES, APP_ROUTES } from "@/constants/routes";
 import { getSessionUserAuthState } from "@/utils/auth";
@@ -455,7 +455,11 @@ export default function DeleteAccountScreen() {
                         },
                     ]}
                 >
-                    <SapoIcon width={sapoWidth} height={sapoHeight} />
+                    <Image
+                        source={require("@/assets/images/sapo.png")}
+                        resizeMode="contain"
+                        style={{ width: sapoWidth, height: sapoHeight }}
+                    />
                 </View>
             </View>
         </View>

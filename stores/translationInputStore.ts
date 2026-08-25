@@ -2,14 +2,18 @@ import { create } from 'zustand';
 
 interface TranslationInputStoreState {
     text: string;
-  
-    setText: (text: string) => void;
+    characterCount: number;
+    hasText: boolean;
+
+    setText: (text: string, characterCount: number) => void;
 }
 
 const useTranslationInputStore = create<TranslationInputStoreState>((set) => ({
-    text: "", 
-    setText: (text: string) => {
-        set({text: text}) 
+    text: "",
+    characterCount: 0,
+    hasText: false,
+    setText: (text: string, characterCount: number) => {
+        set({ text, characterCount, hasText: text.trim().length > 0 })
     },
 }))
 

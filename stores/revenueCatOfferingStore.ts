@@ -7,12 +7,16 @@ type RevenueCatOfferingStatus = "idle" | "loading" | "ready" | "error";
 
 interface RevenueCatOfferingStoreProps {
     userId: string | null;
+    linkedElsewhereUserId: string | null;
+    identitySyncRequestId: number;
     status: RevenueCatOfferingStatus;
     subscriptionPackage: PurchasesPackage | null;
     subscriptionProduct: PurchasesStoreProduct | null;
 
     clear: () => void;
     loadForUser: (userId: string | null) => Promise<void>;
+    requestIdentitySync: () => void;
+    setLinkedElsewhereUser: (userId: string | null) => void;
 }
 
 let activeRequest: { userId: string | null; promise: Promise<void> } | null = null;
@@ -20,6 +24,8 @@ let latestRequestId = 0;
 
 const useRevenueCatOfferingStore = create<RevenueCatOfferingStoreProps>((set) => ({
     userId: null,
+    linkedElsewhereUserId: null,
+    identitySyncRequestId: 0,
     status: "idle",
     subscriptionPackage: null,
     subscriptionProduct: null,
@@ -28,6 +34,7 @@ const useRevenueCatOfferingStore = create<RevenueCatOfferingStoreProps>((set) =>
         activeRequest = null;
         set({
             userId: null,
+            linkedElsewhereUserId: null,
             status: "idle",
             subscriptionPackage: null,
             subscriptionProduct: null,
@@ -41,6 +48,8 @@ const useRevenueCatOfferingStore = create<RevenueCatOfferingStoreProps>((set) =>
         const requestId = ++latestRequestId;
         set((state) => ({
             userId,
+            linkedElsewhereUserId:
+                state.linkedElsewhereUserId === userId ? userId : null,
             status: "loading",
             subscriptionPackage: state.userId === userId ? state.subscriptionPackage : null,
             subscriptionProduct: state.userId === userId ? state.subscriptionProduct : null,
@@ -77,6 +86,12 @@ const useRevenueCatOfferingStore = create<RevenueCatOfferingStoreProps>((set) =>
 
         activeRequest = { userId, promise };
         return promise;
+    },
+    requestIdentitySync: () => {
+        set((state) => ({ identitySyncRequestId: state.identitySyncRequestId + 1 }));
+    },
+    setLinkedElsewhereUser: (userId) => {
+        set({ linkedElsewhereUserId: userId });
     },
 }));
 

@@ -9,7 +9,6 @@ export default function useHomeBottomSheetController(sheetKey: HomeBottomSheetKe
     const sheetRef = useRef<BottomSheet>(null);
     const isClosed = useRef(true);
     const didReachInitialSnap = useRef(false);
-    const sidebarIsOpen = useSidebarStore((state) => state.isOpen);
 
     useEffect(() => {
         return useHomeBottomSheetStore.subscribe((state) => {
@@ -30,10 +29,12 @@ export default function useHomeBottomSheetController(sheetKey: HomeBottomSheetKe
     }, [sheetKey]);
 
     useEffect(() => {
-        if (!sidebarIsOpen && !isClosed.current) {
-            sheetRef.current?.close();
-        }
-    }, [sidebarIsOpen]);
+        return useSidebarStore.subscribe((state, previousState) => {
+            if (state.isOpen !== previousState.isOpen && !state.isOpen && !isClosed.current) {
+                sheetRef.current?.close();
+            }
+        });
+    }, []);
 
     const handleSheetClose = useCallback(() => {
         isClosed.current = true;

@@ -36,9 +36,40 @@ describe("RevenueCat offering store", () => {
         expect(mockGetRevenueCatSubscriptionOffering).toHaveBeenCalledTimes(1);
         expect(useRevenueCatOfferingStore.getState()).toMatchObject({
             userId: "user-a",
+            linkedElsewhereUserId: null,
             status: "ready",
             subscriptionPackage,
         });
+    });
+
+    it("tracks receipt conflicts for the affected user only", async () => {
+        const store = useRevenueCatOfferingStore.getState();
+
+        store.setLinkedElsewhereUser("user-a");
+        expect(useRevenueCatOfferingStore.getState().linkedElsewhereUserId).toBe("user-a");
+
+        mockGetRevenueCatSubscriptionOffering.mockResolvedValue({
+            subscriptionPackage,
+            subscriptionProduct: null,
+        });
+        await store.loadForUser("user-b");
+        expect(useRevenueCatOfferingStore.getState().linkedElsewhereUserId).toBeNull();
+    });
+
+    it("requests an identity resync explicitly", () => {
+        const store = useRevenueCatOfferingStore.getState();
+        const identitySyncRequestId = store.identitySyncRequestId;
+
+        store.setLinkedElsewhereUser("user-a");
+        store.setLinkedElsewhereUser(null);
+        expect(useRevenueCatOfferingStore.getState().identitySyncRequestId).toBe(
+            identitySyncRequestId
+        );
+
+        store.requestIdentitySync();
+        expect(useRevenueCatOfferingStore.getState().identitySyncRequestId).toBe(
+            identitySyncRequestId + 1
+        );
     });
 
     it("keeps the loaded plan visible while refreshing", async () => {

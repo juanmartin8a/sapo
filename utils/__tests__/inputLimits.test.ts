@@ -6,7 +6,7 @@ describe("input limits", () => {
     it("keeps entitlement loading distinct from free access", () => {
         expect(getInputLimit("translate", null)).toBeNull();
         expect(getInputLimit("translate", false)).toBe(500);
-        expect(getInputLimit("respell", false)).toBe(0);
+        expect(getInputLimit("respell", false)).toBeNull();
     });
 
     it("returns the paid per-request limits", () => {

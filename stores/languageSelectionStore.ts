@@ -9,13 +9,19 @@ interface LanguageSelectionStoreState {
     selectLanguage: (forInput: boolean, index: number) => void,
 }
 
-const useLanguageSelectionStore = create<LanguageSelectionStoreState>((set) => ({
+const useLanguageSelectionStore = create<LanguageSelectionStoreState>((set, get) => ({
     selectedIndex0: DEFAULT_SOURCE_LANGUAGE_ID, // for input languages
     selectedIndex1: DEFAULT_TARGET_LANGUAGE_ID, // for target languages
 
     selectLanguage: (forInput: boolean, index: number) => {
         if (forInput) {
+            if (get().selectedIndex0 === index) {
+                return;
+            }
             return set({ selectedIndex0: index })
+        }
+        if (get().selectedIndex1 === index) {
+            return;
         }
         return set({ selectedIndex1: index })
     },

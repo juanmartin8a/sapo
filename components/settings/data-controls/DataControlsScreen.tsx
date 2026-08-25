@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { FieldGroup, Text } from "@expo/ui";
 import { font } from "@expo/ui/swift-ui/modifiers";
 import { Alert, Platform } from "react-native";
@@ -33,12 +33,20 @@ const getDeleteAccountAlertMessage = (args: {
 };
 
 export default function DataControlsScreen() {
-    const { status: authStatus, userId } = useAuthState();
+    const { status: authStatus, sessionId, userId } = useAuthState();
     const isPending = authStatus === "checking";
     const isAuthenticatedUser = authStatus === "authenticated";
     const canDeleteAccount = isAuthenticatedUser;
     const [isProcessing, setIsProcessing] = useState(false);
     const isPreparingDeleteAlertRef = useRef(false);
+    const activeDeleteAlertRef = useRef<symbol | null>(null);
+    const currentAccountRef = useRef({ authStatus, sessionId, userId });
+
+    useEffect(() => {
+        currentAccountRef.current = { authStatus, sessionId, userId };
+        activeDeleteAlertRef.current = null;
+        isPreparingDeleteAlertRef.current = false;
+    }, [authStatus, sessionId, userId]);
 
     const requestAccountDeletion = useCallback(async () => {
         const result = await authClient.deleteUser({
@@ -55,32 +63,81 @@ export default function DataControlsScreen() {
     }, []);
 
     const handleDeleteAccount = useCallback(async () => {
-        if (isPending || !canDeleteAccount || isProcessing || isPreparingDeleteAlertRef.current) {
+        if (
+            isPending ||
+            !canDeleteAccount ||
+            isProcessing ||
+            isPreparingDeleteAlertRef.current ||
+            activeDeleteAlertRef.current !== null ||
+            !userId ||
+            !sessionId
+        ) {
             return;
         }
 
+        const deleteAlert = Symbol("delete-account-alert");
+        const expectedUserId = userId;
+        const expectedSessionId = sessionId;
+        const clearDeleteAlert = () => {
+            if (activeDeleteAlertRef.current === deleteAlert) {
+                activeDeleteAlertRef.current = null;
+            }
+        };
+        const isCurrentAccount = () => {
+            const currentAccount = currentAccountRef.current;
+            return (
+                activeDeleteAlertRef.current === deleteAlert &&
+                currentAccount.authStatus === "authenticated" &&
+                currentAccount.userId === expectedUserId &&
+                currentAccount.sessionId === expectedSessionId
+            );
+        };
+        const hasCurrentSession = async () => {
+            try {
+                const latestSession = (await authClient.getSession()).data;
+                return (
+                    isCurrentAccount() &&
+                    latestSession?.user.id === expectedUserId &&
+                    latestSession.session.id === expectedSessionId
+                );
+            } catch {
+                return false;
+            }
+        };
+
+        activeDeleteAlertRef.current = deleteAlert;
         isPreparingDeleteAlertRef.current = true;
 
         const storeAccountLabel = getStoreAccountLabel(Platform.OS);
         let hasActiveSubscription = false;
 
         try {
-            if (
-                userId &&
-                isRevenueCatSupportedPlatform &&
-                hasRevenueCatConfig()
-            ) {
+            if (isRevenueCatSupportedPlatform && hasRevenueCatConfig()) {
                 try {
-                    const customerInfo = await getRevenueCatCustomerInfo(userId);
-                    hasActiveSubscription = customerInfo
-                        ? hasActiveRevenueCatSubscription(customerInfo)
-                        : false;
+                    const customerInfo = await getRevenueCatCustomerInfo(
+                        expectedUserId,
+                        isCurrentAccount
+                    );
+                    if (!customerInfo || !isCurrentAccount()) {
+                        return;
+                    }
+
+                    hasActiveSubscription = hasActiveRevenueCatSubscription(customerInfo);
                 } catch {
+                    if (!isCurrentAccount()) {
+                        return;
+                    }
+
                     hasActiveSubscription = true;
                 }
             }
         } finally {
             isPreparingDeleteAlertRef.current = false;
+        }
+
+        if (!isCurrentAccount() || !(await hasCurrentSession())) {
+            clearDeleteAlert();
+            return;
         }
 
         Alert.alert(
@@ -90,31 +147,53 @@ export default function DataControlsScreen() {
                 storeAccountLabel,
             }),
             [
-                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Cancel",
+                    style: "cancel",
+                    onPress: clearDeleteAlert,
+                },
                 {
                     text: "Delete",
                     style: "destructive",
                     onPress: async () => {
+                        if (!isCurrentAccount() || !(await hasCurrentSession())) {
+                            clearDeleteAlert();
+                            return;
+                        }
+
                         try {
                             triggerLightImpactHaptic();
                             setIsProcessing(true);
                             await requestAccountDeletion();
+
+                            if (!isCurrentAccount()) {
+                                return;
+                            }
+
                             triggerStrongImpactHaptic();
                             Alert.alert(
                                 "Check your email",
                                 "We sent a verification link to confirm account deletion."
                             );
                         } catch {
+                            if (!isCurrentAccount()) {
+                                return;
+                            }
+
                             triggerErrorHaptic();
                             Alert.alert("Something went wrong", "Unable to delete the account. Please try again.");
                         } finally {
+                            clearDeleteAlert();
                             setIsProcessing(false);
                         }
-                    }
+                    },
                 },
-            ]
+            ],
+            {
+                onDismiss: clearDeleteAlert,
+            }
         );
-    }, [canDeleteAccount, isPending, isProcessing, requestAccountDeletion, userId]);
+    }, [canDeleteAccount, isPending, isProcessing, requestAccountDeletion, sessionId, userId]);
 
     return (
         <SettingsForm>

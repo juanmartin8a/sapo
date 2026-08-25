@@ -1,20 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, NativeSyntheticEvent, NativeScrollEvent, TextLayoutEventData, Dimensions } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, NativeSyntheticEvent, NativeScrollEvent, TextLayoutEventData, useWindowDimensions } from 'react-native';
+import Animated, {
+    cancelAnimation,
+    useAnimatedStyle,
+    useSharedValue,
+    withDelay,
+    withTiming,
+} from 'react-native-reanimated';
 import useTranslationStore from '@/stores/translationStore';
-import SapoIcon from "../../assets/icons/sapo.svg"
-import SapoBocaAbiertaIcon from "../../assets/icons/sapo-boca-abierta.svg"
 import { triggerLightImpactHaptic } from '@/lib/haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-
-interface CursorPos {
-    x: number;
-    y: number;
-}
-
 export default function Translate() {
     const insets = useSafeAreaInsets();
+    const { width: screenWidth } = useWindowDimensions();
     const displayText = useTranslationStore((state) => state.displayText);
     const mouthTriggerVersion = useTranslationStore((state) => state.mouthTriggerVersion);
     const streamStartVersion = useTranslationStore((state) => state.streamStartVersion);
@@ -23,12 +22,11 @@ export default function Translate() {
     const isStreaming = useTranslationStore((state) => state.isStreaming);
     const disconnectStream = useTranslationStore((state) => state.disconnectStream);
 
-    const [cursorPos, setCursorPos] = useState<CursorPos>({ x: 0, y: 0 });
-    const sapoWidth = SCREEN_WIDTH * 0.4;
+    const sapoWidth = screenWidth * 0.4;
     const sapoHeight = sapoWidth * (800 / 929);
     const sapoBocaAbiertaHeight = sapoWidth * (914 / 929);
-    const [sapoMouthOpen, setSapoMouthOpen] = useState<boolean>(false)
-    const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const cursorY = useSharedValue(0);
+    const mouthOpen = useSharedValue(0);
     const hasMountedRef = useRef(false);
     const wasStreamingRef = useRef(false);
     const streamStartVersionRef = useRef(0);
@@ -41,26 +39,13 @@ export default function Translate() {
             return;
         }
 
-        if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-        }
-
-        timeoutRef.current = setTimeout(() => {
-            setSapoMouthOpen(true);
-
-            timeoutRef.current = setTimeout(() => {
-                setSapoMouthOpen(false);
-                timeoutRef.current = null;
-            }, 100);
-        }, 0);
+        mouthOpen.set(1);
+        mouthOpen.set(withDelay(100, withTiming(0, { duration: 0 })));
 
         return () => {
-            if (timeoutRef.current) {
-                clearTimeout(timeoutRef.current);
-                timeoutRef.current = null;
-            }
+            cancelAnimation(mouthOpen);
         };
-    }, [mouthTriggerVersion]);
+    }, [mouthOpen, mouthTriggerVersion]);
 
     useEffect(() => {
         if (wasStreamingRef.current && !isStreaming) {
@@ -82,23 +67,33 @@ export default function Translate() {
         };
     }, [disconnectStream]);
 
+    const frogAnimatedStyle = useAnimatedStyle(() => ({
+        transform: [
+            { translateX: screenWidth - (sapoWidth - (sapoWidth * 0.23)) },
+            { translateY: cursorY.get() },
+            { scaleX: -1 },
+        ],
+    }));
+    const closedMouthAnimatedStyle = useAnimatedStyle(() => ({
+        opacity: 1 - mouthOpen.get(),
+    }));
+    const openMouthAnimatedStyle = useAnimatedStyle(() => ({
+        opacity: mouthOpen.get(),
+    }));
+
     const onTextLayout = (e: NativeSyntheticEvent<TextLayoutEventData>) => {
-        const newLines = e.nativeEvent.lines.map((ln) => ({
-            width: ln.width,
-            height: ln.height,
-        }));
+        const lines = e.nativeEvent.lines;
+        const last = lines[lines.length - 1];
 
-        const last = newLines[newLines.length - 1];
-        const y = newLines
-            .slice(0, newLines.length - 1)
-            .reduce((sum, l) => sum + l.height, 0);
-
-        if (last.width < (SCREEN_WIDTH - sapoWidth)) {
-            setCursorPos({ x: last.width, y: y })
-        } else {
-            setCursorPos({ x: last.width, y: y + last.height })
+        if (!last) {
+            return;
         }
 
+        if (last.width < (screenWidth - sapoWidth)) {
+            cursorY.set(last.y);
+        } else {
+            cursorY.set(last.y + last.height);
+        }
     };
 
     const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -133,31 +128,35 @@ export default function Translate() {
                         </Text>
                     )}
                 </View>
-                <View style={{
-                    marginTop: 10,
-                    position: "absolute",
-                    justifyContent: 'flex-end',
-                    height: sapoBocaAbiertaHeight,
-                    transform: [
-                        { translateX: SCREEN_WIDTH - (sapoWidth - (sapoWidth * 0.23)) },
-                        { translateY: cursorPos.y },
-                        { scaleX: -1 }
-                    ]
-                }}>
+                <Animated.View
+                    style={[
+                        styles.frog,
+                        { height: sapoBocaAbiertaHeight },
+                        frogAnimatedStyle,
+                    ]}
+                >
                     <View style={{ position: "relative" }}>
-                        <SapoIcon
-                            width={sapoWidth}
-                            height={sapoHeight}
-                            style={{ bottom: 0, left: 0, opacity: sapoMouthOpen ? 0 : 1 }}
+                        <Animated.Image
+                            source={require("@/assets/images/sapo.png")}
+                            resizeMode="contain"
+                            style={[
+                                styles.frogImage,
+                                { width: sapoWidth, height: sapoHeight },
+                                closedMouthAnimatedStyle,
+                            ]}
                         />
-                        <SapoBocaAbiertaIcon
-                            width={sapoWidth}
-                            height={sapoBocaAbiertaHeight}
-                            style={{ position: 'absolute', bottom: 0, left: 0, opacity: sapoMouthOpen ? 1 : 0 }}
+                        <Animated.Image
+                            source={require("@/assets/images/sapo-mouth-open.png")}
+                            resizeMode="contain"
+                            style={[
+                                styles.frogImage,
+                                styles.openMouthImage,
+                                { width: sapoWidth, height: sapoBocaAbiertaHeight },
+                                openMouthAnimatedStyle,
+                            ]}
                         />
                     </View>
-
-                </View>
+                </Animated.View>
             </View>
         </ScrollView>
     );
@@ -175,6 +174,18 @@ const styles = StyleSheet.create({
     textContainer: {
         width: "100%",
         backgroundColor: '#fff',
+    },
+    frog: {
+        position: "absolute",
+        justifyContent: "flex-end",
+        marginTop: 10,
+    },
+    frogImage: {
+        bottom: 0,
+        left: 0,
+    },
+    openMouthImage: {
+        position: "absolute",
     },
     translatedText: {
         fontSize: 24,

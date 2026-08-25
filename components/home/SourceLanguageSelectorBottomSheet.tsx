@@ -17,9 +17,11 @@ export default function SourceLanguageSelectorBottomSheet() {
     const handleLanguageSelect = (key: string) => {
         const index = parseInt(key);
 
-        if (index !== selectedIndex) {
-            triggerSelectionHaptic();
+        if (index === useLanguageSelectionStore.getState().selectedIndex0) {
+            return;
         }
+
+        triggerSelectionHaptic();
 
         selectLanguage(
             true, // with auto detect (true) 
