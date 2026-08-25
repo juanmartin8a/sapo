@@ -17,7 +17,7 @@ export default function SourceLanguageSelectorBottomSheet() {
     const handleLanguageSelect = (key: string) => {
         const index = parseInt(key);
 
-        if (index === selectedIndex) {
+        if (index === useLanguageSelectionStore.getState().selectedIndex0) {
             return;
         }
 
