@@ -242,6 +242,7 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
             <ScrollView
                 style={styles.topContentScroll}
                 contentContainerStyle={styles.topContent}
+                alwaysBounceVertical={false}
                 showsVerticalScrollIndicator={false}
             >
                 <View style={styles.operationSection}>
