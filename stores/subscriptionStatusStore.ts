@@ -11,9 +11,12 @@ interface SubscriptionStatusStoreProps {
     setForUser: (userId: string, status: SubscriptionStatus) => boolean;
 }
 
-function getHasActiveSubscription(status: SubscriptionStatus) {
-    if (status === "checking") {
-        return null;
+function getHasActiveSubscription(
+    status: SubscriptionStatus,
+    confirmedStatus: boolean | null
+) {
+    if (status === "checking" || status === "activating") {
+        return confirmedStatus;
     }
 
     return status === "active";
@@ -49,7 +52,10 @@ const useSubscriptionStatusStore = create<SubscriptionStatusStoreProps>((set) =>
                 ? state
                 : {
                       status,
-                      hasActiveSubscription: getHasActiveSubscription(status),
+                      hasActiveSubscription: getHasActiveSubscription(
+                          status,
+                          state.hasActiveSubscription
+                      ),
                   };
         });
 

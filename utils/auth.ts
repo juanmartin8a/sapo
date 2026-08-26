@@ -26,8 +26,16 @@ export function getAuthoritativeAuthStatus(args: {
             args.isSessionRefetching &&
             args.sessionUserState === "signed_out" &&
             args.preserveSignedOutDuringRefresh;
+        const isConfirmedAuthenticatedRefresh =
+            args.isSessionRefetching &&
+            args.sessionUserState === "authenticated" &&
+            args.currentUserState === "authenticated";
 
-        return isConfirmedSignedOutRefresh ? "signed_out" : "checking";
+        if (isConfirmedSignedOutRefresh) {
+            return "signed_out";
+        }
+
+        return isConfirmedAuthenticatedRefresh ? "authenticated" : "checking";
     }
 
     if (args.sessionUserState !== "authenticated") {

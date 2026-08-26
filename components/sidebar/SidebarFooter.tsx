@@ -13,19 +13,25 @@ const SIDEBAR_AVATAR_SIZE = 40;
 
 const SidebarFooter = () => {
     const router = useRouter();
-    const { status, userId, email } = useAuthState();
+    const { status: authStatus, userId, email } = useAuthState();
     const subscriptionUserId = useSubscriptionStatusStore((state) => state.userId);
+    const subscriptionStatus = useSubscriptionStatusStore((state) => state.status);
     const hasActiveSubscription = useSubscriptionStatusStore((state) => state.hasActiveSubscription);
-    const shouldShowAuthSkeleton = status === 'checking';
-    const isSubscriptionPending = status === 'authenticated' &&
+    const shouldShowAuthSkeleton = authStatus === 'checking';
+    const isSubscriptionPending = authStatus === 'authenticated' &&
         (subscriptionUserId !== userId || hasActiveSubscription === null);
     const subscriptionLabel = useMemo(() => {
         const isCurrentUserSubscribed = subscriptionUserId === userId &&
             hasActiveSubscription === true;
-        return isCurrentUserSubscribed
-            ? SUBSCRIPTION_PLAN_DISPLAY_NAMES.POLYGLOT
+
+        if (isCurrentUserSubscribed) {
+            return SUBSCRIPTION_PLAN_DISPLAY_NAMES.POLYGLOT;
+        }
+
+        return subscriptionUserId === userId && subscriptionStatus === 'activating'
+            ? 'Activating...'
             : SUBSCRIPTION_PLAN_DISPLAY_NAMES.FREE;
-    }, [hasActiveSubscription, subscriptionUserId, userId])
+    }, [hasActiveSubscription, subscriptionStatus, subscriptionUserId, userId])
     const emailInitial = useMemo(() => {
         return email?.[0]?.toUpperCase() ?? '?';
     }, [email])
@@ -63,7 +69,7 @@ const SidebarFooter = () => {
                         </Text>
                     </View>
                 </Animated.View>
-            ) : status === 'authenticated' ? (
+            ) : authStatus === 'authenticated' ? (
                 <View style={styles.userActionsContainer}>
                     <TouchableOpacity
                         onPress={handleOpenSettings}
