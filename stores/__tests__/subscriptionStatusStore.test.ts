@@ -38,10 +38,11 @@ describe("subscription status store", () => {
         });
     });
 
-    it("derives paid access only from active status", () => {
+    it("keeps the last confirmed free state while activation is pending", () => {
         const store = useSubscriptionStatusStore.getState();
 
         store.setCurrentUser("user-a");
+        store.setForUser("user-a", "inactive");
         store.setForUser("user-a", "activating");
         expect(useSubscriptionStatusStore.getState()).toMatchObject({
             status: "activating",
@@ -52,6 +53,31 @@ describe("subscription status store", () => {
         expect(useSubscriptionStatusStore.getState()).toMatchObject({
             status: "active",
             hasActiveSubscription: true,
+        });
+    });
+
+    it("keeps the last confirmed paid state while a result is pending", () => {
+        const store = useSubscriptionStatusStore.getState();
+
+        store.setCurrentUser("user-a");
+        store.setForUser("user-a", "active");
+        store.setForUser("user-a", "activating");
+
+        expect(useSubscriptionStatusStore.getState()).toMatchObject({
+            status: "activating",
+            hasActiveSubscription: true,
+        });
+    });
+
+    it("keeps an unresolved new user neutral", () => {
+        const store = useSubscriptionStatusStore.getState();
+
+        store.setCurrentUser("user-a");
+        store.setForUser("user-a", "activating");
+
+        expect(useSubscriptionStatusStore.getState()).toMatchObject({
+            status: "activating",
+            hasActiveSubscription: null,
         });
     });
 });

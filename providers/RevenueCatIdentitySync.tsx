@@ -178,10 +178,6 @@ export default function RevenueCatIdentitySync() {
             const observationVersion = revenueCatObservationVersionRef.current;
             scheduleExpirationRefresh(customerInfo);
 
-            if (isNewObservation && !observedActive) {
-                setSubscriptionForUser(userId, "inactive");
-            }
-
             if (
                 !force &&
                 !isNewObservation &&
@@ -200,11 +196,6 @@ export default function RevenueCatIdentitySync() {
                 !isCancelled &&
                 revenueCatObservationVersionRef.current === observationVersion
             ) {
-                if (!observedActive && result.status === "active") {
-                    lastReconciledRevenueCatFingerprintRef.current = null;
-                    return;
-                }
-
                 lastReconciledRevenueCatFingerprintRef.current = fingerprint;
 
                 if (result.status !== "reconciling") {

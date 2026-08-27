@@ -24,6 +24,7 @@ import useSubscriptionStatusStore from '@/stores/subscriptionStatusStore';
 import { useAuthState } from '@/providers/AuthStateProvider';
 import { triggerErrorHaptic, triggerLightImpactHaptic, triggerSelectionHaptic } from '@/lib/haptics';
 import { UI_DISABLED_OPACITY } from '@/constants/ui';
+import { getEffectiveSubscriptionStatus } from '@/utils/subscription';
 
 type SidebarProps = {
     translationX: SharedValue<number>
@@ -63,9 +64,13 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
     const isLocalModelBusy = isSelectedLocalModelLoading ||
         isLocalModelRefreshing ||
         deletingLocalModelId !== null;
-    const canUseRespell = isAuthenticatedUser &&
-        subscriptionUserId === userId &&
-        hasActiveSubscription === true;
+    const effectiveSubscriptionStatus = getEffectiveSubscriptionStatus({
+        authStatus,
+        userId,
+        subscriptionUserId,
+        hasActiveSubscription,
+    });
+    const canUseRespell = effectiveSubscriptionStatus === true;
     const shouldShowLocalModeToggle = isAuthenticatedUser;
     const shouldShowLoadModelButton = isLocalModelDownloaded && !isLocalModelLoaded;
     // Get individual values from the store to avoid unnecessary re-renders
@@ -170,6 +175,14 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
 
         triggerErrorHaptic();
 
+        if (effectiveSubscriptionStatus === null) {
+            Alert.alert(
+                "Checking subscription",
+                "Please wait a moment while SAPO confirms your subscription."
+            );
+            return;
+        }
+
         const title = isAuthenticatedUser
             ? "Subscription required"
             : "Sign in required";
@@ -182,7 +195,7 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
             title,
             message
         );
-    }, [canUseRespell, isAuthenticatedUser, operation, setOperation]);
+    }, [canUseRespell, effectiveSubscriptionStatus, isAuthenticatedUser, operation, setOperation]);
 
     const handleInputLanguagePress = useCallback(() => {
         requestBottomSheet(HOME_BOTTOM_SHEET_KEYS.INPUT_LANGUAGE);
@@ -197,10 +210,10 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
     }, [refreshLocalModelStatus]);
 
     useEffect(() => {
-        if (!canUseRespell && operation === 'respell') {
+        if (effectiveSubscriptionStatus === false && operation === 'respell') {
             setOperation('translate');
         }
-    }, [canUseRespell, operation, setOperation]);
+    }, [effectiveSubscriptionStatus, operation, setOperation]);
 
     useEffect(() => {
         if (authStatus === 'signed_out' && !isLocalModelEnabled) {
@@ -229,6 +242,7 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
             <ScrollView
                 style={styles.topContentScroll}
                 contentContainerStyle={styles.topContent}
+                alwaysBounceVertical={false}
                 showsVerticalScrollIndicator={false}
             >
                 <View style={styles.operationSection}>

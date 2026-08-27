@@ -38,6 +38,15 @@ describe("authoritative auth state", () => {
         })).toBe("signed_out");
     });
 
+    it("keeps confirmed authenticated UI stable during a background refetch", () => {
+        expect(getStatus({
+            sessionUserState: "authenticated",
+            currentUserState: "authenticated",
+            isSessionPending: true,
+            isSessionRefetching: true,
+        })).toBe("authenticated");
+    });
+
     it("does not reuse authenticated state when session data is absent", () => {
         expect(getStatus({
             isSessionPending: true,
