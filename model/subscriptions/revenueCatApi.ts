@@ -693,7 +693,10 @@ export async function fetchRevenueCatCustomerActiveEntitlementSnapshot(
         { request_count: 0 }
     );
     const activePolyglotEntitlement = activeEntitlements.find(
-        (entitlement) => entitlement.entitlement_id === entitlementResourceId
+        (entitlement) =>
+            entitlement.entitlement_id === entitlementResourceId &&
+            (typeof entitlement.expiration_at_ms !== "number" ||
+                Date.now() < entitlement.expiration_at_ms)
     );
 
     return activePolyglotEntitlement

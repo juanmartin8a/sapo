@@ -3,7 +3,42 @@ import { authComponent } from "../betterAuth/auth";
 import { resolveBetterAuthUserId } from "../betterAuth/model/user";
 import { SUBSCRIPTION_PLAN_KEYS } from "../constants/subscriptions";
 import { getSubscriptionStateByUserId } from "./subscriptions/componentApi";
-import { hasUnexpiredSubscriptionAccess } from "./subscriptions/revenueCatApi";
+import {
+    hasUnexpiredSubscriptionAccess,
+    type CurrentSubscriptionState,
+} from "./subscriptions/revenueCatApi";
+
+export function resolveCurrentSubscriptionStatus(
+    state:
+        | Pick<
+              CurrentSubscriptionState,
+              | "access_expires_at_ms"
+              | "billing_cycle_end_at_ms"
+              | "has_active_subscription"
+              | "pending_active_expires_at_ms"
+              | "plan_key"
+          >
+        | null
+        | undefined,
+    nowMs: number
+) {
+    const hasActiveSubscription = hasUnexpiredSubscriptionAccess(state, nowMs);
+    const isActivating =
+        state?.has_active_subscription !== true &&
+        !hasActiveSubscription &&
+        typeof state?.pending_active_expires_at_ms === "number" &&
+        state.pending_active_expires_at_ms > nowMs;
+
+    return {
+        status: hasActiveSubscription
+            ? ("active" as const)
+            : isActivating
+              ? ("activating" as const)
+              : ("inactive" as const),
+        has_active_subscription: hasActiveSubscription,
+        plan_key: hasActiveSubscription ? state!.plan_key : SUBSCRIPTION_PLAN_KEYS.FREE,
+    };
+}
 
 export async function getCurrentSubscriptionStatus(
     ctx: QueryCtx,
@@ -17,22 +52,9 @@ export async function getCurrentSubscriptionStatus(
     }
 
     const state = await getSubscriptionStateByUserId(ctx, userId);
-    const nowMs = Date.now();
-    const hasActiveAccess = hasUnexpiredSubscriptionAccess(state, nowMs);
-
-    const isActivating =
-        !hasActiveAccess &&
-        typeof state?.pending_active_expires_at_ms === "number" &&
-        state.pending_active_expires_at_ms > nowMs;
 
     return {
         user_id: userId,
-        status: hasActiveAccess
-            ? ("active" as const)
-            : isActivating
-              ? ("activating" as const)
-              : ("inactive" as const),
-        has_active_subscription: hasActiveAccess,
-        plan_key: hasActiveAccess ? state!.plan_key : SUBSCRIPTION_PLAN_KEYS.FREE,
+        ...resolveCurrentSubscriptionStatus(state, Date.now()),
     };
 }

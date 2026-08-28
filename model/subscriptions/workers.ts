@@ -479,11 +479,17 @@ export function shouldUseExistingStateForObservedSubscription(
     nowMs: number,
     observedActive?: boolean
 ) {
+    const preservesConfirmedActiveAccess =
+        state?.has_active_subscription === true &&
+        observedActive === false &&
+        hasUnexpiredSubscriptionAccess(state, nowMs);
+
     return Boolean(
         state &&
         !hasPendingActiveSignal(state, nowMs) &&
         (typeof observedActive !== "boolean" ||
-            state.has_active_subscription === observedActive) &&
+            state.has_active_subscription === observedActive ||
+            preservesConfirmedActiveAccess) &&
         shouldUseExistingSubscriptionState(state, nowMs)
     );
 }
@@ -1069,6 +1075,7 @@ async function reconcileSubscriptionStateFromRevenueCat(
             activeEntitlementSnapshot?.has_active_subscription === true;
         const subscriptionSnapshot =
             activeEntitlementSnapshot?.has_active_subscription === true ||
+            existingState?.has_active_subscription === true ||
             args.reconciliation_read === "subscriptions"
                 ? await fetchRevenueCatCustomerSubscriptionSnapshot(revenueCatAppUserId)
                 : null;
@@ -1106,6 +1113,34 @@ async function reconcileSubscriptionStateFromRevenueCat(
                 : (subscriptionMetadata ?? activeEntitlementSnapshot!);
         const applyAtMs = Date.now();
         snapshotHasActiveSubscription = snapshot.has_active_subscription;
+
+        if (
+            !snapshotHasActiveSubscription &&
+            canServeActiveSubscriptionStateForUsage(existingState, applyAtMs)
+        ) {
+            if (syncAttemptId) {
+                await releaseSubscriptionStateReconciliation(ctx, {
+                    user_id: args.user_id,
+                    sync_attempt_id: syncAttemptId,
+                    now_ms: applyAtMs,
+                    next_attempt_at_ms: applyAtMs + getReconciliationFailureBackoffMs(),
+                }).catch(() => null);
+            }
+
+            return {
+                status: "refresh_failed",
+                revenuecat_app_user_id: revenueCatAppUserId,
+                error: "RevenueCat returned an uncertain inactive snapshot for unexpired access",
+                should_block_requests: true,
+                plan_key: existingState!.plan_key,
+                has_active_subscription: true,
+                last_synced_at_ms: existingState!.last_synced_at_ms,
+                ...(typeof existingState!.billing_cycle_end_at_ms === "number"
+                    ? { billing_cycle_end_at_ms: existingState!.billing_cycle_end_at_ms }
+                    : {}),
+            };
+        }
+
         const applyResult: {
             status: "created" | "updated" | "unchanged" | "pending_active";
             plan_key: SubscriptionPlanKey;

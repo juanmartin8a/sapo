@@ -55,6 +55,7 @@ function createWebhookProcessingCtx(args: {
     const progressMutations: Record<string, unknown>[] = [];
     const leaseAcquisitionMutations: Record<string, unknown>[] = [];
     const reconciliationBegins: Record<string, unknown>[] = [];
+    const reconciliationReleases: Record<string, unknown>[] = [];
     const subscriptionStateMutations: Record<string, unknown>[] = [];
     const scheduler = { runAfter: jest.fn(async () => null) };
     let subscriptionStateQueryCount = 0;
@@ -136,6 +137,14 @@ function createWebhookProcessingCtx(args: {
                 };
             }
 
+            if (
+                typeof mutationArgs.sync_attempt_id === "string" &&
+                typeof mutationArgs.next_attempt_at_ms === "number"
+            ) {
+                reconciliationReleases.push(mutationArgs);
+                return { released: true };
+            }
+
             if (mutationArgs.snapshot) {
                 subscriptionStateMutations.push(mutationArgs);
                 const activeSignalAtMs = typeof mutationArgs.active_signal_at_ms === "number"
@@ -203,6 +212,7 @@ function createWebhookProcessingCtx(args: {
         progressMutations,
         leaseAcquisitionMutations,
         reconciliationBegins,
+        reconciliationReleases,
         subscriptionStateMutations,
         scheduler,
         getSubscriptionStateQueryCount: () => subscriptionStateQueryCount,
@@ -291,6 +301,49 @@ describe("RevenueCat webhook worker processing", () => {
             processing_attempt_id: leaseAcquisitionMutations[0].processing_attempt_id,
         });
         expect(typeof leaseAcquisitionMutations[0].processing_attempt_id).toBe("string");
+    });
+
+    it("preserves unexpired stored access when an expiration refresh is inactive", async () => {
+        jest.spyOn(Date, "now").mockReturnValue(1_500);
+        process.env = {
+            ...originalEnv,
+            REVENUECAT_CI_SUBSCRIPTIONS_R_API_KEY: "rc_v2_secret",
+            REVENUECAT_PROJECT_ID: "proj_test",
+            REVENUECAT_POLYGLOT_ENTITLEMENT_ID: "entl_polyglot",
+        };
+        globalThis.fetch = jest.fn(async () => jsonResponse(200, { items: [] })) as typeof fetch;
+        const {
+            ctx,
+            progressMutations,
+            reconciliationReleases,
+            subscriptionStateMutations,
+        } = createWebhookProcessingCtx({
+            event_at_ms: 1_000,
+            event_type: "EXPIRATION",
+            existing_state: createSubscriptionState({
+                plan_key: "polyglot",
+                has_active_subscription: true,
+                access_expires_at_ms: 5_000,
+                stale_after_at_ms: 5_000,
+            }),
+        });
+
+        await expect(
+            processRevenueCatWebhookEventById(ctx as any, {
+                event_doc_id: "event_doc_1",
+                now_ms: 1_500,
+            })
+        ).resolves.toEqual({ status: "deferred" });
+
+        expect(subscriptionStateMutations).toHaveLength(0);
+        expect(reconciliationReleases).toHaveLength(1);
+        expect(reconciliationReleases[0]).toMatchObject({
+            user_id: "user_1",
+        });
+        expect(progressMutations[0]).toMatchObject({
+            processed_user_ids: [],
+            released_user_ids: ["user_1"],
+        });
     });
 
     it("defers active webhooks while RevenueCat still reports inactive", async () => {
@@ -533,6 +586,88 @@ describe("RevenueCat reconciliation routing", () => {
         });
     });
 
+    it("does not demote unexpired access when a scheduled refresh is temporarily inactive", async () => {
+        configureReadEnv();
+        jest.spyOn(Date, "now").mockReturnValue(3_000);
+        globalThis.fetch = jest.fn(async () => jsonResponse(200, { items: [] })) as typeof fetch;
+        const {
+            ctx,
+            reconciliationReleases,
+            subscriptionStateMutations,
+        } = createWebhookProcessingCtx({
+            event_at_ms: 1_000,
+            existing_state: createSubscriptionState({
+                plan_key: "polyglot",
+                has_active_subscription: true,
+                last_synced_at_ms: 2_000,
+                stale_after_at_ms: 2_500,
+                access_expires_at_ms: 5_000,
+            }),
+        });
+
+        await expect(
+            executeSubscriptionUsageRefresh(ctx as any, {
+                user_id: "user_1",
+                sync_attempt_id: "sync_1",
+            })
+        ).resolves.toEqual({ status: "refresh_failed" });
+
+        expect(subscriptionStateMutations).toHaveLength(0);
+        expect(reconciliationReleases).toHaveLength(1);
+        expect(reconciliationReleases[0]).toMatchObject({
+            user_id: "user_1",
+            sync_attempt_id: "sync_1",
+            now_ms: 3_000,
+        });
+    });
+
+    it("corroborates an empty entitlement read with subscriptions for existing access", async () => {
+        configureReadEnv();
+        jest.spyOn(Date, "now").mockReturnValue(3_000);
+        const fetchMock = jest.fn(async (url: string | URL | Request) => {
+            if (String(url).includes("/active_entitlements")) {
+                return jsonResponse(200, { items: [] });
+            }
+
+            return jsonResponse(200, {
+                items: [{
+                    id: "sub_polyglot",
+                    product_id: "prod_polyglot",
+                    current_period_starts_at: 2_000,
+                    current_period_ends_at: 6_000,
+                    gives_access: true,
+                    status: "active",
+                    entitlements: {
+                        items: [{ id: "entl_polyglot" }],
+                    },
+                }],
+            });
+        }) as jest.MockedFunction<typeof fetch>;
+        globalThis.fetch = fetchMock;
+        const { ctx, subscriptionStateMutations } = createWebhookProcessingCtx({
+            event_at_ms: 1_000,
+            existing_state: createSubscriptionState({
+                plan_key: "polyglot",
+                has_active_subscription: true,
+                last_synced_at_ms: 2_000,
+                stale_after_at_ms: 2_500,
+                access_expires_at_ms: 5_000,
+            }),
+        });
+
+        await executeSubscriptionUsageRefresh(ctx as any, {
+            user_id: "user_1",
+            sync_attempt_id: "sync_1",
+        });
+
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        expect(subscriptionStateMutations).toHaveLength(1);
+        expect(subscriptionStateMutations[0].snapshot).toMatchObject({
+            has_active_subscription: true,
+            period_end_at_ms: 6_000,
+        });
+    });
+
     it("keeps billing and access expiration separate during grace reconciliation", async () => {
         configureReadEnv();
         jest.spyOn(Date, "now").mockReturnValue(3_000);
@@ -609,8 +744,9 @@ describe("RevenueCat reconciliation routing", () => {
             has_active_subscription: false,
         });
 
-        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(fetchMock).toHaveBeenCalledTimes(2);
         expect(String(fetchMock.mock.calls[0][0])).toContain("/active_entitlements?limit=100");
+        expect(String(fetchMock.mock.calls[1][0])).toContain("/subscriptions?limit=100");
     });
 
     it("does not trust an expired active state while activation is pending", async () => {
@@ -636,8 +772,9 @@ describe("RevenueCat reconciliation routing", () => {
 
         await reconcileSubscriptionStateForUsage(ctx as any, { user_id: "user_1" });
 
-        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(fetchMock).toHaveBeenCalledTimes(2);
         expect(String(fetchMock.mock.calls[0][0])).toContain("/active_entitlements?limit=100");
+        expect(String(fetchMock.mock.calls[1][0])).toContain("/subscriptions?limit=100");
     });
 
     it("serves trusted active state without rescheduling during refresh backoff", async () => {
@@ -788,7 +925,7 @@ describe("RevenueCat reconciliation routing", () => {
         expect(String(fetchMock.mock.calls[0][0])).toContain("/active_entitlements?limit=100");
     });
 
-    it("uses active entitlements first for expired-state reconciliation", async () => {
+    it("checks active entitlements before subscriptions for expired-state reconciliation", async () => {
         configureReadEnv();
         jest.spyOn(Date, "now").mockReturnValue(3_000);
         const fetchMock = jest.fn(async () => jsonResponse(200, { items: [] })) as jest.MockedFunction<
@@ -849,8 +986,9 @@ describe("RevenueCat reconciliation routing", () => {
             scanned: 1,
         });
 
-        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(fetchMock).toHaveBeenCalledTimes(2);
         expect(String(fetchMock.mock.calls[0][0])).toContain("/active_entitlements?limit=100");
+        expect(String(fetchMock.mock.calls[1][0])).toContain("/subscriptions?limit=100");
     });
 
     it("skips expired-state reconciliation when active entitlement config is missing", async () => {

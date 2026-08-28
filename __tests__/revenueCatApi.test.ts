@@ -114,6 +114,19 @@ describe("RevenueCat API reconciliation", () => {
         expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
+    it("does not trust an active entitlement after its expiration", async () => {
+        configureRevenueCatEnv();
+        jest.spyOn(Date, "now").mockReturnValue(2_000);
+        globalThis.fetch = jest.fn(async () => jsonResponse(200, {
+            items: [{ entitlement_id: "entl_polyglot", expires_at: 2_000 }],
+        })) as typeof fetch;
+
+        await expect(fetchRevenueCatCustomerActiveEntitlementSnapshot("user_with_expired_access"))
+            .resolves.toEqual({
+                has_active_subscription: false,
+            });
+    });
+
     it("uses access expiration ahead of the billing period end", () => {
         const graceState = {
             has_active_subscription: true,
