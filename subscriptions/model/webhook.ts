@@ -2334,6 +2334,9 @@ export const beginSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
                     ...(typeof existingState.billing_cycle_end_at_ms === "number"
                         ? { billing_cycle_end_at_ms: existingState.billing_cycle_end_at_ms }
                         : {}),
+                    ...(typeof existingState.access_expires_at_ms === "number"
+                        ? { access_expires_at_ms: existingState.access_expires_at_ms }
+                        : {}),
                     ...(typeof nextPendingActiveSignalAtMs === "number" &&
                     typeof nextPendingActiveExpiresAtMs === "number" &&
                     typeof nextPendingActiveRetryCount === "number" &&
@@ -2369,6 +2372,9 @@ export const beginSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
                     last_synced_at_ms: existingState.last_synced_at_ms,
                     ...(typeof existingState.billing_cycle_end_at_ms === "number"
                         ? { billing_cycle_end_at_ms: existingState.billing_cycle_end_at_ms }
+                        : {}),
+                    ...(typeof existingState.access_expires_at_ms === "number"
+                        ? { access_expires_at_ms: existingState.access_expires_at_ms }
                         : {}),
                     ...(existingPendingIsLive &&
                     typeof existingPendingSignalAtMs === "number" &&
@@ -2412,6 +2418,9 @@ export const beginSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
                 last_synced_at_ms: existingState.last_synced_at_ms,
                 ...(typeof existingState.billing_cycle_end_at_ms === "number"
                     ? { billing_cycle_end_at_ms: existingState.billing_cycle_end_at_ms }
+                    : {}),
+                ...(typeof existingState.access_expires_at_ms === "number"
+                    ? { access_expires_at_ms: existingState.access_expires_at_ms }
                     : {}),
                 ...(typeof nextPendingActiveSignalAtMs === "number" &&
                 typeof nextPendingActiveExpiresAtMs === "number" &&

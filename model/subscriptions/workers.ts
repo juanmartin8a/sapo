@@ -45,6 +45,7 @@ import {
     getMissingRevenueCatEntitlementConfigMessage,
     getRevenueCatApiErrorRetryDelayMs,
     getRevenueCatEventsRetentionCutoffMs,
+    hasUnexpiredConfirmedSubscriptionPeriod,
     hasUnexpiredSubscriptionAccess,
     isRevenueCatApiErrorWithStatus,
     resolveRevenueCatAccessExpirationAtMs,
@@ -482,7 +483,7 @@ export function shouldUseExistingStateForObservedSubscription(
     const preservesConfirmedActiveAccess =
         state?.has_active_subscription === true &&
         observedActive === false &&
-        hasUnexpiredSubscriptionAccess(state, nowMs);
+        hasUnexpiredConfirmedSubscriptionPeriod(state, nowMs);
 
     return Boolean(
         state &&
@@ -821,6 +822,7 @@ async function reconcileSubscriptionStateFromRevenueCat(
         use_stale_active_state_while_revalidating?: boolean;
         preacquired_sync_attempt_id?: string;
         event_doc_id?: string;
+        accept_inactive_subscription?: boolean;
         reconciliation_read: "active_entitlements_first" | "subscriptions";
     }
 ): Promise<SubscriptionStateRefreshResult> {
@@ -1116,6 +1118,7 @@ async function reconcileSubscriptionStateFromRevenueCat(
 
         if (
             !snapshotHasActiveSubscription &&
+            args.accept_inactive_subscription !== true &&
             canServeActiveSubscriptionStateForUsage(existingState, applyAtMs)
         ) {
             if (syncAttemptId) {
@@ -2652,6 +2655,7 @@ export const reconcileExpiredSubscriptionStates = async (ctx: ActionCtx): Promis
                 user_id: dueState.user_id,
                 force: true,
                 now_ms: Date.now(),
+                accept_inactive_subscription: true,
                 reconciliation_read: "active_entitlements_first",
             });
 

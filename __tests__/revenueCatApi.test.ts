@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, jest } from "@jest/globals";
 
+import { SUBSCRIPTION_RENEWAL_PROPAGATION_GRACE_MS } from "../constants/subscriptions";
 import {
     deleteRevenueCatCustomer,
     fetchRevenueCatCustomerActiveEntitlementSnapshot,
@@ -135,7 +136,13 @@ describe("RevenueCat API reconciliation", () => {
         };
 
         expect(hasUnexpiredSubscriptionAccess(graceState, 3_000)).toBe(true);
-        expect(hasUnexpiredSubscriptionAccess(graceState, 5_000)).toBe(false);
+        expect(hasUnexpiredSubscriptionAccess(graceState, 5_000)).toBe(true);
+        expect(
+            hasUnexpiredSubscriptionAccess(
+                graceState,
+                5_000 + SUBSCRIPTION_RENEWAL_PROPAGATION_GRACE_MS
+            )
+        ).toBe(false);
     });
 
     it("falls back to billing expiration for legacy subscription states", () => {
@@ -145,7 +152,13 @@ describe("RevenueCat API reconciliation", () => {
         };
 
         expect(hasUnexpiredSubscriptionAccess(legacyState, 1_999)).toBe(true);
-        expect(hasUnexpiredSubscriptionAccess(legacyState, 2_000)).toBe(false);
+        expect(hasUnexpiredSubscriptionAccess(legacyState, 2_000)).toBe(true);
+        expect(
+            hasUnexpiredSubscriptionAccess(
+                legacyState,
+                2_000 + SUBSCRIPTION_RENEWAL_PROPAGATION_GRACE_MS
+            )
+        ).toBe(false);
     });
 
     it("does not combine a new active entitlement with an old active billing period", () => {

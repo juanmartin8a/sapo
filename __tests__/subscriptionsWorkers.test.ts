@@ -17,6 +17,9 @@ import {
     reconcileSubscriptionStateForUsage,
     tickPendingSubscriptionActivation,
 } from "../model/subscriptions/workers";
+import {
+    SUBSCRIPTION_RENEWAL_PROPAGATION_GRACE_MS,
+} from "../constants/subscriptions";
 import { type CurrentSubscriptionState } from "../model/subscriptions/revenueCatApi";
 
 const originalEnv = process.env;
@@ -57,7 +60,10 @@ function createWebhookProcessingCtx(args: {
     const reconciliationBegins: Record<string, unknown>[] = [];
     const reconciliationReleases: Record<string, unknown>[] = [];
     const subscriptionStateMutations: Record<string, unknown>[] = [];
-    const scheduler = { runAfter: jest.fn(async () => null) };
+    const scheduler = {
+        runAfter: jest.fn(async () => null),
+        runAt: jest.fn(async () => null),
+    };
     let subscriptionStateQueryCount = 0;
     let deletionStateQueryCount = 0;
 
@@ -706,7 +712,10 @@ describe("RevenueCat reconciliation routing", () => {
             }),
         });
 
-        await reconcileSubscriptionStateForUsage(ctx as any, { user_id: "user_1" });
+        await executeSubscriptionUsageRefresh(ctx as any, {
+            user_id: "user_1",
+            sync_attempt_id: "sync_1",
+        });
 
         expect(fetchMock).toHaveBeenCalledTimes(2);
         expect(subscriptionStateMutations).toHaveLength(1);
@@ -718,7 +727,7 @@ describe("RevenueCat reconciliation routing", () => {
         });
     });
 
-    it("keeps active usage inline at the exact billing period end", async () => {
+    it("keeps active usage available at the exact billing period end", async () => {
         configureReadEnv();
         process.env.REVENUECAT_ON_DEMAND_SYNC_AFTER_MS = "1000";
         jest.spyOn(Date, "now").mockReturnValue(3_000);
@@ -740,16 +749,14 @@ describe("RevenueCat reconciliation routing", () => {
         await expect(
             reconcileSubscriptionStateForUsage(ctx as any, { user_id: "user_1" })
         ).resolves.toMatchObject({
-            status: "updated",
-            has_active_subscription: false,
+            status: "already_fresh",
+            has_active_subscription: true,
         });
 
-        expect(fetchMock).toHaveBeenCalledTimes(2);
-        expect(String(fetchMock.mock.calls[0][0])).toContain("/active_entitlements?limit=100");
-        expect(String(fetchMock.mock.calls[1][0])).toContain("/subscriptions?limit=100");
+        expect(fetchMock).not.toHaveBeenCalled();
     });
 
-    it("does not trust an expired active state while activation is pending", async () => {
+    it("keeps renewal continuity while activation is pending", async () => {
         configureReadEnv();
         process.env.REVENUECAT_ON_DEMAND_SYNC_AFTER_MS = "1000";
         jest.spyOn(Date, "now").mockReturnValue(3_000);
@@ -772,9 +779,7 @@ describe("RevenueCat reconciliation routing", () => {
 
         await reconcileSubscriptionStateForUsage(ctx as any, { user_id: "user_1" });
 
-        expect(fetchMock).toHaveBeenCalledTimes(2);
-        expect(String(fetchMock.mock.calls[0][0])).toContain("/active_entitlements?limit=100");
-        expect(String(fetchMock.mock.calls[1][0])).toContain("/subscriptions?limit=100");
+        expect(fetchMock).not.toHaveBeenCalled();
     });
 
     it("serves trusted active state without rescheduling during refresh backoff", async () => {
@@ -819,7 +824,8 @@ describe("RevenueCat reconciliation routing", () => {
                 has_active_subscription: true,
                 last_synced_at_ms: 1_000,
                 stale_after_at_ms: 4_000,
-                billing_cycle_end_at_ms: 3_000,
+                billing_cycle_end_at_ms:
+                    3_000 - SUBSCRIPTION_RENEWAL_PROPAGATION_GRACE_MS,
                 next_refresh_attempt_at_ms: 4_000,
             }),
         });

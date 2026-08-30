@@ -4,6 +4,7 @@ import { resolveBetterAuthUserId } from "../betterAuth/model/user";
 import { SUBSCRIPTION_PLAN_KEYS } from "../constants/subscriptions";
 import { getSubscriptionStateByUserId } from "./subscriptions/componentApi";
 import {
+    getSubscriptionAccessExpiresAtMs,
     hasUnexpiredSubscriptionAccess,
     type CurrentSubscriptionState,
 } from "./subscriptions/revenueCatApi";
@@ -52,9 +53,16 @@ export async function getCurrentSubscriptionStatus(
     }
 
     const state = await getSubscriptionStateByUserId(ctx, userId);
+    const status = resolveCurrentSubscriptionStatus(state, Date.now());
+    const accessExpiresAtMs = status.has_active_subscription
+        ? getSubscriptionAccessExpiresAtMs(state)
+        : null;
 
     return {
         user_id: userId,
-        ...resolveCurrentSubscriptionStatus(state, Date.now()),
+        ...status,
+        ...(typeof accessExpiresAtMs === "number"
+            ? { access_expires_at_ms: accessExpiresAtMs }
+            : {}),
     };
 }

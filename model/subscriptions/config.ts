@@ -1,8 +1,9 @@
+import { SUBSCRIPTION_RENEWAL_RECONCILIATION_DELAY_MS } from "../../constants/subscriptions";
+
 const DEFAULT_RETRY_BASE_DELAY_MS = 15_000;
 const DEFAULT_MAX_RETRY_DELAY_MS = 6 * 60 * 60 * 1000;
 const DEFAULT_MAX_RETRY_COUNT = 12;
 const DEFAULT_ON_DEMAND_SUBSCRIPTION_REFRESH_INTERVAL_MS = 8 * 60 * 60 * 1000;
-const DEFAULT_EXPIRATION_RECONCILIATION_DELAY_MS = 15 * 60 * 1000;
 const DEFAULT_RETRY_BATCH_LIMIT = 20;
 const DEFAULT_RECONCILIATION_BATCH_LIMIT = 10;
 const DEFAULT_RECONCILIATION_FAILURE_BACKOFF_MS = 30 * 60 * 1000;
@@ -64,7 +65,7 @@ export function getSubscriptionProcessingConfig() {
     return {
         expiration_reconciliation_delay_ms: parseIntegerEnvValue(
             process.env.REVENUECAT_EXP_RECONCILIATION_DELAY_MS,
-            DEFAULT_EXPIRATION_RECONCILIATION_DELAY_MS
+            SUBSCRIPTION_RENEWAL_RECONCILIATION_DELAY_MS
         ),
     };
 }

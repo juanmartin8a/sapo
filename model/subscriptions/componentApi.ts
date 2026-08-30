@@ -60,6 +60,7 @@ export type SubscriptionStateReconciliationLeaseResult =
           plan_key: SubscriptionPlanKey;
           last_synced_at_ms: number;
           billing_cycle_end_at_ms?: number;
+          access_expires_at_ms?: number;
           pending_active_signal_at_ms?: number;
           pending_active_expires_at_ms?: number;
           pending_active_retry_count?: number;
@@ -72,6 +73,7 @@ export type SubscriptionStateReconciliationLeaseResult =
           plan_key: SubscriptionPlanKey;
           last_synced_at_ms: number;
           billing_cycle_end_at_ms?: number;
+          access_expires_at_ms?: number;
           retry_at_ms?: number;
           pending_active_signal_at_ms?: number;
           pending_active_expires_at_ms?: number;
@@ -85,6 +87,7 @@ export type SubscriptionStateReconciliationLeaseResult =
           plan_key: SubscriptionPlanKey;
           last_synced_at_ms: number;
           billing_cycle_end_at_ms?: number;
+          access_expires_at_ms?: number;
           retry_at_ms: number;
           pending_active_signal_at_ms?: number;
           pending_active_expires_at_ms?: number;
