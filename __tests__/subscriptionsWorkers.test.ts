@@ -44,7 +44,6 @@ function createSubscriptionState(overrides: Partial<CurrentSubscriptionState> = 
         plan_key: "free",
         has_active_subscription: false,
         last_synced_at_ms: 1_000,
-        stale_after_at_ms: 2_000,
         ...overrides,
     };
 }
@@ -330,7 +329,6 @@ describe("RevenueCat webhook worker processing", () => {
                 plan_key: "polyglot",
                 has_active_subscription: true,
                 access_expires_at_ms: 5_000,
-                stale_after_at_ms: 5_000,
             }),
         });
 
@@ -480,6 +478,7 @@ describe("RevenueCat reconciliation routing", () => {
 
     it("uses only active entitlements for an inactive usage refresh", async () => {
         configureReadEnv();
+        process.env.REVENUECAT_ON_DEMAND_SYNC_AFTER_MS = "1000";
         jest.spyOn(Date, "now").mockReturnValue(3_000);
         const fetchMock = jest.fn(async () => jsonResponse(200, { items: [] })) as jest.MockedFunction<
             typeof fetch
@@ -524,6 +523,7 @@ describe("RevenueCat reconciliation routing", () => {
 
     it("falls through to subscriptions when a usage refresh finds active access", async () => {
         configureReadEnv();
+        process.env.REVENUECAT_ON_DEMAND_SYNC_AFTER_MS = "1000";
         jest.spyOn(Date, "now").mockReturnValue(3_000);
         const fetchMock = jest.fn(async (url: string | URL | Request) => {
             if (String(url).includes("/active_entitlements")) {
@@ -567,7 +567,6 @@ describe("RevenueCat reconciliation routing", () => {
                 plan_key: "polyglot",
                 has_active_subscription: true,
                 last_synced_at_ms: 2_000,
-                stale_after_at_ms: 6_000,
                 billing_cycle_end_at_ms: 2_000,
                 access_expires_at_ms: 5_000,
             }),
@@ -606,7 +605,6 @@ describe("RevenueCat reconciliation routing", () => {
                 plan_key: "polyglot",
                 has_active_subscription: true,
                 last_synced_at_ms: 2_000,
-                stale_after_at_ms: 2_500,
                 access_expires_at_ms: 5_000,
             }),
         });
@@ -656,7 +654,6 @@ describe("RevenueCat reconciliation routing", () => {
                 plan_key: "polyglot",
                 has_active_subscription: true,
                 last_synced_at_ms: 2_000,
-                stale_after_at_ms: 2_500,
                 access_expires_at_ms: 5_000,
             }),
         });
@@ -708,7 +705,6 @@ describe("RevenueCat reconciliation routing", () => {
                 plan_key: "polyglot",
                 has_active_subscription: true,
                 billing_cycle_end_at_ms: 2_000,
-                stale_after_at_ms: 2_000,
             }),
         });
 
@@ -741,7 +737,6 @@ describe("RevenueCat reconciliation routing", () => {
                 plan_key: "polyglot",
                 has_active_subscription: true,
                 last_synced_at_ms: 1_000,
-                stale_after_at_ms: 4_000,
                 billing_cycle_end_at_ms: 3_000,
             }),
         });
@@ -770,7 +765,6 @@ describe("RevenueCat reconciliation routing", () => {
                 plan_key: "polyglot",
                 has_active_subscription: true,
                 last_synced_at_ms: 1_000,
-                stale_after_at_ms: 4_000,
                 billing_cycle_end_at_ms: 3_000,
                 pending_active_signal_at_ms: 2_500,
                 pending_active_expires_at_ms: 4_000,
@@ -794,7 +788,6 @@ describe("RevenueCat reconciliation routing", () => {
                 plan_key: "polyglot",
                 has_active_subscription: true,
                 last_synced_at_ms: 1_000,
-                stale_after_at_ms: 6_000,
                 billing_cycle_end_at_ms: 5_000,
                 next_refresh_attempt_at_ms: 4_000,
             }),
@@ -823,7 +816,6 @@ describe("RevenueCat reconciliation routing", () => {
                 plan_key: "polyglot",
                 has_active_subscription: true,
                 last_synced_at_ms: 1_000,
-                stale_after_at_ms: 4_000,
                 billing_cycle_end_at_ms:
                     3_000 - SUBSCRIPTION_RENEWAL_PROPAGATION_GRACE_MS,
                 next_refresh_attempt_at_ms: 4_000,
@@ -843,6 +835,7 @@ describe("RevenueCat reconciliation routing", () => {
 
     it("polls a required inline sync for at most 1.75 seconds", async () => {
         configureReadEnv();
+        process.env.REVENUECAT_ON_DEMAND_SYNC_AFTER_MS = "1000";
         jest.useFakeTimers();
         jest.spyOn(Date, "now").mockReturnValue(3_000);
         const fetchMock = jest.fn() as jest.MockedFunction<typeof fetch>;
@@ -865,7 +858,7 @@ describe("RevenueCat reconciliation routing", () => {
                 if (queryArgs.user_id === "user_1") {
                     stateQueryCount += 1;
                     return stateQueryCount % 2 === 1
-                        ? createSubscriptionState({ stale_after_at_ms: 2_000 })
+                        ? createSubscriptionState()
                         : { blocks_revenuecat_reconciliation: false };
                 }
 

@@ -34,7 +34,6 @@ import {
     getReconciliationFailureBackoffMs,
     getRevenueCatEventsRetentionMs,
     getRetryBatchLimit,
-    getSubscriptionProcessingConfig,
     getWebhookRetryConfig,
 } from "./config";
 import {
@@ -987,7 +986,6 @@ async function reconcileSubscriptionStateFromRevenueCat(
     }
 
     try {
-        const processingConfig = getSubscriptionProcessingConfig();
         const betterAuthUser = await getBetterAuthUserCreatedAtMs(ctx, args.user_id);
 
         if (!betterAuthUser.exists) {
@@ -1166,8 +1164,6 @@ async function reconcileSubscriptionStateFromRevenueCat(
                     : {}),
                 synced_at_ms: applyAtMs,
                 sync_attempt_id: syncAttemptId,
-                expiration_reconciliation_delay_ms:
-                    processingConfig.expiration_reconciliation_delay_ms,
                 ...(args.store_subscription_id_hint
                     ? { store_subscription_id_hint: args.store_subscription_id_hint }
                     : {}),
@@ -2643,7 +2639,6 @@ export const reconcileExpiredSubscriptionStates = async (ctx: ActionCtx): Promis
             }
         ) as {
             user_id: string;
-            revenuecat_app_user_id?: string;
             last_synced_at_ms: number;
         }[];
 

@@ -5,7 +5,6 @@ import {
     getOperationalAlertsResolvedRetentionMs,
     getPolyglotEntitlementId,
     getRevenueCatEventsRetentionMs,
-    getSubscriptionProcessingConfig,
 } from "../model/subscriptions/config";
 
 const originalEnv = process.env;
@@ -13,7 +12,6 @@ const originalEnv = process.env;
 function configureEnv(extraEnv: Record<string, string | undefined> = {}) {
     process.env = {
         ...originalEnv,
-        REVENUECAT_EXP_RECONCILIATION_DELAY_MS: undefined,
         REVENUECAT_POLYGLOT_ENTITLEMENT_ID: undefined,
         REVENUECAT_ON_DEMAND_SYNC_AFTER_MS: undefined,
         REVENUECAT_EVENTS_RETENTION_MS: undefined,
@@ -25,24 +23,6 @@ function configureEnv(extraEnv: Record<string, string | undefined> = {}) {
 describe("subscription processing config", () => {
     afterEach(() => {
         process.env = originalEnv;
-    });
-
-    it("uses the shortened RevenueCat expiration reconciliation delay key", () => {
-        configureEnv({
-            REVENUECAT_EXP_RECONCILIATION_DELAY_MS: "1800000",
-        });
-
-        expect(getSubscriptionProcessingConfig()).toEqual({
-            expiration_reconciliation_delay_ms: 1_800_000,
-        });
-    });
-
-    it("falls back to a 15 minute expiration reconciliation delay", () => {
-        configureEnv();
-
-        expect(getSubscriptionProcessingConfig()).toEqual({
-            expiration_reconciliation_delay_ms: 15 * 60 * 1000,
-        });
     });
 
     it("uses the RevenueCat on-demand sync interval as milliseconds", () => {

@@ -16,7 +16,6 @@ function subscriptionState(
         plan_key: "free",
         has_active_subscription: false,
         last_synced_at_ms: 9_000,
-        stale_after_at_ms: 20_000,
         ...overrides,
     };
 }

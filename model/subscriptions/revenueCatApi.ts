@@ -71,7 +71,6 @@ export type CurrentSubscriptionState = {
     pending_active_signal_at_ms?: number;
     pending_active_expires_at_ms?: number;
     last_synced_at_ms: number;
-    stale_after_at_ms: number;
     next_refresh_attempt_at_ms?: number;
 };
 
@@ -407,10 +406,6 @@ export function shouldUseExistingSubscriptionState(
         return false;
     }
 
-    if (nowMs >= existingState.stale_after_at_ms) {
-        return false;
-    }
-
     if (!existingState.has_active_subscription) {
         return true;
     }
@@ -585,9 +580,7 @@ async function fetchRevenueCatCustomerSubscriptions(
             status: parseString(subscription.status) ?? undefined,
             product_id: parseString(subscription.product_id) ?? undefined,
             purchase_at_ms:
-                parseTimestampMs(subscription.current_period_starts_at) ??
-                parseTimestampMs(subscription.starts_at) ??
-                undefined,
+                parseTimestampMs(subscription.current_period_starts_at) ?? undefined,
             expiration_at_ms: parseTimestampMs(subscription.current_period_ends_at) ?? undefined,
             store_subscription_id:
                 parseIdentifierString(subscription.store_subscription_identifier) ?? undefined,

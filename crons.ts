@@ -55,7 +55,7 @@ crons.interval(
 
 crons.interval(
     "reconcile expired subscription states",
-    { hours: 12 },
+    { minutes: 5 },
     internal.subscriptionsWorkers.reconcileExpiredSubscriptionStates,
     {}
 );

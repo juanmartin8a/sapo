@@ -367,7 +367,6 @@ export const applyReconciledSubscriptionStateArgs = {
     signup_at_ms: v.optional(v.number()),
     synced_at_ms: v.number(),
     sync_attempt_id: v.string(),
-    expiration_reconciliation_delay_ms: v.number(),
     store_subscription_id_hint: v.optional(v.string()),
     allow_user_deletion_in_progress: v.optional(v.boolean()),
     expects_active_subscription: v.optional(v.boolean()),

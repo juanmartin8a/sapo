@@ -259,6 +259,28 @@ describe("RevenueCat API reconciliation", () => {
         expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
+    it("does not use the original subscription start as the current period start", async () => {
+        configureRevenueCatEnv();
+        globalThis.fetch = jest.fn(async () => jsonResponse(200, {
+            items: [{
+                id: "sub_test",
+                starts_at: 1_600_000_000_000,
+                current_period_ends_at: 1_800_000_000_000,
+                gives_access: true,
+                entitlements: {
+                    items: [{ id: "entl_polyglot" }],
+                },
+            }],
+        })) as typeof fetch;
+
+        await expect(fetchRevenueCatCustomerSubscriptionSnapshot("user_with_subscription"))
+            .resolves.toEqual({
+                has_active_subscription: true,
+                entitlement_id: "entl_polyglot",
+                period_end_at_ms: 1_800_000_000_000,
+            });
+    });
+
     it("treats a missing customer as an inactive subscription snapshot", async () => {
         configureRevenueCatEnv();
         globalThis.fetch = jest.fn(async () => jsonResponse(404, {

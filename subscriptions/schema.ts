@@ -58,14 +58,16 @@ export default defineSchema({
         client_reconcile_tokens: v.optional(v.number()),
         client_reconcile_refilled_at_ms: v.optional(v.number()),
         last_synced_at_ms: v.number(),
-        stale_after_at_ms: v.number(),
         next_refresh_attempt_at_ms: v.optional(v.number()),
         created_at_ms: v.number(),
         updated_at_ms: v.number(),
     })
         .index("by_user_id", ["user_id"])
         .index("by_user_id_and_updated_at_ms", ["user_id", "updated_at_ms"])
-        .index("by_stale_after_at_ms", ["stale_after_at_ms"]),
+        .index("by_active_subscription_and_billing_cycle_end_at_ms", [
+            "has_active_subscription",
+            "billing_cycle_end_at_ms",
+        ]),
 
     quota_periods: defineTable({
         user_id: v.union(v.string(), v.null()),

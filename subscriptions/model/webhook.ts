@@ -91,7 +91,6 @@ import {
 } from "../../model/subscriptions/revenueCatApi";
 import { getExclusiveLeaseOwnershipFailure } from "./leaseOwnership";
 import { MAX_PERSISTED_ERROR_MESSAGE_CHARS } from "../../constants/limits";
-import { FAR_FUTURE_TIMESTAMP_MS } from "../../constants/time";
 import {
     SUBSCRIPTION_QUOTA_ERROR_CODES,
     SUBSCRIPTION_PLAN_KEYS,
@@ -105,7 +104,6 @@ const TERMINAL_EVENT_STATUSES = REVENUECAT_TERMINAL_WEBHOOK_EVENT_STATUS_SET;
 const SUBSCRIPTION_SYNC_LEASE_MAX_MS = 90_000;
 const PENDING_ACTIVE_SIGNAL_MAX_TTL_MS = 5 * 60 * 1000;
 
-const NEVER_RECONCILE_AT_MS = FAR_FUTURE_TIMESTAMP_MS;
 const QUOTA_USAGE_RESERVATION_WATCHDOG_DELAY_MS = 5 * 60 * 1000;
 const USER_DELETION_BATCH_LIMIT = 500;
 const CLIENT_RECONCILIATION_TOKEN_CAPACITY = 3;
@@ -171,18 +169,6 @@ const AUTOMATIC_USER_DELETION_RETRY_STATUSES: UserDeletionQueueStatus[] = [
     USER_DELETION_QUEUE_STATUS.RETRYABLE_ERROR,
     USER_DELETION_QUEUE_STATUS.CLEANUP_IN_PROGRESS,
 ];
-
-function resolveNextExpirationReconciliationAtMs(
-    hasActiveSubscription: boolean,
-    expirationAtMs: number | undefined,
-    expirationReconciliationDelayMs: number
-) {
-    if (!hasActiveSubscription || typeof expirationAtMs !== "number") {
-        return NEVER_RECONCILE_AT_MS;
-    }
-
-    return expirationAtMs + Math.max(0, expirationReconciliationDelayMs);
-}
 
 function isFiniteTimestampMs(value: number | undefined): value is number {
     return typeof value === "number" && Number.isFinite(value);
@@ -623,7 +609,6 @@ const SUBSCRIPTION_STATE_COMPARISON_FIELDS = [
     "window_key",
     "window_start_at_ms",
     "window_end_at_ms",
-    "stale_after_at_ms",
 ] as const;
 
 function hasComparableSubscriptionStateChanged(
@@ -2181,7 +2166,6 @@ export const getSubscriptionStateByUserId = async (ctx: QueryCtx, args: WebhookA
                     ? stateRecord.pending_active_expires_at_ms
                     : undefined,
             last_synced_at_ms: state.last_synced_at_ms,
-            stale_after_at_ms: state.stale_after_at_ms,
             next_refresh_attempt_at_ms:
                 typeof stateRecord.next_refresh_attempt_at_ms === "number"
                     ? stateRecord.next_refresh_attempt_at_ms
@@ -2459,7 +2443,6 @@ export const beginSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
                   }
                 : {}),
             last_synced_at_ms: 0,
-            stale_after_at_ms: nowMs,
             created_at_ms: nowMs,
             updated_at_ms: nowMs,
         };
@@ -2647,10 +2630,6 @@ export const releaseSubscriptionStateReconciliation = async (ctx: MutationCtx, a
             sync_expires_at_ms: undefined,
             ...(typeof args.next_attempt_at_ms === "number"
                 ? { next_refresh_attempt_at_ms: args.next_attempt_at_ms }
-                : {}),
-            ...(typeof args.next_attempt_at_ms === "number" &&
-            existingState.stale_after_at_ms < args.next_attempt_at_ms
-                ? { stale_after_at_ms: args.next_attempt_at_ms }
                 : {}),
             updated_at_ms: Math.max(existingState.updated_at_ms, args.now_ms),
         } as Record<string, unknown>);
@@ -2904,14 +2883,15 @@ export const listSubscriptionStatesDueForExpirationReconciliation = async (ctx: 
 
         const dueStates = await ctx.db
             .query("subscription_states")
-            .withIndex("by_stale_after_at_ms", (query) =>
-                query.lte("stale_after_at_ms", args.now_ms)
+            .withIndex("by_active_subscription_and_billing_cycle_end_at_ms", (query) =>
+                query
+                    .eq("has_active_subscription", true)
+                    .lte("billing_cycle_end_at_ms", args.now_ms)
             )
             .take(safeLimit);
 
         return dueStates.map((state) => ({
             user_id: state.user_id,
-            revenuecat_app_user_id: state.revenuecat_app_user_id,
             last_synced_at_ms: state.last_synced_at_ms,
         }));
     };
@@ -3155,12 +3135,6 @@ export const applyReconciledSubscriptionState = async (ctx: MutationCtx, args: W
         const hasLogicalWindowChanged = existingState
             ? !isSameLogicalSubscriptionWindow(existingState, resolvedWindow)
             : true;
-        const staleAfterAtMs = resolveNextExpirationReconciliationAtMs(
-            hasActiveSubscription,
-            accessExpiresAtMs,
-            args.expiration_reconciliation_delay_ms
-        );
-
         const nextStateBase = {
             user_id: args.user_id,
             revenuecat_app_user_id: args.revenuecat_app_user_id,
@@ -3178,7 +3152,6 @@ export const applyReconciledSubscriptionState = async (ctx: MutationCtx, args: W
             window_start_at_ms: resolvedWindow.window_start_at_ms,
             window_end_at_ms: resolvedWindow.window_end_at_ms,
             last_synced_at_ms: args.synced_at_ms,
-            stale_after_at_ms: staleAfterAtMs,
             created_at_ms: existingState?.created_at_ms ?? args.synced_at_ms,
             updated_at_ms: args.synced_at_ms,
             ...(typeof existingStateRecord?.client_reconcile_tokens === "number"
@@ -4007,7 +3980,6 @@ export const deferSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
         }
 
         await ctx.db.patch("subscription_states", existingState._id, {
-            stale_after_at_ms: args.next_attempt_at_ms,
             next_refresh_attempt_at_ms: args.next_attempt_at_ms,
             updated_at_ms: args.next_attempt_at_ms,
         } as Record<string, unknown>);
