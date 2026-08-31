@@ -158,6 +158,17 @@ describe("runTranslationStream", () => {
         });
     });
 
+    it("maps subscription access errors", async () => {
+        mockGetConvexAccessTokenWithUserId.mockResolvedValue({ token: "convex-token", userId: "user_1" });
+        mockExpoFetch.mockResolvedValue(textResponse('{"error":"subscription_required"}', 403));
+
+        await expect(runTranslationStream(createArguments(), createCallbacks())).resolves.toEqual({
+            type: "http-error",
+            status: 403,
+            message: "An active subscription is required.",
+        });
+    });
+
     it("reports stream error markers through the callback", async () => {
         mockGetConvexAccessTokenWithUserId.mockResolvedValue({ token: "convex-token", userId: "user_1" });
         mockExpoFetch.mockResolvedValue(streamingResponse(["data: <error:/>\n\n"]));

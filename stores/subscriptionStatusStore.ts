@@ -1,21 +1,24 @@
 import { create } from "zustand";
 
-type SubscriptionStatus = "checking" | "inactive" | "activating" | "active";
+export type SubscriptionStatus = "checking" | "inactive" | "activating" | "active";
+type ConvexSubscriptionStatus = Exclude<SubscriptionStatus, "checking">;
 
 interface SubscriptionStatusStoreProps {
     userId: string | null;
     status: SubscriptionStatus;
+    // Activation retains the latest access value confirmed by Convex.
     hasActiveSubscription: boolean | null;
 
     setCurrentUser: (userId: string | null) => void;
-    setForUser: (userId: string, status: SubscriptionStatus) => boolean;
+    applyConvexStatus: (userId: string, status: ConvexSubscriptionStatus) => boolean;
+    expireForUser: (userId: string) => void;
 }
 
 function getHasActiveSubscription(
-    status: SubscriptionStatus,
+    status: ConvexSubscriptionStatus,
     confirmedStatus: boolean | null
 ) {
-    if (status === "checking" || status === "activating") {
+    if (status === "activating") {
         return confirmedStatus;
     }
 
@@ -39,7 +42,7 @@ const useSubscriptionStatusStore = create<SubscriptionStatusStoreProps>((set) =>
             };
         });
     },
-    setForUser: (userId, status) => {
+    applyConvexStatus: (userId, status) => {
         let didSet = false;
 
         set((state) => {
@@ -60,6 +63,18 @@ const useSubscriptionStatusStore = create<SubscriptionStatusStoreProps>((set) =>
         });
 
         return didSet;
+    },
+    expireForUser: (userId) => {
+        set((state) => {
+            if (state.userId !== userId || state.hasActiveSubscription !== true) {
+                return state;
+            }
+
+            return {
+                status: "inactive",
+                hasActiveSubscription: false,
+            };
+        });
     },
 }));
 

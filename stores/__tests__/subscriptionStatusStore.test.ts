@@ -15,7 +15,7 @@ describe("subscription status store", () => {
         const store = useSubscriptionStatusStore.getState();
 
         store.setCurrentUser("user-a");
-        expect(store.setForUser("user-a", "active")).toBe(true);
+        expect(store.applyConvexStatus("user-a", "active")).toBe(true);
         expect(useSubscriptionStatusStore.getState().hasActiveSubscription).toBe(true);
 
         store.setCurrentUser("user-b");
@@ -30,7 +30,7 @@ describe("subscription status store", () => {
         const store = useSubscriptionStatusStore.getState();
 
         store.setCurrentUser("user-b");
-        expect(store.setForUser("user-a", "active")).toBe(false);
+        expect(store.applyConvexStatus("user-a", "active")).toBe(false);
         expect(useSubscriptionStatusStore.getState()).toMatchObject({
             userId: "user-b",
             status: "checking",
@@ -42,14 +42,14 @@ describe("subscription status store", () => {
         const store = useSubscriptionStatusStore.getState();
 
         store.setCurrentUser("user-a");
-        store.setForUser("user-a", "inactive");
-        store.setForUser("user-a", "activating");
+        store.applyConvexStatus("user-a", "inactive");
+        store.applyConvexStatus("user-a", "activating");
         expect(useSubscriptionStatusStore.getState()).toMatchObject({
             status: "activating",
             hasActiveSubscription: false,
         });
 
-        store.setForUser("user-a", "active");
+        store.applyConvexStatus("user-a", "active");
         expect(useSubscriptionStatusStore.getState()).toMatchObject({
             status: "active",
             hasActiveSubscription: true,
@@ -60,8 +60,8 @@ describe("subscription status store", () => {
         const store = useSubscriptionStatusStore.getState();
 
         store.setCurrentUser("user-a");
-        store.setForUser("user-a", "active");
-        store.setForUser("user-a", "activating");
+        store.applyConvexStatus("user-a", "active");
+        store.applyConvexStatus("user-a", "activating");
 
         expect(useSubscriptionStatusStore.getState()).toMatchObject({
             status: "activating",
@@ -69,11 +69,26 @@ describe("subscription status store", () => {
         });
     });
 
+    it("expires paid access only for the current user", () => {
+        const store = useSubscriptionStatusStore.getState();
+
+        store.setCurrentUser("user-a");
+        store.applyConvexStatus("user-a", "active");
+
+        store.expireForUser("user-b");
+        expect(useSubscriptionStatusStore.getState().hasActiveSubscription).toBe(true);
+        store.expireForUser("user-a");
+        expect(useSubscriptionStatusStore.getState()).toMatchObject({
+            status: "inactive",
+            hasActiveSubscription: false,
+        });
+    });
+
     it("keeps an unresolved new user neutral", () => {
         const store = useSubscriptionStatusStore.getState();
 
         store.setCurrentUser("user-a");
-        store.setForUser("user-a", "activating");
+        store.applyConvexStatus("user-a", "activating");
 
         expect(useSubscriptionStatusStore.getState()).toMatchObject({
             status: "activating",

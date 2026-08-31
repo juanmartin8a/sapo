@@ -13,6 +13,7 @@ import {
 type AuthStateContextValue = {
     status: AuthStatus;
     userId: string | null;
+    sessionUserId: string | null;
     sessionId: string | null;
     email: string | null;
     hasUnsupportedSession: boolean;
@@ -93,6 +94,7 @@ export default function AuthStateProvider({ children }: PropsWithChildren) {
             value={{
                 status,
                 userId,
+                sessionUserId,
                 sessionId: session?.session?.id ?? null,
                 email,
                 hasUnsupportedSession,

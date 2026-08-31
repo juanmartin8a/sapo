@@ -40,6 +40,7 @@ import {
 import useRevenueCatOfferingStore from "@/stores/revenueCatOfferingStore";
 import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
 import { triggerErrorHaptic, triggerLightImpactHaptic, triggerWarningHaptic } from "@/lib/haptics";
+import useSubscriptionAccess from "@/hooks/useSubscriptionAccess";
 
 const PURCHASE_ERROR_MESSAGE = "Unable to complete the purchase. Please try again.";
 const SUBSCRIPTION_SYNC_PENDING_MESSAGE =
@@ -48,7 +49,12 @@ const SUBSCRIPTION_SESSION_CHANGED_MESSAGE =
     "Your account changed while syncing the subscription. Please sign in again and retry.";
 
 export default function SubscriptionScreen() {
-    const { userId } = useAuthState();
+    const { status: authStatus, userId } = useAuthState();
+    const {
+        hasActiveSubscription: effectiveSubscriptionStatus,
+        isActivating: isActivatingSubscription,
+        isPending: isSubscriptionUnresolved,
+    } = useSubscriptionAccess();
     const [purchasingUserId, setPurchasingUserId] = useState<string | null>(null);
     const activePurchaseRef = useRef<symbol | null>(null);
     const currentUserIdRef = useRef(userId);
@@ -63,18 +69,16 @@ export default function SubscriptionScreen() {
     const storedSubscriptionPackage = useRevenueCatOfferingStore((state) => state.subscriptionPackage);
     const storedSubscriptionProduct = useRevenueCatOfferingStore((state) => state.subscriptionProduct);
     const loadRevenueCatOffering = useRevenueCatOfferingStore((state) => state.loadForUser);
+    const requestRevenueCatIdentitySync = useRevenueCatOfferingStore(
+        (state) => state.requestIdentitySync
+    );
     const subscriptionPackage = offeringUserId === userId ? storedSubscriptionPackage : null;
     const subscriptionProduct = offeringUserId === userId ? storedSubscriptionProduct : null;
-    const subscriptionUserId = useSubscriptionStatusStore((state) => state.userId);
-    const storedSubscriptionStatus = useSubscriptionStatusStore((state) => state.status);
-    const storedHasActiveSubscription = useSubscriptionStatusStore((state) => state.hasActiveSubscription);
-    const hasActiveSubscription = subscriptionUserId === userId && storedHasActiveSubscription === true;
+    const hasActiveSubscription = effectiveSubscriptionStatus === true;
     const isPurchasing = Boolean(userId && purchasingUserId === userId);
     const isSubscriptionLinkedElsewhere = Boolean(
         userId && providerLinkedElsewhereUserId === userId
     );
-    const isActivatingSubscription =
-        subscriptionUserId === userId && storedSubscriptionStatus === "activating";
     const canUseRevenueCat = hasRevenueCatConfig();
     const storeAccountLabel = getStoreAccountLabel(Platform.OS);
     const isOfferingForCurrentUser = offeringUserId === userId;
@@ -137,7 +141,7 @@ export default function SubscriptionScreen() {
             return "Subscription unavailable";
         }
 
-        if (!userId) {
+        if (authStatus === "signed_out") {
             return "Sign in to subscribe";
         }
 
@@ -145,8 +149,16 @@ export default function SubscriptionScreen() {
             return "Sign in to original account";
         }
 
+        if (isSubscriptionUnresolved) {
+            return "Checking subscription...";
+        }
+
         if (hasActiveSubscription) {
             return "Subscribed";
+        }
+
+        if (!userId) {
+            return "Checking subscription...";
         }
 
         if (isActivatingSubscription) {
@@ -160,9 +172,11 @@ export default function SubscriptionScreen() {
         return `Get ${SUBSCRIPTION_PLAN_DISPLAY_NAMES.POLYGLOT}`;
     }, [
         canUseRevenueCat,
+        authStatus,
         hasActiveSubscription,
         isActivatingSubscription,
         isSubscriptionLinkedElsewhere,
+        isSubscriptionUnresolved,
         subscriptionPackage,
         subscriptionProduct,
         userId,
@@ -177,6 +191,7 @@ export default function SubscriptionScreen() {
             isPurchasing ||
             activePurchaseRef.current !== null ||
             isSubscriptionLinkedElsewhere ||
+            isSubscriptionUnresolved ||
             isActivatingSubscription ||
             hasActiveSubscription
         ) {
@@ -307,6 +322,8 @@ export default function SubscriptionScreen() {
                 return;
             }
 
+            requestRevenueCatIdentitySync();
+
             if (purchaseReconciliationStatus === "active") {
                 Alert.alert("Subscription active", "Your SAPO subscription is now active.");
                 return;
@@ -365,7 +382,9 @@ export default function SubscriptionScreen() {
         isActivatingSubscription,
         isPurchasing,
         isSubscriptionLinkedElsewhere,
+        isSubscriptionUnresolved,
         isCurrentSubscriptionUser,
+        requestRevenueCatIdentitySync,
         showSubscriptionLinkedElsewhereAlert,
         setLinkedElsewhereUser,
         subscriptionPackage,
@@ -380,6 +399,7 @@ export default function SubscriptionScreen() {
         (!subscriptionPackage && !subscriptionProduct) ||
         isPurchasing ||
         isSubscriptionLinkedElsewhere ||
+        isSubscriptionUnresolved ||
         isActivatingSubscription ||
         hasActiveSubscription;
 

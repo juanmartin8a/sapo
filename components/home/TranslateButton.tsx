@@ -12,11 +12,10 @@ import { useCallback } from "react";
 import { useAuthState } from "@/providers/AuthStateProvider";
 import useTransformationOperationStore from "@/stores/transformationOperationStore";
 import useLocalModelStore from "@/stores/localModelStore";
-import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
 import { triggerErrorHaptic, triggerMediumImpactHaptic } from "@/lib/haptics";
 import { getCharacterCount, getInputLimit } from "@/utils/inputLimits";
-import { getEffectiveSubscriptionStatus } from "@/utils/subscription";
 import Animated, { type SharedValue, useAnimatedStyle } from "react-native-reanimated";
+import useSubscriptionAccess from "@/hooks/useSubscriptionAccess";
 
 type TranslateButtonProps = {
     pagerProgress: SharedValue<number>;
@@ -26,11 +25,10 @@ const TranslateButton = ({ pagerProgress }: TranslateButtonProps) => {
     const translateButtonState = useTranslateButtonStore((state) => state.state)
     const lastInput = useTranslationStore((state) => state.lastInput)
     const hasText = useTranslationInputStore((state) => state.hasText)
-    const { status: authStatus, userId } = useAuthState()
+    const { status: authStatus } = useAuthState()
     const isAuthPending = authStatus === 'checking'
     const isAuthenticatedUser = authStatus === 'authenticated'
-    const subscriptionUserId = useSubscriptionStatusStore((state) => state.userId)
-    const hasActiveSubscription = useSubscriptionStatusStore((state) => state.hasActiveSubscription)
+    const { hasActiveSubscription } = useSubscriptionAccess()
 
     const goToPage = usePagerStore((state) => state.goToPage)
     const operation = useTransformationOperationStore((state) => state.operation)
@@ -67,15 +65,24 @@ const TranslateButton = ({ pagerProgress }: TranslateButtonProps) => {
             return;
         }
 
-        const effectiveSubscriptionStatus = getEffectiveSubscriptionStatus({
-            authStatus,
-            userId,
-            subscriptionUserId,
-            hasActiveSubscription,
-        });
-        const inputLimit = getInputLimit(operation, effectiveSubscriptionStatus, isLocalModelEnabled);
+        const requiresOnlineAuth = operation !== 'translate' || !isLocalModelEnabled;
 
-        if (operation === 'respell' && effectiveSubscriptionStatus === false) {
+        if (!isAuthenticatedUser && requiresOnlineAuth) {
+            if (isAuthPending) {
+                return;
+            }
+
+            triggerErrorHaptic();
+            Alert.alert(
+                "Sign in required",
+                "Sign in to use online translations or respellings, or download a local model and enable local translation."
+            );
+            return;
+        }
+
+        const inputLimit = getInputLimit(operation, hasActiveSubscription, isLocalModelEnabled);
+
+        if (operation === 'respell' && hasActiveSubscription === false) {
             Alert.alert("Subscription required", "Respelling requires an active subscription.");
             return;
         }
@@ -93,21 +100,6 @@ const TranslateButton = ({ pagerProgress }: TranslateButtonProps) => {
             return;
         }
 
-        const requiresOnlineAuth = operation !== 'translate' || !isLocalModelEnabled;
-
-        if (!isAuthenticatedUser && requiresOnlineAuth) {
-            if (isAuthPending) {
-                return;
-            }
-
-            triggerErrorHaptic();
-            Alert.alert(
-                "Sign in required",
-                "Sign in to use online translations or respellings, or download a local model and enable local translation."
-            );
-            return;
-        }
-
         triggerMediumImpactHaptic();
 
         if (translateButtonState === 'repeat') {
@@ -117,7 +109,7 @@ const TranslateButton = ({ pagerProgress }: TranslateButtonProps) => {
         }
 
         goToPage(1);
-    }, [authStatus, goToPage, hasActiveSubscription, hasText, isAuthPending, isAuthenticatedUser, isLocalModelEnabled, lastInput, operation, repeatLastTranslation, sendMessage, stopStream, subscriptionUserId, translateButtonState, userId]);
+    }, [goToPage, hasActiveSubscription, hasText, isAuthPending, isAuthenticatedUser, isLocalModelEnabled, lastInput, operation, repeatLastTranslation, sendMessage, stopStream, translateButtonState]);
 
 
     return (
