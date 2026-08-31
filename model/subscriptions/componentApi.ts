@@ -46,6 +46,9 @@ export type RevenueCatWebhookEventForProcessing = {
     status: RevenueCatWebhookEventStatus;
     user_id?: string;
     transaction_id?: string;
+    cancel_reason?: string;
+    transferred_from: string[];
+    transferred_to: string[];
     target_user_ids: string[];
     pending_user_ids: string[];
     processed_user_ids: string[];

@@ -206,6 +206,8 @@ describe("client subscription reconciliation tokens", () => {
     it("stores refresh backoff when releasing reconciliation", async () => {
         const { ctx, patch } = createPendingStateCtx({
             _id: "state_1",
+            has_active_subscription: true,
+            access_expires_at_ms: 4_000,
             sync_attempt_id: "attempt_1",
             sync_expires_at_ms: 2_000,
             updated_at_ms: 900,
@@ -223,6 +225,7 @@ describe("client subscription reconciliation tokens", () => {
             "state_1",
             expect.objectContaining({
                 sync_attempt_id: undefined,
+                expiration_reconciliation_at_ms: 5_000,
                 next_refresh_attempt_at_ms: 5_000,
             })
         );
@@ -241,6 +244,30 @@ describe("client subscription reconciliation tokens", () => {
         })).resolves.toEqual({ status: "stale" });
 
         expect(patch).not.toHaveBeenCalled();
+    });
+
+    it("moves a failed expiration reconciliation behind its retry window", async () => {
+        const { ctx, patch } = createPendingStateCtx({
+            _id: "state_1",
+            has_active_subscription: true,
+            access_expires_at_ms: 4_000,
+            last_synced_at_ms: 1_000,
+        });
+
+        await expect(deferSubscriptionStateReconciliation(ctx as any, {
+            user_id: "user_1",
+            expected_last_synced_at_ms: 1_000,
+            next_attempt_at_ms: 5_000,
+        })).resolves.toEqual({ status: "deferred" });
+
+        expect(patch).toHaveBeenCalledWith(
+            "subscription_states",
+            "state_1",
+            expect.objectContaining({
+                expiration_reconciliation_at_ms: 5_000,
+                next_refresh_attempt_at_ms: 5_000,
+            })
+        );
     });
 
     it("reschedules an expiry invocation that arrives early", async () => {
@@ -276,12 +303,14 @@ describe("client subscription reconciliation tokens", () => {
 });
 
 describe("subscription expiration reconciliation", () => {
-    it("lists active states whose billing period has ended", async () => {
+    it("lists active states whose expiration reconciliation is due", async () => {
         const range = {
             eq: jest.fn(),
+            gte: jest.fn(),
             lte: jest.fn(),
         };
         range.eq.mockReturnValue(range);
+        range.gte.mockReturnValue(range);
         range.lte.mockReturnValue(range);
         const take = jest.fn(async () => [{
             user_id: "user_1",
@@ -306,11 +335,12 @@ describe("subscription expiration reconciliation", () => {
         }]);
 
         expect(withIndex).toHaveBeenCalledWith(
-            "by_active_subscription_and_billing_cycle_end_at_ms",
+            "by_active_subscription_and_expiration_reconciliation_at_ms",
             expect.any(Function)
         );
         expect(range.eq).toHaveBeenCalledWith("has_active_subscription", true);
-        expect(range.lte).toHaveBeenCalledWith("billing_cycle_end_at_ms", 2_000);
+        expect(range.gte).toHaveBeenCalledWith("expiration_reconciliation_at_ms", 0);
+        expect(range.lte).toHaveBeenCalledWith("expiration_reconciliation_at_ms", 2_000);
         expect(take).toHaveBeenCalledWith(50);
     });
 });

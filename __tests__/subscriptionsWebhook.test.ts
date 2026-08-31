@@ -4,6 +4,7 @@ import {
     resolveRevenueCatWebhookTargetUserIds,
     shouldSkipRevenueCatWebhookIngestion,
 } from "../model/subscriptions/revenueCatWebhookIngestion";
+import { getRevenueCatWebhookCancelReasonFromRawPayload } from "../model/subscriptions/revenueCatWebhookPayload";
 
 describe("RevenueCat webhook ingestion guards", () => {
     it("prefers transferred users and ignores RevenueCat-generated ids", () => {
@@ -39,5 +40,17 @@ describe("RevenueCat webhook ingestion guards", () => {
                 eligible_user_ids: [],
             })
         ).toBe(false);
+    });
+
+    it("preserves cancellation reasons needed to distinguish refunds", () => {
+        expect(getRevenueCatWebhookCancelReasonFromRawPayload(JSON.stringify({
+            event: {
+                id: "event_1",
+                type: "CANCELLATION",
+                event_timestamp_ms: 1_000,
+                cancel_reason: "CUSTOMER_SUPPORT",
+            },
+        }))).toBe("CUSTOMER_SUPPORT");
+        expect(getRevenueCatWebhookCancelReasonFromRawPayload("invalid")).toBeUndefined();
     });
 });
