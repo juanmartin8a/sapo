@@ -32,6 +32,7 @@ const normalizedWebhookEventValidator = v.object({
     aliases: v.array(v.string()),
     transferred_from: v.array(v.string()),
     transferred_to: v.array(v.string()),
+    user_id: v.optional(v.string()),
     entitlement_ids: v.array(v.string()),
     product_id: v.optional(v.string()),
     transaction_id: v.optional(v.string()),
