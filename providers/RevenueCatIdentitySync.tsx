@@ -24,7 +24,7 @@ const identitySyncRetryDelaysMs = [1_000, 2_000, 4_000] as const;
 const maximumExpirationTimerDelayMs = 2_000_000_000;
 
 export default function RevenueCatIdentitySync() {
-    const { status: authStatus, userId } = useAuthState();
+    const { status: authStatus, userId, sessionUserId } = useAuthState();
     const serverSubscription = useQuery(
         api.subscription.getCurrentSubscriptionStatus,
         authStatus === "authenticated" && userId
@@ -32,7 +32,21 @@ export default function RevenueCatIdentitySync() {
             : "skip"
     );
     const setCurrentSubscriptionUser = useSubscriptionStatusStore((state) => state.setCurrentUser);
-    const setSubscriptionForUser = useSubscriptionStatusStore((state) => state.setForUser);
+    const applyConvexSubscriptionStatus = useSubscriptionStatusStore(
+        (state) => state.applyConvexStatus
+    );
+    const hydrateSubscriptionForUser = useSubscriptionStatusStore((state) => state.hydrateForUser);
+    const clearPersistedSubscriptionStatus = useSubscriptionStatusStore(
+        (state) => state.clearPersistedStatus
+    );
+    const expireSubscriptionForUser = useSubscriptionStatusStore(
+        (state) => state.expireForUser
+    );
+    const subscriptionUserId = useSubscriptionStatusStore((state) => state.userId);
+    const subscriptionStatus = useSubscriptionStatusStore((state) => state.status);
+    const subscriptionAccessExpiresAtMs = useSubscriptionStatusStore(
+        (state) => state.accessExpiresAtMs
+    );
     const clearRevenueCatOffering = useRevenueCatOfferingStore((state) => state.clear);
     const loadRevenueCatOffering = useRevenueCatOfferingStore((state) => state.loadForUser);
     const setLinkedElsewhereUser = useRevenueCatOfferingStore(
@@ -49,10 +63,28 @@ export default function RevenueCatIdentitySync() {
     const revenueCatLogoutPromiseRef = useRef<Promise<unknown> | null>(null);
 
     useEffect(() => {
-        if (authStatus !== "checking") {
-            setCurrentSubscriptionUser(userId);
+        if (authStatus === "checking") {
+            if (sessionUserId) {
+                setCurrentSubscriptionUser(sessionUserId);
+                void hydrateSubscriptionForUser(sessionUserId);
+            }
+            return;
         }
-    }, [authStatus, setCurrentSubscriptionUser, userId]);
+
+        setCurrentSubscriptionUser(userId);
+        if (userId) {
+            void hydrateSubscriptionForUser(userId);
+        } else {
+            clearPersistedSubscriptionStatus();
+        }
+    }, [
+        authStatus,
+        clearPersistedSubscriptionStatus,
+        hydrateSubscriptionForUser,
+        sessionUserId,
+        setCurrentSubscriptionUser,
+        userId,
+    ]);
 
     useEffect(() => {
         if (
@@ -63,8 +95,55 @@ export default function RevenueCatIdentitySync() {
             return;
         }
 
-        setSubscriptionForUser(userId, serverSubscription.status);
-    }, [serverSubscription, setSubscriptionForUser, userId]);
+        applyConvexSubscriptionStatus(userId, {
+            status: serverSubscription.status,
+            planKey: serverSubscription.plan_key,
+            accessExpiresAtMs:
+                typeof serverSubscription.access_expires_at_ms === "number"
+                    ? serverSubscription.access_expires_at_ms
+                    : null,
+        });
+    }, [applyConvexSubscriptionStatus, serverSubscription, userId]);
+
+    useEffect(() => {
+        if (
+            !subscriptionUserId ||
+            subscriptionStatus !== "active" ||
+            typeof subscriptionAccessExpiresAtMs !== "number"
+        ) {
+            return;
+        }
+
+        let expirationTimeout: ReturnType<typeof setTimeout> | null = null;
+        const expireAtMs = subscriptionAccessExpiresAtMs;
+
+        const scheduleExpiration = () => {
+            const remainingMs = expireAtMs - Date.now();
+
+            if (remainingMs <= 0) {
+                expireSubscriptionForUser(subscriptionUserId);
+                return;
+            }
+
+            expirationTimeout = setTimeout(
+                scheduleExpiration,
+                Math.min(remainingMs + 250, maximumExpirationTimerDelayMs)
+            );
+        };
+
+        scheduleExpiration();
+
+        return () => {
+            if (expirationTimeout !== null) {
+                clearTimeout(expirationTimeout);
+            }
+        };
+    }, [
+        expireSubscriptionForUser,
+        subscriptionAccessExpiresAtMs,
+        subscriptionStatus,
+        subscriptionUserId,
+    ]);
 
     useEffect(() => {
         if (authStatus === "checking") {
@@ -186,7 +265,7 @@ export default function RevenueCatIdentitySync() {
                 return;
             }
 
-            const result = await reconcileObservedSubscriptionState({
+            await reconcileObservedSubscriptionState({
                 userId,
                 observedActive,
                 observationKey: fingerprint,
@@ -197,10 +276,6 @@ export default function RevenueCatIdentitySync() {
                 revenueCatObservationVersionRef.current === observationVersion
             ) {
                 lastReconciledRevenueCatFingerprintRef.current = fingerprint;
-
-                if (result.status !== "reconciling") {
-                    setSubscriptionForUser(userId, result.status);
-                }
             }
         };
 
@@ -333,7 +408,6 @@ export default function RevenueCatIdentitySync() {
         identitySyncRequestId,
         loadRevenueCatOffering,
         setLinkedElsewhereUser,
-        setSubscriptionForUser,
         userId,
     ]);
 

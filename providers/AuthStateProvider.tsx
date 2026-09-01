@@ -5,6 +5,12 @@ import { AppState } from "react-native";
 import { api } from "@/convex/_generated/api";
 import { authClient } from "@/lib/auth-client";
 import {
+    clearConfirmedUserSnapshot,
+    loadConfirmedUserSnapshot,
+    persistConfirmedUserSnapshot,
+    type ConfirmedUserSnapshot,
+} from "@/lib/confirmed-user-cache";
+import {
     getAuthoritativeAuthStatus,
     getSessionUserAuthState,
     type AuthStatus,
@@ -13,6 +19,7 @@ import {
 type AuthStateContextValue = {
     status: AuthStatus;
     userId: string | null;
+    sessionUserId: string | null;
     sessionId: string | null;
     email: string | null;
     hasUnsupportedSession: boolean;
@@ -22,6 +29,7 @@ const AuthStateContext = createContext<AuthStateContextValue | null>(null);
 
 export default function AuthStateProvider({ children }: PropsWithChildren) {
     const [preserveSignedOutDuringRefresh, setPreserveSignedOutDuringRefresh] = useState(false);
+    const [cachedUser, setCachedUser] = useState<ConfirmedUserSnapshot | null>(null);
     const refreshRunRef = useRef(0);
     const {
         data: session,
@@ -54,9 +62,43 @@ export default function AuthStateProvider({ children }: PropsWithChildren) {
         (sessionUserState !== "authenticated" || currentUser === null)
     );
     const userId = status === "authenticated" ? sessionUserId : null;
-    const email = status === "authenticated"
+    const confirmedEmail = status === "authenticated"
         ? currentUser?.email ?? session?.user?.email ?? null
         : null;
+    const email = confirmedEmail ?? (
+        status === "checking" && sessionUserId
+            ? session?.user?.email ?? (
+                cachedUser?.userId === sessionUserId ? cachedUser.email : null
+            )
+            : null
+    );
+
+    useEffect(() => {
+        let isCancelled = false;
+
+        if (status === "signed_out") {
+            void clearConfirmedUserSnapshot();
+            return;
+        }
+
+        if (status === "authenticated" && userId && confirmedEmail) {
+            const confirmedUser = { userId, email: confirmedEmail };
+            void persistConfirmedUserSnapshot(confirmedUser);
+            return;
+        }
+
+        if (status === "checking" && sessionUserId) {
+            void loadConfirmedUserSnapshot(sessionUserId).then((confirmedUser) => {
+                if (!isCancelled) {
+                    setCachedUser(confirmedUser);
+                }
+            });
+        }
+
+        return () => {
+            isCancelled = true;
+        };
+    }, [confirmedEmail, sessionUserId, status, userId]);
 
     useEffect(() => {
         const appStateSubscription = AppState.addEventListener("change", (nextState) => {
@@ -93,6 +135,7 @@ export default function AuthStateProvider({ children }: PropsWithChildren) {
             value={{
                 status,
                 userId,
+                sessionUserId,
                 sessionId: session?.session?.id ?? null,
                 email,
                 hasUnsupportedSession,

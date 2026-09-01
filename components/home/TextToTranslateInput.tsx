@@ -2,13 +2,11 @@ import { useEffect, useRef } from "react";
 import { Alert, StyleSheet, TextInput } from "react-native"
 import useTranslationInputStore from "@/stores/translationInputStore";
 import useTransformationOperationStore from "@/stores/transformationOperationStore";
-import useSubscriptionStatusStore from "@/stores/subscriptionStatusStore";
-import { useAuthState } from "@/providers/AuthStateProvider";
 import { getCharacterCount, getInputLimit } from "@/utils/inputLimits";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import useLocalModelStore from "@/stores/localModelStore";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { getEffectiveSubscriptionStatus } from "@/utils/subscription";
+import useSubscriptionAccess from "@/hooks/useSubscriptionAccess";
 
 const TextToTranslateInput = () => {
     const insets = useSafeAreaInsets();
@@ -16,18 +14,10 @@ const TextToTranslateInput = () => {
     const textLength = useTranslationInputStore((state) => state.characterCount)
     const setText = useTranslationInputStore((state) => state.setText)
     const operation = useTransformationOperationStore((state) => state.operation)
-    const subscriptionUserId = useSubscriptionStatusStore((state) => state.userId)
-    const hasActiveSubscription = useSubscriptionStatusStore((state) => state.hasActiveSubscription)
-    const { status: authStatus, userId } = useAuthState()
+    const { hasActiveSubscription } = useSubscriptionAccess()
     const isLocalModelEnabled = useLocalModelStore((state) => state.isEnabled)
-    const effectiveSubscriptionStatus = getEffectiveSubscriptionStatus({
-        authStatus,
-        userId,
-        subscriptionUserId,
-        hasActiveSubscription,
-    })
     const hasAlertedRef = useRef(false)
-    const inputLimit = getInputLimit(operation, effectiveSubscriptionStatus, isLocalModelEnabled)
+    const inputLimit = getInputLimit(operation, hasActiveSubscription, isLocalModelEnabled)
     const isLimitExceeded = inputLimit !== null && textLength > inputLimit
     const handleTextChange = (nextText: string) => {
         const nextTextLength = getCharacterCount(nextText)

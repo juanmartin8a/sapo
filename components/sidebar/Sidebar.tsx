@@ -20,11 +20,10 @@ import useLocalModelStore from '@/stores/localModelStore';
 import { HomeBottomSheetKey } from '@/types/bottomSheets';
 import { LOCAL_TRANSLATION_MODELS } from '@/constants/localModelCatalog';
 import SidebarFooter from './SidebarFooter';
-import useSubscriptionStatusStore from '@/stores/subscriptionStatusStore';
 import { useAuthState } from '@/providers/AuthStateProvider';
 import { triggerErrorHaptic, triggerLightImpactHaptic, triggerSelectionHaptic } from '@/lib/haptics';
 import { UI_DISABLED_OPACITY } from '@/constants/ui';
-import { getEffectiveSubscriptionStatus } from '@/utils/subscription';
+import useSubscriptionAccess from '@/hooks/useSubscriptionAccess';
 
 type SidebarProps = {
     translationX: SharedValue<number>
@@ -34,10 +33,12 @@ type SidebarProps = {
 const Sidebar = ({ translationX, width }: SidebarProps) => {
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    const { status: authStatus, userId } = useAuthState();
+    const { status: authStatus } = useAuthState();
     const isAuthenticatedUser = authStatus === 'authenticated';
-    const subscriptionUserId = useSubscriptionStatusStore((state) => state.userId);
-    const hasActiveSubscription = useSubscriptionStatusStore((state) => state.hasActiveSubscription);
+    const {
+        hasActiveSubscription,
+        isConfirmedInactive: isSubscriptionInactive,
+    } = useSubscriptionAccess();
     const operation = useTransformationOperationStore((state) => state.operation);
     const setOperation = useTransformationOperationStore((state) => state.setOperation);
     const isLocalModelDownloaded = useLocalModelStore((state) => state.isDownloaded);
@@ -64,13 +65,7 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
     const isLocalModelBusy = isSelectedLocalModelLoading ||
         isLocalModelRefreshing ||
         deletingLocalModelId !== null;
-    const effectiveSubscriptionStatus = getEffectiveSubscriptionStatus({
-        authStatus,
-        userId,
-        subscriptionUserId,
-        hasActiveSubscription,
-    });
-    const canUseRespell = effectiveSubscriptionStatus === true;
+    const canUseRespell = hasActiveSubscription === true;
     const shouldShowLocalModeToggle = isAuthenticatedUser;
     const shouldShowLoadModelButton = isLocalModelDownloaded && !isLocalModelLoaded;
     // Get individual values from the store to avoid unnecessary re-renders
@@ -175,7 +170,7 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
 
         triggerErrorHaptic();
 
-        if (effectiveSubscriptionStatus === null) {
+        if (hasActiveSubscription === null) {
             Alert.alert(
                 "Checking subscription",
                 "Please wait a moment while SAPO confirms your subscription."
@@ -195,7 +190,7 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
             title,
             message
         );
-    }, [canUseRespell, effectiveSubscriptionStatus, isAuthenticatedUser, operation, setOperation]);
+    }, [canUseRespell, hasActiveSubscription, isAuthenticatedUser, operation, setOperation]);
 
     const handleInputLanguagePress = useCallback(() => {
         requestBottomSheet(HOME_BOTTOM_SHEET_KEYS.INPUT_LANGUAGE);
@@ -210,10 +205,13 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
     }, [refreshLocalModelStatus]);
 
     useEffect(() => {
-        if (effectiveSubscriptionStatus === false && operation === 'respell') {
+        if (
+            (authStatus === 'signed_out' || isSubscriptionInactive) &&
+            operation === 'respell'
+        ) {
             setOperation('translate');
         }
-    }, [effectiveSubscriptionStatus, operation, setOperation]);
+    }, [authStatus, isSubscriptionInactive, operation, setOperation]);
 
     useEffect(() => {
         if (authStatus === 'signed_out' && !isLocalModelEnabled) {

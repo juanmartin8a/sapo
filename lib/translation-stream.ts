@@ -135,6 +135,10 @@ function parseSSEEvent(rawEvent: string): ParsedSSEEvent {
 }
 
 function getStreamErrorMessageFromCode(errorCode: string | null, status: number) {
+    if (errorCode === SUBSCRIPTION_QUOTA_ERROR_CODES.SUBSCRIPTION_REQUIRED) {
+        return "An active subscription is required.";
+    }
+
     if (errorCode === SUBSCRIPTION_QUOTA_ERROR_CODES.MONTHLY_LIMIT_EXCEEDED || status === 429) {
         return "Quota limit reached.";
     }

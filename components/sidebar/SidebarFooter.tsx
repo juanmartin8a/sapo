@@ -2,36 +2,34 @@ import { useRouter } from 'expo-router';
 import { useCallback, useMemo } from 'react';
 import { Animated, StyleSheet, TouchableOpacity, Text, View } from 'react-native';
 import LogInIcon from '@/assets/icons/log-in.svg';
-import useSubscriptionStatusStore from '@/stores/subscriptionStatusStore';
 import { APP_ROUTES } from '@/constants/routes';
 import { SUBSCRIPTION_PLAN_DISPLAY_NAMES } from '@/constants/subscription';
 import { UI_SKELETON_BACKGROUND_COLOR } from '@/constants/ui';
 import useSkeletonPulse from '@/hooks/useSkeletonPulse';
 import { useAuthState } from '@/providers/AuthStateProvider';
+import useSubscriptionAccess from '@/hooks/useSubscriptionAccess';
 
 const SIDEBAR_AVATAR_SIZE = 40;
 
 const SidebarFooter = () => {
     const router = useRouter();
-    const { status: authStatus, userId, email } = useAuthState();
-    const subscriptionUserId = useSubscriptionStatusStore((state) => state.userId);
-    const subscriptionStatus = useSubscriptionStatusStore((state) => state.status);
-    const hasActiveSubscription = useSubscriptionStatusStore((state) => state.hasActiveSubscription);
-    const shouldShowAuthSkeleton = authStatus === 'checking';
-    const isSubscriptionPending = authStatus === 'authenticated' &&
-        (subscriptionUserId !== userId || hasActiveSubscription === null);
+    const { status: authStatus, email } = useAuthState();
+    const {
+        hasActiveSubscription,
+        isActivating: isSubscriptionActivating,
+        isPending: isSubscriptionPending,
+    } = useSubscriptionAccess();
+    const shouldShowAuthSkeleton = authStatus === 'checking' && email === null;
+    const shouldShowAccount = authStatus === 'authenticated' || email !== null;
     const subscriptionLabel = useMemo(() => {
-        const isCurrentUserSubscribed = subscriptionUserId === userId &&
-            hasActiveSubscription === true;
-
-        if (isCurrentUserSubscribed) {
+        if (hasActiveSubscription === true) {
             return SUBSCRIPTION_PLAN_DISPLAY_NAMES.POLYGLOT;
         }
 
-        return subscriptionUserId === userId && subscriptionStatus === 'activating'
+        return isSubscriptionActivating
             ? 'Activating...'
             : SUBSCRIPTION_PLAN_DISPLAY_NAMES.FREE;
-    }, [hasActiveSubscription, subscriptionStatus, subscriptionUserId, userId])
+    }, [hasActiveSubscription, isSubscriptionActivating])
     const emailInitial = useMemo(() => {
         return email?.[0]?.toUpperCase() ?? '?';
     }, [email])
@@ -69,7 +67,7 @@ const SidebarFooter = () => {
                         </Text>
                     </View>
                 </Animated.View>
-            ) : authStatus === 'authenticated' ? (
+            ) : shouldShowAccount ? (
                 <View style={styles.userActionsContainer}>
                     <TouchableOpacity
                         onPress={handleOpenSettings}
