@@ -19,7 +19,8 @@ const SidebarFooter = () => {
         isActivating: isSubscriptionActivating,
         isPending: isSubscriptionPending,
     } = useSubscriptionAccess();
-    const shouldShowAuthSkeleton = authStatus === 'checking';
+    const shouldShowAuthSkeleton = authStatus === 'checking' && email === null;
+    const shouldShowAccount = authStatus === 'authenticated' || email !== null;
     const subscriptionLabel = useMemo(() => {
         if (hasActiveSubscription === true) {
             return SUBSCRIPTION_PLAN_DISPLAY_NAMES.POLYGLOT;
@@ -66,7 +67,7 @@ const SidebarFooter = () => {
                         </Text>
                     </View>
                 </Animated.View>
-            ) : authStatus === 'authenticated' ? (
+            ) : shouldShowAccount ? (
                 <View style={styles.userActionsContainer}>
                     <TouchableOpacity
                         onPress={handleOpenSettings}
