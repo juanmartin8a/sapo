@@ -91,7 +91,6 @@ import {
 } from "../../model/subscriptions/revenueCatApi";
 import { getExclusiveLeaseOwnershipFailure } from "./leaseOwnership";
 import { MAX_PERSISTED_ERROR_MESSAGE_CHARS } from "../../constants/limits";
-import { FAR_FUTURE_TIMESTAMP_MS } from "../../constants/time";
 import {
     SUBSCRIPTION_QUOTA_ERROR_CODES,
     SUBSCRIPTION_PLAN_KEYS,
@@ -100,12 +99,12 @@ import {
 } from "../../constants/subscriptions";
 import { REVENUECAT_TERMINAL_WEBHOOK_EVENT_STATUS_SET } from "../../constants/revenueCat";
 import { USER_DELETION_QUEUE_STATUS } from "../../constants/userDeletion";
+import { getRevenueCatWebhookCancelReasonFromRawPayload } from "../../model/subscriptions/revenueCatWebhookPayload";
 
 const TERMINAL_EVENT_STATUSES = REVENUECAT_TERMINAL_WEBHOOK_EVENT_STATUS_SET;
 const SUBSCRIPTION_SYNC_LEASE_MAX_MS = 90_000;
 const PENDING_ACTIVE_SIGNAL_MAX_TTL_MS = 5 * 60 * 1000;
 
-const NEVER_RECONCILE_AT_MS = FAR_FUTURE_TIMESTAMP_MS;
 const QUOTA_USAGE_RESERVATION_WATCHDOG_DELAY_MS = 5 * 60 * 1000;
 const USER_DELETION_BATCH_LIMIT = 500;
 const CLIENT_RECONCILIATION_TOKEN_CAPACITY = 3;
@@ -172,20 +171,26 @@ const AUTOMATIC_USER_DELETION_RETRY_STATUSES: UserDeletionQueueStatus[] = [
     USER_DELETION_QUEUE_STATUS.CLEANUP_IN_PROGRESS,
 ];
 
-function resolveNextExpirationReconciliationAtMs(
-    hasActiveSubscription: boolean,
-    expirationAtMs: number | undefined,
-    expirationReconciliationDelayMs: number
-) {
-    if (!hasActiveSubscription || typeof expirationAtMs !== "number") {
-        return NEVER_RECONCILE_AT_MS;
-    }
-
-    return expirationAtMs + Math.max(0, expirationReconciliationDelayMs);
-}
-
 function isFiniteTimestampMs(value: number | undefined): value is number {
     return typeof value === "number" && Number.isFinite(value);
+}
+
+function resolveDeferredExpirationReconciliationAtMs(
+    state: Pick<
+        Doc<"subscription_states">,
+        "has_active_subscription" | "access_expires_at_ms" | "billing_cycle_end_at_ms"
+    >,
+    nextAttemptAtMs: number
+) {
+    if (!state.has_active_subscription) {
+        return undefined;
+    }
+
+    const confirmedExpirationAtMs =
+        state.access_expires_at_ms ?? state.billing_cycle_end_at_ms;
+    return isFiniteTimestampMs(confirmedExpirationAtMs)
+        ? Math.max(confirmedExpirationAtMs, nextAttemptAtMs)
+        : nextAttemptAtMs;
 }
 
 export function resolveSubscriptionAccessExpirationAtMs(args: {
@@ -623,7 +628,6 @@ const SUBSCRIPTION_STATE_COMPARISON_FIELDS = [
     "window_key",
     "window_start_at_ms",
     "window_end_at_ms",
-    "stale_after_at_ms",
 ] as const;
 
 function hasComparableSubscriptionStateChanged(
@@ -1238,8 +1242,7 @@ async function ensureCurrentQuotaPeriodDoc(
             window_end_at_ms: quotaContext.resolvedWindow.window_end_at_ms,
             plan_key: quotaContext.planKey,
             has_active_subscription:
-                quotaContext.existingState?.has_active_subscription ??
-                (quotaContext.planKey === SUBSCRIPTION_PLAN_KEYS.POLYGLOT),
+                quotaContext.planKey === SUBSCRIPTION_PLAN_KEYS.POLYGLOT,
             ...(quotaContext.existingState?.store_subscription_id
                 ? { store_subscription_id: quotaContext.existingState.store_subscription_id }
                 : {}),
@@ -1687,6 +1690,7 @@ export const ingestRevenueCatEvent = async (ctx: MutationCtx, args: WebhookArgs.
         const insertionTimeMs = args.received_at_ms;
         const targetUserIds = resolveTargetUserIdsFromRevenueCatEvent(args.normalized_event);
         const resolvedUserId = targetUserIds[0] ?? undefined;
+        const cancelReason = getRevenueCatWebhookCancelReasonFromRawPayload(args.raw_payload);
 
         const eventDocument = {
             event_id: args.normalized_event.event_id,
@@ -1719,6 +1723,7 @@ export const ingestRevenueCatEvent = async (ctx: MutationCtx, args: WebhookArgs.
             ...(args.normalized_event.environment
                 ? { environment: args.normalized_event.environment }
                 : {}),
+            ...(cancelReason ? { cancel_reason: cancelReason } : {}),
             ...(typeof args.normalized_event.expiration_at_ms === "number"
                 ? { expiration_at_ms: args.normalized_event.expiration_at_ms }
                 : {}),
@@ -1769,6 +1774,9 @@ export const getRevenueCatEventForProcessing = async (ctx: QueryCtx, args: Webho
             status: eventDoc.status,
             user_id: eventDoc.user_id,
             transaction_id: eventDoc.transaction_id,
+            cancel_reason: eventDoc.cancel_reason,
+            transferred_from: eventDoc.transferred_from,
+            transferred_to: eventDoc.transferred_to,
             target_user_ids: userSummary.target_user_ids,
             pending_user_ids: userSummary.pending_user_ids,
             processed_user_ids: userSummary.processed_user_ids,
@@ -2006,7 +2014,10 @@ export const recordRevenueCatEventProcessingProgress = async (ctx: MutationCtx, 
                 patch.retry_count = nextRetryCount;
                 patch.next_retry_at_ms = hasReachedMaxRetries
                     ? args.now_ms
-                    : getNextRetryAtMs(args.now_ms, nextRetryCount, args.retry_config);
+                    : Math.max(
+                          getNextRetryAtMs(args.now_ms, nextRetryCount, args.retry_config),
+                          args.next_retry_at_ms ?? 0
+                      );
                 patch.processed_at_ms = undefined;
                 patch.last_error = args.error_message.slice(0, MAX_PERSISTED_ERROR_MESSAGE_CHARS);
             }
@@ -2181,7 +2192,6 @@ export const getSubscriptionStateByUserId = async (ctx: QueryCtx, args: WebhookA
                     ? stateRecord.pending_active_expires_at_ms
                     : undefined,
             last_synced_at_ms: state.last_synced_at_ms,
-            stale_after_at_ms: state.stale_after_at_ms,
             next_refresh_attempt_at_ms:
                 typeof stateRecord.next_refresh_attempt_at_ms === "number"
                     ? stateRecord.next_refresh_attempt_at_ms
@@ -2334,6 +2344,9 @@ export const beginSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
                     ...(typeof existingState.billing_cycle_end_at_ms === "number"
                         ? { billing_cycle_end_at_ms: existingState.billing_cycle_end_at_ms }
                         : {}),
+                    ...(typeof existingState.access_expires_at_ms === "number"
+                        ? { access_expires_at_ms: existingState.access_expires_at_ms }
+                        : {}),
                     ...(typeof nextPendingActiveSignalAtMs === "number" &&
                     typeof nextPendingActiveExpiresAtMs === "number" &&
                     typeof nextPendingActiveRetryCount === "number" &&
@@ -2369,6 +2382,9 @@ export const beginSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
                     last_synced_at_ms: existingState.last_synced_at_ms,
                     ...(typeof existingState.billing_cycle_end_at_ms === "number"
                         ? { billing_cycle_end_at_ms: existingState.billing_cycle_end_at_ms }
+                        : {}),
+                    ...(typeof existingState.access_expires_at_ms === "number"
+                        ? { access_expires_at_ms: existingState.access_expires_at_ms }
                         : {}),
                     ...(existingPendingIsLive &&
                     typeof existingPendingSignalAtMs === "number" &&
@@ -2413,6 +2429,9 @@ export const beginSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
                 ...(typeof existingState.billing_cycle_end_at_ms === "number"
                     ? { billing_cycle_end_at_ms: existingState.billing_cycle_end_at_ms }
                     : {}),
+                ...(typeof existingState.access_expires_at_ms === "number"
+                    ? { access_expires_at_ms: existingState.access_expires_at_ms }
+                    : {}),
                 ...(typeof nextPendingActiveSignalAtMs === "number" &&
                 typeof nextPendingActiveExpiresAtMs === "number" &&
                 typeof nextPendingActiveRetryCount === "number" &&
@@ -2450,7 +2469,6 @@ export const beginSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
                   }
                 : {}),
             last_synced_at_ms: 0,
-            stale_after_at_ms: nowMs,
             created_at_ms: nowMs,
             updated_at_ms: nowMs,
         };
@@ -2632,6 +2650,14 @@ export const releaseSubscriptionStateReconciliation = async (ctx: MutationCtx, a
             };
         }
 
+        const expirationReconciliationAtMs =
+            typeof args.next_attempt_at_ms === "number"
+                ? resolveDeferredExpirationReconciliationAtMs(
+                      existingState,
+                      args.next_attempt_at_ms
+                  )
+                : undefined;
+
         await ctx.db.patch("subscription_states", existingState._id, {
             sync_attempt_id: undefined,
             sync_started_at_ms: undefined,
@@ -2639,9 +2665,8 @@ export const releaseSubscriptionStateReconciliation = async (ctx: MutationCtx, a
             ...(typeof args.next_attempt_at_ms === "number"
                 ? { next_refresh_attempt_at_ms: args.next_attempt_at_ms }
                 : {}),
-            ...(typeof args.next_attempt_at_ms === "number" &&
-            existingState.stale_after_at_ms < args.next_attempt_at_ms
-                ? { stale_after_at_ms: args.next_attempt_at_ms }
+            ...(typeof expirationReconciliationAtMs === "number"
+                ? { expiration_reconciliation_at_ms: expirationReconciliationAtMs }
                 : {}),
             updated_at_ms: Math.max(existingState.updated_at_ms, args.now_ms),
         } as Record<string, unknown>);
@@ -2895,15 +2920,23 @@ export const listSubscriptionStatesDueForExpirationReconciliation = async (ctx: 
 
         const dueStates = await ctx.db
             .query("subscription_states")
-            .withIndex("by_stale_after_at_ms", (query) =>
-                query.lte("stale_after_at_ms", args.now_ms)
+            .withIndex("by_active_subscription_and_expiration_reconciliation_at_ms", (query) =>
+                query
+                    .eq("has_active_subscription", true)
+                    .gte("expiration_reconciliation_at_ms", 0)
+                    .lte("expiration_reconciliation_at_ms", args.now_ms)
             )
             .take(safeLimit);
 
         return dueStates.map((state) => ({
             user_id: state.user_id,
-            revenuecat_app_user_id: state.revenuecat_app_user_id,
             last_synced_at_ms: state.last_synced_at_ms,
+            ...(typeof state.billing_cycle_end_at_ms === "number"
+                ? { billing_cycle_end_at_ms: state.billing_cycle_end_at_ms }
+                : {}),
+            ...(typeof state.access_expires_at_ms === "number"
+                ? { access_expires_at_ms: state.access_expires_at_ms }
+                : {}),
         }));
     };
 
@@ -3146,12 +3179,6 @@ export const applyReconciledSubscriptionState = async (ctx: MutationCtx, args: W
         const hasLogicalWindowChanged = existingState
             ? !isSameLogicalSubscriptionWindow(existingState, resolvedWindow)
             : true;
-        const staleAfterAtMs = resolveNextExpirationReconciliationAtMs(
-            hasActiveSubscription,
-            accessExpiresAtMs,
-            args.expiration_reconciliation_delay_ms
-        );
-
         const nextStateBase = {
             user_id: args.user_id,
             revenuecat_app_user_id: args.revenuecat_app_user_id,
@@ -3169,7 +3196,6 @@ export const applyReconciledSubscriptionState = async (ctx: MutationCtx, args: W
             window_start_at_ms: resolvedWindow.window_start_at_ms,
             window_end_at_ms: resolvedWindow.window_end_at_ms,
             last_synced_at_ms: args.synced_at_ms,
-            stale_after_at_ms: staleAfterAtMs,
             created_at_ms: existingState?.created_at_ms ?? args.synced_at_ms,
             updated_at_ms: args.synced_at_ms,
             ...(typeof existingStateRecord?.client_reconcile_tokens === "number"
@@ -3223,6 +3249,9 @@ export const applyReconciledSubscriptionState = async (ctx: MutationCtx, args: W
                 : {}),
             ...(isFiniteTimestampMs(accessExpiresAtMs)
                 ? { access_expires_at_ms: accessExpiresAtMs }
+                : {}),
+            ...(hasActiveSubscription && isFiniteTimestampMs(accessExpiresAtMs)
+                ? { expiration_reconciliation_at_ms: accessExpiresAtMs }
                 : {}),
         };
         const changeStatus = hasComparableSubscriptionStateChanged(existingState, nextState)
@@ -3997,9 +4026,16 @@ export const deferSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
             };
         }
 
+        const expirationReconciliationAtMs = resolveDeferredExpirationReconciliationAtMs(
+            existingState,
+            args.next_attempt_at_ms
+        );
+
         await ctx.db.patch("subscription_states", existingState._id, {
-            stale_after_at_ms: args.next_attempt_at_ms,
             next_refresh_attempt_at_ms: args.next_attempt_at_ms,
+            ...(typeof expirationReconciliationAtMs === "number"
+                ? { expiration_reconciliation_at_ms: expirationReconciliationAtMs }
+                : {}),
             updated_at_ms: args.next_attempt_at_ms,
         } as Record<string, unknown>);
 

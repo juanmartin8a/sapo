@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, jest } from "@jest/globals";
 
+import { SUBSCRIPTION_RENEWAL_PROPAGATION_GRACE_MS } from "../constants/subscriptions";
 import {
     deleteRevenueCatCustomer,
     fetchRevenueCatCustomerActiveEntitlementSnapshot,
@@ -114,6 +115,19 @@ describe("RevenueCat API reconciliation", () => {
         expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
+    it("does not trust an active entitlement after its expiration", async () => {
+        configureRevenueCatEnv();
+        jest.spyOn(Date, "now").mockReturnValue(2_000);
+        globalThis.fetch = jest.fn(async () => jsonResponse(200, {
+            items: [{ entitlement_id: "entl_polyglot", expires_at: 2_000 }],
+        })) as typeof fetch;
+
+        await expect(fetchRevenueCatCustomerActiveEntitlementSnapshot("user_with_expired_access"))
+            .resolves.toEqual({
+                has_active_subscription: false,
+            });
+    });
+
     it("uses access expiration ahead of the billing period end", () => {
         const graceState = {
             has_active_subscription: true,
@@ -122,7 +136,13 @@ describe("RevenueCat API reconciliation", () => {
         };
 
         expect(hasUnexpiredSubscriptionAccess(graceState, 3_000)).toBe(true);
-        expect(hasUnexpiredSubscriptionAccess(graceState, 5_000)).toBe(false);
+        expect(hasUnexpiredSubscriptionAccess(graceState, 5_000)).toBe(true);
+        expect(
+            hasUnexpiredSubscriptionAccess(
+                graceState,
+                5_000 + SUBSCRIPTION_RENEWAL_PROPAGATION_GRACE_MS
+            )
+        ).toBe(false);
     });
 
     it("falls back to billing expiration for legacy subscription states", () => {
@@ -132,7 +152,13 @@ describe("RevenueCat API reconciliation", () => {
         };
 
         expect(hasUnexpiredSubscriptionAccess(legacyState, 1_999)).toBe(true);
-        expect(hasUnexpiredSubscriptionAccess(legacyState, 2_000)).toBe(false);
+        expect(hasUnexpiredSubscriptionAccess(legacyState, 2_000)).toBe(true);
+        expect(
+            hasUnexpiredSubscriptionAccess(
+                legacyState,
+                2_000 + SUBSCRIPTION_RENEWAL_PROPAGATION_GRACE_MS
+            )
+        ).toBe(false);
     });
 
     it("does not combine a new active entitlement with an old active billing period", () => {
@@ -231,6 +257,28 @@ describe("RevenueCat API reconciliation", () => {
         expect(String(fetchMock.mock.calls[0][0])).toContain("/subscriptions?limit=100");
         expect(String(fetchMock.mock.calls[0][0])).not.toContain("/active_entitlements");
         expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not use the original subscription start as the current period start", async () => {
+        configureRevenueCatEnv();
+        globalThis.fetch = jest.fn(async () => jsonResponse(200, {
+            items: [{
+                id: "sub_test",
+                starts_at: 1_600_000_000_000,
+                current_period_ends_at: 1_800_000_000_000,
+                gives_access: true,
+                entitlements: {
+                    items: [{ id: "entl_polyglot" }],
+                },
+            }],
+        })) as typeof fetch;
+
+        await expect(fetchRevenueCatCustomerSubscriptionSnapshot("user_with_subscription"))
+            .resolves.toEqual({
+                has_active_subscription: true,
+                entitlement_id: "entl_polyglot",
+                period_end_at_ms: 1_800_000_000_000,
+            });
     });
 
     it("treats a missing customer as an inactive subscription snapshot", async () => {

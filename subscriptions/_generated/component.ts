@@ -64,7 +64,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           allow_user_deletion_in_progress?: boolean;
           clear_pending_active_signal?: boolean;
           expects_active_subscription?: boolean;
-          expiration_reconciliation_delay_ms: number;
           revenuecat_app_user_id: string;
           revenuecat_event_at_ms?: number;
           revenuecat_event_id?: string;
@@ -266,6 +265,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             transaction_id?: string;
             transferred_from: Array<string>;
             transferred_to: Array<string>;
+            user_id?: string;
           };
           raw_payload?: string;
           received_at_ms: number;

@@ -96,6 +96,24 @@ export function safeJsonStringify(value: unknown): string | null {
     }
 }
 
+export function getRevenueCatWebhookCancelReasonFromRawPayload(rawPayload?: string) {
+    if (!rawPayload) {
+        return undefined;
+    }
+
+    try {
+        const payload = JSON.parse(rawPayload) as unknown;
+        if (!isRecord(payload)) {
+            return undefined;
+        }
+
+        const rawEvent = isRecord(payload.event) ? payload.event : payload;
+        return parseString(rawEvent.cancel_reason) ?? undefined;
+    } catch {
+        return undefined;
+    }
+}
+
 export function normalizeRevenueCatWebhookEvent(
     payload: unknown,
     receivedAtMs: number

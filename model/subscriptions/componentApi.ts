@@ -46,6 +46,9 @@ export type RevenueCatWebhookEventForProcessing = {
     status: RevenueCatWebhookEventStatus;
     user_id?: string;
     transaction_id?: string;
+    cancel_reason?: string;
+    transferred_from: string[];
+    transferred_to: string[];
     target_user_ids: string[];
     pending_user_ids: string[];
     processed_user_ids: string[];
@@ -60,6 +63,7 @@ export type SubscriptionStateReconciliationLeaseResult =
           plan_key: SubscriptionPlanKey;
           last_synced_at_ms: number;
           billing_cycle_end_at_ms?: number;
+          access_expires_at_ms?: number;
           pending_active_signal_at_ms?: number;
           pending_active_expires_at_ms?: number;
           pending_active_retry_count?: number;
@@ -72,6 +76,7 @@ export type SubscriptionStateReconciliationLeaseResult =
           plan_key: SubscriptionPlanKey;
           last_synced_at_ms: number;
           billing_cycle_end_at_ms?: number;
+          access_expires_at_ms?: number;
           retry_at_ms?: number;
           pending_active_signal_at_ms?: number;
           pending_active_expires_at_ms?: number;
@@ -85,6 +90,7 @@ export type SubscriptionStateReconciliationLeaseResult =
           plan_key: SubscriptionPlanKey;
           last_synced_at_ms: number;
           billing_cycle_end_at_ms?: number;
+          access_expires_at_ms?: number;
           retry_at_ms: number;
           pending_active_signal_at_ms?: number;
           pending_active_expires_at_ms?: number;

@@ -7,7 +7,10 @@ import {
 } from "./config";
 import { ABORT_ERROR_NAME } from "../../constants/errors";
 import { MAX_PERSISTED_ERROR_MESSAGE_CHARS } from "../../constants/limits";
-import type { SubscriptionPlanKey } from "../../constants/subscriptions";
+import {
+    SUBSCRIPTION_RENEWAL_PROPAGATION_GRACE_MS,
+    type SubscriptionPlanKey,
+} from "../../constants/subscriptions";
 
 const REVENUECAT_API_ORIGIN = "https://api.revenuecat.com";
 const REVENUECAT_API_V2_BASE_URL = `${REVENUECAT_API_ORIGIN}/v2`;
@@ -68,7 +71,6 @@ export type CurrentSubscriptionState = {
     pending_active_signal_at_ms?: number;
     pending_active_expires_at_ms?: number;
     last_synced_at_ms: number;
-    stale_after_at_ms: number;
     next_refresh_attempt_at_ms?: number;
 };
 
@@ -82,13 +84,45 @@ export function hasUnexpiredSubscriptionAccess(
         | undefined,
     nowMs: number
 ) {
-    const accessExpiresAtMs = state?.access_expires_at_ms ?? state?.billing_cycle_end_at_ms;
+    const accessExpiresAtMs = getSubscriptionAccessExpiresAtMs(state);
 
     return (
         state?.has_active_subscription === true &&
         typeof accessExpiresAtMs === "number" &&
-        Number.isFinite(accessExpiresAtMs) &&
         nowMs < accessExpiresAtMs
+    );
+}
+
+export function getSubscriptionAccessExpiresAtMs(
+    state:
+        | Pick<CurrentSubscriptionState, "access_expires_at_ms" | "billing_cycle_end_at_ms">
+        | null
+        | undefined
+) {
+    const confirmedExpiresAtMs = state?.access_expires_at_ms ?? state?.billing_cycle_end_at_ms;
+
+    return typeof confirmedExpiresAtMs === "number" && Number.isFinite(confirmedExpiresAtMs)
+        ? confirmedExpiresAtMs + SUBSCRIPTION_RENEWAL_PROPAGATION_GRACE_MS
+        : null;
+}
+
+export function hasUnexpiredConfirmedSubscriptionPeriod(
+    state:
+        | Pick<
+              CurrentSubscriptionState,
+              "has_active_subscription" | "access_expires_at_ms" | "billing_cycle_end_at_ms"
+          >
+        | null
+        | undefined,
+    nowMs: number
+) {
+    const confirmedExpiresAtMs = state?.access_expires_at_ms ?? state?.billing_cycle_end_at_ms;
+
+    return (
+        state?.has_active_subscription === true &&
+        typeof confirmedExpiresAtMs === "number" &&
+        Number.isFinite(confirmedExpiresAtMs) &&
+        nowMs < confirmedExpiresAtMs
     );
 }
 
@@ -372,10 +406,6 @@ export function shouldUseExistingSubscriptionState(
         return false;
     }
 
-    if (nowMs >= existingState.stale_after_at_ms) {
-        return false;
-    }
-
     if (!existingState.has_active_subscription) {
         return true;
     }
@@ -550,9 +580,7 @@ async function fetchRevenueCatCustomerSubscriptions(
             status: parseString(subscription.status) ?? undefined,
             product_id: parseString(subscription.product_id) ?? undefined,
             purchase_at_ms:
-                parseTimestampMs(subscription.current_period_starts_at) ??
-                parseTimestampMs(subscription.starts_at) ??
-                undefined,
+                parseTimestampMs(subscription.current_period_starts_at) ?? undefined,
             expiration_at_ms: parseTimestampMs(subscription.current_period_ends_at) ?? undefined,
             store_subscription_id:
                 parseIdentifierString(subscription.store_subscription_identifier) ?? undefined,
@@ -693,7 +721,10 @@ export async function fetchRevenueCatCustomerActiveEntitlementSnapshot(
         { request_count: 0 }
     );
     const activePolyglotEntitlement = activeEntitlements.find(
-        (entitlement) => entitlement.entitlement_id === entitlementResourceId
+        (entitlement) =>
+            entitlement.entitlement_id === entitlementResourceId &&
+            (typeof entitlement.expiration_at_ms !== "number" ||
+                Date.now() < entitlement.expiration_at_ms)
     );
 
     return activePolyglotEntitlement

@@ -11,6 +11,7 @@ import {
     shouldSkipRevenueCatWebhookIngestion,
 } from "./revenueCatWebhookIngestion";
 import {
+    getRevenueCatWebhookCancelReasonFromRawPayload,
     normalizeRevenueCatWebhookEvent,
     safeJsonStringify,
     type NormalizedRevenueCatWebhookEvent,
@@ -164,9 +165,13 @@ export async function handleRevenueCatWebhookRequest(ctx: ActionCtx, request: Re
         normalizedEvent,
         eligibleUserIdsResult.eligible_user_ids
     );
+    const serializedPayload = safeJsonStringify(payload) ?? undefined;
+    const cancelReason = getRevenueCatWebhookCancelReasonFromRawPayload(serializedPayload);
     const rawPayload = shouldPersistRevenueCatWebhookRawPayload(eligibleUserIdsResult)
-        ? safeJsonStringify(payload) ?? undefined
-        : undefined;
+        ? serializedPayload
+        : cancelReason
+          ? safeJsonStringify({ event: { cancel_reason: cancelReason } }) ?? undefined
+          : undefined;
     const ingestionArgs = {
         normalized_event: eventForIngestion,
         received_at_ms: receivedAtMs,

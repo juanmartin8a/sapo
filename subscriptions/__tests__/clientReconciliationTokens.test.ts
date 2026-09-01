@@ -6,6 +6,7 @@ import {
     expirePendingActiveSignal,
     getClientReconciliationTokenState,
     isActiveReconciliationSuperseded,
+    listSubscriptionStatesDueForExpirationReconciliation,
     releaseSubscriptionStateReconciliation,
 } from "../model/webhook";
 
@@ -202,12 +203,13 @@ describe("client subscription reconciliation tokens", () => {
         expect(patch).not.toHaveBeenCalled();
     });
 
-    it("does not shorten a future expiration deadline when storing refresh backoff", async () => {
+    it("stores refresh backoff when releasing reconciliation", async () => {
         const { ctx, patch } = createPendingStateCtx({
             _id: "state_1",
+            has_active_subscription: true,
+            access_expires_at_ms: 4_000,
             sync_attempt_id: "attempt_1",
             sync_expires_at_ms: 2_000,
-            stale_after_at_ms: 10_000,
             updated_at_ms: 900,
         });
 
@@ -223,33 +225,7 @@ describe("client subscription reconciliation tokens", () => {
             "state_1",
             expect.objectContaining({
                 sync_attempt_id: undefined,
-                next_refresh_attempt_at_ms: 5_000,
-            })
-        );
-        expect(patch.mock.calls[0][2]).not.toHaveProperty("stale_after_at_ms");
-    });
-
-    it("extends an upcoming expiration deadline through refresh backoff", async () => {
-        const { ctx, patch } = createPendingStateCtx({
-            _id: "state_1",
-            sync_attempt_id: "attempt_1",
-            sync_expires_at_ms: 2_000,
-            stale_after_at_ms: 4_000,
-            updated_at_ms: 900,
-        });
-
-        await releaseSubscriptionStateReconciliation(ctx as any, {
-            user_id: "user_1",
-            sync_attempt_id: "attempt_1",
-            now_ms: 1_000,
-            next_attempt_at_ms: 5_000,
-        });
-
-        expect(patch).toHaveBeenCalledWith(
-            "subscription_states",
-            "state_1",
-            expect.objectContaining({
-                stale_after_at_ms: 5_000,
+                expiration_reconciliation_at_ms: 5_000,
                 next_refresh_attempt_at_ms: 5_000,
             })
         );
@@ -268,6 +244,30 @@ describe("client subscription reconciliation tokens", () => {
         })).resolves.toEqual({ status: "stale" });
 
         expect(patch).not.toHaveBeenCalled();
+    });
+
+    it("moves a failed expiration reconciliation behind its retry window", async () => {
+        const { ctx, patch } = createPendingStateCtx({
+            _id: "state_1",
+            has_active_subscription: true,
+            access_expires_at_ms: 4_000,
+            last_synced_at_ms: 1_000,
+        });
+
+        await expect(deferSubscriptionStateReconciliation(ctx as any, {
+            user_id: "user_1",
+            expected_last_synced_at_ms: 1_000,
+            next_attempt_at_ms: 5_000,
+        })).resolves.toEqual({ status: "deferred" });
+
+        expect(patch).toHaveBeenCalledWith(
+            "subscription_states",
+            "state_1",
+            expect.objectContaining({
+                expiration_reconciliation_at_ms: 5_000,
+                next_refresh_attempt_at_ms: 5_000,
+            })
+        );
     });
 
     it("reschedules an expiry invocation that arrives early", async () => {
@@ -299,5 +299,48 @@ describe("client subscription reconciliation tokens", () => {
             active_signal_at_ms: 3_000,
             pending_active_superseded_at_ms: 2_000,
         })).toBe(false);
+    });
+});
+
+describe("subscription expiration reconciliation", () => {
+    it("lists active states whose expiration reconciliation is due", async () => {
+        const range = {
+            eq: jest.fn(),
+            gte: jest.fn(),
+            lte: jest.fn(),
+        };
+        range.eq.mockReturnValue(range);
+        range.gte.mockReturnValue(range);
+        range.lte.mockReturnValue(range);
+        const take = jest.fn(async () => [{
+            user_id: "user_1",
+            last_synced_at_ms: 1_000,
+        }]);
+        const withIndex = jest.fn((_indexName: string, buildRange: (query: typeof range) => unknown) => {
+            buildRange(range);
+            return { take };
+        });
+        const ctx = {
+            db: {
+                query: jest.fn(() => ({ withIndex })),
+            },
+        };
+
+        await expect(listSubscriptionStatesDueForExpirationReconciliation(ctx as any, {
+            now_ms: 2_000,
+            limit: 100,
+        })).resolves.toEqual([{
+            user_id: "user_1",
+            last_synced_at_ms: 1_000,
+        }]);
+
+        expect(withIndex).toHaveBeenCalledWith(
+            "by_active_subscription_and_expiration_reconciliation_at_ms",
+            expect.any(Function)
+        );
+        expect(range.eq).toHaveBeenCalledWith("has_active_subscription", true);
+        expect(range.gte).toHaveBeenCalledWith("expiration_reconciliation_at_ms", 0);
+        expect(range.lte).toHaveBeenCalledWith("expiration_reconciliation_at_ms", 2_000);
+        expect(take).toHaveBeenCalledWith(50);
     });
 });

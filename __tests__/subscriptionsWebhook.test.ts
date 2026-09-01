@@ -1,9 +1,11 @@
 import { describe, expect, it } from "@jest/globals";
 
 import {
+    buildRevenueCatWebhookEventForIngestion,
     resolveRevenueCatWebhookTargetUserIds,
     shouldSkipRevenueCatWebhookIngestion,
 } from "../model/subscriptions/revenueCatWebhookIngestion";
+import { getRevenueCatWebhookCancelReasonFromRawPayload } from "../model/subscriptions/revenueCatWebhookPayload";
 
 describe("RevenueCat webhook ingestion guards", () => {
     it("prefers transferred users and ignores RevenueCat-generated ids", () => {
@@ -39,5 +41,45 @@ describe("RevenueCat webhook ingestion guards", () => {
                 eligible_user_ids: [],
             })
         ).toBe(false);
+    });
+
+    it("builds a valid fallback user reference for partially eligible transfers", () => {
+        expect(
+            buildRevenueCatWebhookEventForIngestion(
+                {
+                    event_id: "transfer_1",
+                    event_type: "TRANSFER",
+                    event_at_ms: 1_000,
+                    aliases: [],
+                    transferred_from: ["user_from"],
+                    transferred_to: ["user_to"],
+                    entitlement_ids: [],
+                },
+                ["user_to"]
+            )
+        ).toEqual({
+            event_id: "transfer_1",
+            event_type: "TRANSFER",
+            event_at_ms: 1_000,
+            app_user_id: undefined,
+            original_app_user_id: undefined,
+            aliases: [],
+            transferred_from: [],
+            transferred_to: ["user_to"],
+            user_id: "user_to",
+            entitlement_ids: [],
+        });
+    });
+
+    it("preserves cancellation reasons needed to distinguish refunds", () => {
+        expect(getRevenueCatWebhookCancelReasonFromRawPayload(JSON.stringify({
+            event: {
+                id: "event_1",
+                type: "CANCELLATION",
+                event_timestamp_ms: 1_000,
+                cancel_reason: "CUSTOMER_SUPPORT",
+            },
+        }))).toBe("CUSTOMER_SUPPORT");
+        expect(getRevenueCatWebhookCancelReasonFromRawPayload("invalid")).toBeUndefined();
     });
 });

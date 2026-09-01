@@ -4,6 +4,8 @@ import { handleSapopinguinoRequest } from "../model/sapopinguino/respellHttp";
 import { handleSapopinguinoTranslateRequest } from "../model/sapopinguino/translateHttp";
 import type { CurrentSubscriptionState } from "../model/subscriptions/revenueCatApi";
 
+const originalEnv = process.env;
+
 function createSubscriptionState(): CurrentSubscriptionState {
     return {
         user_id: "user_1",
@@ -11,7 +13,6 @@ function createSubscriptionState(): CurrentSubscriptionState {
         plan_key: "free",
         has_active_subscription: false,
         last_synced_at_ms: 1_000,
-        stale_after_at_ms: 2_000,
     };
 }
 
@@ -54,6 +55,7 @@ function createRequest() {
 
 describe("Sapopinguino subscription sync contention", () => {
     afterEach(() => {
+        process.env = originalEnv;
         jest.useRealTimers();
         jest.restoreAllMocks();
     });
@@ -62,6 +64,10 @@ describe("Sapopinguino subscription sync contention", () => {
         ["translate", handleSapopinguinoTranslateRequest],
         ["respell", handleSapopinguinoRequest],
     ])("returns retryable 503 for %s after bounded polling", async (_operation, handler) => {
+        process.env = {
+            ...originalEnv,
+            REVENUECAT_ON_DEMAND_SYNC_AFTER_MS: "1000",
+        };
         jest.useFakeTimers();
         jest.spyOn(Date, "now").mockReturnValue(3_000);
         const responsePromise = handler(
