@@ -1,4 +1,7 @@
-import { filterRevenueCatEventUserReferences } from "./revenueCatEventUsers";
+import {
+    appendUniqueUserIds,
+    filterRevenueCatEventUserReferences,
+} from "./revenueCatEventUsers";
 import type { NormalizedRevenueCatWebhookEvent } from "./revenueCatWebhookPayload";
 
 const REVENUECAT_GENERATED_ID_PREFIX = "$RCAnonymousID:";
@@ -17,14 +20,6 @@ export type RevenueCatWebhookEventForIngestion = NormalizedRevenueCatWebhookEven
 
 export function isRevenueCatGeneratedAppUserId(value: string) {
     return value.startsWith(REVENUECAT_GENERATED_ID_PREFIX);
-}
-
-function appendUniqueUserIds(targets: string[], candidates: string[]) {
-    for (const candidate of candidates) {
-        if (!targets.includes(candidate)) {
-            targets.push(candidate);
-        }
-    }
 }
 
 export function resolveRevenueCatWebhookTargetUserIds(event: RevenueCatWebhookUserReferenceEvent) {

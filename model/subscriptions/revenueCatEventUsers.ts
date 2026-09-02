@@ -14,7 +14,7 @@ type RevenueCatEventUserFields = {
     user_id?: string;
 };
 
-function appendUniqueUserIds(targets: string[], candidates: string[]) {
+export function appendUniqueUserIds(targets: string[], candidates: string[]) {
     for (const candidate of candidates) {
         if (!targets.includes(candidate)) {
             targets.push(candidate);

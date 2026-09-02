@@ -1,8 +1,3 @@
-export type ExclusiveLeaseOwnershipFailure =
-    | "owner_required"
-    | "owner_mismatch"
-    | "lease_expired";
-
 export function getExclusiveLeaseOwnershipFailure(args: {
     current_attempt_id?: string | null;
     attempt_id?: string | null;

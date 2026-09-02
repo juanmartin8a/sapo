@@ -37,6 +37,10 @@ export const recordOperationalAlertAndNotifyArgs = {
     last_error: v.optional(v.string()),
 };
 
+export type RecordOperationalAlertAndNotifyArgs = ObjectType<
+    typeof recordOperationalAlertAndNotifyArgs
+>;
+
 export const recordOperationalAlertArgs = {
     ...recordOperationalAlertAndNotifyArgs,
     now_ms: v.number(),

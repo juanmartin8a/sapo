@@ -1,8 +1,10 @@
 import { components, internal } from "../../_generated/api";
 import type { ActionCtx } from "../../_generated/server";
 import { isAllowedCorsRequest } from "../http/cors";
+import { handleCorsOptionsRequest } from "../http/responses";
 import { readBoundedJsonRequestBody } from "../http/requestBody";
 import { POST_OPTIONS_METHODS } from "../../constants/http";
+import { formatErrorMessage } from "../errors";
 
 import {
     buildRevenueCatWebhookEventForIngestion,
@@ -17,7 +19,6 @@ import {
     type NormalizedRevenueCatWebhookEvent,
 } from "./revenueCatWebhookPayload";
 import {
-    formatErrorMessage,
     getRevenueCatWebhookResponseHeaders,
     isAuthorizedRevenueCatWebhookRequest,
     jsonRevenueCatWebhookResponse,
@@ -80,17 +81,7 @@ export async function handleRevenueCatWebhookOptionsRequest(
     _ctx: ActionCtx,
     request: Request
 ) {
-    if (!isAllowedCorsRequest(request)) {
-        return new Response(null, {
-            status: 403,
-            headers: getRevenueCatWebhookResponseHeaders(request),
-        });
-    }
-
-    return new Response(null, {
-        status: 204,
-        headers: getRevenueCatWebhookResponseHeaders(request),
-    });
+    return handleCorsOptionsRequest(request, getRevenueCatWebhookResponseHeaders);
 }
 
 export async function handleRevenueCatWebhookRequest(ctx: ActionCtx, request: Request) {

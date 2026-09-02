@@ -9,7 +9,7 @@ import {
 } from "../../constants/userDeletion";
 import { subscriptionUsageOperationValidator } from "../model/planLimits";
 
-const webhookEventStatusValidator = v.union(
+export const webhookEventStatusValidator = v.union(
     v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.PENDING),
     v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.FAILED),
     v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.PROCESSED),
@@ -23,7 +23,7 @@ const terminalWebhookEventStatusValidator = v.union(
     v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.DEAD_LETTER),
 );
 
-const normalizedWebhookEventValidator = v.object({
+export const normalizedWebhookEventFields = {
     event_id: v.string(),
     event_type: v.string(),
     event_at_ms: v.number(),
@@ -41,7 +41,9 @@ const normalizedWebhookEventValidator = v.object({
     expiration_at_ms: v.optional(v.number()),
     grace_period_expiration_at_ms: v.optional(v.number()),
     purchased_at_ms: v.optional(v.number()),
-});
+};
+
+const normalizedWebhookEventValidator = v.object(normalizedWebhookEventFields);
 
 const retryConfigValidator = v.object({
     max_retry_count: v.number(),
@@ -61,7 +63,7 @@ const reconciliationSnapshotValidator = v.object({
     environment: v.optional(v.string()),
 });
 
-const userDeletionQueueStatusValidator = v.union(
+export const userDeletionQueueStatusValidator = v.union(
     v.literal(USER_DELETION_QUEUE_STATUS.PREPARING),
     v.literal(USER_DELETION_QUEUE_STATUS.AWAITING_AUTH_DELETE),
     v.literal(USER_DELETION_LATE_AUTH_WAIT_STATUS),
@@ -73,7 +75,7 @@ const userDeletionQueueStatusValidator = v.union(
     v.literal(USER_DELETION_QUEUE_STATUS.CLEANUP_IN_PROGRESS),
 );
 
-const userDeletionCleanupStepValidator = v.union(
+export const userDeletionCleanupStepValidator = v.union(
     v.literal(USER_DELETION_CLEANUP_STEP.ACQUIRED),
     v.literal(USER_DELETION_CLEANUP_STEP.WAITING_FOR_QUIESCENCE),
     v.literal(USER_DELETION_CLEANUP_STEP.DELETING_SUBSCRIPTION_DATA),

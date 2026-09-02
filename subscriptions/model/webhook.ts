@@ -76,6 +76,7 @@ import {
 import {
     buildUserDeletionQueueEntry,
     getLatestUserDeletionQueueEntry,
+    getLatestUserDeletionQueueEntriesByUserId,
     getLatestUserDeletionQueueEntryByUserId,
     listUserDeletionQueueEntriesByUserId,
     replaceUserDeletionQueueEntry,
@@ -95,6 +96,8 @@ import {
     SUBSCRIPTION_QUOTA_ERROR_CODES,
     SUBSCRIPTION_PLAN_KEYS,
     SUBSCRIPTION_ACTIVATION_RETRY_DELAYS_MS,
+    PENDING_ACTIVE_SIGNAL_TTL_MS,
+    SUBSCRIPTION_STATE_RECONCILIATION_LEASE_MS,
     SUBSCRIPTION_USAGE_OPERATIONS,
 } from "../../constants/subscriptions";
 import { REVENUECAT_TERMINAL_WEBHOOK_EVENT_STATUS_SET } from "../../constants/revenueCat";
@@ -102,8 +105,8 @@ import { USER_DELETION_QUEUE_STATUS } from "../../constants/userDeletion";
 import { getRevenueCatWebhookCancelReasonFromRawPayload } from "../../model/subscriptions/revenueCatWebhookPayload";
 
 const TERMINAL_EVENT_STATUSES = REVENUECAT_TERMINAL_WEBHOOK_EVENT_STATUS_SET;
-const SUBSCRIPTION_SYNC_LEASE_MAX_MS = 90_000;
-const PENDING_ACTIVE_SIGNAL_MAX_TTL_MS = 5 * 60 * 1000;
+const SUBSCRIPTION_SYNC_LEASE_MAX_MS = SUBSCRIPTION_STATE_RECONCILIATION_LEASE_MS;
+const PENDING_ACTIVE_SIGNAL_MAX_TTL_MS = PENDING_ACTIVE_SIGNAL_TTL_MS;
 
 const QUOTA_USAGE_RESERVATION_WATCHDOG_DELAY_MS = 5 * 60 * 1000;
 const USER_DELETION_BATCH_LIMIT = 500;
@@ -191,6 +194,76 @@ function resolveDeferredExpirationReconciliationAtMs(
     return isFiniteTimestampMs(confirmedExpirationAtMs)
         ? Math.max(confirmedExpirationAtMs, nextAttemptAtMs)
         : nextAttemptAtMs;
+}
+
+function buildReconciliationDeferralFields(
+    state: Pick<
+        Doc<"subscription_states">,
+        "has_active_subscription" | "access_expires_at_ms" | "billing_cycle_end_at_ms"
+    >,
+    nextAttemptAtMs: number
+) {
+    const expirationReconciliationAtMs = resolveDeferredExpirationReconciliationAtMs(
+        state,
+        nextAttemptAtMs
+    );
+
+    return {
+        next_refresh_attempt_at_ms: nextAttemptAtMs,
+        ...(typeof expirationReconciliationAtMs === "number"
+            ? { expiration_reconciliation_at_ms: expirationReconciliationAtMs }
+            : {}),
+    };
+}
+
+function buildSubscriptionReconciliationLeaseStateFields(
+    state: Doc<"subscription_states">,
+    fallbackRevenueCatAppUserId: string,
+    pendingActive: {
+        signal_at_ms?: unknown;
+        expires_at_ms?: unknown;
+        retry_count?: unknown;
+        next_retry_at_ms?: unknown;
+    }
+) {
+    return {
+        revenuecat_app_user_id:
+            state.revenuecat_app_user_id ?? fallbackRevenueCatAppUserId,
+        has_active_subscription: state.has_active_subscription,
+        plan_key: state.plan_key,
+        last_synced_at_ms: state.last_synced_at_ms,
+        ...(typeof state.billing_cycle_end_at_ms === "number"
+            ? { billing_cycle_end_at_ms: state.billing_cycle_end_at_ms }
+            : {}),
+        ...(typeof state.access_expires_at_ms === "number"
+            ? { access_expires_at_ms: state.access_expires_at_ms }
+            : {}),
+        ...(typeof pendingActive.signal_at_ms === "number" &&
+        typeof pendingActive.expires_at_ms === "number" &&
+        typeof pendingActive.retry_count === "number" &&
+        typeof pendingActive.next_retry_at_ms === "number"
+            ? {
+                  pending_active_signal_at_ms: pendingActive.signal_at_ms,
+                  pending_active_expires_at_ms: pendingActive.expires_at_ms,
+                  pending_active_retry_count: pendingActive.retry_count,
+                  pending_active_next_retry_at_ms: pendingActive.next_retry_at_ms,
+              }
+            : {}),
+    };
+}
+
+function buildUnchangedSubscriptionStateResult(state: Doc<"subscription_states">) {
+    return {
+        status: "unchanged" as const,
+        plan_key: state.plan_key,
+        has_active_subscription: state.has_active_subscription,
+        last_synced_at_ms: state.last_synced_at_ms,
+        owner_mismatch: false,
+        lease_expired: false,
+        ...(typeof state.billing_cycle_end_at_ms === "number"
+            ? { billing_cycle_end_at_ms: state.billing_cycle_end_at_ms }
+            : {}),
+    };
 }
 
 export function resolveSubscriptionAccessExpirationAtMs(args: {
@@ -2335,29 +2408,17 @@ export const beginSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
 
                 return {
                     status: "in_progress" as const,
-                    revenuecat_app_user_id:
-                        existingState.revenuecat_app_user_id ?? args.revenuecat_app_user_id,
                     retry_at_ms: currentSyncExpiresAtMs,
-                    has_active_subscription: existingState.has_active_subscription,
-                    plan_key: existingState.plan_key,
-                    last_synced_at_ms: existingState.last_synced_at_ms,
-                    ...(typeof existingState.billing_cycle_end_at_ms === "number"
-                        ? { billing_cycle_end_at_ms: existingState.billing_cycle_end_at_ms }
-                        : {}),
-                    ...(typeof existingState.access_expires_at_ms === "number"
-                        ? { access_expires_at_ms: existingState.access_expires_at_ms }
-                        : {}),
-                    ...(typeof nextPendingActiveSignalAtMs === "number" &&
-                    typeof nextPendingActiveExpiresAtMs === "number" &&
-                    typeof nextPendingActiveRetryCount === "number" &&
-                    typeof nextPendingActiveRetryAtMs === "number"
-                        ? {
-                              pending_active_signal_at_ms: nextPendingActiveSignalAtMs,
-                              pending_active_expires_at_ms: nextPendingActiveExpiresAtMs,
-                              pending_active_retry_count: nextPendingActiveRetryCount,
-                              pending_active_next_retry_at_ms: nextPendingActiveRetryAtMs,
-                          }
-                        : {}),
+                    ...buildSubscriptionReconciliationLeaseStateFields(
+                        existingState,
+                        args.revenuecat_app_user_id,
+                        {
+                            signal_at_ms: nextPendingActiveSignalAtMs,
+                            expires_at_ms: nextPendingActiveExpiresAtMs,
+                            retry_count: nextPendingActiveRetryCount,
+                            next_retry_at_ms: nextPendingActiveRetryAtMs,
+                        }
+                    ),
                 };
             }
 
@@ -2374,32 +2435,20 @@ export const beginSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
 
                 return {
                     status: "rate_limited" as const,
-                    revenuecat_app_user_id:
-                        existingState.revenuecat_app_user_id ?? args.revenuecat_app_user_id,
                     retry_at_ms: clientTokenState.retry_at_ms,
-                    has_active_subscription: existingState.has_active_subscription,
-                    plan_key: existingState.plan_key,
-                    last_synced_at_ms: existingState.last_synced_at_ms,
-                    ...(typeof existingState.billing_cycle_end_at_ms === "number"
-                        ? { billing_cycle_end_at_ms: existingState.billing_cycle_end_at_ms }
-                        : {}),
-                    ...(typeof existingState.access_expires_at_ms === "number"
-                        ? { access_expires_at_ms: existingState.access_expires_at_ms }
-                        : {}),
-                    ...(existingPendingIsLive &&
-                    typeof existingPendingSignalAtMs === "number" &&
-                    typeof existingPendingExpiresAtMs === "number" &&
-                    typeof existingStateRecord?.pending_active_retry_count === "number" &&
-                    typeof existingStateRecord.pending_active_next_retry_at_ms === "number"
-                        ? {
-                              pending_active_signal_at_ms: existingPendingSignalAtMs,
-                              pending_active_expires_at_ms: existingPendingExpiresAtMs,
-                              pending_active_retry_count:
-                                  existingStateRecord.pending_active_retry_count,
-                              pending_active_next_retry_at_ms:
-                                  existingStateRecord.pending_active_next_retry_at_ms,
-                          }
-                        : {}),
+                    ...buildSubscriptionReconciliationLeaseStateFields(
+                        existingState,
+                        args.revenuecat_app_user_id,
+                        existingPendingIsLive
+                            ? {
+                                  signal_at_ms: existingPendingSignalAtMs,
+                                  expires_at_ms: existingPendingExpiresAtMs,
+                                  retry_count: existingStateRecord?.pending_active_retry_count,
+                                  next_retry_at_ms:
+                                      existingStateRecord?.pending_active_next_retry_at_ms,
+                              }
+                            : {}
+                    ),
                 };
             }
 
@@ -2421,28 +2470,16 @@ export const beginSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
 
             return {
                 status: "acquired" as const,
-                revenuecat_app_user_id:
-                    existingState.revenuecat_app_user_id ?? args.revenuecat_app_user_id,
-                has_active_subscription: existingState.has_active_subscription,
-                plan_key: existingState.plan_key,
-                last_synced_at_ms: existingState.last_synced_at_ms,
-                ...(typeof existingState.billing_cycle_end_at_ms === "number"
-                    ? { billing_cycle_end_at_ms: existingState.billing_cycle_end_at_ms }
-                    : {}),
-                ...(typeof existingState.access_expires_at_ms === "number"
-                    ? { access_expires_at_ms: existingState.access_expires_at_ms }
-                    : {}),
-                ...(typeof nextPendingActiveSignalAtMs === "number" &&
-                typeof nextPendingActiveExpiresAtMs === "number" &&
-                typeof nextPendingActiveRetryCount === "number" &&
-                typeof nextPendingActiveRetryAtMs === "number"
-                    ? {
-                          pending_active_signal_at_ms: nextPendingActiveSignalAtMs,
-                          pending_active_expires_at_ms: nextPendingActiveExpiresAtMs,
-                          pending_active_retry_count: nextPendingActiveRetryCount,
-                          pending_active_next_retry_at_ms: nextPendingActiveRetryAtMs,
-                      }
-                    : {}),
+                ...buildSubscriptionReconciliationLeaseStateFields(
+                    existingState,
+                    args.revenuecat_app_user_id,
+                    {
+                        signal_at_ms: nextPendingActiveSignalAtMs,
+                        expires_at_ms: nextPendingActiveExpiresAtMs,
+                        retry_count: nextPendingActiveRetryCount,
+                        next_retry_at_ms: nextPendingActiveRetryAtMs,
+                    }
+                ),
             };
         }
 
@@ -2650,23 +2687,12 @@ export const releaseSubscriptionStateReconciliation = async (ctx: MutationCtx, a
             };
         }
 
-        const expirationReconciliationAtMs =
-            typeof args.next_attempt_at_ms === "number"
-                ? resolveDeferredExpirationReconciliationAtMs(
-                      existingState,
-                      args.next_attempt_at_ms
-                  )
-                : undefined;
-
         await ctx.db.patch("subscription_states", existingState._id, {
             sync_attempt_id: undefined,
             sync_started_at_ms: undefined,
             sync_expires_at_ms: undefined,
             ...(typeof args.next_attempt_at_ms === "number"
-                ? { next_refresh_attempt_at_ms: args.next_attempt_at_ms }
-                : {}),
-            ...(typeof expirationReconciliationAtMs === "number"
-                ? { expiration_reconciliation_at_ms: expirationReconciliationAtMs }
+                ? buildReconciliationDeferralFields(existingState, args.next_attempt_at_ms)
                 : {}),
             updated_at_ms: Math.max(existingState.updated_at_ms, args.now_ms),
         } as Record<string, unknown>);
@@ -2773,22 +2799,7 @@ export const listDueUserDeletionOperations = async (ctx: QueryCtx, args: Webhook
                 )
             )
         ).flat();
-        const entriesByUserId = new Map<string, UserDeletionQueueEntryDoc>();
-
-        for (const entry of candidateEntries) {
-            const existingEntry = entriesByUserId.get(entry.user_id) ?? null;
-
-            if (
-                !existingEntry ||
-                entry.updated_at_ms > existingEntry.updated_at_ms ||
-                (entry.updated_at_ms === existingEntry.updated_at_ms &&
-                    entry._creationTime > existingEntry._creationTime)
-            ) {
-                entriesByUserId.set(entry.user_id, entry);
-            }
-        }
-
-        return [...entriesByUserId.values()]
+        return getLatestUserDeletionQueueEntriesByUserId(candidateEntries)
             .filter((entry) => doesUserDeletionStatusAllowAutomaticRetry(entry.status))
             .sort((left, right) => {
                 if (left.next_retry_at_ms !== right.next_retry_at_ms) {
@@ -2814,22 +2825,7 @@ export const listAuthDeleteDeadLetterUserDeletionOperations = async (ctx: QueryC
             )
             .order("asc")
             .take(safeLimit * 3);
-        const entriesByUserId = new Map<string, Doc<"user_deletion_queue">>();
-
-        for (const entry of entries) {
-            const existingEntry = entriesByUserId.get(entry.user_id) ?? null;
-
-            if (
-                !existingEntry ||
-                entry.updated_at_ms > existingEntry.updated_at_ms ||
-                (entry.updated_at_ms === existingEntry.updated_at_ms &&
-                    entry._creationTime > existingEntry._creationTime)
-            ) {
-                entriesByUserId.set(entry.user_id, entry);
-            }
-        }
-
-        return [...entriesByUserId.values()]
+        return getLatestUserDeletionQueueEntriesByUserId(entries)
             .sort((left, right) => left.updated_at_ms - right.updated_at_ms)
             .slice(0, safeLimit)
             .map((entry) => ({
@@ -2882,22 +2878,7 @@ export const listCleanupDeadLetterUserDeletionOperations = async (ctx: QueryCtx,
                   )
                   .order("asc")
                   .take(safeLimit * 3);
-        const entriesByUserId = new Map<string, Doc<"user_deletion_queue">>();
-
-        for (const entry of entries) {
-            const existingEntry = entriesByUserId.get(entry.user_id) ?? null;
-
-            if (
-                !existingEntry ||
-                entry.updated_at_ms > existingEntry.updated_at_ms ||
-                (entry.updated_at_ms === existingEntry.updated_at_ms &&
-                    entry._creationTime > existingEntry._creationTime)
-            ) {
-                entriesByUserId.set(entry.user_id, entry);
-            }
-        }
-
-        return [...entriesByUserId.values()]
+        return getLatestUserDeletionQueueEntriesByUserId(entries)
             .filter(
                 (entry) =>
                     typeof args.now_ms !== "number" || entry.next_retry_at_ms <= args.now_ms
@@ -2994,16 +2975,8 @@ export const applyReconciledSubscriptionState = async (ctx: MutationCtx, args: W
             } as Record<string, unknown>);
 
             return {
-                status: "unchanged" as const,
-                plan_key: existingState.plan_key,
-                has_active_subscription: existingState.has_active_subscription,
-                last_synced_at_ms: existingState.last_synced_at_ms,
+                ...buildUnchangedSubscriptionStateResult(existingState),
                 superseded: true,
-                owner_mismatch: false,
-                lease_expired: false,
-                ...(typeof existingState.billing_cycle_end_at_ms === "number"
-                    ? { billing_cycle_end_at_ms: existingState.billing_cycle_end_at_ms }
-                    : {}),
             };
         }
 
@@ -3015,17 +2988,7 @@ export const applyReconciledSubscriptionState = async (ctx: MutationCtx, args: W
                 updated_at_ms: Math.max(existingState.updated_at_ms, args.synced_at_ms),
             } as Record<string, unknown>);
 
-            return {
-                status: "unchanged" as const,
-                plan_key: existingState.plan_key,
-                has_active_subscription: existingState.has_active_subscription,
-                last_synced_at_ms: existingState.last_synced_at_ms,
-                owner_mismatch: false,
-                lease_expired: false,
-                ...(typeof existingState.billing_cycle_end_at_ms === "number"
-                    ? { billing_cycle_end_at_ms: existingState.billing_cycle_end_at_ms }
-                    : {}),
-            };
+            return buildUnchangedSubscriptionStateResult(existingState);
         }
 
         const safeActiveSignalAtMs = Math.min(
@@ -4026,16 +3989,8 @@ export const deferSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
             };
         }
 
-        const expirationReconciliationAtMs = resolveDeferredExpirationReconciliationAtMs(
-            existingState,
-            args.next_attempt_at_ms
-        );
-
         await ctx.db.patch("subscription_states", existingState._id, {
-            next_refresh_attempt_at_ms: args.next_attempt_at_ms,
-            ...(typeof expirationReconciliationAtMs === "number"
-                ? { expiration_reconciliation_at_ms: expirationReconciliationAtMs }
-                : {}),
+            ...buildReconciliationDeferralFields(existingState, args.next_attempt_at_ms),
             updated_at_ms: args.next_attempt_at_ms,
         } as Record<string, unknown>);
 

@@ -6,7 +6,11 @@ import {
 } from "../../constants/subscriptions";
 import type { AuthenticatedHttpContext } from "../../lib/httpAuth";
 import { reconcileObservedSubscriptionStateHandler } from "../subscriptions/workers";
-import { buildCorsResponseHeaders, isAllowedCorsRequest } from "./cors";
+import { buildCorsResponseHeaders } from "./cors";
+import {
+    handleCorsOptionsRequest,
+    jsonResponse as buildJsonResponse,
+} from "./responses";
 import { isRecord, readBoundedJsonRequestBody } from "./requestBody";
 
 const MAX_RECONCILIATION_REQUEST_BODY_BYTES = 2_048;
@@ -25,13 +29,7 @@ function jsonResponse(
     payload: Record<string, unknown>,
     extraHeaders?: Record<string, string>
 ) {
-    const headers = responseHeaders(request);
-
-    for (const [header, value] of Object.entries(extraHeaders ?? {})) {
-        headers.set(header, value);
-    }
-
-    return new Response(JSON.stringify(payload), { status, headers });
+    return buildJsonResponse(request, status, payload, responseHeaders, extraHeaders);
 }
 
 function publicSubscriptionState(result: {
@@ -48,11 +46,7 @@ export async function handleSubscriptionReconciliationOptionsRequest(
     _ctx: ActionCtx,
     request: Request
 ) {
-    if (!isAllowedCorsRequest(request)) {
-        return new Response(null, { status: 403, headers: responseHeaders(request) });
-    }
-
-    return new Response(null, { status: 204, headers: responseHeaders(request) });
+    return handleCorsOptionsRequest(request, responseHeaders);
 }
 
 export async function handleSubscriptionReconciliationRequest(

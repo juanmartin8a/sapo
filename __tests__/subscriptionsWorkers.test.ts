@@ -18,13 +18,13 @@ import {
     tickPendingSubscriptionActivation,
 } from "../model/subscriptions/workers";
 import {
+    PENDING_ACTIVE_SIGNAL_TTL_MS,
     SUBSCRIPTION_RENEWAL_PROPAGATION_GRACE_MS,
 } from "../constants/subscriptions";
 import { type CurrentSubscriptionState } from "../model/subscriptions/revenueCatApi";
 
 const originalEnv = process.env;
 const originalFetch = globalThis.fetch;
-const PENDING_ACTIVE_SIGNAL_TTL_MS = 5 * 60 * 1000;
 
 function jsonResponse(status: number, payload: unknown) {
     return ({

@@ -6,6 +6,7 @@ import {
     PENDING_ACTIVE_SIGNAL_TTL_MS,
     SUBSCRIPTION_ACTIVATION_RETRY_DELAYS_MS,
     SUBSCRIPTION_PLAN_KEYS,
+    SUBSCRIPTION_STATE_RECONCILIATION_LEASE_MS,
     type SubscriptionPlanKey,
 } from "../../constants/subscriptions";
 import {
@@ -40,7 +41,6 @@ import {
     deleteRevenueCatCustomer,
     fetchRevenueCatCustomerActiveEntitlementSnapshot,
     fetchRevenueCatCustomerSubscriptionSnapshot,
-    formatErrorMessage,
     getMissingRevenueCatEntitlementConfigMessage,
     getRevenueCatApiErrorRetryDelayMs,
     getRevenueCatEventsRetentionCutoffMs,
@@ -52,6 +52,7 @@ import {
     shouldUseExistingSubscriptionState,
     type CurrentSubscriptionState,
 } from "./revenueCatApi";
+import { formatErrorMessage } from "../errors";
 import {
     acquireRevenueCatEventProcessingLeases,
     acquireUserDeletionOperationByUserId,
@@ -96,7 +97,6 @@ const USER_DELETION_QUIESCENCE_GRACE_MS = 3 * 60 * 1000;
 const USER_DELETION_SUBSCRIPTION_CLEANUP_MAX_BATCHES = 10;
 const USER_DELETION_TERMINAL_NEXT_RETRY_AT_MS = FAR_FUTURE_TIMESTAMP_MS;
 const REVENUECAT_EVENT_PROCESSING_LEASE_MS = 90_000;
-const SUBSCRIPTION_STATE_RECONCILIATION_LEASE_MS = 90_000;
 const SUBSCRIPTION_USAGE_SYNC_POLL_DELAYS_MS = [250, 500, 1_000] as const;
 type SubscriptionStateRefreshResult =
     | {
@@ -180,16 +180,10 @@ function mapRevenueCatProgressMutationResultToProcessingStatus(
     return mapProgressMutationStatusToProcessingStatus(result.status);
 }
 
-function createRevenueCatEventProcessingAttemptId(eventDocId: string) {
+function createAttemptId(entityKey: string) {
     const randomSuffix = Math.random().toString(36).slice(2);
 
-    return `${eventDocId}:${Date.now().toString(36)}:${randomSuffix}`;
-}
-
-function createSubscriptionReconciliationAttemptId(userId: string) {
-    const randomSuffix = Math.random().toString(36).slice(2);
-
-    return `${userId}:${Date.now().toString(36)}:${randomSuffix}`;
+    return `${entityKey}:${Date.now().toString(36)}:${randomSuffix}`;
 }
 
 function canServeActiveSubscriptionStateForUsage(
@@ -212,6 +206,42 @@ function hasActiveRefreshBackoff(state: CurrentSubscriptionState | null, nowMs: 
         Number.isFinite(state.next_refresh_attempt_at_ms) &&
         nowMs < state.next_refresh_attempt_at_ms
     );
+}
+
+function buildSubscriptionRefreshStateFields(
+    state: Pick<
+        CurrentSubscriptionState,
+        | "plan_key"
+        | "has_active_subscription"
+        | "last_synced_at_ms"
+        | "billing_cycle_end_at_ms"
+    >,
+    revenueCatAppUserId: string
+) {
+    return {
+        revenuecat_app_user_id: revenueCatAppUserId,
+        plan_key: state.plan_key,
+        has_active_subscription: state.has_active_subscription,
+        last_synced_at_ms: state.last_synced_at_ms,
+        ...(typeof state.billing_cycle_end_at_ms === "number"
+            ? { billing_cycle_end_at_ms: state.billing_cycle_end_at_ms }
+            : {}),
+    };
+}
+
+function buildOptionalSubscriptionRefreshStateFields(
+    state: CurrentSubscriptionState | null
+) {
+    return state
+        ? {
+              plan_key: state.plan_key,
+              has_active_subscription: state.has_active_subscription,
+              last_synced_at_ms: state.last_synced_at_ms,
+              ...(typeof state.billing_cycle_end_at_ms === "number"
+                  ? { billing_cycle_end_at_ms: state.billing_cycle_end_at_ms }
+                  : {}),
+          }
+        : {};
 }
 
 function waitForSubscriptionSync(delayMs: number) {
@@ -649,12 +679,6 @@ async function recordOperationalAlert(
         });
 }
 
-function createUserDeletionCleanupAttemptId(userId: string) {
-    const randomSuffix = Math.random().toString(36).slice(2);
-
-    return `${userId}:${Date.now().toString(36)}:${randomSuffix}`;
-}
-
 function getUserDeletionCleanupLeaseLostResult(args: {
     step: UserDeletionCleanupStep;
     ownership_failure?: string;
@@ -860,13 +884,7 @@ async function reconcileSubscriptionStateFromRevenueCat(
     ) {
         return {
             status: "already_fresh",
-            revenuecat_app_user_id: revenueCatAppUserId,
-            plan_key: existingState.plan_key,
-            has_active_subscription: existingState.has_active_subscription,
-            last_synced_at_ms: existingState.last_synced_at_ms,
-            ...(typeof existingState.billing_cycle_end_at_ms === "number"
-                ? { billing_cycle_end_at_ms: existingState.billing_cycle_end_at_ms }
-                : {}),
+            ...buildSubscriptionRefreshStateFields(existingState, revenueCatAppUserId),
         };
     }
 
@@ -908,13 +926,7 @@ async function reconcileSubscriptionStateFromRevenueCat(
     ) {
         return {
             status: "already_fresh",
-            revenuecat_app_user_id: revenueCatAppUserId,
-            plan_key: existingState.plan_key,
-            has_active_subscription: existingState.has_active_subscription,
-            last_synced_at_ms: existingState.last_synced_at_ms,
-            ...(typeof existingState.billing_cycle_end_at_ms === "number"
-                ? { billing_cycle_end_at_ms: existingState.billing_cycle_end_at_ms }
-                : {}),
+            ...buildSubscriptionRefreshStateFields(existingState, revenueCatAppUserId),
         };
     }
 
@@ -929,13 +941,7 @@ async function reconcileSubscriptionStateFromRevenueCat(
     ) {
         return {
             status: "already_fresh",
-            revenuecat_app_user_id: revenueCatAppUserId,
-            plan_key: existingState.plan_key,
-            has_active_subscription: existingState.has_active_subscription,
-            last_synced_at_ms: existingState.last_synced_at_ms,
-            ...(typeof existingState.billing_cycle_end_at_ms === "number"
-                ? { billing_cycle_end_at_ms: existingState.billing_cycle_end_at_ms }
-                : {}),
+            ...buildSubscriptionRefreshStateFields(existingState, revenueCatAppUserId),
         };
     }
 
@@ -946,11 +952,7 @@ async function reconcileSubscriptionStateFromRevenueCat(
         ) {
             return {
                 status: "already_fresh",
-                revenuecat_app_user_id: revenueCatAppUserId,
-                plan_key: existingState!.plan_key,
-                has_active_subscription: existingState!.has_active_subscription,
-                last_synced_at_ms: existingState!.last_synced_at_ms,
-                billing_cycle_end_at_ms: existingState!.billing_cycle_end_at_ms,
+                ...buildSubscriptionRefreshStateFields(existingState!, revenueCatAppUserId),
             };
         }
 
@@ -963,16 +965,7 @@ async function reconcileSubscriptionStateFromRevenueCat(
                 existingState,
                 args.now_ms
             ),
-            ...(existingState ? { plan_key: existingState.plan_key } : {}),
-            ...(typeof existingState?.has_active_subscription === "boolean"
-                ? { has_active_subscription: existingState.has_active_subscription }
-                : {}),
-            ...(typeof existingState?.last_synced_at_ms === "number"
-                ? { last_synced_at_ms: existingState.last_synced_at_ms }
-                : {}),
-            ...(typeof existingState?.billing_cycle_end_at_ms === "number"
-                ? { billing_cycle_end_at_ms: existingState.billing_cycle_end_at_ms }
-                : {}),
+            ...buildOptionalSubscriptionRefreshStateFields(existingState),
         };
     }
 
@@ -980,7 +973,7 @@ async function reconcileSubscriptionStateFromRevenueCat(
         args.use_stale_active_state_while_revalidating === true &&
         canServeActiveSubscriptionStateForUsage(existingState, args.now_ms)
     ) {
-        const backgroundSyncAttemptId = createSubscriptionReconciliationAttemptId(args.user_id);
+        const backgroundSyncAttemptId = createAttemptId(args.user_id);
 
         try {
             await (ctx as ActionCtx).runMutation(
@@ -1000,11 +993,7 @@ async function reconcileSubscriptionStateFromRevenueCat(
 
         return {
             status: "already_fresh",
-            revenuecat_app_user_id: revenueCatAppUserId,
-            plan_key: existingState!.plan_key,
-            has_active_subscription: existingState!.has_active_subscription,
-            last_synced_at_ms: existingState!.last_synced_at_ms,
-            billing_cycle_end_at_ms: existingState!.billing_cycle_end_at_ms,
+            ...buildSubscriptionRefreshStateFields(existingState!, revenueCatAppUserId),
         };
     }
 
@@ -1020,7 +1009,7 @@ async function reconcileSubscriptionStateFromRevenueCat(
 
         syncAttemptId =
             args.preacquired_sync_attempt_id ??
-            createSubscriptionReconciliationAttemptId(args.user_id);
+            createAttemptId(args.user_id);
         const leaseNowMs = Date.now();
         const beginArgs = {
             user_id: args.user_id,
@@ -1065,28 +1054,22 @@ async function reconcileSubscriptionStateFromRevenueCat(
         if (leaseResult.status === "in_progress") {
             return {
                 status: "sync_in_progress",
-                revenuecat_app_user_id: leaseResult.revenuecat_app_user_id,
-                plan_key: leaseResult.plan_key,
-                has_active_subscription: leaseResult.has_active_subscription,
-                last_synced_at_ms: leaseResult.last_synced_at_ms,
                 retry_at_ms: leaseResult.retry_at_ms,
-                ...(typeof leaseResult.billing_cycle_end_at_ms === "number"
-                    ? { billing_cycle_end_at_ms: leaseResult.billing_cycle_end_at_ms }
-                : {}),
+                ...buildSubscriptionRefreshStateFields(
+                    leaseResult,
+                    leaseResult.revenuecat_app_user_id
+                ),
             };
         }
 
         if (leaseResult.status === "rate_limited") {
             return {
                 status: "rate_limited",
-                revenuecat_app_user_id: leaseResult.revenuecat_app_user_id,
-                plan_key: leaseResult.plan_key,
-                has_active_subscription: leaseResult.has_active_subscription,
-                last_synced_at_ms: leaseResult.last_synced_at_ms,
                 retry_at_ms: leaseResult.retry_at_ms,
-                ...(typeof leaseResult.billing_cycle_end_at_ms === "number"
-                    ? { billing_cycle_end_at_ms: leaseResult.billing_cycle_end_at_ms }
-                    : {}),
+                ...buildSubscriptionRefreshStateFields(
+                    leaseResult,
+                    leaseResult.revenuecat_app_user_id
+                ),
             };
         }
 
@@ -1267,16 +1250,7 @@ async function reconcileSubscriptionStateFromRevenueCat(
             should_block_requests:
                 canServeActiveSubscriptionStateForUsage(existingState, Date.now()) ||
                 snapshotHasActiveSubscription,
-            ...(existingState ? { plan_key: existingState.plan_key } : {}),
-            ...(typeof existingState?.has_active_subscription === "boolean"
-                ? { has_active_subscription: existingState.has_active_subscription }
-                : {}),
-            ...(typeof existingState?.last_synced_at_ms === "number"
-                ? { last_synced_at_ms: existingState.last_synced_at_ms }
-                : {}),
-            ...(typeof existingState?.billing_cycle_end_at_ms === "number"
-                ? { billing_cycle_end_at_ms: existingState.billing_cycle_end_at_ms }
-                : {}),
+            ...buildOptionalSubscriptionRefreshStateFields(existingState),
         };
     }
 }
@@ -1326,7 +1300,7 @@ export async function processRevenueCatWebhookEventById(
         };
     }
 
-    const processingAttemptId = createRevenueCatEventProcessingAttemptId(args.event_doc_id);
+    const processingAttemptId = createAttemptId(args.event_doc_id);
     const leaseAcquisition = await acquireRevenueCatEventProcessingLeases(ctx, {
         event_doc_id: args.event_doc_id,
         user_ids: eventDoc.pending_user_ids,
@@ -1589,13 +1563,11 @@ export async function reconcileObservedSubscriptionStateHandler(
         client_observed_active: args.observed_active,
         reconciliation_read: "active_entitlements_first",
         ...(args.observed_active
-            ? { expects_active_subscription: true }
-            : {}),
-        ...(args.observed_active
-            ? { active_signal_at_ms: nowMs }
-            : {}),
-        ...(args.observed_active
-            ? { schedule_pending_activation: true }
+            ? {
+                  expects_active_subscription: true,
+                  active_signal_at_ms: nowMs,
+                  schedule_pending_activation: true,
+              }
             : {}),
     });
 
@@ -1830,7 +1802,7 @@ export async function finalizeDeletedUserDataHandler(
             }
         }
 
-        const cleanupAttemptId = createUserDeletionCleanupAttemptId(args.user_id);
+        const cleanupAttemptId = createAttemptId(args.user_id);
         const acquiredOperation = await acquireUserDeletionOperationByUserId(ctx, args.user_id, {
             now_ms: nowMs,
             lease_expires_at_ms: nowMs + USER_DELETION_CLEANUP_LEASE_MS,
