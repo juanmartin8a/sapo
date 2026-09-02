@@ -1,21 +1,10 @@
 import { POST_OPTIONS_METHODS } from "../../constants/http";
-import { MAX_PERSISTED_ERROR_MESSAGE_CHARS } from "../../constants/limits";
 import { buildCorsResponseHeaders } from "../http/cors";
-import { parseString } from "./config";
+import { jsonResponse } from "../http/responses";
+import { parseString } from "../valueParsing";
 
 function normalizeBearerValue(value: string): string {
     return value.replace(/^Bearer\s+/i, "").trim();
-}
-
-export function formatErrorMessage(error: unknown): string {
-    if (typeof error === "object" && error && "message" in error) {
-        const message = (error as { message?: unknown }).message;
-        if (typeof message === "string" && message.trim().length > 0) {
-            return message.slice(0, MAX_PERSISTED_ERROR_MESSAGE_CHARS);
-        }
-    }
-
-    return "Unknown error";
 }
 
 export function getRevenueCatWebhookResponseHeaders(request: Request) {
@@ -31,16 +20,13 @@ export function jsonRevenueCatWebhookResponse(
     payload: Record<string, unknown>,
     extraHeaders?: Record<string, string>
 ) {
-    const headers = getRevenueCatWebhookResponseHeaders(request);
-
-    for (const [header, value] of Object.entries(extraHeaders ?? {})) {
-        headers.set(header, value);
-    }
-
-    return new Response(JSON.stringify(payload), {
+    return jsonResponse(
+        request,
         status,
-        headers,
-    });
+        payload,
+        getRevenueCatWebhookResponseHeaders,
+        extraHeaders
+    );
 }
 
 export function isAuthorizedRevenueCatWebhookRequest(request: Request) {

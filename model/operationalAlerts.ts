@@ -2,23 +2,14 @@ import { components } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
 import { sendOperationalAlertEmail } from "./email";
 import { getOperationalAlertsResolvedRetentionMs } from "./subscriptions/config";
+import type { RecordOperationalAlertAndNotifyArgs } from "../operations/validators/operationalAlerts";
 
 const RESOLVED_ALERT_PURGE_BATCH_LIMIT = 500;
 const RESOLVED_ALERT_PURGE_MAX_BATCHES = 10;
 
-export type AlertSeverity = "warning" | "error" | "critical";
-type RecordOperationalAlertArgs = {
-    kind: string;
-    entity_key: string;
-    severity: AlertSeverity;
-    title: string;
-    message: string;
-    last_error?: string;
-};
-
 export async function recordOperationalAlertAndNotify(
     ctx: ActionCtx,
-    args: RecordOperationalAlertArgs,
+    args: RecordOperationalAlertAndNotifyArgs,
 ) {
     const nowMs = Date.now();
     const alert = await ctx.runMutation(components.operations.operationalAlerts.recordOperationalAlert, {

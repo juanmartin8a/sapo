@@ -2,8 +2,7 @@ import { httpAction, type ActionCtx } from "../_generated/server";
 import { isAllowedCorsRequest } from "../model/http/cors";
 
 import { authComponent } from "../betterAuth/auth";
-import { hasSignInProviderAccount } from "../betterAuth/model/providerAccount";
-import { resolveBetterAuthUserId } from "../betterAuth/model/user";
+import { resolveCurrentUser } from "../model/auth";
 
 type AuthenticatedUser = NonNullable<Awaited<ReturnType<typeof authComponent.safeGetAuthUser>>>;
 
@@ -23,26 +22,7 @@ type AuthenticatedHttpHandler = (
 async function resolveHttpContext(
     ctx: ActionCtx
 ): Promise<AnyHttpContext | null> {
-    const user = await authComponent.safeGetAuthUser(ctx);
-
-    if (!user) {
-        return null;
-    }
-
-    const userId = resolveBetterAuthUserId(user);
-
-    if (!userId) {
-        return null;
-    }
-
-    if (!(await hasSignInProviderAccount(ctx, userId))) {
-        return null;
-    }
-
-    return {
-        user,
-        userId,
-    };
+    return resolveCurrentUser(ctx);
 }
 
 export const authenticatedHttpAction = (

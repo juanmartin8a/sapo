@@ -1,3 +1,5 @@
+import { parseFiniteNumber, parseString } from "../valueParsing";
+
 const DEFAULT_RETRY_BASE_DELAY_MS = 15_000;
 const DEFAULT_MAX_RETRY_DELAY_MS = 6 * 60 * 60 * 1000;
 const DEFAULT_MAX_RETRY_COUNT = 12;
@@ -9,32 +11,8 @@ const DEFAULT_FROZEN_QUOTA_PERIOD_RETENTION_MS = 60 * 24 * 60 * 60 * 1000;
 const DEFAULT_REVENUECAT_EVENTS_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
 const DEFAULT_OPERATIONAL_ALERTS_RESOLVED_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
 
-function parseNumber(value: unknown): number | null {
-    if (typeof value === "number" && Number.isFinite(value)) {
-        return value;
-    }
-
-    if (typeof value === "string" && value.trim().length > 0) {
-        const parsed = Number(value);
-        if (Number.isFinite(parsed)) {
-            return parsed;
-        }
-    }
-
-    return null;
-}
-
-export function parseString(value: unknown): string | null {
-    if (typeof value !== "string") {
-        return null;
-    }
-
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : null;
-}
-
 function parseIntegerEnvValue(value: string | undefined, defaultValue: number) {
-    const parsed = parseNumber(value);
+    const parsed = parseFiniteNumber(value);
     if (parsed === null || parsed < 0) {
         return defaultValue;
     }
@@ -43,7 +21,7 @@ function parseIntegerEnvValue(value: string | undefined, defaultValue: number) {
 }
 
 function parsePositiveIntegerEnvValue(value: string | undefined, defaultValue: number) {
-    const parsed = parseNumber(value);
+    const parsed = parseFiniteNumber(value);
     if (parsed === null || parsed <= 0) {
         return defaultValue;
     }

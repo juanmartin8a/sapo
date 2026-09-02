@@ -1,9 +1,9 @@
-import type { QueryCtx } from "../_generated/server";
+import type { ActionCtx, QueryCtx } from "../_generated/server";
 import { authComponent } from "../betterAuth/auth";
 import { hasSignInProviderAccount } from "../betterAuth/model/providerAccount";
 import { resolveBetterAuthUserId } from "../betterAuth/model/user";
 
-export async function getCurrentUser(ctx: QueryCtx) {
+export async function resolveCurrentUser(ctx: QueryCtx | ActionCtx) {
     const user = await authComponent.safeGetAuthUser(ctx);
 
     if (!user) {
@@ -16,5 +16,9 @@ export async function getCurrentUser(ctx: QueryCtx) {
         return null;
     }
 
-    return user;
+    return { user, userId };
+}
+
+export async function getCurrentUser(ctx: QueryCtx) {
+    return (await resolveCurrentUser(ctx))?.user ?? null;
 }

@@ -1,4 +1,9 @@
-import { parseString } from "./config";
+import {
+    isRecord,
+    parseIdentifierString,
+    parseString,
+    parseTimestampMs,
+} from "../valueParsing";
 
 export type RevenueCatWebhookPayload = {
     event?: Record<string, unknown>;
@@ -23,43 +28,6 @@ export type NormalizedRevenueCatWebhookEvent = {
     purchased_at_ms?: number;
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null;
-}
-
-function parseNumber(value: unknown): number | null {
-    if (typeof value === "number" && Number.isFinite(value)) {
-        return value;
-    }
-
-    if (typeof value === "string" && value.trim().length > 0) {
-        const parsed = Number(value);
-        if (Number.isFinite(parsed)) {
-            return parsed;
-        }
-    }
-
-    return null;
-}
-
-function parseTimestampMs(value: unknown): number | null {
-    const numberTimestamp = parseNumber(value);
-    if (numberTimestamp !== null) {
-        return numberTimestamp;
-    }
-
-    if (typeof value !== "string" || value.trim().length === 0) {
-        return null;
-    }
-
-    const parsed = Date.parse(value);
-    if (Number.isNaN(parsed)) {
-        return null;
-    }
-
-    return parsed;
-}
-
 function parseStringArray(value: unknown): string[] {
     if (!Array.isArray(value)) {
         return [];
@@ -75,17 +43,6 @@ function parseStringArray(value: unknown): string[] {
     }
 
     return parsedValues;
-}
-
-function parseIdentifierString(value: unknown) {
-    const parsedString = parseString(value);
-
-    if (parsedString) {
-        return parsedString;
-    }
-
-    const parsedNumber = parseNumber(value);
-    return parsedNumber === null ? null : String(parsedNumber);
 }
 
 export function safeJsonStringify(value: unknown): string | null {

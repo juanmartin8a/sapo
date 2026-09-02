@@ -5,14 +5,12 @@ import {
     SUBSCRIPTION_PLAN_KEYS,
     SUBSCRIPTION_USAGE_OPERATIONS,
 } from "../constants/subscriptions";
-import { REVENUECAT_WEBHOOK_EVENT_STATUSES } from "../constants/revenueCat";
 import {
-    USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS,
-    USER_DELETION_CLEANUP_STEP,
-    USER_DELETION_CLEANUP_DEAD_LETTER_STATUS,
-    USER_DELETION_LATE_AUTH_WAIT_STATUS,
-    USER_DELETION_QUEUE_STATUS,
-} from "../constants/userDeletion";
+    normalizedWebhookEventFields,
+    userDeletionCleanupStepValidator,
+    userDeletionQueueStatusValidator,
+    webhookEventStatusValidator,
+} from "./validators/webhook";
 
 export default defineSchema({
     subscription_plan_limits: defineTable({
@@ -121,17 +119,7 @@ export default defineSchema({
 
     user_deletion_queue: defineTable({
         user_id: v.string(),
-        status: v.union(
-            v.literal(USER_DELETION_QUEUE_STATUS.PREPARING),
-            v.literal(USER_DELETION_QUEUE_STATUS.AWAITING_AUTH_DELETE),
-            v.literal(USER_DELETION_LATE_AUTH_WAIT_STATUS),
-            v.literal(USER_DELETION_AUTH_DELETE_DEAD_LETTER_STATUS),
-            v.literal(USER_DELETION_CLEANUP_DEAD_LETTER_STATUS),
-            v.literal(USER_DELETION_QUEUE_STATUS.READY_FOR_CLEANUP),
-            v.literal(USER_DELETION_QUEUE_STATUS.WAITING_FOR_QUIESCENCE),
-            v.literal(USER_DELETION_QUEUE_STATUS.RETRYABLE_ERROR),
-            v.literal(USER_DELETION_QUEUE_STATUS.CLEANUP_IN_PROGRESS)
-        ),
+        status: userDeletionQueueStatusValidator,
         started_at_ms: v.number(),
         prepared_at_ms: v.optional(v.number()),
         auth_deleted_at_ms: v.optional(v.number()),
@@ -140,15 +128,7 @@ export default defineSchema({
         retry_count: v.number(),
         last_error: v.optional(v.string()),
         cleanup_attempt_id: v.optional(v.string()),
-        cleanup_step: v.optional(
-            v.union(
-                v.literal(USER_DELETION_CLEANUP_STEP.ACQUIRED),
-                v.literal(USER_DELETION_CLEANUP_STEP.WAITING_FOR_QUIESCENCE),
-                v.literal(USER_DELETION_CLEANUP_STEP.DELETING_REVENUECAT_SUBSCRIBER),
-                v.literal(USER_DELETION_CLEANUP_STEP.DELETING_SUBSCRIPTION_DATA),
-                v.literal(USER_DELETION_CLEANUP_STEP.FINALIZING_SUBSCRIPTION_DATA)
-            )
-        ),
+        cleanup_step: v.optional(userDeletionCleanupStepValidator),
         cleanup_step_started_at_ms: v.optional(v.number()),
         cleanup_lease_expires_at_ms: v.optional(v.number()),
         revenuecat_app_user_id: v.optional(v.string()),
@@ -204,33 +184,11 @@ export default defineSchema({
         .index("by_user_id_and_created_at_ms", ["user_id", "created_at_ms"]),
 
     revenue_cat_events: defineTable({
-        event_id: v.string(),
-        event_type: v.string(),
-        event_at_ms: v.number(),
+        ...normalizedWebhookEventFields,
         received_at_ms: v.number(),
-        app_user_id: v.optional(v.string()),
-        original_app_user_id: v.optional(v.string()),
-        aliases: v.array(v.string()),
-        transferred_from: v.array(v.string()),
-        transferred_to: v.array(v.string()),
-        user_id: v.optional(v.string()),
-        entitlement_ids: v.array(v.string()),
-        product_id: v.optional(v.string()),
-        transaction_id: v.optional(v.string()),
-        store: v.optional(v.string()),
-        environment: v.optional(v.string()),
         cancel_reason: v.optional(v.string()),
-        expiration_at_ms: v.optional(v.number()),
-        grace_period_expiration_at_ms: v.optional(v.number()),
-        purchased_at_ms: v.optional(v.number()),
         payload: v.optional(v.string()),
-        status: v.union(
-            v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.PENDING),
-            v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.PROCESSED),
-            v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.IGNORED),
-            v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.FAILED),
-            v.literal(REVENUECAT_WEBHOOK_EVENT_STATUSES.DEAD_LETTER)
-        ),
+        status: webhookEventStatusValidator,
         retry_count: v.number(),
         next_retry_at_ms: v.number(),
         processed_at_ms: v.optional(v.number()),

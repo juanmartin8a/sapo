@@ -3,10 +3,15 @@ import {
     getPolyglotEntitlementId,
     getRevenueCatProjectId,
     getRevenueCatEventsRetentionMs,
-    parseString,
 } from "./config";
 import { ABORT_ERROR_NAME } from "../../constants/errors";
-import { MAX_PERSISTED_ERROR_MESSAGE_CHARS } from "../../constants/limits";
+import {
+    isRecord,
+    parseFiniteNumber,
+    parseIdentifierString,
+    parseString,
+    parseTimestampMs,
+} from "../valueParsing";
 import {
     SUBSCRIPTION_RENEWAL_PROPAGATION_GRACE_MS,
     type SubscriptionPlanKey,
@@ -270,25 +275,6 @@ function getMissingRevenueCatDeleteApiV2ConfigMessage() {
     return null;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null;
-}
-
-function parseNumber(value: unknown): number | null {
-    if (typeof value === "number" && Number.isFinite(value)) {
-        return value;
-    }
-
-    if (typeof value === "string" && value.trim().length > 0) {
-        const parsed = Number(value);
-        if (Number.isFinite(parsed)) {
-            return parsed;
-        }
-    }
-
-    return null;
-}
-
 function parseRetryAfterHeaderMs(response: Response) {
     const retryAfterHeader = response.headers?.get?.("Retry-After");
 
@@ -296,7 +282,7 @@ function parseRetryAfterHeaderMs(response: Response) {
         return undefined;
     }
 
-    const seconds = parseNumber(retryAfterHeader);
+    const seconds = parseFiniteNumber(retryAfterHeader);
     if (seconds !== null) {
         return Math.max(0, Math.floor(seconds * 1000));
     }
@@ -324,7 +310,7 @@ async function readRevenueCatErrorDetails(response: Response): Promise<RevenueCa
         };
     }
 
-    const backoffMs = parseNumber(payload.backoff_ms);
+    const backoffMs = parseFiniteNumber(payload.backoff_ms);
 
     return {
         type: parseString(payload.type) ?? undefined,
@@ -347,35 +333,6 @@ function buildRevenueCatHttpError(args: {
         status: args.status,
         retry_after_ms: args.details.retry_after_ms,
     });
-}
-
-function parseTimestampMs(value: unknown): number | null {
-    const numberTimestamp = parseNumber(value);
-    if (numberTimestamp !== null) {
-        return numberTimestamp;
-    }
-
-    if (typeof value !== "string" || value.trim().length === 0) {
-        return null;
-    }
-
-    const parsed = Date.parse(value);
-    if (Number.isNaN(parsed)) {
-        return null;
-    }
-
-    return parsed;
-}
-
-function parseIdentifierString(value: unknown) {
-    const parsedString = parseString(value);
-
-    if (parsedString) {
-        return parsedString;
-    }
-
-    const parsedNumber = parseNumber(value);
-    return parsedNumber === null ? null : String(parsedNumber);
 }
 
 function resolveRevenueCatV2Url(path: string) {
@@ -625,17 +582,6 @@ async function fetchRevenueCatCustomerActiveEntitlements(
             expiration_at_ms: parseTimestampMs(entitlement.expires_at) ?? undefined,
         };
     });
-}
-
-export function formatErrorMessage(error: unknown): string {
-    if (typeof error === "object" && error && "message" in error) {
-        const message = (error as { message?: unknown }).message;
-        if (typeof message === "string" && message.trim().length > 0) {
-            return message.slice(0, MAX_PERSISTED_ERROR_MESSAGE_CHARS);
-        }
-    }
-
-    return "Unknown error";
 }
 
 export function getRevenueCatApiErrorRetryDelayMs(error: unknown) {

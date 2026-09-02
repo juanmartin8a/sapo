@@ -34,16 +34,38 @@ export async function listUserDeletionQueueEntriesByUserId(ctx: DbReaderCtx, use
         .collect()) as UserDeletionQueueEntryDoc[];
 }
 
-export function getLatestUserDeletionQueueEntry(entries: UserDeletionQueueEntryDoc[]) {
+function isNewerUserDeletionQueueEntry(
+    candidate: UserDeletionQueueEntryDoc,
+    current: UserDeletionQueueEntryDoc
+) {
     return (
-        [...entries].sort((left, right) => {
-            if (left.updated_at_ms !== right.updated_at_ms) {
-                return right.updated_at_ms - left.updated_at_ms;
-            }
-
-            return right._creationTime - left._creationTime;
-        })[0] ?? null
+        candidate.updated_at_ms > current.updated_at_ms ||
+        (candidate.updated_at_ms === current.updated_at_ms &&
+            candidate._creationTime > current._creationTime)
     );
+}
+
+export function getLatestUserDeletionQueueEntry(entries: UserDeletionQueueEntryDoc[]) {
+    return entries.reduce<UserDeletionQueueEntryDoc | null>(
+        (latest, entry) =>
+            !latest || isNewerUserDeletionQueueEntry(entry, latest) ? entry : latest,
+        null
+    );
+}
+
+export function getLatestUserDeletionQueueEntriesByUserId(
+    entries: UserDeletionQueueEntryDoc[]
+) {
+    const entriesByUserId = new Map<string, UserDeletionQueueEntryDoc>();
+
+    for (const entry of entries) {
+        const latest = entriesByUserId.get(entry.user_id);
+        if (!latest || isNewerUserDeletionQueueEntry(entry, latest)) {
+            entriesByUserId.set(entry.user_id, entry);
+        }
+    }
+
+    return [...entriesByUserId.values()];
 }
 
 export async function getLatestUserDeletionQueueEntryByUserId(ctx: DbReaderCtx, userId: string) {

@@ -1,4 +1,5 @@
 import { v, type ObjectType } from "convex/values";
+import { beginSubscriptionStateReconciliationArgs } from "../subscriptions/validators/webhook";
 
 const pendingSubscriptionActivationRetryArgs = {
     user_id: v.string(),
@@ -16,19 +17,7 @@ export type ExecutePendingSubscriptionActivationRetryArgs = ObjectType<
 >;
 
 export const beginSubscriptionStateReconciliationAndScheduleActivationArgs = {
-    user_id: v.string(),
-    revenuecat_app_user_id: v.string(),
-    signup_at_ms: v.optional(v.number()),
-    sync_attempt_id: v.string(),
-    now_ms: v.number(),
-    lease_duration_ms: v.number(),
-    expects_active_subscription: v.optional(v.boolean()),
-    trusted_active_signal: v.optional(v.boolean()),
-    active_signal_at_ms: v.optional(v.number()),
-    active_signal_ttl_ms: v.optional(v.number()),
-    client_reconciliation: v.optional(v.boolean()),
-    clear_pending_active_signal: v.optional(v.boolean()),
-    revenuecat_event_at_ms: v.optional(v.number()),
+    ...beginSubscriptionStateReconciliationArgs,
     event_doc_id: v.optional(v.string()),
 };
 
