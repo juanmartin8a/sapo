@@ -49,6 +49,7 @@ import {
     hasUnexpiredSubscriptionAccess,
     isRevenueCatApiErrorWithStatus,
     resolveRevenueCatAccessExpirationAtMs,
+    shouldUseRevenueCatEntitlementExpiration,
     shouldUseExistingSubscriptionState,
     type CurrentSubscriptionState,
 } from "./revenueCatApi";
@@ -99,6 +100,14 @@ const USER_DELETION_TERMINAL_NEXT_RETRY_AT_MS = FAR_FUTURE_TIMESTAMP_MS;
 const REVENUECAT_EVENT_PROCESSING_LEASE_MS = 90_000;
 const SUBSCRIPTION_USAGE_SYNC_POLL_DELAYS_MS = [250, 500, 1_000] as const;
 type SubscriptionStateRefreshResult =
+    | {
+          status: "stale_selection";
+          revenuecat_app_user_id: string;
+          plan_key: SubscriptionPlanKey;
+          has_active_subscription: boolean;
+          last_synced_at_ms: number;
+          billing_cycle_end_at_ms?: number;
+      }
     | {
           status: "already_fresh" | "created" | "updated" | "unchanged";
           revenuecat_app_user_id: string;
@@ -287,6 +296,10 @@ export async function beginSubscriptionStateReconciliationAndScheduleActivation(
 ) {
     const { event_doc_id: eventDocId, ...componentArgs } = args;
     const result = await beginSubscriptionStateReconciliation(ctx, componentArgs);
+
+    if (result.status === "stale") {
+        return result;
+    }
 
     const signalAtMs = result.pending_active_signal_at_ms;
     const expiresAtMs = result.pending_active_expires_at_ms;
@@ -865,11 +878,16 @@ async function reconcileSubscriptionStateFromRevenueCat(
         preacquired_sync_attempt_id?: string;
         event_doc_id?: string;
         accept_inactive_subscription?: boolean;
-        reconciliation_read: "active_entitlements_first" | "subscriptions";
+        expected_last_synced_at_ms?: number;
+        expected_expiration_reconciliation_at_ms?: number;
+        reconciliation_read:
+            | "active_entitlements_first"
+            | "subscriptions"
+            | "subscriptions_then_status_entitlement";
     }
 ): Promise<SubscriptionStateRefreshResult> {
-    const existingState = await getSubscriptionStateByUserId(ctx, args.user_id);
-    const revenueCatAppUserId = existingState?.revenuecat_app_user_id ?? args.user_id;
+    let existingState = await getSubscriptionStateByUserId(ctx, args.user_id);
+    let revenueCatAppUserId = existingState?.revenuecat_app_user_id ?? args.user_id;
     let snapshotHasActiveSubscription = false;
     let syncAttemptId: string | null = null;
 
@@ -1039,6 +1057,15 @@ async function reconcileSubscriptionStateFromRevenueCat(
             ...(typeof args.revenuecat_event_at_ms === "number"
                 ? { revenuecat_event_at_ms: args.revenuecat_event_at_ms }
                 : {}),
+            ...(typeof args.expected_last_synced_at_ms === "number"
+                ? { expected_last_synced_at_ms: args.expected_last_synced_at_ms }
+                : {}),
+            ...(typeof args.expected_expiration_reconciliation_at_ms === "number"
+                ? {
+                      expected_expiration_reconciliation_at_ms:
+                          args.expected_expiration_reconciliation_at_ms,
+                  }
+                : {}),
         };
         const leaseResult = args.schedule_pending_activation === true
             ? await (ctx as ActionCtx).runMutation(
@@ -1050,6 +1077,19 @@ async function reconcileSubscriptionStateFromRevenueCat(
                   }
               )
             : await beginSubscriptionStateReconciliation(ctx, beginArgs);
+
+        if (leaseResult.status === "stale") {
+            return {
+                status: "stale_selection",
+                revenuecat_app_user_id: revenueCatAppUserId,
+                plan_key: existingState?.plan_key ?? SUBSCRIPTION_PLAN_KEYS.FREE,
+                has_active_subscription: existingState?.has_active_subscription ?? false,
+                last_synced_at_ms: existingState?.last_synced_at_ms ?? 0,
+                ...(typeof existingState?.billing_cycle_end_at_ms === "number"
+                    ? { billing_cycle_end_at_ms: existingState.billing_cycle_end_at_ms }
+                    : {}),
+            };
+        }
 
         if (leaseResult.status === "in_progress") {
             return {
@@ -1073,7 +1113,20 @@ async function reconcileSubscriptionStateFromRevenueCat(
             };
         }
 
-        const activeEntitlementSnapshot =
+        revenueCatAppUserId = leaseResult.revenuecat_app_user_id;
+        existingState = {
+            user_id: args.user_id,
+            revenuecat_app_user_id: revenueCatAppUserId,
+            revenuecat_customer_id: leaseResult.revenuecat_customer_id,
+            revenuecat_subscription_id: leaseResult.revenuecat_subscription_id,
+            plan_key: leaseResult.plan_key,
+            has_active_subscription: leaseResult.has_active_subscription,
+            last_synced_at_ms: leaseResult.last_synced_at_ms,
+            billing_cycle_end_at_ms: leaseResult.billing_cycle_end_at_ms,
+            access_expires_at_ms: leaseResult.access_expires_at_ms,
+        };
+
+        let activeEntitlementSnapshot =
             args.reconciliation_read === "active_entitlements_first"
                 ? await fetchRevenueCatCustomerActiveEntitlementSnapshot(revenueCatAppUserId)
                 : null;
@@ -1082,9 +1135,37 @@ async function reconcileSubscriptionStateFromRevenueCat(
         const subscriptionSnapshot =
             activeEntitlementSnapshot?.has_active_subscription === true ||
             existingState?.has_active_subscription === true ||
-            args.reconciliation_read === "subscriptions"
-                ? await fetchRevenueCatCustomerSubscriptionSnapshot(revenueCatAppUserId)
+            args.reconciliation_read !== "active_entitlements_first"
+                ? await fetchRevenueCatCustomerSubscriptionSnapshot(
+                      revenueCatAppUserId,
+                      args.reconciliation_read === "active_entitlements_first"
+                          ? {
+                                revenuecat_customer_id:
+                                    existingState.revenuecat_customer_id,
+                                revenuecat_subscription_id:
+                                    existingState.revenuecat_subscription_id,
+                                active_entitlement_snapshot:
+                                    activeEntitlementSnapshot ?? undefined,
+                            }
+                          : undefined
+                  )
                 : null;
+        const subscriptionStatus = subscriptionSnapshot?.subscription_status;
+        if (
+            args.reconciliation_read === "subscriptions_then_status_entitlement" &&
+            shouldUseRevenueCatEntitlementExpiration(subscriptionStatus)
+        ) {
+            activeEntitlementSnapshot =
+                await fetchRevenueCatCustomerActiveEntitlementSnapshot(revenueCatAppUserId);
+            snapshotHasActiveSubscription =
+                activeEntitlementSnapshot.has_active_subscription === true;
+
+            if (!snapshotHasActiveSubscription) {
+                throw new Error(
+                    "RevenueCat subscription status requires an active Polyglot entitlement"
+                );
+            }
+        }
         if (
             activeEntitlementSnapshot?.has_active_subscription === true &&
             subscriptionSnapshot?.has_active_subscription !== true
@@ -1093,7 +1174,6 @@ async function reconcileSubscriptionStateFromRevenueCat(
                 "RevenueCat active Polyglot entitlement is missing an access-granting subscription"
             );
         }
-        const subscriptionStatus = subscriptionSnapshot?.subscription_status;
         const subscriptionMetadata = subscriptionSnapshot
             ? (({ subscription_status: _subscriptionStatus, ...metadata }) => metadata)(
                   subscriptionSnapshot
@@ -1384,9 +1464,7 @@ export async function processRevenueCatWebhookEventById(
                     revenuecat_event_id: eventDoc.event_id,
                     revenuecat_event_at_ms: eventDoc.event_at_ms,
                     event_doc_id: args.event_doc_id,
-                    reconciliation_read: isRevenueCatNonSubscriptionEvent(eventDoc.event_type)
-                        ? "subscriptions"
-                        : "active_entitlements_first",
+                    reconciliation_read: "subscriptions_then_status_entitlement",
                 }),
             };
         })
@@ -2679,6 +2757,7 @@ export const reconcileExpiredSubscriptionStates = async (ctx: ActionCtx): Promis
         ) as {
             user_id: string;
             last_synced_at_ms: number;
+            expiration_reconciliation_at_ms: number;
             billing_cycle_end_at_ms?: number;
             access_expires_at_ms?: number;
         }[];
@@ -2692,6 +2771,9 @@ export const reconcileExpiredSubscriptionStates = async (ctx: ActionCtx): Promis
                 user_id: dueState.user_id,
                 force: true,
                 now_ms: reconciliationNowMs,
+                expected_last_synced_at_ms: dueState.last_synced_at_ms,
+                expected_expiration_reconciliation_at_ms:
+                    dueState.expiration_reconciliation_at_ms,
                 accept_inactive_subscription: !hasUnexpiredSubscriptionAccess(
                     {
                         has_active_subscription: true,
@@ -2703,12 +2785,19 @@ export const reconcileExpiredSubscriptionStates = async (ctx: ActionCtx): Promis
                 reconciliation_read: "active_entitlements_first",
             });
 
+            if (refreshResult.status === "stale_selection") {
+                continue;
+            }
+
             if (refreshResult.status === "sync_in_progress") {
                 await ctx.runMutation(
                     components.subscriptions.webhook.deferSubscriptionStateReconciliation,
                     {
                         user_id: dueState.user_id,
                         expected_last_synced_at_ms: dueState.last_synced_at_ms,
+                        expected_expiration_reconciliation_at_ms:
+                            dueState.expiration_reconciliation_at_ms,
+                        now_ms: Date.now(),
                         next_attempt_at_ms:
                             refreshResult.retry_at_ms ??
                             reconciliationNowMs + SUBSCRIPTION_STATE_RECONCILIATION_LEASE_MS,
@@ -2726,8 +2815,6 @@ export const reconcileExpiredSubscriptionStates = async (ctx: ActionCtx): Promis
                 continue;
             }
 
-            failed += 1;
-
             const accessExpiresAtMs = getSubscriptionAccessExpiresAtMs(dueState);
             const nextAttemptAtMs = Math.max(
                 refreshResult.status === "refresh_failed"
@@ -2738,14 +2825,21 @@ export const reconcileExpiredSubscriptionStates = async (ctx: ActionCtx): Promis
                     : Date.now() + getReconciliationFailureBackoffMs()
             );
 
-            await ctx.runMutation(
+            const deferralResult = await ctx.runMutation(
                 components.subscriptions.webhook.deferSubscriptionStateReconciliation,
                 {
                     user_id: dueState.user_id,
                     expected_last_synced_at_ms: dueState.last_synced_at_ms,
+                    expected_expiration_reconciliation_at_ms:
+                        dueState.expiration_reconciliation_at_ms,
+                    now_ms: Date.now(),
                     next_attempt_at_ms: nextAttemptAtMs,
                 }
             );
+
+            if (deferralResult.status === "deferred") {
+                failed += 1;
+            }
         }
 
         return {
@@ -2801,7 +2895,6 @@ export const purgeExpiredFrozenQuotaPeriods = async (ctx: ActionCtx) => {
         let batchCount = 0;
         let scannedCount = 0;
         let deletedCount = 0;
-        let retainedLinkedCount = 0;
 
         while (batchCount < FROZEN_QUOTA_PERIOD_PURGE_MAX_BATCHES) {
             const purgeResult = await ctx.runMutation(
@@ -2815,7 +2908,6 @@ export const purgeExpiredFrozenQuotaPeriods = async (ctx: ActionCtx) => {
             batchCount += 1;
             scannedCount += purgeResult.scanned_count;
             deletedCount += purgeResult.deleted_count;
-            retainedLinkedCount += purgeResult.retained_linked_count;
 
             if (purgeResult.scanned_count < FROZEN_QUOTA_PERIOD_PURGE_BATCH_LIMIT) {
                 break;
@@ -2828,7 +2920,6 @@ export const purgeExpiredFrozenQuotaPeriods = async (ctx: ActionCtx) => {
             batch_count: batchCount,
             scanned_count: scannedCount,
             deleted_count: deletedCount,
-            retained_linked_count: retainedLinkedCount,
         };
     };
 

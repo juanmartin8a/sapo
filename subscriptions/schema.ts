@@ -27,6 +27,8 @@ export default defineSchema({
     subscription_states: defineTable({
         user_id: v.string(),
         revenuecat_app_user_id: v.optional(v.string()),
+        revenuecat_customer_id: v.optional(v.string()),
+        revenuecat_subscription_id: v.optional(v.string()),
         plan_key: v.union(v.literal(SUBSCRIPTION_PLAN_KEYS.FREE), v.literal(SUBSCRIPTION_PLAN_KEYS.POLYGLOT)),
         has_active_subscription: v.boolean(),
         store_subscription_id: v.optional(v.string()),

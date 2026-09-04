@@ -5,9 +5,30 @@ import {
     resolveRevenueCatWebhookTargetUserIds,
     shouldSkipRevenueCatWebhookIngestion,
 } from "../model/subscriptions/revenueCatWebhookIngestion";
-import { getRevenueCatWebhookCancelReasonFromRawPayload } from "../model/subscriptions/revenueCatWebhookPayload";
+import {
+    getRevenueCatWebhookCancelReasonFromRawPayload,
+    normalizeRevenueCatWebhookEvent,
+} from "../model/subscriptions/revenueCatWebhookPayload";
 
 describe("RevenueCat webhook ingestion guards", () => {
+    it("requires a valid RevenueCat event timestamp", () => {
+        const baseEvent = {
+            id: "event_1",
+            type: "RENEWAL",
+        };
+
+        expect(normalizeRevenueCatWebhookEvent({ event: baseEvent }, 1_000)).toBeNull();
+        expect(normalizeRevenueCatWebhookEvent({
+            event: { ...baseEvent, event_timestamp_ms: "1000" },
+        }, 1_000)).toBeNull();
+        expect(normalizeRevenueCatWebhookEvent({
+            event: { ...baseEvent, event_timestamp_ms: 301_001 },
+        }, 1_000)).toBeNull();
+        expect(normalizeRevenueCatWebhookEvent({
+            event: { ...baseEvent, event_timestamp_ms: 1_000 },
+        }, 1_000)).toMatchObject({ event_id: "event_1", event_at_ms: 1_000 });
+    });
+
     it("prefers transferred users and ignores RevenueCat-generated ids", () => {
         expect(
             resolveRevenueCatWebhookTargetUserIds({

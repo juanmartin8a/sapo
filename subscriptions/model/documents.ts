@@ -13,9 +13,8 @@ export async function listSubscriptionStatesByUserId(ctx: DbReaderCtx, userId: s
 export async function getLatestSubscriptionStateByUserId(ctx: DbReaderCtx, userId: string) {
     return ctx.db
         .query("subscription_states")
-        .withIndex("by_user_id_and_updated_at_ms", (query) => query.eq("user_id", userId))
-        .order("desc")
-        .first();
+        .withIndex("by_user_id", (query) => query.eq("user_id", userId))
+        .unique();
 }
 
 export async function listQuotaPeriodsByUserId(ctx: DbReaderCtx, userId: string) {

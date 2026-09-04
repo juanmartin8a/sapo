@@ -1,6 +1,7 @@
 import { describe, expect, it, jest } from "@jest/globals";
 
 import {
+    beginSubscriptionStateReconciliation,
     claimPendingActiveRetry,
     deferSubscriptionStateReconciliation,
     expirePendingActiveSignal,
@@ -16,7 +17,7 @@ function createPendingStateCtx(state: Record<string, unknown> | null) {
         db: {
             query: jest.fn(() => ({
                 withIndex: jest.fn(() => ({
-                    order: jest.fn(() => ({ first: jest.fn(async () => state) })),
+                    unique: jest.fn(async () => state),
                 })),
             })),
             patch,
@@ -240,7 +241,71 @@ describe("client subscription reconciliation tokens", () => {
         await expect(deferSubscriptionStateReconciliation(ctx as any, {
             user_id: "user_1",
             expected_last_synced_at_ms: 1_000,
+            expected_expiration_reconciliation_at_ms: 3_000,
+            now_ms: 4_000,
             next_attempt_at_ms: 5_000,
+        })).resolves.toEqual({ status: "stale" });
+
+        expect(patch).not.toHaveBeenCalled();
+    });
+
+    it("does not overwrite a rescheduled expiration with a stale deferral", async () => {
+        const { ctx, patch } = createPendingStateCtx({
+            _id: "state_1",
+            last_synced_at_ms: 1_000,
+            expiration_reconciliation_at_ms: 6_000,
+        });
+
+        await expect(deferSubscriptionStateReconciliation(ctx as any, {
+            user_id: "user_1",
+            expected_last_synced_at_ms: 1_000,
+            expected_expiration_reconciliation_at_ms: 3_000,
+            now_ms: 4_000,
+            next_attempt_at_ms: 5_000,
+        })).resolves.toEqual({ status: "stale" });
+
+        expect(patch).not.toHaveBeenCalled();
+    });
+
+    it("does not acquire an expiration lease for a stale cron selection", async () => {
+        const { ctx, patch } = createPendingStateCtx({
+            _id: "state_1",
+            has_active_subscription: true,
+            last_synced_at_ms: 2_000,
+            expiration_reconciliation_at_ms: 4_000,
+        });
+
+        await expect(beginSubscriptionStateReconciliation(ctx as any, {
+            user_id: "user_1",
+            revenuecat_app_user_id: "user_1",
+            sync_attempt_id: "attempt_1",
+            now_ms: 5_000,
+            lease_duration_ms: 90_000,
+            active_signal_ttl_ms: 0,
+            expected_last_synced_at_ms: 1_000,
+            expected_expiration_reconciliation_at_ms: 3_000,
+        })).resolves.toEqual({ status: "stale" });
+
+        expect(patch).not.toHaveBeenCalled();
+    });
+
+    it("does not acquire an expiration lease after the due time is rescheduled", async () => {
+        const { ctx, patch } = createPendingStateCtx({
+            _id: "state_1",
+            has_active_subscription: true,
+            last_synced_at_ms: 1_000,
+            expiration_reconciliation_at_ms: 6_000,
+        });
+
+        await expect(beginSubscriptionStateReconciliation(ctx as any, {
+            user_id: "user_1",
+            revenuecat_app_user_id: "user_1",
+            sync_attempt_id: "attempt_1",
+            now_ms: 5_000,
+            lease_duration_ms: 90_000,
+            active_signal_ttl_ms: 0,
+            expected_last_synced_at_ms: 1_000,
+            expected_expiration_reconciliation_at_ms: 3_000,
         })).resolves.toEqual({ status: "stale" });
 
         expect(patch).not.toHaveBeenCalled();
@@ -252,11 +317,14 @@ describe("client subscription reconciliation tokens", () => {
             has_active_subscription: true,
             access_expires_at_ms: 4_000,
             last_synced_at_ms: 1_000,
+            expiration_reconciliation_at_ms: 3_000,
         });
 
         await expect(deferSubscriptionStateReconciliation(ctx as any, {
             user_id: "user_1",
             expected_last_synced_at_ms: 1_000,
+            expected_expiration_reconciliation_at_ms: 3_000,
+            now_ms: 4_000,
             next_attempt_at_ms: 5_000,
         })).resolves.toEqual({ status: "deferred" });
 
@@ -266,6 +334,7 @@ describe("client subscription reconciliation tokens", () => {
             expect.objectContaining({
                 expiration_reconciliation_at_ms: 5_000,
                 next_refresh_attempt_at_ms: 5_000,
+                updated_at_ms: 4_000,
             })
         );
     });
