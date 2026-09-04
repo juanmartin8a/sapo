@@ -242,6 +242,7 @@ describe("client subscription reconciliation tokens", () => {
             user_id: "user_1",
             expected_last_synced_at_ms: 1_000,
             expected_expiration_reconciliation_at_ms: 3_000,
+            now_ms: 4_000,
             next_attempt_at_ms: 5_000,
         })).resolves.toEqual({ status: "stale" });
 
@@ -259,6 +260,7 @@ describe("client subscription reconciliation tokens", () => {
             user_id: "user_1",
             expected_last_synced_at_ms: 1_000,
             expected_expiration_reconciliation_at_ms: 3_000,
+            now_ms: 4_000,
             next_attempt_at_ms: 5_000,
         })).resolves.toEqual({ status: "stale" });
 
@@ -322,6 +324,7 @@ describe("client subscription reconciliation tokens", () => {
             user_id: "user_1",
             expected_last_synced_at_ms: 1_000,
             expected_expiration_reconciliation_at_ms: 3_000,
+            now_ms: 4_000,
             next_attempt_at_ms: 5_000,
         })).resolves.toEqual({ status: "deferred" });
 
@@ -331,6 +334,7 @@ describe("client subscription reconciliation tokens", () => {
             expect.objectContaining({
                 expiration_reconciliation_at_ms: 5_000,
                 next_refresh_attempt_at_ms: 5_000,
+                updated_at_ms: 4_000,
             })
         );
     });

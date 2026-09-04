@@ -230,6 +230,12 @@ function buildSubscriptionReconciliationLeaseStateFields(
     return {
         revenuecat_app_user_id:
             state.revenuecat_app_user_id ?? fallbackRevenueCatAppUserId,
+        ...(state.revenuecat_customer_id
+            ? { revenuecat_customer_id: state.revenuecat_customer_id }
+            : {}),
+        ...(state.revenuecat_subscription_id
+            ? { revenuecat_subscription_id: state.revenuecat_subscription_id }
+            : {}),
         has_active_subscription: state.has_active_subscription,
         plan_key: state.plan_key,
         last_synced_at_ms: state.last_synced_at_ms,
@@ -686,6 +692,8 @@ function getNextRetryAtMs(currentTimeMs: number, retryCount: number, retryConfig
 
 const SUBSCRIPTION_STATE_COMPARISON_FIELDS = [
     "revenuecat_app_user_id",
+    "revenuecat_customer_id",
+    "revenuecat_subscription_id",
     "plan_key",
     "has_active_subscription",
     "store_subscription_id",
@@ -2208,7 +2216,6 @@ export const deleteFrozenQuotaPeriodsEligibleForRetentionPurge = async (ctx: Mut
             )
             .take(safeLimit);
         let deletedCount = 0;
-        let retainedLinkedCount = 0;
 
         for (const quotaPeriod of quotaPeriods) {
             await deleteQuotaPeriodCountersByQuotaPeriodId(ctx, quotaPeriod._id);
@@ -2219,7 +2226,6 @@ export const deleteFrozenQuotaPeriodsEligibleForRetentionPurge = async (ctx: Mut
         return {
             scanned_count: quotaPeriods.length,
             deleted_count: deletedCount,
-            retained_linked_count: retainedLinkedCount,
         };
     };
 
@@ -2235,6 +2241,8 @@ export const getSubscriptionStateByUserId = async (ctx: QueryCtx, args: WebhookA
         return {
             user_id: state.user_id,
             revenuecat_app_user_id: state.revenuecat_app_user_id,
+            revenuecat_customer_id: state.revenuecat_customer_id,
+            revenuecat_subscription_id: state.revenuecat_subscription_id,
             plan_key: state.plan_key,
             has_active_subscription: state.has_active_subscription,
             store_subscription_id: state.store_subscription_id,
@@ -3164,6 +3172,12 @@ export const applyReconciledSubscriptionState = async (ctx: MutationCtx, args: W
         const nextStateBase = {
             user_id: args.user_id,
             revenuecat_app_user_id: args.revenuecat_app_user_id,
+            ...(args.snapshot.revenuecat_customer_id
+                ? { revenuecat_customer_id: args.snapshot.revenuecat_customer_id }
+                : {}),
+            ...(args.snapshot.revenuecat_subscription_id
+                ? { revenuecat_subscription_id: args.snapshot.revenuecat_subscription_id }
+                : {}),
             plan_key: planKey,
             has_active_subscription: hasActiveSubscription,
             ...(nextStoreSubscriptionId ? { store_subscription_id: nextStoreSubscriptionId } : {}),
@@ -4014,7 +4028,7 @@ export const deferSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
 
         await ctx.db.patch("subscription_states", existingState._id, {
             ...buildReconciliationDeferralFields(existingState, args.next_attempt_at_ms),
-            updated_at_ms: args.next_attempt_at_ms,
+            updated_at_ms: args.now_ms,
         } as Record<string, unknown>);
 
         return {

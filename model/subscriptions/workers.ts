@@ -49,6 +49,7 @@ import {
     hasUnexpiredSubscriptionAccess,
     isRevenueCatApiErrorWithStatus,
     resolveRevenueCatAccessExpirationAtMs,
+    shouldUseRevenueCatEntitlementExpiration,
     shouldUseExistingSubscriptionState,
     type CurrentSubscriptionState,
 } from "./revenueCatApi";
@@ -879,11 +880,14 @@ async function reconcileSubscriptionStateFromRevenueCat(
         accept_inactive_subscription?: boolean;
         expected_last_synced_at_ms?: number;
         expected_expiration_reconciliation_at_ms?: number;
-        reconciliation_read: "active_entitlements_first" | "subscriptions";
+        reconciliation_read:
+            | "active_entitlements_first"
+            | "subscriptions"
+            | "subscriptions_then_status_entitlement";
     }
 ): Promise<SubscriptionStateRefreshResult> {
-    const existingState = await getSubscriptionStateByUserId(ctx, args.user_id);
-    const revenueCatAppUserId = existingState?.revenuecat_app_user_id ?? args.user_id;
+    let existingState = await getSubscriptionStateByUserId(ctx, args.user_id);
+    let revenueCatAppUserId = existingState?.revenuecat_app_user_id ?? args.user_id;
     let snapshotHasActiveSubscription = false;
     let syncAttemptId: string | null = null;
 
@@ -1109,7 +1113,20 @@ async function reconcileSubscriptionStateFromRevenueCat(
             };
         }
 
-        const activeEntitlementSnapshot =
+        revenueCatAppUserId = leaseResult.revenuecat_app_user_id;
+        existingState = {
+            user_id: args.user_id,
+            revenuecat_app_user_id: revenueCatAppUserId,
+            revenuecat_customer_id: leaseResult.revenuecat_customer_id,
+            revenuecat_subscription_id: leaseResult.revenuecat_subscription_id,
+            plan_key: leaseResult.plan_key,
+            has_active_subscription: leaseResult.has_active_subscription,
+            last_synced_at_ms: leaseResult.last_synced_at_ms,
+            billing_cycle_end_at_ms: leaseResult.billing_cycle_end_at_ms,
+            access_expires_at_ms: leaseResult.access_expires_at_ms,
+        };
+
+        let activeEntitlementSnapshot =
             args.reconciliation_read === "active_entitlements_first"
                 ? await fetchRevenueCatCustomerActiveEntitlementSnapshot(revenueCatAppUserId)
                 : null;
@@ -1118,9 +1135,37 @@ async function reconcileSubscriptionStateFromRevenueCat(
         const subscriptionSnapshot =
             activeEntitlementSnapshot?.has_active_subscription === true ||
             existingState?.has_active_subscription === true ||
-            args.reconciliation_read === "subscriptions"
-                ? await fetchRevenueCatCustomerSubscriptionSnapshot(revenueCatAppUserId)
+            args.reconciliation_read !== "active_entitlements_first"
+                ? await fetchRevenueCatCustomerSubscriptionSnapshot(
+                      revenueCatAppUserId,
+                      args.reconciliation_read === "active_entitlements_first"
+                          ? {
+                                revenuecat_customer_id:
+                                    existingState.revenuecat_customer_id,
+                                revenuecat_subscription_id:
+                                    existingState.revenuecat_subscription_id,
+                                active_entitlement_snapshot:
+                                    activeEntitlementSnapshot ?? undefined,
+                            }
+                          : undefined
+                  )
                 : null;
+        const subscriptionStatus = subscriptionSnapshot?.subscription_status;
+        if (
+            args.reconciliation_read === "subscriptions_then_status_entitlement" &&
+            shouldUseRevenueCatEntitlementExpiration(subscriptionStatus)
+        ) {
+            activeEntitlementSnapshot =
+                await fetchRevenueCatCustomerActiveEntitlementSnapshot(revenueCatAppUserId);
+            snapshotHasActiveSubscription =
+                activeEntitlementSnapshot.has_active_subscription === true;
+
+            if (!snapshotHasActiveSubscription) {
+                throw new Error(
+                    "RevenueCat subscription status requires an active Polyglot entitlement"
+                );
+            }
+        }
         if (
             activeEntitlementSnapshot?.has_active_subscription === true &&
             subscriptionSnapshot?.has_active_subscription !== true
@@ -1129,7 +1174,6 @@ async function reconcileSubscriptionStateFromRevenueCat(
                 "RevenueCat active Polyglot entitlement is missing an access-granting subscription"
             );
         }
-        const subscriptionStatus = subscriptionSnapshot?.subscription_status;
         const subscriptionMetadata = subscriptionSnapshot
             ? (({ subscription_status: _subscriptionStatus, ...metadata }) => metadata)(
                   subscriptionSnapshot
@@ -1420,9 +1464,7 @@ export async function processRevenueCatWebhookEventById(
                     revenuecat_event_id: eventDoc.event_id,
                     revenuecat_event_at_ms: eventDoc.event_at_ms,
                     event_doc_id: args.event_doc_id,
-                    reconciliation_read: isRevenueCatNonSubscriptionEvent(eventDoc.event_type)
-                        ? "subscriptions"
-                        : "active_entitlements_first",
+                    reconciliation_read: "subscriptions_then_status_entitlement",
                 }),
             };
         })
@@ -2755,6 +2797,7 @@ export const reconcileExpiredSubscriptionStates = async (ctx: ActionCtx): Promis
                         expected_last_synced_at_ms: dueState.last_synced_at_ms,
                         expected_expiration_reconciliation_at_ms:
                             dueState.expiration_reconciliation_at_ms,
+                        now_ms: Date.now(),
                         next_attempt_at_ms:
                             refreshResult.retry_at_ms ??
                             reconciliationNowMs + SUBSCRIPTION_STATE_RECONCILIATION_LEASE_MS,
@@ -2789,6 +2832,7 @@ export const reconcileExpiredSubscriptionStates = async (ctx: ActionCtx): Promis
                     expected_last_synced_at_ms: dueState.last_synced_at_ms,
                     expected_expiration_reconciliation_at_ms:
                         dueState.expiration_reconciliation_at_ms,
+                    now_ms: Date.now(),
                     next_attempt_at_ms: nextAttemptAtMs,
                 }
             );
@@ -2851,7 +2895,6 @@ export const purgeExpiredFrozenQuotaPeriods = async (ctx: ActionCtx) => {
         let batchCount = 0;
         let scannedCount = 0;
         let deletedCount = 0;
-        let retainedLinkedCount = 0;
 
         while (batchCount < FROZEN_QUOTA_PERIOD_PURGE_MAX_BATCHES) {
             const purgeResult = await ctx.runMutation(
@@ -2865,7 +2908,6 @@ export const purgeExpiredFrozenQuotaPeriods = async (ctx: ActionCtx) => {
             batchCount += 1;
             scannedCount += purgeResult.scanned_count;
             deletedCount += purgeResult.deleted_count;
-            retainedLinkedCount += purgeResult.retained_linked_count;
 
             if (purgeResult.scanned_count < FROZEN_QUOTA_PERIOD_PURGE_BATCH_LIMIT) {
                 break;
@@ -2878,7 +2920,6 @@ export const purgeExpiredFrozenQuotaPeriods = async (ctx: ActionCtx) => {
             batch_count: batchCount,
             scanned_count: scannedCount,
             deleted_count: deletedCount,
-            retained_linked_count: retainedLinkedCount,
         };
     };
 

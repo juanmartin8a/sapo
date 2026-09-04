@@ -54,6 +54,8 @@ const retryConfigValidator = v.object({
 const reconciliationSnapshotValidator = v.object({
     has_active_subscription: v.boolean(),
     access_expires_at_ms: v.optional(v.number()),
+    revenuecat_customer_id: v.optional(v.string()),
+    revenuecat_subscription_id: v.optional(v.string()),
     entitlement_id: v.optional(v.string()),
     product_id: v.optional(v.string()),
     store_subscription_id: v.optional(v.string()),
@@ -504,6 +506,7 @@ export const deferSubscriptionStateReconciliationArgs = {
     user_id: v.string(),
     expected_last_synced_at_ms: v.number(),
     expected_expiration_reconciliation_at_ms: v.number(),
+    now_ms: v.number(),
     next_attempt_at_ms: v.number(),
 };
 

@@ -50,6 +50,8 @@ type RevenueCatReconciliationSnapshot = {
     has_active_subscription: boolean;
     access_expires_at_ms?: number;
     subscription_status?: string;
+    revenuecat_customer_id?: string;
+    revenuecat_subscription_id?: string;
     entitlement_id?: string;
     product_id?: string;
     store_subscription_id?: string;
@@ -62,6 +64,8 @@ type RevenueCatReconciliationSnapshot = {
 export type CurrentSubscriptionState = {
     user_id: string;
     revenuecat_app_user_id?: string;
+    revenuecat_customer_id?: string;
+    revenuecat_subscription_id?: string;
     plan_key: SubscriptionPlanKey;
     has_active_subscription: boolean;
     store_subscription_id?: string;
@@ -136,14 +140,17 @@ export function resolveRevenueCatAccessExpirationAtMs(args: {
     period_end_at_ms?: number;
     entitlement_expires_at_ms?: number;
 }) {
-    const usesBillingPeriodAsAccessBoundary =
-        !args.subscription_status ||
-        args.subscription_status === "active" ||
-        args.subscription_status === "trialing";
+    return shouldUseRevenueCatEntitlementExpiration(args.subscription_status)
+        ? args.entitlement_expires_at_ms
+        : args.period_end_at_ms;
+}
 
-    return usesBillingPeriodAsAccessBoundary
-        ? args.period_end_at_ms
-        : args.entitlement_expires_at_ms;
+export function shouldUseRevenueCatEntitlementExpiration(subscriptionStatus?: string) {
+    return (
+        !!subscriptionStatus &&
+        subscriptionStatus !== "active" &&
+        subscriptionStatus !== "trialing"
+    );
 }
 
 export function shouldIgnoreStaleReconciledSubscriptionState(
@@ -159,6 +166,9 @@ export function shouldIgnoreStaleReconciledSubscriptionState(
 }
 
 type ParsedRevenueCatSubscription = {
+    id: string;
+    customer_id?: string;
+    gives_access: boolean;
     status?: string;
     product_id?: string;
     purchase_at_ms?: number;
@@ -388,7 +398,7 @@ async function fetchRevenueCatList(args: {
     initial_path: string;
     operation: string;
     request_budget: RevenueCatRequestBudget;
-    missing_resource_is_empty?: boolean;
+    missing_customer_is_empty?: boolean;
 }) {
     let nextPagePath = args.initial_path;
     const fetchedPagePaths = new Set<string>();
@@ -425,8 +435,8 @@ async function fetchRevenueCatList(args: {
             const details = await readRevenueCatErrorDetails(response);
             if (
                 response.status === 404 &&
+                args.missing_customer_is_empty === true &&
                 details.type === "resource_missing" &&
-                args.missing_resource_is_empty === true &&
                 fetchedPagePaths.size === 1
             ) {
                 return [];
@@ -505,6 +515,98 @@ async function fetchRevenueCatSubscriptionEntitlementIds(args: {
     return Array.from(new Set(entitlementIds));
 }
 
+async function parseRevenueCatSubscription(args: {
+    subscription: Record<string, unknown>;
+    api_key: string;
+    request_budget: RevenueCatRequestBudget;
+    operation: string;
+}) {
+    const id = parseString(args.subscription.id);
+    if (!id || typeof args.subscription.gives_access !== "boolean") {
+        throw new Error(`${args.operation} returned an invalid subscription`);
+    }
+
+    const givesAccess = args.subscription.gives_access;
+
+    return {
+        id,
+        customer_id: parseString(args.subscription.customer_id) ?? undefined,
+        gives_access: givesAccess,
+        status: parseString(args.subscription.status) ?? undefined,
+        product_id: parseString(args.subscription.product_id) ?? undefined,
+        purchase_at_ms:
+            parseTimestampMs(args.subscription.current_period_starts_at) ?? undefined,
+        expiration_at_ms:
+            parseTimestampMs(args.subscription.current_period_ends_at) ?? undefined,
+        store_subscription_id:
+            parseIdentifierString(args.subscription.store_subscription_identifier) ?? undefined,
+        store: parseString(args.subscription.store) ?? undefined,
+        environment: parseString(args.subscription.environment) ?? undefined,
+        entitlement_ids: givesAccess
+            ? await fetchRevenueCatSubscriptionEntitlementIds({
+                  api_key: args.api_key,
+                  request_budget: args.request_budget,
+                  subscription_entitlements: args.subscription.entitlements,
+              })
+            : [],
+    } satisfies ParsedRevenueCatSubscription;
+}
+
+async function fetchRevenueCatSubscriptionById(
+    subscriptionId: string,
+    config: { api_key: string; project_id: string },
+    requestBudget: RevenueCatRequestBudget
+) {
+    if (requestBudget.request_count >= REVENUECAT_RECONCILIATION_MAX_REQUESTS) {
+        throw new Error("RevenueCat v2 reconciliation request limit exceeded");
+    }
+    requestBudget.request_count += 1;
+
+    const encodedProjectId = encodeURIComponent(config.project_id);
+    const encodedSubscriptionId = encodeURIComponent(subscriptionId);
+    const operation = "RevenueCat v2 subscription request";
+    const response = await fetchRevenueCatWithTimeout(
+        resolveRevenueCatV2Url(
+            `/projects/${encodedProjectId}/subscriptions/${encodedSubscriptionId}`
+        ),
+        {
+            method: "GET",
+            headers: {
+                Authorization: `Bearer ${config.api_key}`,
+                Accept: "application/json",
+            },
+        },
+        REVENUECAT_READ_REQUEST_TIMEOUT_MS
+    );
+
+    if (!response.ok) {
+        const details = await readRevenueCatErrorDetails(response);
+        if (response.status === 404 && details.type === "resource_missing") {
+            return null;
+        }
+
+        throw buildRevenueCatHttpError({
+            operation,
+            status: response.status,
+            details,
+        });
+    }
+
+    const payload = (await response.json()) as unknown;
+    if (!isRecord(payload)) {
+        throw new Error(`${operation} returned an invalid response`);
+    }
+
+    const subscription = await parseRevenueCatSubscription({
+        subscription: payload,
+        api_key: config.api_key,
+        request_budget: requestBudget,
+        operation,
+    });
+
+    return subscription.id === subscriptionId ? subscription : null;
+}
+
 async function fetchRevenueCatCustomerSubscriptions(
     appUserId: string,
     config: { api_key: string; project_id: string },
@@ -517,38 +619,23 @@ async function fetchRevenueCatCustomerSubscriptions(
         initial_path: `/projects/${encodedProjectId}/customers/${encodedAppUserId}/subscriptions?limit=100`,
         operation: "RevenueCat v2 subscriptions request",
         request_budget: requestBudget,
-        missing_resource_is_empty: true,
+        missing_customer_is_empty: true,
     });
     const subscriptions: ParsedRevenueCatSubscription[] = [];
 
     for (const subscription of items) {
-        if (
-            !parseString(subscription.id) ||
-            typeof subscription.gives_access !== "boolean"
-        ) {
-            throw new Error("RevenueCat v2 subscriptions request returned an invalid subscription");
-        }
+        const parsedSubscription = await parseRevenueCatSubscription({
+            subscription,
+            api_key: config.api_key,
+            request_budget: requestBudget,
+            operation: "RevenueCat v2 subscriptions request",
+        });
 
-        if (!subscription.gives_access) {
+        if (!parsedSubscription.gives_access) {
             continue;
         }
 
-        subscriptions.push({
-            status: parseString(subscription.status) ?? undefined,
-            product_id: parseString(subscription.product_id) ?? undefined,
-            purchase_at_ms:
-                parseTimestampMs(subscription.current_period_starts_at) ?? undefined,
-            expiration_at_ms: parseTimestampMs(subscription.current_period_ends_at) ?? undefined,
-            store_subscription_id:
-                parseIdentifierString(subscription.store_subscription_identifier) ?? undefined,
-            store: parseString(subscription.store) ?? undefined,
-            environment: parseString(subscription.environment) ?? undefined,
-            entitlement_ids: await fetchRevenueCatSubscriptionEntitlementIds({
-                api_key: config.api_key,
-                request_budget: requestBudget,
-                subscription_entitlements: subscription.entitlements,
-            }),
-        });
+        subscriptions.push(parsedSubscription);
     }
 
     return subscriptions;
@@ -567,7 +654,7 @@ async function fetchRevenueCatCustomerActiveEntitlements(
             `/projects/${encodedProjectId}/customers/${encodedAppUserId}/active_entitlements?limit=100`,
         operation: "RevenueCat v2 active entitlements request",
         request_budget: requestBudget,
-        missing_resource_is_empty: true,
+        missing_customer_is_empty: true,
     });
 
     return items.map((entitlement) => {
@@ -600,7 +687,15 @@ export function getRevenueCatEventsRetentionCutoffMs(
 }
 
 export async function fetchRevenueCatCustomerSubscriptionSnapshot(
-    appUserId: string
+    appUserId: string,
+    options: {
+        revenuecat_customer_id?: string;
+        revenuecat_subscription_id?: string;
+        active_entitlement_snapshot?: Pick<
+            RevenueCatReconciliationSnapshot,
+            "has_active_subscription" | "access_expires_at_ms"
+        >;
+    } = {}
 ): Promise<RevenueCatReconciliationSnapshot> {
     const missingConfigMessage = getMissingRevenueCatEntitlementConfigMessage();
     if (missingConfigMessage) {
@@ -610,27 +705,64 @@ export async function fetchRevenueCatCustomerSubscriptionSnapshot(
     const config = getRevenueCatReadApiV2Config();
     const entitlementResourceId = getPolyglotEntitlementId();
 
-    const requestBudget = { request_count: 0 };
-    const parsedSubscriptions = await fetchRevenueCatCustomerSubscriptions(
-        appUserId,
-        config!,
-        requestBudget
-    );
-    const matchingSubscriptions = parsedSubscriptions.filter(
-        (subscription) =>
-            subscription.entitlement_ids.includes(entitlementResourceId)
-    );
+    let selectedSubscription: ParsedRevenueCatSubscription | undefined;
 
-    const selectedSubscription = [...matchingSubscriptions].sort((left, right) => {
-        const leftExpiration = left.expiration_at_ms ?? 0;
-        const rightExpiration = right.expiration_at_ms ?? 0;
+    if (options.revenuecat_subscription_id) {
+        const directSubscription = await fetchRevenueCatSubscriptionById(
+            options.revenuecat_subscription_id,
+            config!,
+            { request_count: 0 }
+        );
+        const activeEntitlementSnapshot = options.active_entitlement_snapshot;
+        const resolvedAccessExpirationAtMs = directSubscription
+            ? resolveRevenueCatAccessExpirationAtMs({
+                  subscription_status: directSubscription.status,
+                  period_end_at_ms: directSubscription.expiration_at_ms,
+                  entitlement_expires_at_ms:
+                      activeEntitlementSnapshot?.access_expires_at_ms,
+              })
+            : undefined;
+        const matchesActiveEntitlement =
+            activeEntitlementSnapshot?.has_active_subscription === true &&
+            resolvedAccessExpirationAtMs === activeEntitlementSnapshot.access_expires_at_ms;
+        const hasValidBillingBounds =
+            typeof directSubscription?.purchase_at_ms === "number" &&
+            typeof directSubscription.expiration_at_ms === "number" &&
+            directSubscription.expiration_at_ms > directSubscription.purchase_at_ms;
 
-        if (leftExpiration !== rightExpiration) {
-            return rightExpiration - leftExpiration;
+        if (
+            directSubscription?.customer_id ===
+                (options.revenuecat_customer_id ?? appUserId) &&
+            directSubscription.gives_access &&
+            directSubscription.entitlement_ids.includes(entitlementResourceId) &&
+            matchesActiveEntitlement &&
+            hasValidBillingBounds
+        ) {
+            selectedSubscription = directSubscription;
         }
+    }
 
-        return (right.purchase_at_ms ?? 0) - (left.purchase_at_ms ?? 0);
-    })[0];
+    if (!selectedSubscription) {
+        const parsedSubscriptions = await fetchRevenueCatCustomerSubscriptions(
+            appUserId,
+            config!,
+            { request_count: 0 }
+        );
+        const matchingSubscriptions = parsedSubscriptions.filter((subscription) =>
+            subscription.entitlement_ids.includes(entitlementResourceId)
+        );
+
+        selectedSubscription = [...matchingSubscriptions].sort((left, right) => {
+            const leftExpiration = left.expiration_at_ms ?? 0;
+            const rightExpiration = right.expiration_at_ms ?? 0;
+
+            if (leftExpiration !== rightExpiration) {
+                return rightExpiration - leftExpiration;
+            }
+
+            return (right.purchase_at_ms ?? 0) - (left.purchase_at_ms ?? 0);
+        })[0];
+    }
 
     if (!selectedSubscription) {
         return {
@@ -641,6 +773,10 @@ export async function fetchRevenueCatCustomerSubscriptionSnapshot(
     return {
         has_active_subscription: true,
         subscription_status: selectedSubscription.status,
+        ...(selectedSubscription.customer_id
+            ? { revenuecat_customer_id: selectedSubscription.customer_id }
+            : {}),
+        revenuecat_subscription_id: selectedSubscription.id,
         entitlement_id: entitlementResourceId,
         product_id: selectedSubscription.product_id,
         store_subscription_id: selectedSubscription.store_subscription_id,
@@ -708,18 +844,22 @@ export async function deleteRevenueCatCustomer(appUserId: string) {
         REVENUECAT_DELETE_REQUEST_TIMEOUT_MS
     );
 
-    if (response.status === 404) {
-        return {
-            deleted: false,
-            already_missing: true,
-        };
-    }
-
     if (!response.ok) {
+        const details = await readRevenueCatErrorDetails(response);
+        if (
+            response.status === 404 &&
+            details.type === "resource_missing"
+        ) {
+            return {
+                deleted: false,
+                already_missing: true,
+            };
+        }
+
         throw buildRevenueCatHttpError({
             operation: "RevenueCat customer delete",
             status: response.status,
-            details: await readRevenueCatErrorDetails(response),
+            details,
         });
     }
 

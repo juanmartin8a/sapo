@@ -62,6 +62,8 @@ export type SubscriptionStateReconciliationLeaseResult =
     | {
           status: "acquired";
           revenuecat_app_user_id: string;
+          revenuecat_customer_id?: string;
+          revenuecat_subscription_id?: string;
           has_active_subscription: boolean;
           plan_key: SubscriptionPlanKey;
           last_synced_at_ms: number;
@@ -75,6 +77,8 @@ export type SubscriptionStateReconciliationLeaseResult =
     | {
           status: "in_progress";
           revenuecat_app_user_id: string;
+          revenuecat_customer_id?: string;
+          revenuecat_subscription_id?: string;
           has_active_subscription: boolean;
           plan_key: SubscriptionPlanKey;
           last_synced_at_ms: number;
@@ -89,6 +93,8 @@ export type SubscriptionStateReconciliationLeaseResult =
     | {
           status: "rate_limited";
           revenuecat_app_user_id: string;
+          revenuecat_customer_id?: string;
+          revenuecat_subscription_id?: string;
           has_active_subscription: boolean;
           plan_key: SubscriptionPlanKey;
           last_synced_at_ms: number;

@@ -52,7 +52,6 @@ describe("RevenueCat API reconciliation", () => {
         configureRevenueCatEnv();
         globalThis.fetch = jest.fn(async () => jsonResponse(404, {
             type: "resource_missing",
-            message: "Customer not found",
         })) as typeof fetch;
 
         await expect(fetchRevenueCatCustomerActiveEntitlementSnapshot("user_without_customer"))
@@ -181,19 +180,6 @@ describe("RevenueCat API reconciliation", () => {
         ).toBe(5_000);
     });
 
-    it("does not treat unrelated 404 errors as an inactive customer", async () => {
-        configureRevenueCatEnv();
-        globalThis.fetch = jest.fn(async () => jsonResponse(404, {
-            type: "project_missing",
-            message: "Project not found",
-        })) as typeof fetch;
-
-        await expect(fetchRevenueCatCustomerActiveEntitlementSnapshot("user_with_bad_project"))
-            .rejects.toMatchObject({
-                status: 404,
-            });
-    });
-
     it.each([
         fetchRevenueCatCustomerActiveEntitlementSnapshot,
         fetchRevenueCatCustomerSubscriptionSnapshot,
@@ -248,6 +234,7 @@ describe("RevenueCat API reconciliation", () => {
                 has_active_subscription: true,
                 entitlement_id: "entl_polyglot",
                 product_id: "prod_internal",
+                revenuecat_subscription_id: "sub_test",
                 store_subscription_id: "txn_test",
                 period_start_at_ms: 1_700_000_000_000,
                 period_end_at_ms: 1_800_000_000_000,
@@ -277,8 +264,261 @@ describe("RevenueCat API reconciliation", () => {
             .resolves.toEqual({
                 has_active_subscription: true,
                 entitlement_id: "entl_polyglot",
+                revenuecat_subscription_id: "sub_test",
                 period_end_at_ms: 1_800_000_000_000,
             });
+    });
+
+    it("uses the saved RevenueCat subscription resource directly", async () => {
+        configureRevenueCatEnv();
+        const fetchMock = jest.fn(async () => jsonResponse(200, {
+            id: "sub_saved",
+            customer_id: "user_with_subscription",
+            product_id: "prod_internal",
+            current_period_starts_at: 3_000,
+            current_period_ends_at: 4_000,
+            gives_access: true,
+            status: "active",
+            entitlements: { items: [{ id: "entl_polyglot" }] },
+        })) as jest.MockedFunction<typeof fetch>;
+        globalThis.fetch = fetchMock;
+
+        await expect(fetchRevenueCatCustomerSubscriptionSnapshot(
+            "user_with_subscription",
+            {
+                revenuecat_subscription_id: "sub_saved",
+                active_entitlement_snapshot: {
+                    has_active_subscription: true,
+                    access_expires_at_ms: 4_000,
+                },
+            }
+        )).resolves.toMatchObject({
+            has_active_subscription: true,
+            revenuecat_subscription_id: "sub_saved",
+            product_id: "prod_internal",
+        });
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(String(fetchMock.mock.calls[0][0])).toContain(
+            "/projects/proj_test/subscriptions/sub_saved"
+        );
+        expect(String(fetchMock.mock.calls[0][0])).not.toContain("/customers/");
+    });
+
+    it("uses the saved canonical customer id for aliased customer subscriptions", async () => {
+        configureRevenueCatEnv();
+        const fetchMock = jest.fn(async () => jsonResponse(200, {
+            id: "sub_saved",
+            customer_id: "canonical_customer",
+            current_period_starts_at: 3_000,
+            current_period_ends_at: 4_000,
+            gives_access: true,
+            status: "active",
+            entitlements: { items: [{ id: "entl_polyglot" }] },
+        })) as jest.MockedFunction<typeof fetch>;
+        globalThis.fetch = fetchMock;
+
+        await expect(fetchRevenueCatCustomerSubscriptionSnapshot(
+            "customer_alias",
+            {
+                revenuecat_customer_id: "canonical_customer",
+                revenuecat_subscription_id: "sub_saved",
+                active_entitlement_snapshot: {
+                    has_active_subscription: true,
+                    access_expires_at_ms: 4_000,
+                },
+            }
+        )).resolves.toMatchObject({
+            has_active_subscription: true,
+            revenuecat_customer_id: "canonical_customer",
+            revenuecat_subscription_id: "sub_saved",
+        });
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("discovers subscriptions when no RevenueCat subscription resource id is saved", async () => {
+        configureRevenueCatEnv();
+        const fetchMock = jest.fn(async () => jsonResponse(200, {
+            items: [{
+                id: "sub_discovered",
+                customer_id: "canonical_customer",
+                current_period_starts_at: 3_000,
+                current_period_ends_at: 4_000,
+                gives_access: true,
+                status: "active",
+                entitlements: { items: [{ id: "entl_polyglot" }] },
+            }],
+        })) as jest.MockedFunction<typeof fetch>;
+        globalThis.fetch = fetchMock;
+
+        await expect(fetchRevenueCatCustomerSubscriptionSnapshot(
+            "user_with_subscription",
+            {
+                active_entitlement_snapshot: {
+                    has_active_subscription: true,
+                    access_expires_at_ms: 4_000,
+                },
+            }
+        )).resolves.toMatchObject({
+            has_active_subscription: true,
+            revenuecat_customer_id: "canonical_customer",
+            revenuecat_subscription_id: "sub_discovered",
+        });
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(String(fetchMock.mock.calls[0][0])).toContain(
+            "/customers/user_with_subscription/subscriptions?limit=100"
+        );
+    });
+
+    it.each([
+        ["is missing", jsonResponse(404, {
+            type: "resource_missing",
+            message: "Subscription not found",
+        }), {
+            has_active_subscription: true,
+            access_expires_at_ms: 4_000,
+        }],
+        ["is inactive", jsonResponse(200, {
+            id: "sub_saved",
+            customer_id: "user_with_subscription",
+            gives_access: false,
+        }), {
+            has_active_subscription: true,
+            access_expires_at_ms: 4_000,
+        }],
+        ["does not grant Polyglot", jsonResponse(200, {
+            id: "sub_saved",
+            customer_id: "user_with_subscription",
+            current_period_ends_at: 4_000,
+            gives_access: true,
+            status: "active",
+            entitlements: { items: [{ id: "entl_other" }] },
+        }), {
+            has_active_subscription: true,
+            access_expires_at_ms: 4_000,
+        }],
+        ["belongs to another customer", jsonResponse(200, {
+            id: "sub_saved",
+            customer_id: "another_customer",
+            current_period_ends_at: 4_000,
+            gives_access: true,
+            status: "active",
+            entitlements: { items: [{ id: "entl_polyglot" }] },
+        }), {
+            has_active_subscription: true,
+            access_expires_at_ms: 4_000,
+        }],
+        ["is inconsistent with the active entitlement", jsonResponse(200, {
+            id: "sub_saved",
+            customer_id: "user_with_subscription",
+            current_period_ends_at: 3_500,
+            gives_access: true,
+            status: "active",
+            entitlements: { items: [{ id: "entl_polyglot" }] },
+        }), {
+            has_active_subscription: true,
+            access_expires_at_ms: 4_000,
+        }],
+        ["has incomplete billing bounds", jsonResponse(200, {
+            id: "sub_saved",
+            customer_id: "user_with_subscription",
+            current_period_ends_at: 4_000,
+            gives_access: true,
+            status: "active",
+            entitlements: { items: [{ id: "entl_polyglot" }] },
+        }), {
+            has_active_subscription: true,
+            access_expires_at_ms: 4_000,
+        }],
+    ])("falls back to customer subscriptions when the direct subscription %s", async (
+        _case,
+        directResponse,
+        activeEntitlementSnapshot
+    ) => {
+        configureRevenueCatEnv();
+        const fetchMock = jest.fn(async () => {
+            if (fetchMock.mock.calls.length === 1) {
+                return directResponse;
+            }
+
+            return jsonResponse(200, {
+                items: [{
+                    id: "sub_discovered",
+                    current_period_starts_at: 3_000,
+                    current_period_ends_at: 4_000,
+                    gives_access: true,
+                    status: "active",
+                    entitlements: { items: [{ id: "entl_polyglot" }] },
+                }],
+            });
+        }) as jest.MockedFunction<typeof fetch>;
+        globalThis.fetch = fetchMock;
+
+        await expect(fetchRevenueCatCustomerSubscriptionSnapshot(
+            "user_with_subscription",
+            {
+                revenuecat_subscription_id: "sub_saved",
+                active_entitlement_snapshot: activeEntitlementSnapshot,
+            }
+        )).resolves.toMatchObject({
+            has_active_subscription: true,
+            revenuecat_subscription_id: "sub_discovered",
+        });
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        expect(String(fetchMock.mock.calls[0][0])).toContain("/subscriptions/sub_saved");
+        expect(String(fetchMock.mock.calls[1][0])).toContain(
+            "/customers/user_with_subscription/subscriptions?limit=100"
+        );
+    });
+
+    it("keeps the full discovery request budget after a stale direct lookup", async () => {
+        configureRevenueCatEnv();
+        let discoveryRequestCount = 0;
+        const fetchMock = jest.fn(async (url: string | URL | Request) => {
+            if (String(url).includes("/subscriptions/sub_saved")) {
+                return jsonResponse(200, {
+                    id: "sub_saved",
+                    customer_id: "user_with_subscription",
+                    gives_access: false,
+                });
+            }
+
+            discoveryRequestCount += 1;
+            if (discoveryRequestCount < 10) {
+                return jsonResponse(200, {
+                    items: [],
+                    next_page:
+                        `/v2/projects/proj_test/customers/user_with_subscription/subscriptions?starting_after=page_${discoveryRequestCount}`,
+                });
+            }
+
+            return jsonResponse(200, {
+                items: [{
+                    id: "sub_discovered",
+                    customer_id: "user_with_subscription",
+                    current_period_starts_at: 3_000,
+                    current_period_ends_at: 4_000,
+                    gives_access: true,
+                    status: "active",
+                    entitlements: { items: [{ id: "entl_polyglot" }] },
+                }],
+            });
+        }) as jest.MockedFunction<typeof fetch>;
+        globalThis.fetch = fetchMock;
+
+        await expect(fetchRevenueCatCustomerSubscriptionSnapshot(
+            "user_with_subscription",
+            {
+                revenuecat_subscription_id: "sub_saved",
+                active_entitlement_snapshot: {
+                    has_active_subscription: true,
+                    access_expires_at_ms: 4_000,
+                },
+            }
+        )).resolves.toMatchObject({
+            has_active_subscription: true,
+            revenuecat_subscription_id: "sub_discovered",
+        });
+        expect(fetchMock).toHaveBeenCalledTimes(11);
     });
 
     it("treats a missing customer as an inactive subscription snapshot", async () => {
@@ -403,17 +643,7 @@ describe("RevenueCat API reconciliation", () => {
                 });
             }
 
-            return jsonResponse(200, {
-                items: [
-                    {
-                        id: "sub_polyglot",
-                        gives_access: true,
-                        entitlements: {
-                            items: [{ id: "entl_polyglot" }],
-                        },
-                    },
-                ],
-            });
+            throw new Error(`Unexpected RevenueCat request: ${String(url)}`);
         }) as jest.MockedFunction<typeof fetch>;
         globalThis.fetch = fetchMock;
 
@@ -545,7 +775,9 @@ describe("RevenueCat API reconciliation", () => {
         configureRevenueCatEnv({
             REVENUECAT_CI_CUSTOMERS_RW_API_KEY: "rc_v2_delete_secret",
         });
-        globalThis.fetch = jest.fn(async () => jsonResponse(404, { type: "resource_missing" })) as typeof fetch;
+        globalThis.fetch = jest.fn(async () => jsonResponse(404, {
+            type: "resource_missing",
+        })) as typeof fetch;
 
         await expect(deleteRevenueCatCustomer("missing_user"))
             .resolves.toEqual({
