@@ -279,6 +279,11 @@ describe("RevenueCat webhook worker processing", () => {
             last_revenuecat_event_at_ms: 999,
             last_synced_at_ms: 10_000,
         })],
+        ["different event with the same timestamp", createSubscriptionState({
+            last_revenuecat_event_id: "evt_other",
+            last_revenuecat_event_at_ms: 1_000,
+            last_synced_at_ms: 10_000,
+        })],
     ])("fetches RevenueCat when %s", async (_name, existingState) => {
         process.env = {
             ...originalEnv,
@@ -1103,6 +1108,7 @@ describe("RevenueCat reconciliation routing", () => {
                     return [{
                         user_id: "user_1",
                         last_synced_at_ms: 1_000,
+                        expiration_reconciliation_at_ms: 2_000,
                         billing_cycle_end_at_ms: 2_000,
                     }];
                 }
@@ -1170,6 +1176,7 @@ describe("RevenueCat reconciliation routing", () => {
                     return [{
                         user_id: "user_1",
                         last_synced_at_ms: 1_000,
+                        expiration_reconciliation_at_ms: 2_000,
                         access_expires_at_ms: confirmedExpirationAtMs,
                     }];
                 }
@@ -1241,6 +1248,7 @@ describe("RevenueCat reconciliation routing", () => {
                     return [{
                         user_id: "user_1",
                         last_synced_at_ms: 1_000,
+                        expiration_reconciliation_at_ms: 2_000,
                         billing_cycle_end_at_ms: 2_000,
                     }];
                 }
@@ -1274,6 +1282,112 @@ describe("RevenueCat reconciliation routing", () => {
         );
     });
 
+    it("skips a cron selection replaced before lease acquisition", async () => {
+        configureReadEnv();
+        jest.spyOn(Date, "now").mockReturnValue(3_000);
+        const fetchMock = jest.fn() as jest.MockedFunction<typeof fetch>;
+        globalThis.fetch = fetchMock;
+        let subscriptionStateQueryCount = 0;
+        const runMutation = jest.fn(async (_functionRef: unknown, mutationArgs: Record<string, unknown>) => {
+            if (typeof mutationArgs.lease_duration_ms === "number") {
+                return { status: "stale" };
+            }
+            throw new Error("Unexpected mutation in stale expiration selection test");
+        });
+        const ctx = {
+            runQuery: jest.fn(async (_functionRef: unknown, queryArgs: Record<string, unknown>) => {
+                if (typeof queryArgs.limit === "number") {
+                    return [{
+                        user_id: "user_1",
+                        last_synced_at_ms: 1_000,
+                        expiration_reconciliation_at_ms: 2_000,
+                        billing_cycle_end_at_ms: 2_000,
+                    }];
+                }
+                if (queryArgs.model === "user") return { createdAt: 900 };
+                if (queryArgs.user_id === "user_1") {
+                    subscriptionStateQueryCount += 1;
+                    return subscriptionStateQueryCount === 1
+                        ? createSubscriptionState({
+                              plan_key: "polyglot",
+                              has_active_subscription: true,
+                              billing_cycle_end_at_ms: 4_000,
+                              last_synced_at_ms: 2_000,
+                          })
+                        : { blocks_revenuecat_reconciliation: false };
+                }
+                throw new Error("Unexpected query in stale expiration selection test");
+            }),
+            runMutation,
+        };
+
+        await expect(reconcileExpiredSubscriptionStates(ctx as any)).resolves.toEqual({
+            processed: 0,
+            failed: 0,
+            scanned: 1,
+        });
+        expect(runMutation).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.objectContaining({
+                expected_last_synced_at_ms: 1_000,
+                expected_expiration_reconciliation_at_ms: 2_000,
+            })
+        );
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("does not report removed pre-lease cron work as a failure", async () => {
+        configureReadEnv();
+        jest.spyOn(Date, "now").mockReturnValue(3_000);
+        const fetchMock = jest.fn() as jest.MockedFunction<typeof fetch>;
+        globalThis.fetch = fetchMock;
+        let subscriptionStateQueryCount = 0;
+        const runMutation = jest.fn(async (_functionRef: unknown, mutationArgs: Record<string, unknown>) => {
+            if (typeof mutationArgs.next_attempt_at_ms === "number") {
+                return { status: "missing" };
+            }
+            throw new Error("Unexpected mutation in stale pre-lease cron test");
+        });
+        const ctx = {
+            runQuery: jest.fn(async (_functionRef: unknown, queryArgs: Record<string, unknown>) => {
+                if (typeof queryArgs.limit === "number") {
+                    return [{
+                        user_id: "user_1",
+                        last_synced_at_ms: 1_000,
+                        expiration_reconciliation_at_ms: 2_000,
+                        billing_cycle_end_at_ms: 2_000,
+                    }];
+                }
+                if (queryArgs.user_id === "user_1") {
+                    subscriptionStateQueryCount += 1;
+                    return subscriptionStateQueryCount === 1
+                        ? createSubscriptionState({
+                              plan_key: "polyglot",
+                              has_active_subscription: true,
+                              billing_cycle_end_at_ms: 2_000,
+                          })
+                        : { blocks_revenuecat_reconciliation: true };
+                }
+                throw new Error("Unexpected query in stale pre-lease cron test");
+            }),
+            runMutation,
+        };
+
+        await expect(reconcileExpiredSubscriptionStates(ctx as any)).resolves.toEqual({
+            processed: 0,
+            failed: 0,
+            scanned: 1,
+        });
+        expect(runMutation).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.objectContaining({
+                expected_last_synced_at_ms: 1_000,
+                expected_expiration_reconciliation_at_ms: 2_000,
+            })
+        );
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
     it("honors RevenueCat retry-after beyond the renewal grace deadline", async () => {
         configureReadEnv();
         jest.spyOn(Date, "now").mockReturnValue(3_000);
@@ -1305,6 +1419,7 @@ describe("RevenueCat reconciliation routing", () => {
                     return [{
                         user_id: "user_1",
                         last_synced_at_ms: 1_000,
+                        expiration_reconciliation_at_ms: 2_000,
                         billing_cycle_end_at_ms: 2_000,
                     }];
                 }

@@ -257,6 +257,8 @@ export const beginSubscriptionStateReconciliationArgs = {
     client_reconciliation: v.optional(v.boolean()),
     clear_pending_active_signal: v.optional(v.boolean()),
     revenuecat_event_at_ms: v.optional(v.number()),
+    expected_last_synced_at_ms: v.optional(v.number()),
+    expected_expiration_reconciliation_at_ms: v.optional(v.number()),
 };
 
 export type BeginSubscriptionStateReconciliationArgs = ObjectType<
@@ -501,6 +503,7 @@ export type FinalizeDeletedUserSubscriptionDataArgs = ObjectType<
 export const deferSubscriptionStateReconciliationArgs = {
     user_id: v.string(),
     expected_last_synced_at_ms: v.number(),
+    expected_expiration_reconciliation_at_ms: v.number(),
     next_attempt_at_ms: v.number(),
 };
 

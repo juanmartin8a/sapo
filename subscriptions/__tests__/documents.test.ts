@@ -1,11 +1,93 @@
-import { describe, expect, it } from "@jest/globals";
+import { describe, expect, it, jest } from "@jest/globals";
 
 import {
     deleteUsageEventsByUserIdBatch,
+    getLatestSubscriptionStateByUserId,
     prepareQuotaPeriodsForUserDeletionBatch,
 } from "../model/documents";
+import { getRevenueCatEventUser } from "../model/revenueCatEventUserDocuments";
+import { ingestRevenueCatEvent } from "../model/webhook";
 
 describe("subscription documents", () => {
+    it("fails loudly when a user has duplicate subscription states", async () => {
+        const duplicateError = new Error("query returned more than one document");
+        const unique = jest.fn(async () => {
+            throw duplicateError;
+        });
+        const ctx = {
+            db: {
+                query: jest.fn(() => ({
+                    withIndex: jest.fn((indexName: string) => {
+                        expect(indexName).toBe("by_user_id");
+                        return { unique };
+                    }),
+                })),
+            },
+        };
+
+        await expect(getLatestSubscriptionStateByUserId(ctx as never, "user_1"))
+            .rejects.toBe(duplicateError);
+        expect(unique).toHaveBeenCalledTimes(1);
+    });
+
+    it("fails loudly when a RevenueCat event id is duplicated", async () => {
+        const duplicateError = new Error("query returned more than one document");
+        const ctx = {
+            db: {
+                query: jest.fn(() => ({
+                    withIndex: jest.fn(() => ({
+                        unique: jest.fn(async () => {
+                            throw duplicateError;
+                        }),
+                    })),
+                })),
+            },
+        };
+
+        await expect(ingestRevenueCatEvent(ctx as never, {
+            normalized_event: {
+                event_id: "event_1",
+                event_type: "RENEWAL",
+                event_at_ms: 1_000,
+                aliases: [],
+                transferred_from: [],
+                transferred_to: [],
+                entitlement_ids: [],
+            },
+            received_at_ms: 1_000,
+        })).rejects.toBe(duplicateError);
+    });
+
+    it("fails loudly when an event has duplicate links for one user", async () => {
+        const duplicateError = new Error("query returned more than one document");
+        const range = {
+            eq: jest.fn(),
+        };
+        range.eq.mockReturnValue(range);
+        const ctx = {
+            db: {
+                query: jest.fn(() => ({
+                    withIndex: jest.fn((_indexName: string, buildRange: (query: typeof range) => unknown) => {
+                        buildRange(range);
+                        return {
+                            unique: jest.fn(async () => {
+                                throw duplicateError;
+                            }),
+                        };
+                    }),
+                })),
+            },
+        };
+
+        await expect(getRevenueCatEventUser(
+            ctx as never,
+            "event_doc_1" as never,
+            "user_1"
+        )).rejects.toBe(duplicateError);
+        expect(range.eq).toHaveBeenNthCalledWith(1, "event_doc_id", "event_doc_1");
+        expect(range.eq).toHaveBeenNthCalledWith(2, "user_id", "user_1");
+    });
+
     it("authoritatively deletes a processing usage event during account cleanup", async () => {
         const usageEvents = [
             {

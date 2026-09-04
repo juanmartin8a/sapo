@@ -16,6 +16,19 @@ export async function listRevenueCatEventUsersByEventDocId(
         .collect();
 }
 
+export async function getRevenueCatEventUser(
+    ctx: DbReaderCtx,
+    eventDocId: Doc<"revenue_cat_events">["_id"],
+    userId: string
+) {
+    return ctx.db
+        .query("revenue_cat_event_users")
+        .withIndex("by_event_doc_id_and_user_id", (query) =>
+            query.eq("event_doc_id", eventDocId).eq("user_id", userId)
+        )
+        .unique();
+}
+
 export async function listRevenueCatEventUsersByUserIdBatch(
     ctx: DbReaderCtx,
     userId: string,

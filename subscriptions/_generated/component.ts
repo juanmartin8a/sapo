@@ -96,6 +96,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           active_signal_ttl_ms?: number;
           clear_pending_active_signal?: boolean;
           client_reconciliation?: boolean;
+          expected_expiration_reconciliation_at_ms?: number;
+          expected_last_synced_at_ms?: number;
           expects_active_subscription?: boolean;
           lease_duration_ms: number;
           now_ms: number;
@@ -147,6 +149,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "mutation",
         "internal",
         {
+          expected_expiration_reconciliation_at_ms: number;
           expected_last_synced_at_ms: number;
           next_attempt_at_ms: number;
           user_id: string;

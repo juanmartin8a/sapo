@@ -28,6 +28,8 @@ export type NormalizedRevenueCatWebhookEvent = {
     purchased_at_ms?: number;
 };
 
+const REVENUECAT_WEBHOOK_EVENT_MAX_FUTURE_SKEW_MS = 5 * 60 * 1000;
+
 function parseStringArray(value: unknown): string[] {
     if (!Array.isArray(value)) {
         return [];
@@ -96,7 +98,15 @@ export function normalizeRevenueCatWebhookEvent(
     }
 
     const eventType = parseString(rawEvent.type) ?? "UNKNOWN";
-    const eventAtMs = parseTimestampMs(rawEvent.event_timestamp_ms) ?? receivedAtMs;
+    const eventAtMs = rawEvent.event_timestamp_ms;
+    if (
+        typeof eventAtMs !== "number" ||
+        !Number.isSafeInteger(eventAtMs) ||
+        eventAtMs < 0 ||
+        eventAtMs > receivedAtMs + REVENUECAT_WEBHOOK_EVENT_MAX_FUTURE_SKEW_MS
+    ) {
+        return null;
+    }
 
     const appUserId = parseString(rawEvent.app_user_id) ?? undefined;
     const originalAppUserId = parseString(rawEvent.original_app_user_id) ?? undefined;

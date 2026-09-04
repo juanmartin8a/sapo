@@ -51,6 +51,7 @@ import {
 } from "../../model/subscriptions/revenueCatWebhookIngestion";
 import {
     deleteRevenueCatEventUsersByEventDocId,
+    getRevenueCatEventUser,
     listRevenueCatEventUsersByEventDocId,
     summarizeRevenueCatEventUserState,
 } from "./revenueCatEventUserDocuments";
@@ -1726,17 +1727,18 @@ export const ingestRevenueCatEvent = async (ctx: MutationCtx, args: WebhookArgs.
         const existingEvent = await ctx.db
             .query("revenue_cat_events")
             .withIndex("by_event_id", (query) => query.eq("event_id", args.normalized_event.event_id))
-            .first();
+            .unique();
 
         if (existingEvent) {
             const targetUserIds = resolveTargetUserIdsFromRevenueCatEvent(existingEvent);
-            const existingEventUsers = await listRevenueCatEventUsersByEventDocId(ctx, existingEvent._id);
-            const existingLinkedUserIds = new Set(
-                existingEventUsers.map((eventUser) => eventUser.user_id)
-            );
 
             for (const userId of targetUserIds) {
-                if (existingLinkedUserIds.has(userId)) {
+                const existingEventUser = await getRevenueCatEventUser(
+                    ctx,
+                    existingEvent._id,
+                    userId
+                );
+                if (existingEventUser) {
                     continue;
                 }
 
@@ -2276,6 +2278,22 @@ export const beginSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
         const existingState = await getLatestSubscriptionStateByUserId(ctx, args.user_id);
         const existingStateRecord = existingState as Record<string, unknown> | null;
         const nowMs = args.now_ms;
+
+        if (
+            (typeof args.expected_last_synced_at_ms === "number" ||
+                typeof args.expected_expiration_reconciliation_at_ms === "number") &&
+            (typeof args.expected_last_synced_at_ms !== "number" ||
+                typeof args.expected_expiration_reconciliation_at_ms !== "number" ||
+                existingState?.last_synced_at_ms !== args.expected_last_synced_at_ms ||
+                existingState?.expiration_reconciliation_at_ms !==
+                    args.expected_expiration_reconciliation_at_ms ||
+                existingState.has_active_subscription !== true ||
+                typeof existingState.expiration_reconciliation_at_ms !== "number" ||
+                existingState.expiration_reconciliation_at_ms > nowMs)
+        ) {
+            return { status: "stale" as const };
+        }
+
         const safeLeaseDurationMs = Math.max(
             1,
             Math.min(args.lease_duration_ms, SUBSCRIPTION_SYNC_LEASE_MAX_MS)
@@ -2912,6 +2930,7 @@ export const listSubscriptionStatesDueForExpirationReconciliation = async (ctx: 
         return dueStates.map((state) => ({
             user_id: state.user_id,
             last_synced_at_ms: state.last_synced_at_ms,
+            expiration_reconciliation_at_ms: state.expiration_reconciliation_at_ms,
             ...(typeof state.billing_cycle_end_at_ms === "number"
                 ? { billing_cycle_end_at_ms: state.billing_cycle_end_at_ms }
                 : {}),
@@ -3983,7 +4002,11 @@ export const deferSubscriptionStateReconciliation = async (ctx: MutationCtx, arg
             };
         }
 
-        if (existingState.last_synced_at_ms !== args.expected_last_synced_at_ms) {
+        if (
+            existingState.last_synced_at_ms !== args.expected_last_synced_at_ms ||
+            existingState.expiration_reconciliation_at_ms !==
+                args.expected_expiration_reconciliation_at_ms
+        ) {
             return {
                 status: "stale",
             };

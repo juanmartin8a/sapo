@@ -100,6 +100,14 @@ const REVENUECAT_EVENT_PROCESSING_LEASE_MS = 90_000;
 const SUBSCRIPTION_USAGE_SYNC_POLL_DELAYS_MS = [250, 500, 1_000] as const;
 type SubscriptionStateRefreshResult =
     | {
+          status: "stale_selection";
+          revenuecat_app_user_id: string;
+          plan_key: SubscriptionPlanKey;
+          has_active_subscription: boolean;
+          last_synced_at_ms: number;
+          billing_cycle_end_at_ms?: number;
+      }
+    | {
           status: "already_fresh" | "created" | "updated" | "unchanged";
           revenuecat_app_user_id: string;
           plan_key: SubscriptionPlanKey;
@@ -287,6 +295,10 @@ export async function beginSubscriptionStateReconciliationAndScheduleActivation(
 ) {
     const { event_doc_id: eventDocId, ...componentArgs } = args;
     const result = await beginSubscriptionStateReconciliation(ctx, componentArgs);
+
+    if (result.status === "stale") {
+        return result;
+    }
 
     const signalAtMs = result.pending_active_signal_at_ms;
     const expiresAtMs = result.pending_active_expires_at_ms;
@@ -865,6 +877,8 @@ async function reconcileSubscriptionStateFromRevenueCat(
         preacquired_sync_attempt_id?: string;
         event_doc_id?: string;
         accept_inactive_subscription?: boolean;
+        expected_last_synced_at_ms?: number;
+        expected_expiration_reconciliation_at_ms?: number;
         reconciliation_read: "active_entitlements_first" | "subscriptions";
     }
 ): Promise<SubscriptionStateRefreshResult> {
@@ -1039,6 +1053,15 @@ async function reconcileSubscriptionStateFromRevenueCat(
             ...(typeof args.revenuecat_event_at_ms === "number"
                 ? { revenuecat_event_at_ms: args.revenuecat_event_at_ms }
                 : {}),
+            ...(typeof args.expected_last_synced_at_ms === "number"
+                ? { expected_last_synced_at_ms: args.expected_last_synced_at_ms }
+                : {}),
+            ...(typeof args.expected_expiration_reconciliation_at_ms === "number"
+                ? {
+                      expected_expiration_reconciliation_at_ms:
+                          args.expected_expiration_reconciliation_at_ms,
+                  }
+                : {}),
         };
         const leaseResult = args.schedule_pending_activation === true
             ? await (ctx as ActionCtx).runMutation(
@@ -1050,6 +1073,19 @@ async function reconcileSubscriptionStateFromRevenueCat(
                   }
               )
             : await beginSubscriptionStateReconciliation(ctx, beginArgs);
+
+        if (leaseResult.status === "stale") {
+            return {
+                status: "stale_selection",
+                revenuecat_app_user_id: revenueCatAppUserId,
+                plan_key: existingState?.plan_key ?? SUBSCRIPTION_PLAN_KEYS.FREE,
+                has_active_subscription: existingState?.has_active_subscription ?? false,
+                last_synced_at_ms: existingState?.last_synced_at_ms ?? 0,
+                ...(typeof existingState?.billing_cycle_end_at_ms === "number"
+                    ? { billing_cycle_end_at_ms: existingState.billing_cycle_end_at_ms }
+                    : {}),
+            };
+        }
 
         if (leaseResult.status === "in_progress") {
             return {
@@ -2679,6 +2715,7 @@ export const reconcileExpiredSubscriptionStates = async (ctx: ActionCtx): Promis
         ) as {
             user_id: string;
             last_synced_at_ms: number;
+            expiration_reconciliation_at_ms: number;
             billing_cycle_end_at_ms?: number;
             access_expires_at_ms?: number;
         }[];
@@ -2692,6 +2729,9 @@ export const reconcileExpiredSubscriptionStates = async (ctx: ActionCtx): Promis
                 user_id: dueState.user_id,
                 force: true,
                 now_ms: reconciliationNowMs,
+                expected_last_synced_at_ms: dueState.last_synced_at_ms,
+                expected_expiration_reconciliation_at_ms:
+                    dueState.expiration_reconciliation_at_ms,
                 accept_inactive_subscription: !hasUnexpiredSubscriptionAccess(
                     {
                         has_active_subscription: true,
@@ -2703,12 +2743,18 @@ export const reconcileExpiredSubscriptionStates = async (ctx: ActionCtx): Promis
                 reconciliation_read: "active_entitlements_first",
             });
 
+            if (refreshResult.status === "stale_selection") {
+                continue;
+            }
+
             if (refreshResult.status === "sync_in_progress") {
                 await ctx.runMutation(
                     components.subscriptions.webhook.deferSubscriptionStateReconciliation,
                     {
                         user_id: dueState.user_id,
                         expected_last_synced_at_ms: dueState.last_synced_at_ms,
+                        expected_expiration_reconciliation_at_ms:
+                            dueState.expiration_reconciliation_at_ms,
                         next_attempt_at_ms:
                             refreshResult.retry_at_ms ??
                             reconciliationNowMs + SUBSCRIPTION_STATE_RECONCILIATION_LEASE_MS,
@@ -2726,8 +2772,6 @@ export const reconcileExpiredSubscriptionStates = async (ctx: ActionCtx): Promis
                 continue;
             }
 
-            failed += 1;
-
             const accessExpiresAtMs = getSubscriptionAccessExpiresAtMs(dueState);
             const nextAttemptAtMs = Math.max(
                 refreshResult.status === "refresh_failed"
@@ -2738,14 +2782,20 @@ export const reconcileExpiredSubscriptionStates = async (ctx: ActionCtx): Promis
                     : Date.now() + getReconciliationFailureBackoffMs()
             );
 
-            await ctx.runMutation(
+            const deferralResult = await ctx.runMutation(
                 components.subscriptions.webhook.deferSubscriptionStateReconciliation,
                 {
                     user_id: dueState.user_id,
                     expected_last_synced_at_ms: dueState.last_synced_at_ms,
+                    expected_expiration_reconciliation_at_ms:
+                        dueState.expiration_reconciliation_at_ms,
                     next_attempt_at_ms: nextAttemptAtMs,
                 }
             );
+
+            if (deferralResult.status === "deferred") {
+                failed += 1;
+            }
         }
 
         return {

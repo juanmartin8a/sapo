@@ -57,6 +57,9 @@ export type RevenueCatWebhookEventForProcessing = {
 
 export type SubscriptionStateReconciliationLeaseResult =
     | {
+          status: "stale";
+      }
+    | {
           status: "acquired";
           revenuecat_app_user_id: string;
           has_active_subscription: boolean;
@@ -228,6 +231,8 @@ export async function beginSubscriptionStateReconciliation(
         client_reconciliation?: boolean;
         clear_pending_active_signal?: boolean;
         revenuecat_event_at_ms?: number;
+        expected_last_synced_at_ms?: number;
+        expected_expiration_reconciliation_at_ms?: number;
     }
 ) {
     return (await (ctx as any).runMutation(
