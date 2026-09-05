@@ -135,6 +135,10 @@ function parseSSEEvent(rawEvent: string): ParsedSSEEvent {
 }
 
 function getStreamErrorMessageFromCode(errorCode: string | null, status: number) {
+    if (errorCode === SUBSCRIPTION_QUOTA_ERROR_CODES.REQUEST_RATE_LIMITED) {
+        return "Too many requests. Please wait a moment and try again.";
+    }
+
     if (errorCode === SUBSCRIPTION_QUOTA_ERROR_CODES.SUBSCRIPTION_REQUIRED) {
         return "An active subscription is required.";
     }
@@ -232,6 +236,10 @@ function processSSEEvent(
     callbacks: TranslationStreamCallbacks
 ): PayloadResult {
     const { event, data } = parseSSEEvent(rawEvent);
+    if (!callbacks.isActive()) {
+        return { type: "stop" };
+    }
+
     if (data === null) {
         return { type: "continue" };
     }
@@ -247,6 +255,10 @@ function processSSEEvent(
     if (event === SAPOPINGUINO_SSE_EVENTS.DONE) {
         callbacks.onDone();
         return { type: "stop" };
+    }
+
+    if (event === SAPOPINGUINO_SSE_EVENTS.TOKEN && operation === "translate") {
+        return { type: callbacks.onToken({ type: "translate", value: data }) };
     }
 
     return processTokenPayload(data, operation, callbacks);
@@ -275,6 +287,7 @@ export async function runTranslationStream(
         target_language: args.targetLanguage,
         input: args.input,
     });
+    let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
     let streamTimeoutReason: TranslationStreamTimeoutReason | null = null;
     let responseTimeoutId: ReturnType<typeof setTimeout> | null = null;
     let idleTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -407,10 +420,13 @@ export async function runTranslationStream(
                 }
             }
 
-            return { type: "completed" };
+            return {
+                type: "protocol-error",
+                error: new Error("Stream ended before its completion marker"),
+            };
         }
 
-        const reader = responseBody.getReader();
+        reader = responseBody.getReader();
         const decoder = new TextDecoder();
 
         if (contentType.includes("text/event-stream")) {
@@ -440,6 +456,8 @@ export async function runTranslationStream(
                     }
                 }
             }
+
+            eventBuffer += decoder.decode();
 
             if (eventBuffer.trim().length > 0) {
                 const result = toStreamResult(processSSEEvent(eventBuffer, args.operation, callbacks));
@@ -479,6 +497,8 @@ export async function runTranslationStream(
                 }
             }
 
+            lineBuffer += decoder.decode();
+
             if (lineBuffer.length > 0) {
                 const result = toStreamResult(processTokenPayload(lineBuffer, args.operation, callbacks));
                 if (result) {
@@ -487,7 +507,10 @@ export async function runTranslationStream(
             }
         }
 
-        return { type: "completed" };
+        return {
+            type: "protocol-error",
+            error: new Error("Stream ended before its completion marker"),
+        };
     } catch (error) {
         if ((error as Error).name === ABORT_ERROR_NAME) {
             return streamTimeoutReason === null
@@ -500,5 +523,14 @@ export async function runTranslationStream(
         clearResponseTimeout();
         clearIdleTimeout();
         clearTotalTimeout();
+        if (reader) {
+            try {
+                await reader.cancel();
+            } catch {
+                // Cancellation may race with an already aborted response.
+            } finally {
+                reader.releaseLock();
+            }
+        }
     }
 }

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "expo-router";
 
-import { authClient } from "@/lib/auth-client";
+import { signOutCurrentSession } from "@/lib/auth-session";
 import { APP_ROUTES } from "@/constants/routes";
 import { useAuthState } from "@/providers/AuthStateProvider";
 
@@ -21,7 +21,7 @@ export default function AuthGate() {
 
             if (signedOutSessionIdRef.current !== sessionKey) {
                 signedOutSessionIdRef.current = sessionKey;
-                void authClient.signOut().catch((error) => {
+                void signOutCurrentSession().catch((error) => {
                     if (signedOutSessionIdRef.current === sessionKey) {
                         signedOutSessionIdRef.current = null;
                     }

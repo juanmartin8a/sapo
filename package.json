@@ -3,6 +3,10 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
+    "prompts:generate": "node scripts/generate-ai-prompts.mjs",
+    "prompts:check": "node scripts/generate-ai-prompts.mjs --check",
+    "convex:dev": "npm run prompts:generate && convex dev",
+    "convex:deploy": "npm run prompts:generate && convex deploy",
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",

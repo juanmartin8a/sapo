@@ -22,7 +22,9 @@ Compact guidance for future OpenCode sessions in this repo.
 - Run all tests once: `npm exec jest -- --watchAll=false`
 - Run one test file: `npm exec jest -- convex/__tests__/sapopinguinoInput.test.ts --watchAll=false`
 - Type-check: `npm exec tsc -- --noEmit` (there is no `typecheck` script).
-- Convex dev/codegen: `npm exec convex dev`
+- Convex dev/codegen: `npm run convex:dev` (regenerates Markdown AI prompt bundle first).
+- Convex deploy: `npm run convex:deploy`.
+- AI prompt edits: edit `convex/prompts/*.md`, run `npm run prompts:generate`, and commit the generated bundle with the Markdown. `npm run prompts:check` verifies freshness.
 
 ## Verification Notes
 
@@ -40,5 +42,5 @@ Compact guidance for future OpenCode sessions in this repo.
 
 - Client startup requires `EXPO_PUBLIC_CONVEX_URL`; auth, SSE, and subscription reconciliation calls use `EXPO_PUBLIC_CONVEX_SITE_URL`.
 - RevenueCat client config is optional but platform-specific: `EXPO_PUBLIC_REVENUE_CAT_APPLE_API_KEY`, `EXPO_PUBLIC_REVENUE_CAT_GOOGLE_API_KEY`, product IDs, and entitlement ID.
-- Convex server env is separate from Expo public env; backend code reads OpenAI, Better Auth, Apple/Google auth, RevenueCat webhook/API, Resend, and `CLIENT_ORIGIN` values.
+- Convex server env is separate from Expo public env; backend code reads Cloudflare AI, Better Auth, Apple/Google auth, RevenueCat webhook/API, Resend, and `CLIENT_ORIGIN` values. Cloudflare setup and required variables are documented in `convex/prompts/README.md`.
 - Never expose server-only env values by adding an `EXPO_PUBLIC_` prefix.

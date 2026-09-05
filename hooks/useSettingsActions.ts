@@ -10,7 +10,7 @@ import {
     SUBSCRIPTION_LINKED_ELSEWHERE_ALERT_TITLE,
     SUBSCRIPTION_SESSION_CHANGED_ALERT_TITLE,
 } from "@/constants/subscription";
-import { authClient } from "@/lib/auth-client";
+import { signOutCurrentSession } from "@/lib/auth-session";
 import {
     triggerErrorHaptic,
     triggerLightImpactHaptic,
@@ -324,7 +324,7 @@ export default function useSettingsActions() {
 
         try {
             setIsSigningOut(true);
-            await authClient.signOut();
+            await signOutCurrentSession();
             router.dismissTo(APP_ROUTES.HOME);
         } catch {
             Alert.alert("Something went wrong", "Unable to sign out. Please try again.");
