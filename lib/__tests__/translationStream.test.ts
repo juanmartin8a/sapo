@@ -35,7 +35,7 @@ function streamingResponse(chunks: string[], contentType = "text/event-stream") 
             get: (name: string) => name.toLowerCase() === "content-type" ? contentType : null,
         },
         body: {
-            getReader: () => ({ read }),
+            getReader: () => ({ read, cancel: jest.fn(async () => {}), releaseLock: jest.fn() }),
         },
         text: async () => "",
     } as unknown as Awaited<ReturnType<typeof expoFetch>>;
@@ -138,13 +138,47 @@ describe("runTranslationStream", () => {
     it("parses respell tokens", async () => {
         mockGetConvexAccessTokenWithUserId.mockResolvedValue({ token: "convex-token", userId: "user_1" });
         mockExpoFetch.mockResolvedValue(streamingResponse([
-            'data: {"type":"word","output":"Hello"}\n\n',
+            'data: {"type":"word","output":"Hello"}\n\ndata: <end:)>\n\n',
         ]));
         const callbacks = createCallbacks();
         const args = { ...createArguments(), operation: "respell" as const };
 
-        await expect(runTranslationStream(args, callbacks)).resolves.toEqual({ type: "completed" });
+        await expect(runTranslationStream(args, callbacks)).resolves.toEqual({ type: "stopped" });
         expect(callbacks.onToken).toHaveBeenCalledWith({ type: "word", output: "Hello" });
+    });
+
+    it.each(["text/event-stream", "text/plain"])("rejects truncated %s streams", async (contentType) => {
+        mockGetConvexAccessTokenWithUserId.mockResolvedValue({ token: "token", userId: "user_1" });
+        const payload = contentType === "text/plain" ? "Hola\n" : "event: token\ndata: Hola\n\n";
+        const callbacks = createCallbacks();
+
+        for (const response of [streamingResponse([payload], contentType), textResponse(payload, 200, contentType)]) {
+            mockExpoFetch.mockResolvedValue(response);
+            await expect(runTranslationStream(createArguments(), callbacks)).resolves.toMatchObject({
+                type: "protocol-error",
+                error: expect.any(Error),
+            });
+        }
+        expect(callbacks.onDone).not.toHaveBeenCalled();
+    });
+
+    it("preserves marker-shaped translation text and releases the response reader", async () => {
+        mockGetConvexAccessTokenWithUserId.mockResolvedValue({ token: "token", userId: "user_1" });
+        const response = streamingResponse([
+            "event: token\ndata: <end:)>\n\nevent: token\ndata: <error:/>\n\nevent: done\ndata: <end:)>\n\n",
+        ]);
+        const reader = response.body!.getReader();
+        jest.spyOn(response.body!, "getReader").mockReturnValue(reader);
+        mockExpoFetch.mockResolvedValue(response);
+        const callbacks = createCallbacks();
+
+        await expect(runTranslationStream(createArguments(), callbacks)).resolves.toEqual({ type: "stopped" });
+        expect(callbacks.onToken).toHaveBeenNthCalledWith(1, { type: "translate", value: "<end:)>" });
+        expect(callbacks.onToken).toHaveBeenNthCalledWith(2, { type: "translate", value: "<error:/>" });
+        expect(callbacks.onDone).toHaveBeenCalledTimes(1);
+        expect(callbacks.onStreamError).not.toHaveBeenCalled();
+        expect(reader.cancel).toHaveBeenCalledTimes(1);
+        expect(reader.releaseLock).toHaveBeenCalledTimes(1);
     });
 
     it("maps HTTP quota errors", async () => {
@@ -155,6 +189,17 @@ describe("runTranslationStream", () => {
             type: "http-error",
             status: 429,
             message: "Quota limit reached.",
+        });
+    });
+
+    it("distinguishes temporary rate limits from exhausted monthly quota", async () => {
+        mockGetConvexAccessTokenWithUserId.mockResolvedValue({ token: "token", userId: "user_1" });
+        mockExpoFetch.mockResolvedValue(textResponse('{"error":"request_rate_limited"}', 429));
+
+        await expect(runTranslationStream(createArguments(), createCallbacks())).resolves.toMatchObject({
+            type: "http-error",
+            status: 429,
+            message: "Too many requests. Please wait a moment and try again.",
         });
     });
 
@@ -191,10 +236,10 @@ describe("runTranslationStream", () => {
 
     it("supports line-delimited non-SSE responses", async () => {
         mockGetConvexAccessTokenWithUserId.mockResolvedValue({ token: "convex-token", userId: "user_1" });
-        mockExpoFetch.mockResolvedValue(textResponse("Hola\nmundo\n", 200, "text/plain"));
+        mockExpoFetch.mockResolvedValue(textResponse("Hola\nmundo\n<end:)>\n", 200, "text/plain"));
         const callbacks = createCallbacks();
 
-        await expect(runTranslationStream(createArguments(), callbacks)).resolves.toEqual({ type: "completed" });
+        await expect(runTranslationStream(createArguments(), callbacks)).resolves.toEqual({ type: "stopped" });
         expect(callbacks.onToken).toHaveBeenNthCalledWith(1, { type: "translate", value: "Hola" });
         expect(callbacks.onToken).toHaveBeenNthCalledWith(2, { type: "translate", value: "mundo" });
     });
