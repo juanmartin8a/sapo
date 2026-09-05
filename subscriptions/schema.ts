@@ -95,6 +95,10 @@ export default defineSchema({
         .index("by_user_id_and_window_key", ["user_id", "window_key"])
         .index("by_user_id_and_period_start_at_ms", ["user_id", "period_start_at_ms"])
         .index("by_store_subscription_period_id", ["store_subscription_period_id"])
+        .index("by_store_subscription_id_and_period_start_at_ms", [
+            "store_subscription_id",
+            "period_start_at_ms",
+        ])
         .index("by_status_and_period_start_at_ms", ["status", "period_start_at_ms"])
         .index("by_status_user_id_and_period_end_at_ms", ["status", "user_id", "period_end_at_ms"]),
 

@@ -25,6 +25,7 @@ export const SUBSCRIPTION_USAGE_OPERATIONS = {
 
 export const SUBSCRIPTION_QUOTA_ERROR_CODES = {
     SUBSCRIPTION_REQUIRED: "subscription_required",
+    REQUEST_RATE_LIMITED: "request_rate_limited",
     INPUT_LIMIT_EXCEEDED: "input_limit_exceeded",
     MONTHLY_LIMIT_EXCEEDED: "monthly_limit_exceeded",
     USER_DELETION_IN_PROGRESS: "user_deletion_in_progress",

@@ -3,12 +3,49 @@ import { describe, expect, it, jest } from "@jest/globals";
 import {
     deleteUsageEventsByUserIdBatch,
     getLatestSubscriptionStateByUserId,
+    listQuotaPeriodsByStoreSubscriptionWindow,
     prepareQuotaPeriodsForUserDeletionBatch,
 } from "../model/documents";
 import { getRevenueCatEventUser } from "../model/revenueCatEventUserDocuments";
 import { ingestRevenueCatEvent } from "../model/webhook";
 
 describe("subscription documents", () => {
+    it("limits restoration reads to the subscription and billing window", async () => {
+        const rows = [
+            { store_subscription_id: "subscription_1", period_start_at_ms: 1_000 },
+            { store_subscription_id: "subscription_2", period_start_at_ms: 1_000 },
+            { store_subscription_id: "subscription_1", period_start_at_ms: 2_000 },
+        ];
+        const ctx = {
+            db: {
+                query: (table: string) => {
+                    expect(table).toBe("quota_periods");
+                    return {
+                        withIndex: (index: string, buildRange: (range: { eq: (field: string, value: unknown) => unknown }) => unknown) => {
+                            expect(index).toBe("by_store_subscription_id_and_period_start_at_ms");
+                            const filters: [string, unknown][] = [];
+                            const range = {
+                                eq: (field: string, value: unknown) => {
+                                    filters.push([field, value]);
+                                    return range;
+                                },
+                            };
+                            buildRange(range);
+                            return {
+                                collect: async () => rows.filter((row) => filters.every(
+                                    ([field, value]) => row[field as keyof typeof row] === value
+                                )),
+                            };
+                        },
+                    };
+                },
+            },
+        };
+
+        await expect(listQuotaPeriodsByStoreSubscriptionWindow(ctx as never, "subscription_1", 1_000))
+            .resolves.toEqual([rows[0]]);
+    });
+
     it("fails loudly when a user has duplicate subscription states", async () => {
         const duplicateError = new Error("query returned more than one document");
         const unique = jest.fn(async () => {

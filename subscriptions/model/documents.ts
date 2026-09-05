@@ -116,3 +116,17 @@ export async function listActiveUsageEventsByUserIdBatch(
         )
         .take(safeLimit);
 }
+
+export async function listQuotaPeriodsByStoreSubscriptionWindow(
+    ctx: DbReaderCtx,
+    storeSubscriptionId: string,
+    periodStartAtMs: number
+) {
+    return ctx.db
+        .query("quota_periods")
+        .withIndex("by_store_subscription_id_and_period_start_at_ms", (query) =>
+            query.eq("store_subscription_id", storeSubscriptionId)
+                .eq("period_start_at_ms", periodStartAtMs)
+        )
+        .collect();
+}

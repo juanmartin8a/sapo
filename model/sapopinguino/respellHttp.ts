@@ -5,7 +5,7 @@ import type { AuthenticatedHttpContext } from "../../lib/httpAuth";
 import { TokenParser } from "./tokenParser";
 import { prepareSapopinguinoRequest } from "./requestPreparation";
 import { createSapopinguinoQuotaStream } from "./quotaStream";
-import { streamOpenAIResponses } from "./openAiResponses";
+import { streamCloudflareAI } from "./cloudflareAi";
 import { tryEnqueueStreamOutput } from "./streamOutput";
 import {
     KEEP_ALIVE_CONNECTION,
@@ -65,10 +65,9 @@ export async function handleSapopinguinoRequest(
         log_context: "sapopinguino stream",
         run: async ({ controller, upstream, ensureQuotaCharged, hasChargedQuota }) => {
             const tokenParser = new TokenParser();
-            return streamOpenAIResponses({
+            return streamCloudflareAI({
                     input,
-                    promptId: process.env.OPENAI_SAPOPINGUINO_PROMPT_ID,
-                    promptVersion: process.env.OPENAI_SAPOPINGUINO_PROMPT_V,
+                    operation: "respell",
                     signal: upstream.signal,
                     onDelta: async (delta) => {
                         const parsedTokens = tokenParser.consume(delta);
