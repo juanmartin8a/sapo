@@ -45,22 +45,9 @@ export function buildSapopinguinoQuotaRequestId(
     return `${operation}:${streamId}`;
 }
 
-export function resolveSapopinguinoInputCharacterCount(inputPayload: string) {
-    try {
-        const parsed = JSON.parse(inputPayload) as unknown;
-
-        if (typeof parsed === "object" && parsed !== null && "input" in parsed) {
-            const inputValue = (parsed as { input?: unknown }).input;
-
-            if (typeof inputValue === "string") {
-                return Array.from(inputValue).length;
-            }
-        }
-    } catch {
-        return Array.from(inputPayload).length;
-    }
-
-    return Array.from(inputPayload).length;
+export function resolveSapopinguinoInputCharacterCount(input: string) {
+    // Request preparation already extracted the user text from the transport payload.
+    return Array.from(input).length;
 }
 
 export async function reserveSapopinguinoQuota(

@@ -8,6 +8,8 @@ import { buildCorsResponseHeaders } from "../http/cors";
 
 function getQuotaErrorMessage(reason: string) {
     switch (reason) {
+        case SUBSCRIPTION_QUOTA_ERROR_CODES.REQUEST_RATE_LIMITED:
+            return "Too many requests. Please wait a moment and try again.";
         case SUBSCRIPTION_QUOTA_ERROR_CODES.MONTHLY_LIMIT_EXCEEDED:
             return "Quota limit reached.";
         case SUBSCRIPTION_QUOTA_ERROR_CODES.INPUT_LIMIT_EXCEEDED:

@@ -4,7 +4,7 @@ import { handleCorsOptionsRequest } from "../http/responses";
 import type { AuthenticatedHttpContext } from "../../lib/httpAuth";
 import { prepareSapopinguinoRequest } from "./requestPreparation";
 import { createSapopinguinoQuotaStream } from "./quotaStream";
-import { streamOpenAIResponses } from "./openAiResponses";
+import { streamCloudflareAI } from "./cloudflareAi";
 import { tryEnqueueStreamOutput } from "./streamOutput";
 import {
     KEEP_ALIVE_CONNECTION,
@@ -82,10 +82,9 @@ export async function handleSapopinguinoTranslateRequest(
         usage_event_id: usageEventId,
         log_context: "sapopinguino translate stream",
         run: ({ controller, upstream, ensureQuotaCharged, hasChargedQuota }) =>
-            streamOpenAIResponses({
+            streamCloudflareAI({
                     input,
-                    promptId: process.env.OPENAI_SAPOPINGUINO_TRANSLATE_PROMPT_ID,
-                    promptVersion: process.env.OPENAI_SAPOPINGUINO_TRANSLATE_PROMPT_V,
+                    operation: "translate",
                     signal: upstream.signal,
                     onDelta: async (delta) => {
                         if (delta.length === 0) {

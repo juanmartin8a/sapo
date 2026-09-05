@@ -1,0 +1,81 @@
+{
+  "name": "sapopinguino",
+  "strict": true,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "tokens": {
+        "type": "array",
+        "description": "Ordered token stream in final output order.",
+        "items": {
+          "anyOf": [
+            {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "word"
+                  ]
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "items": {
+                "type": "string"
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "whitespace"
+                  ]
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "items": {
+                "type": "string"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "punctuation"
+                  ]
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "items": {
+                "type": "string"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            }
+          ]
+        }
+      }
+    },
+    "required": [
+      "tokens"
+    ],
+    "additionalProperties": false
+  }
+}

@@ -1,16 +1,23 @@
 import { ABORT_ERROR_NAME } from "../../constants/errors";
 
-const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
-const OPENAI_RESPONSES_TOTAL_TIMEOUT_MS = 120_000;
-const OPENAI_RESPONSES_STREAM_IDLE_TIMEOUT_MS = 20_000;
+import { respellPrompt, translatePrompt } from "./prompts.generated";
+import respellSchema from "../../prompts/respell.schema.json";
+const AI_TOTAL_TIMEOUT_MS = 120_000;
+const AI_STREAM_IDLE_TIMEOUT_MS = 20_000;
 
-type OpenAIStreamEvent = {
+type AIStreamEvent = {
     type?: string;
     delta?: string;
+    error?: unknown;
+    choices?: {
+        index?: number;
+        delta?: { content?: string | null; refusal?: string | null };
+        finish_reason?: string | null;
+    }[];
 };
 
-type OpenAIStreamStep = "continue" | "completed" | "errored";
-type OpenAIAbortReason = "external" | "total_timeout" | "stream_idle_timeout";
+type AIStreamStep = "continue" | "completed" | "errored";
+type AIAbortReason = "external" | "total_timeout" | "stream_idle_timeout";
 
 function sseEventsFromChunkBuffer(chunkBuffer: string): { events: string[]; remainder: string } {
     const normalized = chunkBuffer.replace(/\r\n/g, "\n");
@@ -48,29 +55,59 @@ function readSSEDataLines(rawEvent: string): string | null {
     return dataLines.join("\n");
 }
 
-export async function streamOpenAIResponses(args: {
+export async function streamCloudflareAI(args: {
     input: string;
-    promptId: string | undefined;
-    promptVersion: string | undefined;
+    operation: "respell" | "translate";
     signal: AbortSignal;
-    onDelta: (delta: string) => Promise<OpenAIStreamStep>;
+    onDelta: (delta: string) => Promise<AIStreamStep>;
     onCompleted: () => Promise<void> | void;
     onErrored: () => Promise<void> | void;
 }): Promise<"completed" | "errored"> {
-    const openAIKey = process.env.OPENAI_API_KEY;
+    const accountId = process.env.CLOUDFLARE_ACCOUNT_ID?.trim();
+    const gatewayId = process.env.CLOUDFLARE_AI_GATEWAY_ID?.trim();
+    const apiToken = process.env.CLOUDFLARE_API_TOKEN?.trim();
 
-    if (!openAIKey) {
+    if (!accountId || !apiToken || (args.operation === "respell" && !gatewayId)) {
+        console.error("Cloudflare AI configuration missing", { operation: args.operation });
         await args.onErrored();
         return "errored";
     }
 
+    const isRespell = args.operation === "respell";
+    const url = isRespell
+        ? `https://gateway.ai.cloudflare.com/v1/${encodeURIComponent(accountId)}/${encodeURIComponent(gatewayId!)}/openai/responses`
+        : `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/v1/chat/completions`;
+    const authHeaders: Record<string, string> = isRespell
+        ? { "cf-aig-authorization": `Bearer ${apiToken}` }
+        : { Authorization: `Bearer ${apiToken}` };
+    const body = isRespell
+        ? {
+              model: "gpt-5.6-luna",
+              instructions: respellPrompt,
+              input: args.input,
+              reasoning: { effort: "none" },
+              text: { format: { type: "json_schema", ...respellSchema } },
+              store: false,
+              stream: true,
+          }
+        : {
+              model: "@cf/google/gemma-4-26b-a4b-it",
+              messages: [
+                  { role: "system", content: translatePrompt },
+                  { role: "user", content: args.input },
+              ],
+              chat_template_kwargs: { enable_thinking: false },
+              max_completion_tokens: 16_384,
+              stream: true,
+          };
+
     const streamAbortController = new AbortController();
-    let abortReason: OpenAIAbortReason | null = null;
+    let abortReason: AIAbortReason | null = null;
     let totalTimeout: ReturnType<typeof setTimeout> | null = null;
     let streamIdleTimeout: ReturnType<typeof setTimeout> | null = null;
     let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
 
-    const abortStream = (reason: OpenAIAbortReason) => {
+    const abortStream = (reason: AIAbortReason) => {
         if (streamAbortController.signal.aborted) {
             return;
         }
@@ -99,7 +136,7 @@ export async function streamOpenAIResponses(args: {
         if (!streamAbortController.signal.aborted) {
             streamIdleTimeout = setTimeout(
                 () => abortStream("stream_idle_timeout"),
-                OPENAI_RESPONSES_STREAM_IDLE_TIMEOUT_MS
+                AI_STREAM_IDLE_TIMEOUT_MS
             );
         }
     };
@@ -112,28 +149,25 @@ export async function streamOpenAIResponses(args: {
         args.signal.addEventListener("abort", abortFromExternalSignal, { once: true });
     }
 
-    totalTimeout = setTimeout(() => abortStream("total_timeout"), OPENAI_RESPONSES_TOTAL_TIMEOUT_MS);
+    totalTimeout = setTimeout(() => abortStream("total_timeout"), AI_TOTAL_TIMEOUT_MS);
 
     try {
-        const upstreamResponse = await fetch(OPENAI_RESPONSES_URL, {
+        const upstreamResponse = await fetch(url, {
             method: "POST",
             headers: {
-                Authorization: `Bearer ${openAIKey}`,
+                ...authHeaders,
                 "Content-Type": "application/json",
                 Accept: "text/event-stream",
             },
-            body: JSON.stringify({
-                prompt: {
-                    id: args.promptId,
-                    version: args.promptVersion,
-                },
-                input: args.input,
-                stream: true,
-            }),
+            body: JSON.stringify(body),
             signal: streamAbortController.signal,
         });
 
         if (!upstreamResponse.ok || upstreamResponse.body === null) {
+            console.error("Cloudflare AI request failed", {
+                operation: args.operation,
+                status: upstreamResponse.status,
+            });
             await args.onErrored();
             return "errored";
         }
@@ -143,20 +177,29 @@ export async function streamOpenAIResponses(args: {
         let eventBuffer = "";
         refreshStreamIdleTimeout();
 
-        const handleDataPayload = async (dataPayload: string): Promise<OpenAIStreamStep> => {
+        const handleDataPayload = async (dataPayload: string): Promise<AIStreamStep> => {
             if (dataPayload === "[DONE]") {
-                await args.onCompleted();
-                return "completed";
+                // A terminal success event is required; [DONE] alone can hide truncation.
+                await args.onErrored();
+                return "errored";
             }
 
-            let parsedEvent: OpenAIStreamEvent;
+            let parsedEvent: AIStreamEvent;
             try {
-                parsedEvent = JSON.parse(dataPayload) as OpenAIStreamEvent;
+                parsedEvent = JSON.parse(dataPayload) as AIStreamEvent;
             } catch {
-                return "continue";
+                await args.onErrored();
+                return "errored";
+            }
+
+            if (!parsedEvent || typeof parsedEvent !== "object") {
+                await args.onErrored();
+                return "errored";
             }
 
             if (
+                parsedEvent.error != null ||
+                parsedEvent.type === "response.refusal.delta" ||
                 parsedEvent.type === "error" ||
                 parsedEvent.type?.endsWith(".error") ||
                 parsedEvent.type === "response.failed" ||
@@ -165,6 +208,26 @@ export async function streamOpenAIResponses(args: {
             ) {
                 await args.onErrored();
                 return "errored";
+            }
+
+            if (!isRespell) {
+                const choice = parsedEvent.choices?.find((item) => item.index === 0);
+                if (!choice) return "continue";
+                if (choice.delta?.refusal || (choice.finish_reason && choice.finish_reason !== "stop")) {
+                    await args.onErrored();
+                    return "errored";
+                }
+                // Only content is public output. Never forward reasoning_content or reasoning.
+                const content = choice.delta?.content;
+                if (typeof content === "string" && content.length > 0) {
+                    const step = await args.onDelta(content);
+                    if (step !== "continue") return step;
+                }
+                if (choice.finish_reason === "stop") {
+                    await args.onCompleted();
+                    return "completed";
+                }
+                return "continue";
             }
 
             if (parsedEvent.type === "response.completed") {

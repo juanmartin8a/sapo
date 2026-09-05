@@ -1,3 +1,4 @@
+import { isUsageRequestRateLimited } from "./usageRateLimit";
 import { internal } from "../_generated/api";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type * as WebhookArgs from "../validators/webhook";
@@ -61,6 +62,7 @@ import {
     listActiveUsageEventsByUserIdBatch,
     listQuotaPeriodsByUserIdAndWindowKey,
     listQuotaPeriodsByUserId,
+    listQuotaPeriodsByStoreSubscriptionWindow,
     listQuotaPeriodsByUserIdBatch,
     prepareQuotaPeriodsForUserDeletionBatch,
     listSubscriptionStatesByUserId,
@@ -827,12 +829,11 @@ async function getRestorableFrozenQuotaPeriodByStoreSubscriptionPeriodId(
 
     const periodStartAtMs = args.period_start_at_ms;
 
-    const fallbackCandidates = await ctx.db
-        .query("quota_periods")
-        .withIndex("by_status_and_period_start_at_ms", (query) =>
-            query.eq("status", "frozen").eq("period_start_at_ms", periodStartAtMs)
-        )
-        .collect();
+    const fallbackCandidates = await listQuotaPeriodsByStoreSubscriptionWindow(
+        ctx,
+        args.store_subscription_id,
+        periodStartAtMs
+    );
 
     return selectBestRestorableQuotaPeriod(
         fallbackCandidates.filter((quotaPeriod) => {
@@ -915,22 +916,13 @@ async function getQuotaPeriodRestorationTargetForDeletedUser(
         return null;
     }
 
-    const [openCandidates, closedCandidates] = await Promise.all([
-        ctx.db
-            .query("quota_periods")
-            .withIndex("by_status_and_period_start_at_ms", (query) =>
-                query.eq("status", "open").eq("period_start_at_ms", args.period_start_at_ms)
-            )
-            .collect(),
-        ctx.db
-            .query("quota_periods")
-            .withIndex("by_status_and_period_start_at_ms", (query) =>
-                query.eq("status", "closed").eq("period_start_at_ms", args.period_start_at_ms)
-            )
-            .collect(),
-    ]);
+    const candidates = await listQuotaPeriodsByStoreSubscriptionWindow(
+        ctx,
+        args.store_subscription_id,
+        args.period_start_at_ms
+    );
 
-    return selectTarget([...openCandidates, ...closedCandidates]);
+    return selectTarget(candidates);
 }
 
 async function resolveCurrentSubscriptionQuotaContext(
@@ -1554,6 +1546,13 @@ export const reserveSubscriptionQuotaUsage = async (ctx: MutationCtx, args: Webh
                 reason: "duplicate_req_id",
                 usage_event_id: existingUsageEvent._id,
                 state: existingUsageEvent.state,
+            };
+        }
+
+        if (await isUsageRequestRateLimited(ctx, args.user_id, args.now_ms)) {
+            return {
+                allowed: false,
+                reason: SUBSCRIPTION_QUOTA_ERROR_CODES.REQUEST_RATE_LIMITED,
             };
         }
 

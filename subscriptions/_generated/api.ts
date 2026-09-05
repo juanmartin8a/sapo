@@ -16,6 +16,7 @@ import type * as model_quotaPeriodCounters from "../model/quotaPeriodCounters.js
 import type * as model_revenueCatEventUserDocuments from "../model/revenueCatEventUserDocuments.js";
 import type * as model_subscriptionWindows from "../model/subscriptionWindows.js";
 import type * as model_usageEventLifecycle from "../model/usageEventLifecycle.js";
+import type * as model_usageRateLimit from "../model/usageRateLimit.js";
 import type * as model_userDeletionQueueDocuments from "../model/userDeletionQueueDocuments.js";
 import type * as model_userDeletionRevenueCatEvents from "../model/userDeletionRevenueCatEvents.js";
 import type * as model_webhook from "../model/webhook.js";
@@ -38,6 +39,7 @@ const fullApi: ApiFromModules<{
   "model/revenueCatEventUserDocuments": typeof model_revenueCatEventUserDocuments;
   "model/subscriptionWindows": typeof model_subscriptionWindows;
   "model/usageEventLifecycle": typeof model_usageEventLifecycle;
+  "model/usageRateLimit": typeof model_usageRateLimit;
   "model/userDeletionQueueDocuments": typeof model_userDeletionQueueDocuments;
   "model/userDeletionRevenueCatEvents": typeof model_userDeletionRevenueCatEvents;
   "model/webhook": typeof model_webhook;
