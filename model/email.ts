@@ -1,3 +1,4 @@
+import { getEmailTestMode } from "./emailConfig";
 import { components } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
 import { Resend } from "@convex-dev/resend";
@@ -5,7 +6,7 @@ import { Resend } from "@convex-dev/resend";
 const EMAIL_FROM = "S A P O <donotreply@sapo.surf>";
 
 const resend: Resend = new Resend(components.resend, {
-    testMode: false,
+    testMode: getEmailTestMode(),
 });
 
 type ResendMutationContext = Parameters<Resend["handleResendEventWebhook"]>[0];

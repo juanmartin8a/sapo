@@ -9,9 +9,11 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as constants_app from "../constants/app.js";
 import type * as constants_errors from "../constants/errors.js";
 import type * as constants_http from "../constants/http.js";
 import type * as constants_limits from "../constants/limits.js";
+import type * as constants_operationalAlerts from "../constants/operationalAlerts.js";
 import type * as constants_revenueCat from "../constants/revenueCat.js";
 import type * as constants_sapopinguino from "../constants/sapopinguino.js";
 import type * as constants_subscriptions from "../constants/subscriptions.js";
@@ -23,6 +25,7 @@ import type * as http from "../http.js";
 import type * as lib_httpAuth from "../lib/httpAuth.js";
 import type * as model_auth from "../model/auth.js";
 import type * as model_email from "../model/email.js";
+import type * as model_emailConfig from "../model/emailConfig.js";
 import type * as model_errors from "../model/errors.js";
 import type * as model_http_cors from "../model/http/cors.js";
 import type * as model_http_requestBody from "../model/http/requestBody.js";
@@ -69,9 +72,11 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  "constants/app": typeof constants_app;
   "constants/errors": typeof constants_errors;
   "constants/http": typeof constants_http;
   "constants/limits": typeof constants_limits;
+  "constants/operationalAlerts": typeof constants_operationalAlerts;
   "constants/revenueCat": typeof constants_revenueCat;
   "constants/sapopinguino": typeof constants_sapopinguino;
   "constants/subscriptions": typeof constants_subscriptions;
@@ -83,6 +88,7 @@ declare const fullApi: ApiFromModules<{
   "lib/httpAuth": typeof lib_httpAuth;
   "model/auth": typeof model_auth;
   "model/email": typeof model_email;
+  "model/emailConfig": typeof model_emailConfig;
   "model/errors": typeof model_errors;
   "model/http/cors": typeof model_http_cors;
   "model/http/requestBody": typeof model_http_requestBody;

@@ -6,6 +6,9 @@ import {
     queueDeletedUserDataCleanup,
 } from "../subscriptionsWorkers";
 import {
+    processQueuedUserDeletions,
+    recoverAuthDeleteDeadLetterUserDeletions,
+    recoverCleanupDeadLetterUserDeletions,
     beginSubscriptionStateReconciliationAndScheduleActivation,
     beginSubscriptionStateReconciliationAndScheduleUsageRefresh,
     executePendingSubscriptionActivationRetry,
@@ -2103,5 +2106,25 @@ describe("user deletion scheduling", () => {
         });
 
         expect(scheduler.runAfter).not.toHaveBeenCalled();
+    });
+});
+
+// A webhook throughput override must never alter account-deletion processing.
+describe("independent deletion worker batching", () => {
+    afterEach(() => { process.env = originalEnv; });
+
+    it.each(["1", "100", "invalid"])("ignores webhook batch override %s", async (value) => {
+        process.env = { ...originalEnv, REVENUECAT_WEBHOOK_RETRY_BATCH_LIMIT: value };
+        const runQuery = jest.fn(async () => []);
+        const ctx = { runQuery } as unknown as Parameters<typeof processQueuedUserDeletions>[0];
+
+        await processQueuedUserDeletions(ctx);
+        await recoverAuthDeleteDeadLetterUserDeletions(ctx);
+        await recoverCleanupDeadLetterUserDeletions(ctx, {});
+
+        expect(runQuery).toHaveBeenCalledTimes(3);
+        for (const call of runQuery.mock.calls) {
+            expect(call).toEqual([expect.anything(), expect.objectContaining({ limit: 20 })]);
+        }
     });
 });

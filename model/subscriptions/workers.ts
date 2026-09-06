@@ -3,6 +3,7 @@ import type { ActionCtx, MutationCtx } from "../../_generated/server";
 import type * as WorkerArgs from "../../validators/subscriptionsWorkers";
 import { FAR_FUTURE_TIMESTAMP_MS } from "../../constants/time";
 import {
+    FROZEN_QUOTA_PERIOD_RETENTION_MS,
     PENDING_ACTIVE_SIGNAL_TTL_MS,
     SUBSCRIPTION_ACTIVATION_RETRY_DELAYS_MS,
     SUBSCRIPTION_PLAN_KEYS,
@@ -10,6 +11,9 @@ import {
     type SubscriptionPlanKey,
 } from "../../constants/subscriptions";
 import {
+    REVENUECAT_RECONCILIATION_FAILURE_BACKOFF_MS,
+    REVENUECAT_EVENTS_RETENTION_MS,
+    REVENUECAT_WEBHOOK_RETRY_CONFIG,
     REVENUECAT_TERMINAL_WEBHOOK_EVENT_STATUSES,
     type RevenueCatWebhookEventStatus,
 } from "../../constants/revenueCat";
@@ -30,12 +34,8 @@ import {
 } from "./userDeletionQueue";
 
 import {
-    getFrozenQuotaPeriodRetentionMs,
     getReconciliationBatchLimit,
-    getReconciliationFailureBackoffMs,
-    getRevenueCatEventsRetentionMs,
     getRetryBatchLimit,
-    getWebhookRetryConfig,
 } from "./config";
 import {
     deleteRevenueCatCustomer,
@@ -83,6 +83,7 @@ import {
     type UserDeletionSnapshot,
 } from "./componentApi";
 
+const USER_DELETION_WORKER_BATCH_LIMIT = 20;
 const RETENTION_PURGE_BATCH_LIMIT_PER_STATUS = 500;
 const FROZEN_QUOTA_PERIOD_PURGE_BATCH_LIMIT = 500;
 const FROZEN_QUOTA_PERIOD_PURGE_MAX_BATCHES = 10;
@@ -1209,7 +1210,7 @@ async function reconcileSubscriptionStateFromRevenueCat(
             const nextAttemptAtMs =
                 typeof accessExpiresAtMs === "number" && applyAtMs < accessExpiresAtMs
                     ? accessExpiresAtMs
-                    : applyAtMs + getReconciliationFailureBackoffMs();
+                    : applyAtMs + REVENUECAT_RECONCILIATION_FAILURE_BACKOFF_MS;
 
             if (syncAttemptId) {
                 await releaseSubscriptionStateReconciliation(ctx, {
@@ -1307,7 +1308,7 @@ async function reconcileSubscriptionStateFromRevenueCat(
         const releaseNowMs = Date.now();
         const apiRetryDelayMs = getRevenueCatApiErrorRetryDelayMs(error) ?? 0;
         const nextAttemptAtMs = releaseNowMs + Math.max(
-            getReconciliationFailureBackoffMs(),
+            REVENUECAT_RECONCILIATION_FAILURE_BACKOFF_MS,
             apiRetryDelayMs
         );
 
@@ -1413,7 +1414,7 @@ export async function processRevenueCatWebhookEventById(
                 ...blockedUserIds.map((userId) => `${userId}: user deletion in progress`),
                 ...activeProcessingUserIds.map((userId) => `${userId}: processing already active`),
             ].join(" | "),
-            next_retry_at_ms: args.now_ms + getReconciliationFailureBackoffMs(),
+            next_retry_at_ms: args.now_ms + REVENUECAT_RECONCILIATION_FAILURE_BACKOFF_MS,
         });
 
         return {
@@ -1550,7 +1551,7 @@ export async function processRevenueCatWebhookEventById(
                 .map((failure) => `${failure.result.revenuecat_app_user_id}: ${failure.result.error}`)
                 .join(" | "),
             ...(nextRetryAtMs > args.now_ms ? { next_retry_at_ms: nextRetryAtMs } : {}),
-            retry_config: getWebhookRetryConfig(),
+            retry_config: REVENUECAT_WEBHOOK_RETRY_CONFIG,
         });
 
         return {
@@ -1601,7 +1602,7 @@ export async function processRevenueCatWebhookEventById(
                 .concat(activeProcessingUserIds.map((userId) => `${userId}: processing already active`))
                 .join(" | "),
             next_retry_at_ms:
-                syncRetryAtMs ?? args.now_ms + getReconciliationFailureBackoffMs(),
+                syncRetryAtMs ?? args.now_ms + REVENUECAT_RECONCILIATION_FAILURE_BACKOFF_MS,
         });
 
         return {
@@ -2431,7 +2432,7 @@ export const processQueuedUserDeletions = async (ctx: ActionCtx) => {
         const startedAtMs = Date.now();
         const dueOperations = await listDueUserDeletionOperationUserIds(ctx, {
             now_ms: startedAtMs,
-            limit: Math.max(1, Math.min(getRetryBatchLimit(), 25)),
+            limit: USER_DELETION_WORKER_BATCH_LIMIT,
         });
         const results: { user_id: string; status: string; error?: string }[] = [];
 
@@ -2470,7 +2471,7 @@ export const processQueuedUserDeletions = async (ctx: ActionCtx) => {
 export const recoverAuthDeleteDeadLetterUserDeletions = async (ctx: ActionCtx) => {
         const startedAtMs = Date.now();
         const deadLetterOperations = await listAuthDeleteDeadLetterUserDeletionOperationUserIds(ctx, {
-            limit: Math.max(1, Math.min(getRetryBatchLimit(), 25)),
+            limit: USER_DELETION_WORKER_BATCH_LIMIT,
         });
         const results: { user_id: string; status: string; error?: string }[] = [];
 
@@ -2524,7 +2525,7 @@ export const recoverCleanupDeadLetterUserDeletions = async (ctx: ActionCtx, args
             typeof args.user_id === "string" ||
             args.dry_run === true;
         const deadLetterOperations = await listCleanupDeadLetterUserDeletionOperationUserIds(ctx, {
-            limit: Math.max(1, Math.min(args.limit ?? getRetryBatchLimit(), 25)),
+            limit: Math.max(1, Math.min(args.limit ?? USER_DELETION_WORKER_BATCH_LIMIT, 25)),
             ...(retryImmediately ? {} : { now_ms: startedAtMs }),
             ...(typeof args.user_id === "string" ? { user_id: args.user_id } : {}),
         });
@@ -2648,7 +2649,7 @@ export const processRevenueCatWebhookEvent = async (ctx: ActionCtx, args: Worker
                     processed_user_ids: [],
                     ignored_user_ids: [],
                     error_message: formatErrorMessage(error),
-                    retry_config: getWebhookRetryConfig(),
+                    retry_config: REVENUECAT_WEBHOOK_RETRY_CONFIG,
                 })
                 .catch(() => {
                     return null;
@@ -2707,7 +2708,7 @@ export const retryRevenueCatWebhookEvents = async (ctx: ActionCtx) => {
                     processed_user_ids: [],
                     ignored_user_ids: [],
                     error_message: formatErrorMessage(error),
-                    retry_config: getWebhookRetryConfig(),
+                    retry_config: REVENUECAT_WEBHOOK_RETRY_CONFIG,
                 });
             }
 
@@ -2822,7 +2823,7 @@ export const reconcileExpiredSubscriptionStates = async (ctx: ActionCtx): Promis
                     : 0,
                 typeof accessExpiresAtMs === "number" && reconciliationNowMs < accessExpiresAtMs
                     ? accessExpiresAtMs
-                    : Date.now() + getReconciliationFailureBackoffMs()
+                    : Date.now() + REVENUECAT_RECONCILIATION_FAILURE_BACKOFF_MS
             );
 
             const deferralResult = await ctx.runMutation(
@@ -2851,7 +2852,7 @@ export const reconcileExpiredSubscriptionStates = async (ctx: ActionCtx): Promis
 
 export const purgeExpiredRevenueCatEvents = async (ctx: ActionCtx) => {
         const nowMs = Date.now();
-        const retentionMs = getRevenueCatEventsRetentionMs();
+        const retentionMs = REVENUECAT_EVENTS_RETENTION_MS;
         const olderThanMs = getRevenueCatEventsRetentionCutoffMs(nowMs, retentionMs);
 
         const statusesToPurge = REVENUECAT_TERMINAL_WEBHOOK_EVENT_STATUSES;
@@ -2891,7 +2892,7 @@ export const purgeExpiredRevenueCatEvents = async (ctx: ActionCtx) => {
 
 export const purgeExpiredFrozenQuotaPeriods = async (ctx: ActionCtx) => {
         const nowMs = Date.now();
-        const olderThanMs = nowMs - getFrozenQuotaPeriodRetentionMs();
+        const olderThanMs = nowMs - FROZEN_QUOTA_PERIOD_RETENTION_MS;
         let batchCount = 0;
         let scannedCount = 0;
         let deletedCount = 0;
@@ -2915,7 +2916,7 @@ export const purgeExpiredFrozenQuotaPeriods = async (ctx: ActionCtx) => {
         }
 
         return {
-            retention_ms: getFrozenQuotaPeriodRetentionMs(),
+            retention_ms: FROZEN_QUOTA_PERIOD_RETENTION_MS,
             older_than_ms: olderThanMs,
             batch_count: batchCount,
             scanned_count: scannedCount,

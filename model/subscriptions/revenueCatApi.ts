@@ -1,8 +1,8 @@
+import { REVENUECAT_EVENTS_RETENTION_MS } from "../../constants/revenueCat";
 import {
     getOnDemandSubscriptionRefreshIntervalMs,
     getPolyglotEntitlementId,
     getRevenueCatProjectId,
-    getRevenueCatEventsRetentionMs,
 } from "./config";
 import { ABORT_ERROR_NAME } from "../../constants/errors";
 import {
@@ -681,7 +681,7 @@ export function isRevenueCatApiErrorWithStatus(error: unknown, statuses: number[
 
 export function getRevenueCatEventsRetentionCutoffMs(
     nowMs: number,
-    retentionMs = getRevenueCatEventsRetentionMs()
+    retentionMs = REVENUECAT_EVENTS_RETENTION_MS
 ) {
     return nowMs - retentionMs;
 }
