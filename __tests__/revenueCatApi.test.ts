@@ -687,6 +687,19 @@ describe("RevenueCat API reconciliation", () => {
             .rejects.toThrow("RevenueCat v2 active entitlements request returned an invalid list entry");
     });
 
+    it.each([undefined, "invalid", "1900000000000", true, {}, -1, 1.5])(
+        "rejects an invalid entitlement expiration instead of granting indefinite access: %p",
+        async (expiresAt) => {
+            configureRevenueCatEnv();
+            globalThis.fetch = jest.fn(async () => jsonResponse(200, {
+                items: [{ entitlement_id: "entl_polyglot", expires_at: expiresAt }],
+            })) as typeof fetch;
+
+            await expect(fetchRevenueCatCustomerActiveEntitlementSnapshot("user_invalid_expiration"))
+                .rejects.toThrow("RevenueCat v2 active entitlements request returned an invalid entitlement");
+        }
+    );
+
     it("rejects malformed active entitlement pagination", async () => {
         configureRevenueCatEnv();
         globalThis.fetch = jest.fn(async () => jsonResponse(200, {
