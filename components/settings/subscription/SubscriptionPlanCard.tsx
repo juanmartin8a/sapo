@@ -25,6 +25,7 @@ const polyglotPlanLimits = SUBSCRIPTION_PLAN_LIMITS.polyglot;
 const PLAN_FEATURES = [
     `${polyglotPlanLimits.respell_monthly_char_limit.toLocaleString("en-US")} respell input characters`,
     `${polyglotPlanLimits.translate_monthly_char_limit.toLocaleString("en-US")} translate input characters`,
+    "Increased input limits per request",
 ] as const;
 
 const PLAN_CARD_COLORS = {
