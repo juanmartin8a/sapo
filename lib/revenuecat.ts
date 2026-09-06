@@ -257,18 +257,14 @@ export interface RevenueCatSubscriptionOffering {
 export const getRevenueCatSubscriptionOffering = async (): Promise<RevenueCatSubscriptionOffering> => {
     const offerings = await Purchases.getOfferings();
     const currentPackages = offerings.current?.availablePackages ?? [];
-    const allPackages = Object.values(offerings.all).flatMap(
-        (offering) => offering.availablePackages
-    );
     const configuredProductId = getRevenueCatSubscriptionProductId();
     const configuredPackage = configuredProductId.length > 0
-        ? allPackages.find((item) => item.product.identifier === configuredProductId)
+        ? currentPackages.find((item) => item.product.identifier === configuredProductId)
         : undefined;
-    const availablePackages = currentPackages.length > 0 ? currentPackages : allPackages;
-    const monthlyPackage = availablePackages.find(
+    const monthlyPackage = currentPackages.find(
         (item) => item.packageType === Purchases.PACKAGE_TYPE.MONTHLY
     );
-    const subscriptionPackage = configuredPackage ?? monthlyPackage ?? availablePackages[0] ?? null;
+    const subscriptionPackage = configuredPackage ?? monthlyPackage ?? currentPackages[0] ?? null;
 
     let subscriptionProduct: PurchasesStoreProduct | null = null;
     if (!subscriptionPackage && configuredProductId.length > 0) {
@@ -283,7 +279,6 @@ export const getRevenueCatSubscriptionOffering = async (): Promise<RevenueCatSub
         console.log("RevenueCat offerings loaded", {
             hasCurrentOffering: offerings.current !== null,
             currentPackagesCount: currentPackages.length,
-            allPackagesCount: allPackages.length,
             selectedProductId: subscriptionPackage?.product.identifier ?? subscriptionProduct?.identifier ?? null,
         });
     }
@@ -299,14 +294,6 @@ export const logOutRevenueCatIdentity = (
     }
 
     await configureRevenueCat(null);
-
-    if (configurePromise) {
-        try {
-            await configurePromise;
-        } catch {
-            // Fall through to the configured-state check below.
-        }
-    }
 
     const isConfigured = await Purchases.isConfigured();
 
