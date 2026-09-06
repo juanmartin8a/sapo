@@ -1,3 +1,4 @@
+import { APP_NAME } from "../../constants/app";
 import { createClient } from "@convex-dev/better-auth";
 import { convex, crossDomain } from "@convex-dev/better-auth/plugins";
 import {
@@ -411,7 +412,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
     ) ?? DEFAULT_CLIENT_ORIGIN;
 
     return {
-        appName: process.env.APP_NAME,
+        appName: APP_NAME,
         baseURL: process.env.CONVEX_SITE_URL,
         secret: process.env.BETTER_AUTH_SECRET,
         trustedOrigins: [APP_SCHEME_ORIGIN, ...clientOrigins, "https://appleid.apple.com"],

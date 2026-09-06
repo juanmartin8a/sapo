@@ -1,8 +1,8 @@
+import { REVENUECAT_EVENTS_RETENTION_MS } from "../../constants/revenueCat";
 import {
     getOnDemandSubscriptionRefreshIntervalMs,
     getPolyglotEntitlementId,
     getRevenueCatProjectId,
-    getRevenueCatEventsRetentionMs,
 } from "./config";
 import { ABORT_ERROR_NAME } from "../../constants/errors";
 import {
@@ -659,14 +659,19 @@ async function fetchRevenueCatCustomerActiveEntitlements(
 
     return items.map((entitlement) => {
         const entitlementId = parseString(entitlement.entitlement_id);
+        const expiresAt = entitlement.expires_at;
 
-        if (!entitlementId || !("expires_at" in entitlement)) {
+        if (
+            !entitlementId ||
+            (expiresAt !== null &&
+                (typeof expiresAt !== "number" || !Number.isSafeInteger(expiresAt) || expiresAt < 0))
+        ) {
             throw new Error("RevenueCat v2 active entitlements request returned an invalid entitlement");
         }
 
         return {
             entitlement_id: entitlementId,
-            expiration_at_ms: parseTimestampMs(entitlement.expires_at) ?? undefined,
+            expiration_at_ms: expiresAt ?? undefined,
         };
     });
 }
@@ -681,7 +686,7 @@ export function isRevenueCatApiErrorWithStatus(error: unknown, statuses: number[
 
 export function getRevenueCatEventsRetentionCutoffMs(
     nowMs: number,
-    retentionMs = getRevenueCatEventsRetentionMs()
+    retentionMs = REVENUECAT_EVENTS_RETENTION_MS
 ) {
     return nowMs - retentionMs;
 }

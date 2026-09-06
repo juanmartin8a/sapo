@@ -1,3 +1,4 @@
+import { getEmailTestMode } from "./emailConfig";
 import { components } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
 import { Resend } from "@convex-dev/resend";
@@ -5,20 +6,11 @@ import { Resend } from "@convex-dev/resend";
 const EMAIL_FROM = "S A P O <donotreply@sapo.surf>";
 
 const resend: Resend = new Resend(components.resend, {
-    testMode: false,
+    testMode: getEmailTestMode(),
 });
 
-type ResendMutationContext = Parameters<Resend["handleResendEventWebhook"]>[0];
-
-function toResendMutationContext(ctx: ActionCtx): ResendMutationContext {
-    // Resend is typed against an older Convex runMutation signature.
-    return {
-        runMutation: ctx.runMutation as ResendMutationContext["runMutation"],
-    } as unknown as ResendMutationContext;
-}
-
 export function handleResendWebhook(ctx: ActionCtx, request: Request) {
-    return resend.handleResendEventWebhook(toResendMutationContext(ctx), request);
+    return resend.handleResendEventWebhook(ctx, request);
 }
 
 export async function sendAccountDeletionVerificationEmail(
@@ -26,7 +18,7 @@ export async function sendAccountDeletionVerificationEmail(
     to: string,
     url: string,
 ) {
-    return resend.sendEmail(toResendMutationContext(ctx), {
+    return resend.sendEmail(ctx, {
         from: EMAIL_FROM,
         to,
         subject: "Verify Account Deletion",
@@ -43,7 +35,7 @@ export async function sendOperationalAlertEmail(
     subject: string,
     text: string,
 ) {
-    return resend.sendEmail(toResendMutationContext(ctx), {
+    return resend.sendEmail(ctx, {
         from: EMAIL_FROM,
         to,
         subject,

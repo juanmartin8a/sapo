@@ -1,7 +1,7 @@
 import { components } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
 import { sendOperationalAlertEmail } from "./email";
-import { getOperationalAlertsResolvedRetentionMs } from "./subscriptions/config";
+import { OPERATIONAL_ALERTS_RESOLVED_RETENTION_MS } from "../constants/operationalAlerts";
 import type { RecordOperationalAlertAndNotifyArgs } from "../operations/validators/operationalAlerts";
 
 const RESOLVED_ALERT_PURGE_BATCH_LIMIT = 500;
@@ -50,7 +50,7 @@ export async function recordOperationalAlertAndNotify(
 }
 
 export async function purgeResolvedOperationalAlerts(ctx: ActionCtx) {
-    const retentionMs = getOperationalAlertsResolvedRetentionMs();
+    const retentionMs = OPERATIONAL_ALERTS_RESOLVED_RETENTION_MS;
     const olderThanMs = Date.now() - retentionMs;
     let batchCount = 0;
     let scannedCount = 0;
