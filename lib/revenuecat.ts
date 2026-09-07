@@ -167,9 +167,11 @@ export const configureRevenueCat = async (appUserId: string | null): Promise<boo
     }
 
     configurePromise = (async () => {
-        if (__DEV__) {
-            await Purchases.setLogLevel(Purchases.LOG_LEVEL.DEBUG);
-        }
+        const debugLogging = __DEV__ &&
+            process.env.EXPO_PUBLIC_REVENUE_CAT_DEBUG === "true";
+        await Purchases.setLogLevel(
+            debugLogging ? Purchases.LOG_LEVEL.DEBUG : Purchases.LOG_LEVEL.WARN
+        );
 
         const isConfigured = await Purchases.isConfigured();
 
