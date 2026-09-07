@@ -164,8 +164,10 @@ export default function HomeScreen() {
             gesture.requireExternalGestureToFail(pagerNativeGesture);
         }
 
+        // This chain starts from a variable, so callbacks need explicit worklet directives.
         return gesture
             .onBegin(() => {
+                'worklet';
                 gestureStartX.value = sideBarTranslationX.value;
                 gestureStartIsOpen.value = sideBarTranslationX.value >= sidebarWidth / 2;
                 gestureAnimationTargetX.value = animationTargetX.value;
@@ -173,6 +175,7 @@ export default function HomeScreen() {
                 hasCapturedSidebarGesture.value = !isAnimating.value;
             })
             .onUpdate((event) => {
+                'worklet';
                 const dragDeltaX = event.translationX - gesturePreviousTranslationX.value;
                 gesturePreviousTranslationX.value = event.translationX;
 
@@ -199,6 +202,7 @@ export default function HomeScreen() {
                 sideBarTranslationX.value = clamped;
             })
             .onEnd((event) => {
+                'worklet';
                 if (!hasCapturedSidebarGesture.value) return;
                 if (isAnimating.value) return;
 
@@ -221,6 +225,7 @@ export default function HomeScreen() {
                 animateToTarget(shouldOpen ? sidebarWidth : 0, event.velocityX);
             })
             .onFinalize((_event, successful) => {
+                'worklet';
                 const shouldSettle = hasCapturedSidebarGesture.value && !successful && !isAnimating.value;
                 hasCapturedSidebarGesture.value = false;
 
