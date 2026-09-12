@@ -1,4 +1,4 @@
-import { describe, expect, it } from "@jest/globals";
+import { afterEach, describe, expect, it, jest } from "@jest/globals";
 
 import {
     buildRevenueCatWebhookEventForIngestion,
@@ -6,9 +6,39 @@ import {
     shouldSkipRevenueCatWebhookIngestion,
 } from "../model/subscriptions/revenueCatWebhookIngestion";
 import {
+    getRevenueCatWebhookEnvironmentDisposition,
+} from "../model/subscriptions/revenueCatWebhookHttp";
+import { handleRevenueCatWebhookRequest } from "../model/subscriptions/revenueCatWebhook";
+import {
     getRevenueCatWebhookCancelReasonFromRawPayload,
     normalizeRevenueCatWebhookEvent,
 } from "../model/subscriptions/revenueCatWebhookPayload";
+
+const originalEnv = process.env;
+
+afterEach(() => {
+    process.env = originalEnv;
+    jest.restoreAllMocks();
+});
+
+function revenueCatWebhookRequest(environment: string) {
+    return new Request("https://example.com/webhooks/revenuecat", {
+        method: "POST",
+        headers: {
+            Authorization: "Bearer webhook-secret",
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            event: {
+                id: "event_1",
+                type: "RENEWAL",
+                event_timestamp_ms: 1_000,
+                app_user_id: "user_1",
+                environment,
+            },
+        }),
+    });
+}
 
 describe("RevenueCat webhook ingestion guards", () => {
     it("requires a valid RevenueCat event timestamp", () => {
@@ -27,6 +57,73 @@ describe("RevenueCat webhook ingestion guards", () => {
         expect(normalizeRevenueCatWebhookEvent({
             event: { ...baseEvent, event_timestamp_ms: 1_000 },
         }, 1_000)).toMatchObject({ event_id: "event_1", event_at_ms: 1_000 });
+    });
+
+    it("accepts a matching webhook environment", () => {
+        expect(
+            getRevenueCatWebhookEnvironmentDisposition("PRODUCTION", "PRODUCTION")
+        ).toBe("match");
+    });
+
+    it("skips a valid mismatched webhook environment", () => {
+        expect(
+            getRevenueCatWebhookEnvironmentDisposition("SANDBOX", "PRODUCTION")
+        ).toBe("mismatch");
+    });
+
+    it("returns HTTP 200 without user lookup or ingestion for a mismatch", async () => {
+        process.env = {
+            ...originalEnv,
+            REVENUECAT_WEBHOOK_AUTH_SECRET: "webhook-secret",
+            REVENUECAT_WEBHOOK_ENVIRONMENT: "PRODUCTION",
+        };
+        jest.spyOn(console, "info").mockImplementation(() => undefined);
+        const ctx = {
+            runQuery: jest.fn(),
+            runMutation: jest.fn(),
+            scheduler: { runAfter: jest.fn() },
+        };
+
+        const response = await handleRevenueCatWebhookRequest(
+            ctx as never,
+            revenueCatWebhookRequest("SANDBOX")
+        );
+
+        expect(response.status).toBe(200);
+        await expect(response.json()).resolves.toEqual({ ok: true, skipped: true });
+        expect(ctx.runQuery).not.toHaveBeenCalled();
+        expect(ctx.runMutation).not.toHaveBeenCalled();
+        expect(ctx.scheduler.runAfter).not.toHaveBeenCalled();
+    });
+
+    it("compares lowercase event environments case-insensitively", () => {
+        expect(
+            getRevenueCatWebhookEnvironmentDisposition("sandbox", "SANDBOX")
+        ).toBe("match");
+    });
+
+    it("fails closed when the event environment is missing", () => {
+        expect(
+            getRevenueCatWebhookEnvironmentDisposition(undefined, "PRODUCTION")
+        ).toBe("invalid_event_environment");
+    });
+
+    it("fails closed when the event environment is invalid", () => {
+        expect(
+            getRevenueCatWebhookEnvironmentDisposition("STAGING", "PRODUCTION")
+        ).toBe("invalid_event_environment");
+    });
+
+    it("fails closed when the configured environment is missing or invalid", () => {
+        expect(
+            getRevenueCatWebhookEnvironmentDisposition("PRODUCTION", undefined)
+        ).toBe("invalid_configuration");
+        expect(
+            getRevenueCatWebhookEnvironmentDisposition("PRODUCTION", "production")
+        ).toBe("invalid_configuration");
+        expect(
+            getRevenueCatWebhookEnvironmentDisposition("PRODUCTION", "STAGING")
+        ).toBe("invalid_configuration");
     });
 
     it("prefers transferred users and ignores RevenueCat-generated ids", () => {

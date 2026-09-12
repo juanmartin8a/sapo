@@ -25,6 +25,16 @@ identifiers, `CLIENT_ORIGIN`, `DELETE_ACCOUNT_CALLBACK_URL`, `CONVEX_SITE_URL`,
 and `OPERATIONAL_ALERT_EMAIL` in deployment configuration. No changes to those
 settings are required by this cleanup.
 
+## Required deployment identity
+
+| Variable | Allowed values | Purpose |
+| --- | --- | --- |
+| `REVENUECAT_WEBHOOK_ENVIRONMENT` | `SANDBOX` or `PRODUCTION` | Accept only RevenueCat webhook events for the deployment's environment. |
+
+Set this independently for every Convex deployment. Missing or invalid
+configuration fails closed. Authenticated, valid events from the other
+environment return HTTP 200 and are skipped so RevenueCat does not retry them.
+
 ## Integration contracts
 
 Reviewed against official documentation on 2026-09-06. This is a source and local
@@ -60,8 +70,10 @@ deletion uses the separate `REVENUECAT_CI_CUSTOMERS_RW_API_KEY`.
 
 Register `https://<deployment>.convex.site/webhooks/revenuecat` with the
 authorization value configured in `REVENUECAT_WEBHOOK_AUTH_SECRET`. The handler
-persists events, schedules processing, and returns HTTP 200; duplicate events,
-aliases, transfers, and retries are handled by the subscription component.
+requires `REVENUECAT_WEBHOOK_ENVIRONMENT`, persists matching events, schedules
+processing, and returns HTTP 200; duplicate events, aliases, transfers, and
+retries are handled by the subscription component. This webhook filter does not
+affect client-initiated subscription reconciliation, including Apple Review.
 Choose the intended app and sandbox/production filters in the
 [webhook dashboard](https://www.revenuecat.com/docs/integrations/webhooks).
 

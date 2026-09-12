@@ -19,6 +19,7 @@ import {
     type NormalizedRevenueCatWebhookEvent,
 } from "./revenueCatWebhookPayload";
 import {
+    getRevenueCatWebhookEnvironmentDisposition,
     getRevenueCatWebhookResponseHeaders,
     isAuthorizedRevenueCatWebhookRequest,
     jsonRevenueCatWebhookResponse,
@@ -132,6 +133,34 @@ export async function handleRevenueCatWebhookRequest(ctx: ActionCtx, request: Re
         return jsonRevenueCatWebhookResponse(request, 400, {
             ok: false,
             error: "Invalid RevenueCat event payload",
+        });
+    }
+
+    const environmentDisposition = getRevenueCatWebhookEnvironmentDisposition(
+        normalizedEvent.environment,
+        process.env.REVENUECAT_WEBHOOK_ENVIRONMENT
+    );
+
+    if (environmentDisposition === "invalid_configuration") {
+        console.error("RevenueCat webhook environment is not configured correctly");
+        return jsonRevenueCatWebhookResponse(request, 500, {
+            ok: false,
+            error: "RevenueCat webhook environment is not configured",
+        });
+    }
+
+    if (environmentDisposition === "invalid_event_environment") {
+        return jsonRevenueCatWebhookResponse(request, 400, {
+            ok: false,
+            error: "Invalid RevenueCat event environment",
+        });
+    }
+
+    if (environmentDisposition === "mismatch") {
+        console.info("RevenueCat webhook skipped for mismatched environment");
+        return jsonRevenueCatWebhookResponse(request, 200, {
+            ok: true,
+            skipped: true,
         });
     }
 
