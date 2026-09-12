@@ -1,3 +1,4 @@
+import { assertRevenueCatEnvironmentConfigured, isRevenueCatEnvironmentAllowedForUser } from "./revenueCatEnvironment";
 import { REVENUECAT_EVENTS_RETENTION_MS } from "../../constants/revenueCat";
 import {
     getOnDemandSubscriptionRefreshIntervalMs,
@@ -694,6 +695,7 @@ export function getRevenueCatEventsRetentionCutoffMs(
 export async function fetchRevenueCatCustomerSubscriptionSnapshot(
     appUserId: string,
     options: {
+        access_app_user_id?: string;
         revenuecat_customer_id?: string;
         revenuecat_subscription_id?: string;
         active_entitlement_snapshot?: Pick<
@@ -701,16 +703,19 @@ export async function fetchRevenueCatCustomerSubscriptionSnapshot(
             "has_active_subscription" | "access_expires_at_ms"
         >;
     } = {}
-): Promise<RevenueCatReconciliationSnapshot> {
+): Promise<RevenueCatReconciliationSnapshot & { environment_access_denied?: boolean }> {
     const missingConfigMessage = getMissingRevenueCatEntitlementConfigMessage();
     if (missingConfigMessage) {
         throw new Error(missingConfigMessage);
     }
 
+    const accessAppUserId = options.access_app_user_id ?? appUserId;
+    assertRevenueCatEnvironmentConfigured();
     const config = getRevenueCatReadApiV2Config();
     const entitlementResourceId = getPolyglotEntitlementId();
 
     let selectedSubscription: ParsedRevenueCatSubscription | undefined;
+    let environmentAccessDenied = false;
 
     if (options.revenuecat_subscription_id) {
         const directSubscription = await fetchRevenueCatSubscriptionById(
@@ -739,6 +744,7 @@ export async function fetchRevenueCatCustomerSubscriptionSnapshot(
             directSubscription?.customer_id ===
                 (options.revenuecat_customer_id ?? appUserId) &&
             directSubscription.gives_access &&
+            isRevenueCatEnvironmentAllowedForUser(directSubscription.environment, accessAppUserId) &&
             directSubscription.entitlement_ids.includes(entitlementResourceId) &&
             matchesActiveEntitlement &&
             hasValidBillingBounds
@@ -753,8 +759,13 @@ export async function fetchRevenueCatCustomerSubscriptionSnapshot(
             config!,
             { request_count: 0 }
         );
+        environmentAccessDenied = parsedSubscriptions.some((subscription) =>
+            subscription.entitlement_ids.includes(entitlementResourceId) &&
+            !isRevenueCatEnvironmentAllowedForUser(subscription.environment, accessAppUserId)
+        );
         const matchingSubscriptions = parsedSubscriptions.filter((subscription) =>
-            subscription.entitlement_ids.includes(entitlementResourceId)
+            subscription.entitlement_ids.includes(entitlementResourceId) &&
+            isRevenueCatEnvironmentAllowedForUser(subscription.environment, accessAppUserId)
         );
 
         selectedSubscription = [...matchingSubscriptions].sort((left, right) => {
@@ -771,6 +782,7 @@ export async function fetchRevenueCatCustomerSubscriptionSnapshot(
 
     if (!selectedSubscription) {
         return {
+            ...(environmentAccessDenied ? { environment_access_denied: true } : {}),
             has_active_subscription: false,
         };
     }

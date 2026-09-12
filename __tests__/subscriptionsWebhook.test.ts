@@ -96,6 +96,57 @@ describe("RevenueCat webhook ingestion guards", () => {
         expect(ctx.scheduler.runAfter).not.toHaveBeenCalled();
     });
 
+    it.each([
+        ["SANDBOX", "PRODUCTION", "reviewer", " reviewer, tester\nthird ", "match"],
+        ["SANDBOX", "PRODUCTION", "review", "reviewer", "mismatch"],
+        ["SANDBOX", "PRODUCTION", "reviewer", "", "mismatch"],
+        ["PRODUCTION", "PRODUCTION", "customer", "", "match"],
+        ["PRODUCTION", "SANDBOX", "reviewer", "reviewer", "mismatch"],
+        ["SANDBOX", "SANDBOX", "tester", "", "match"],
+        ["STAGING", "PRODUCTION", "reviewer", "reviewer", "invalid_event_environment"],
+    ])("checks %s in %s for %s", (event, deployment, user, allowed, expected) => {
+        expect(getRevenueCatWebhookEnvironmentDisposition(event, deployment, user, allowed))
+            .toBe(expected);
+    });
+
+    it("ingests only allowlisted participants of a sandbox transfer in production", async () => {
+        process.env = {
+            ...originalEnv,
+            REVENUECAT_WEBHOOK_AUTH_SECRET: "webhook-secret",
+            REVENUECAT_WEBHOOK_ENVIRONMENT: "PRODUCTION",
+            REVENUECAT_SANDBOX_ALLOWED_APP_USER_IDS: "reviewer",
+        };
+        const ctx = {
+            runQuery: jest.fn(async (_ref: unknown, args: Record<string, unknown>) =>
+                args.model === "user" ? { _id: "reviewer" } : {}
+            ),
+            runMutation: jest.fn(async () => ({ event_doc_id: "event_doc" })),
+            scheduler: { runAfter: jest.fn(async () => null) },
+        };
+        const response = await handleRevenueCatWebhookRequest(ctx as never, new Request(
+            "https://example.com/webhooks/revenuecat", {
+                method: "POST",
+                headers: { Authorization: "Bearer webhook-secret", "Content-Type": "application/json" },
+                body: JSON.stringify({ event: {
+                    id: "transfer_1", type: "TRANSFER", event_timestamp_ms: 1_000,
+                    environment: "SANDBOX", app_user_id: "reviewer",
+                    aliases: ["unapproved_alias"],
+                    transferred_from: ["reviewer"], transferred_to: ["unapproved_destination"],
+                } }),
+            }
+        ));
+        expect(response.status).toBe(200);
+        expect(ctx.runQuery).toHaveBeenCalledTimes(2);
+        expect(ctx.runMutation).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+            normalized_event: expect.objectContaining({
+                app_user_id: "reviewer", aliases: [],
+                transferred_from: ["reviewer"], transferred_to: [],
+            }),
+        }));
+        expect(JSON.stringify(ctx.runMutation.mock.calls)).not.toContain("unapproved");
+        expect(ctx.scheduler.runAfter).toHaveBeenCalledTimes(1);
+    });
+
     it("compares lowercase event environments case-insensitively", () => {
         expect(
             getRevenueCatWebhookEnvironmentDisposition("sandbox", "SANDBOX")

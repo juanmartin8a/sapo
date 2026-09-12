@@ -3,17 +3,6 @@ import { buildCorsResponseHeaders } from "../http/cors";
 import { jsonResponse } from "../http/responses";
 import { parseString } from "../valueParsing";
 
-const REVENUECAT_WEBHOOK_ENVIRONMENTS = ["SANDBOX", "PRODUCTION"] as const;
-
-type RevenueCatWebhookEnvironment =
-    (typeof REVENUECAT_WEBHOOK_ENVIRONMENTS)[number];
-
-export type RevenueCatWebhookEnvironmentDisposition =
-    | "match"
-    | "mismatch"
-    | "invalid_event_environment"
-    | "invalid_configuration";
-
 function normalizeBearerValue(value: string): string {
     return value.replace(/^Bearer\s+/i, "").trim();
 }
@@ -57,28 +46,4 @@ export function isAuthorizedRevenueCatWebhookRequest(request: Request) {
     );
 }
 
-function isRevenueCatWebhookEnvironment(
-    value: string
-): value is RevenueCatWebhookEnvironment {
-    return REVENUECAT_WEBHOOK_ENVIRONMENTS.some((environment) => environment === value);
-}
-
-export function getRevenueCatWebhookEnvironmentDisposition(
-    eventEnvironment: string | undefined,
-    configuredEnvironment: string | undefined
-): RevenueCatWebhookEnvironmentDisposition {
-    const parsedConfiguredEnvironment = parseString(configuredEnvironment);
-    if (
-        !parsedConfiguredEnvironment ||
-        !isRevenueCatWebhookEnvironment(parsedConfiguredEnvironment)
-    ) {
-        return "invalid_configuration";
-    }
-
-    const parsedEventEnvironment = parseString(eventEnvironment)?.toUpperCase();
-    if (!parsedEventEnvironment || !isRevenueCatWebhookEnvironment(parsedEventEnvironment)) {
-        return "invalid_event_environment";
-    }
-
-    return parsedEventEnvironment === parsedConfiguredEnvironment ? "match" : "mismatch";
-}
+export { getRevenueCatWebhookEnvironmentDisposition } from "./revenueCatEnvironment";

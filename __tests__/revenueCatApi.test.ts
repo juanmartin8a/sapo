@@ -43,6 +43,8 @@ describe("RevenueCat API reconciliation", () => {
             ...originalEnv,
             REVENUECAT_CI_SUBSCRIPTIONS_R_API_KEY: "rc_v2_secret",
             REVENUECAT_PROJECT_ID: "proj_test",
+            REVENUECAT_WEBHOOK_ENVIRONMENT: "PRODUCTION",
+            REVENUECAT_SANDBOX_ALLOWED_APP_USER_IDS: "user_with_subscription",
             REVENUECAT_POLYGLOT_ENTITLEMENT_ID: "entl_polyglot",
             ...extraEnv,
         };
@@ -218,10 +220,10 @@ describe("RevenueCat API reconciliation", () => {
                 product_id: "prod_internal",
                 current_period_starts_at: 1_700_000_000_000,
                 current_period_ends_at: 1_800_000_000_000,
+                environment: "sandbox",
                 gives_access: true,
                 store_subscription_identifier: "txn_test",
                 store: "app_store",
-                environment: "sandbox",
                 entitlements: {
                     items: [{ id: "entl_polyglot", lookup_key: "renamed-polyglot" }],
                 },
@@ -246,6 +248,67 @@ describe("RevenueCat API reconciliation", () => {
         expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
+    it.each([
+        ["PRODUCTION", "", "sandbox", false],
+        ["PRODUCTION", "customer", "sandbox", true],
+        ["PRODUCTION", "another", "sandbox", false],
+        ["PRODUCTION", "", "production", true],
+        ["SANDBOX", "", "sandbox", true],
+        ["SANDBOX", "customer", "production", false],
+        ["PRODUCTION", "customer", undefined, false],
+        ["PRODUCTION", "customer", "unknown", false],
+    ])("filters API access in %s with allowlist %s and transaction %s", async (deployment, allowed, environment, active) => {
+        configureRevenueCatEnv({
+            REVENUECAT_WEBHOOK_ENVIRONMENT: deployment,
+            REVENUECAT_SANDBOX_ALLOWED_APP_USER_IDS: allowed,
+        });
+        globalThis.fetch = jest.fn(async () => jsonResponse(200, { items: [{
+            id: "sub", gives_access: true, environment,
+            entitlements: { items: [{ id: "entl_polyglot" }] },
+        }] })) as typeof fetch;
+        await expect(fetchRevenueCatCustomerSubscriptionSnapshot("customer"))
+            .resolves.toMatchObject({ has_active_subscription: active });
+    });
+
+    it("rejects a cached sandbox subscription and selects the production subscription", async () => {
+        configureRevenueCatEnv({ REVENUECAT_SANDBOX_ALLOWED_APP_USER_IDS: "" });
+        const subscription = {
+            id: "sandbox_sub", customer_id: "customer", gives_access: true,
+            environment: "sandbox", current_period_starts_at: 3_000,
+            current_period_ends_at: 5_000,
+            entitlements: { items: [{ id: "entl_polyglot" }] },
+        };
+        globalThis.fetch = jest.fn(async (url: RequestInfo | URL) => jsonResponse(200,
+            String(url).endsWith("/sandbox_sub") ? subscription : { items: [
+                subscription,
+                { ...subscription, id: "production_sub", environment: "production", current_period_ends_at: 4_000 },
+            ] }
+        )) as typeof fetch;
+        await expect(fetchRevenueCatCustomerSubscriptionSnapshot("customer", {
+            revenuecat_subscription_id: "sandbox_sub",
+            active_entitlement_snapshot: { has_active_subscription: true, access_expires_at_ms: 5_000 },
+        })).resolves.toMatchObject({ has_active_subscription: true, revenuecat_subscription_id: "production_sub" });
+    });
+
+    it("checks the affected account instead of allowing access through an allowlisted canonical ID", async () => {
+        configureRevenueCatEnv({ REVENUECAT_SANDBOX_ALLOWED_APP_USER_IDS: "canonical" });
+        globalThis.fetch = jest.fn(async () => jsonResponse(200, { items: [{
+            id: "sub", gives_access: true, environment: "sandbox",
+            entitlements: { items: [{ id: "entl_polyglot" }] },
+        }] })) as typeof fetch;
+        await expect(fetchRevenueCatCustomerSubscriptionSnapshot("canonical", {
+            access_app_user_id: "unapproved_alias",
+        })).resolves.toMatchObject({ has_active_subscription: false });
+    });
+
+    it("fails reconciliation closed when deployment environment is missing", async () => {
+        configureRevenueCatEnv({ REVENUECAT_WEBHOOK_ENVIRONMENT: undefined });
+        globalThis.fetch = jest.fn() as unknown as typeof fetch;
+        await expect(fetchRevenueCatCustomerSubscriptionSnapshot("customer"))
+            .rejects.toThrow("REVENUECAT_WEBHOOK_ENVIRONMENT");
+        expect(globalThis.fetch).not.toHaveBeenCalled();
+    });
+
     it("does not use the original subscription start as the current period start", async () => {
         configureRevenueCatEnv();
         globalThis.fetch = jest.fn(async () => jsonResponse(200, {
@@ -253,6 +316,7 @@ describe("RevenueCat API reconciliation", () => {
                 id: "sub_test",
                 starts_at: 1_600_000_000_000,
                 current_period_ends_at: 1_800_000_000_000,
+                environment: "production",
                 gives_access: true,
                 entitlements: {
                     items: [{ id: "entl_polyglot" }],
@@ -265,6 +329,7 @@ describe("RevenueCat API reconciliation", () => {
                 has_active_subscription: true,
                 entitlement_id: "entl_polyglot",
                 revenuecat_subscription_id: "sub_test",
+                environment: "production",
                 period_end_at_ms: 1_800_000_000_000,
             });
     });
@@ -277,6 +342,7 @@ describe("RevenueCat API reconciliation", () => {
             product_id: "prod_internal",
             current_period_starts_at: 3_000,
             current_period_ends_at: 4_000,
+            environment: "production",
             gives_access: true,
             status: "active",
             entitlements: { items: [{ id: "entl_polyglot" }] },
@@ -311,6 +377,7 @@ describe("RevenueCat API reconciliation", () => {
             customer_id: "canonical_customer",
             current_period_starts_at: 3_000,
             current_period_ends_at: 4_000,
+            environment: "production",
             gives_access: true,
             status: "active",
             entitlements: { items: [{ id: "entl_polyglot" }] },
@@ -343,6 +410,7 @@ describe("RevenueCat API reconciliation", () => {
                 customer_id: "canonical_customer",
                 current_period_starts_at: 3_000,
                 current_period_ends_at: 4_000,
+                environment: "production",
                 gives_access: true,
                 status: "active",
                 entitlements: { items: [{ id: "entl_polyglot" }] },
@@ -380,6 +448,7 @@ describe("RevenueCat API reconciliation", () => {
         ["is inactive", jsonResponse(200, {
             id: "sub_saved",
             customer_id: "user_with_subscription",
+            environment: "production",
             gives_access: false,
         }), {
             has_active_subscription: true,
@@ -389,6 +458,7 @@ describe("RevenueCat API reconciliation", () => {
             id: "sub_saved",
             customer_id: "user_with_subscription",
             current_period_ends_at: 4_000,
+            environment: "production",
             gives_access: true,
             status: "active",
             entitlements: { items: [{ id: "entl_other" }] },
@@ -400,6 +470,7 @@ describe("RevenueCat API reconciliation", () => {
             id: "sub_saved",
             customer_id: "another_customer",
             current_period_ends_at: 4_000,
+            environment: "production",
             gives_access: true,
             status: "active",
             entitlements: { items: [{ id: "entl_polyglot" }] },
@@ -411,6 +482,7 @@ describe("RevenueCat API reconciliation", () => {
             id: "sub_saved",
             customer_id: "user_with_subscription",
             current_period_ends_at: 3_500,
+            environment: "production",
             gives_access: true,
             status: "active",
             entitlements: { items: [{ id: "entl_polyglot" }] },
@@ -422,6 +494,7 @@ describe("RevenueCat API reconciliation", () => {
             id: "sub_saved",
             customer_id: "user_with_subscription",
             current_period_ends_at: 4_000,
+            environment: "production",
             gives_access: true,
             status: "active",
             entitlements: { items: [{ id: "entl_polyglot" }] },
@@ -445,6 +518,7 @@ describe("RevenueCat API reconciliation", () => {
                     id: "sub_discovered",
                     current_period_starts_at: 3_000,
                     current_period_ends_at: 4_000,
+                    environment: "production",
                     gives_access: true,
                     status: "active",
                     entitlements: { items: [{ id: "entl_polyglot" }] },
@@ -478,6 +552,7 @@ describe("RevenueCat API reconciliation", () => {
                 return jsonResponse(200, {
                     id: "sub_saved",
                     customer_id: "user_with_subscription",
+                    environment: "production",
                     gives_access: false,
                 });
             }
@@ -497,6 +572,7 @@ describe("RevenueCat API reconciliation", () => {
                     customer_id: "user_with_subscription",
                     current_period_starts_at: 3_000,
                     current_period_ends_at: 4_000,
+                    environment: "production",
                     gives_access: true,
                     status: "active",
                     entitlements: { items: [{ id: "entl_polyglot" }] },
@@ -539,6 +615,7 @@ describe("RevenueCat API reconciliation", () => {
         globalThis.fetch = jest.fn(async () => jsonResponse(200, {
             items: [{
                 id: "sub_other",
+                environment: "production",
                 gives_access: true,
                 entitlements: {
                     items: [{ id: "entl_other", lookup_key: "polyglot" }],
@@ -561,6 +638,7 @@ describe("RevenueCat API reconciliation", () => {
                         product_id: "prod_inactive",
                         current_period_starts_at: 1_850_000_000_000,
                         current_period_ends_at: 1_950_000_000_000,
+                        environment: "production",
                         gives_access: false,
                         entitlements: {
                             items: [{ id: "entl_polyglot" }],
@@ -571,6 +649,7 @@ describe("RevenueCat API reconciliation", () => {
                         product_id: "prod_active",
                         current_period_starts_at: 1_800_000_000_000,
                         current_period_ends_at: 1_900_000_000_000,
+                        environment: "production",
                         gives_access: true,
                         entitlements: {
                             items: [{ id: "entl_polyglot" }],
@@ -597,6 +676,7 @@ describe("RevenueCat API reconciliation", () => {
                     items: [
                         {
                             id: "sub_test",
+                            environment: "production",
                             gives_access: true,
                             entitlements: {
                                 items: [{ id: "entl_other" }],
@@ -716,6 +796,7 @@ describe("RevenueCat API reconciliation", () => {
         globalThis.fetch = jest.fn(async () => jsonResponse(200, {
             items: [{
                 id: "sub_test",
+                environment: "production",
                 gives_access: true,
                 entitlements: {
                     items: [{ id: "entl_other" }],

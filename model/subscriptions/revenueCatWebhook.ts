@@ -24,6 +24,7 @@ import {
     isAuthorizedRevenueCatWebhookRequest,
     jsonRevenueCatWebhookResponse,
 } from "./revenueCatWebhookHttp";
+import { isRevenueCatEnvironmentAllowedForUser } from "./revenueCatEnvironment";
 import type { UserDeletionQueueStatus } from "./userDeletionQueue";
 
 const MAX_REVENUECAT_WEBHOOK_REQUEST_BODY_BYTES = 256 * 1024;
@@ -44,6 +45,9 @@ async function resolveEligibleRevenueCatWebhookUserIds(
     const eligibleUserIds = (
         await Promise.all(
             candidateUserIds.map(async (userId) => {
+                if (!isRevenueCatEnvironmentAllowedForUser(normalizedEvent.environment, userId)) {
+                    return null;
+                }
                 const [user, deletionState] = await Promise.all([
                     (ctx as any).runQuery(components.betterAuth.adapter.findOne, {
                         model: "user",
@@ -156,7 +160,11 @@ export async function handleRevenueCatWebhookRequest(ctx: ActionCtx, request: Re
         });
     }
 
-    if (environmentDisposition === "mismatch") {
+    if (environmentDisposition === "mismatch" &&
+        !resolveRevenueCatWebhookTargetUserIds(normalizedEvent).some((userId) =>
+            isRevenueCatEnvironmentAllowedForUser(normalizedEvent.environment, userId)
+        )
+    ) {
         console.info("RevenueCat webhook skipped for mismatched environment");
         return jsonRevenueCatWebhookResponse(request, 200, {
             ok: true,
@@ -169,7 +177,7 @@ export async function handleRevenueCatWebhookRequest(ctx: ActionCtx, request: Re
     if (shouldSkipRevenueCatWebhookIngestion(eligibleUserIdsResult)) {
         console.info(
             JSON.stringify({
-                event: "revenuecat_webhook_skipped_for_deleted_or_missing_users",
+                event: "revenuecat_webhook_skipped_for_ineligible_users",
                 event_id: normalizedEvent.event_id,
                 candidate_user_ids: eligibleUserIdsResult.candidate_user_ids,
             })
