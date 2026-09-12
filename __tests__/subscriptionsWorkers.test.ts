@@ -299,6 +299,7 @@ describe("RevenueCat webhook worker processing", () => {
             ...originalEnv,
             REVENUECAT_CI_SUBSCRIPTIONS_R_API_KEY: "rc_v2_secret",
             REVENUECAT_PROJECT_ID: "proj_test",
+            REVENUECAT_WEBHOOK_ENVIRONMENT: "PRODUCTION",
             REVENUECAT_POLYGLOT_ENTITLEMENT_ID: "entl_polyglot",
         };
         const fetchMock = jest.fn(async () => jsonResponse(200, { items: [] })) as jest.MockedFunction<typeof fetch>;
@@ -342,6 +343,7 @@ describe("RevenueCat webhook worker processing", () => {
             ...originalEnv,
             REVENUECAT_CI_SUBSCRIPTIONS_R_API_KEY: "rc_v2_secret",
             REVENUECAT_PROJECT_ID: "proj_test",
+            REVENUECAT_WEBHOOK_ENVIRONMENT: "PRODUCTION",
             REVENUECAT_POLYGLOT_ENTITLEMENT_ID: "entl_polyglot",
         };
         globalThis.fetch = jest.fn(async () => jsonResponse(200, { items: [] })) as typeof fetch;
@@ -383,6 +385,7 @@ describe("RevenueCat webhook worker processing", () => {
             ...originalEnv,
             REVENUECAT_CI_SUBSCRIPTIONS_R_API_KEY: "rc_v2_secret",
             REVENUECAT_PROJECT_ID: "proj_test",
+            REVENUECAT_WEBHOOK_ENVIRONMENT: "PRODUCTION",
             REVENUECAT_POLYGLOT_ENTITLEMENT_ID: "entl_polyglot",
         };
         globalThis.fetch = jest.fn(async () => jsonResponse(200, { items: [] })) as typeof fetch;
@@ -415,6 +418,7 @@ describe("RevenueCat webhook worker processing", () => {
             ...originalEnv,
             REVENUECAT_CI_SUBSCRIPTIONS_R_API_KEY: "rc_v2_secret",
             REVENUECAT_PROJECT_ID: "proj_test",
+            REVENUECAT_WEBHOOK_ENVIRONMENT: "PRODUCTION",
             REVENUECAT_POLYGLOT_ENTITLEMENT_ID: "entl_polyglot",
         };
         globalThis.fetch = jest.fn(async () => jsonResponse(200, { items: [] })) as typeof fetch;
@@ -445,6 +449,7 @@ describe("RevenueCat webhook worker processing", () => {
             ...originalEnv,
             REVENUECAT_CI_SUBSCRIPTIONS_R_API_KEY: "rc_v2_secret",
             REVENUECAT_PROJECT_ID: "proj_test",
+            REVENUECAT_WEBHOOK_ENVIRONMENT: "PRODUCTION",
             REVENUECAT_POLYGLOT_ENTITLEMENT_ID: "entl_polyglot",
         };
         globalThis.fetch = jest.fn(async () => jsonResponse(200, { items: [] })) as typeof fetch;
@@ -484,6 +489,7 @@ describe("RevenueCat webhook worker processing", () => {
             ...originalEnv,
             REVENUECAT_CI_SUBSCRIPTIONS_R_API_KEY: "rc_v2_secret",
             REVENUECAT_PROJECT_ID: "proj_test",
+            REVENUECAT_WEBHOOK_ENVIRONMENT: "PRODUCTION",
             REVENUECAT_POLYGLOT_ENTITLEMENT_ID: "entl_polyglot",
         };
         globalThis.fetch = jest.fn(async () => jsonResponse(200, {
@@ -492,6 +498,7 @@ describe("RevenueCat webhook worker processing", () => {
                 product_id: "prod_polyglot",
                 current_period_starts_at: 1_000,
                 current_period_ends_at: 5_000,
+                environment: "production",
                 gives_access: true,
                 status: "active",
                 entitlements: { items: [{ id: "entl_polyglot" }] },
@@ -531,6 +538,7 @@ describe("RevenueCat webhook worker processing", () => {
             ...originalEnv,
             REVENUECAT_CI_SUBSCRIPTIONS_R_API_KEY: "rc_v2_secret",
             REVENUECAT_PROJECT_ID: "proj_test",
+            REVENUECAT_WEBHOOK_ENVIRONMENT: "PRODUCTION",
             REVENUECAT_POLYGLOT_ENTITLEMENT_ID: "entl_polyglot",
         };
         const fetchMock = jest.fn(async (url: string | URL | Request) => {
@@ -549,6 +557,7 @@ describe("RevenueCat webhook worker processing", () => {
                     customer_id: "rc_user_1",
                     current_period_starts_at: 1_000,
                     current_period_ends_at: 2_000,
+                    environment: "production",
                     gives_access: true,
                     status,
                     entitlements: { items: [{ id: "entl_polyglot" }] },
@@ -592,6 +601,7 @@ describe("RevenueCat webhook worker processing", () => {
             ...originalEnv,
             REVENUECAT_CI_SUBSCRIPTIONS_R_API_KEY: "rc_v2_secret",
             REVENUECAT_PROJECT_ID: "proj_test",
+            REVENUECAT_WEBHOOK_ENVIRONMENT: "PRODUCTION",
             REVENUECAT_POLYGLOT_ENTITLEMENT_ID: "entl_polyglot",
         };
         const fetchMock = jest.fn(async () => jsonResponse(200, { items: [] })) as jest.MockedFunction<typeof fetch>;
@@ -640,6 +650,7 @@ describe("RevenueCat webhook worker processing", () => {
             ...originalEnv,
             REVENUECAT_CI_SUBSCRIPTIONS_R_API_KEY: "rc_v2_secret",
             REVENUECAT_PROJECT_ID: "proj_test",
+            REVENUECAT_WEBHOOK_ENVIRONMENT: "PRODUCTION",
             REVENUECAT_POLYGLOT_ENTITLEMENT_ID: "entl_polyglot",
         };
         const fetchMock = jest.fn(async () => jsonResponse(200, { items: [] })) as jest.MockedFunction<typeof fetch>;
@@ -675,6 +686,7 @@ describe("RevenueCat webhook worker processing", () => {
             ...originalEnv,
             REVENUECAT_CI_SUBSCRIPTIONS_R_API_KEY: "rc_v2_secret",
             REVENUECAT_PROJECT_ID: "proj_test",
+            REVENUECAT_WEBHOOK_ENVIRONMENT: "PRODUCTION",
             REVENUECAT_POLYGLOT_ENTITLEMENT_ID: "entl_polyglot",
         };
         globalThis.fetch = jest.fn(async () => jsonResponse(200, { items: [] })) as typeof fetch;
@@ -708,9 +720,36 @@ describe("RevenueCat reconciliation routing", () => {
             ...originalEnv,
             REVENUECAT_CI_SUBSCRIPTIONS_R_API_KEY: "rc_v2_secret",
             REVENUECAT_PROJECT_ID: "proj_test",
+            REVENUECAT_WEBHOOK_ENVIRONMENT: "PRODUCTION",
             REVENUECAT_POLYGLOT_ENTITLEMENT_ID: "entl_polyglot",
         };
     }
+
+    it.each([false, true])("reconciles sandbox access only for an allowed affected account (allowed=%s)", async (allowed) => {
+        configureReadEnv();
+        process.env.REVENUECAT_SANDBOX_ALLOWED_APP_USER_IDS = allowed ? "user_1" : "rc_user_1";
+        jest.spyOn(Date, "now").mockReturnValue(3_000);
+        globalThis.fetch = jest.fn(async (url: string | URL | Request) => jsonResponse(200,
+            String(url).includes("/active_entitlements")
+                ? { items: [{ entitlement_id: "entl_polyglot", expires_at: 5_000 }] }
+                : { items: [{
+                    id: "sandbox_sub", customer_id: "rc_user_1",
+                    environment: "sandbox", gives_access: true, status: "active",
+                    current_period_starts_at: 2_000, current_period_ends_at: 5_000,
+                    entitlements: { items: [{ id: "entl_polyglot" }] },
+                }] }
+        )) as typeof fetch;
+        const { ctx, subscriptionStateMutations } = createWebhookProcessingCtx({
+            event_at_ms: 1_000,
+            existing_state: createSubscriptionState(),
+        });
+        await reconcileObservedSubscriptionStateHandler(ctx as any, {
+            user_id: "user_1", observed_active: true,
+        });
+        expect(subscriptionStateMutations).toHaveLength(1);
+        expect(subscriptionStateMutations[0].snapshot).toMatchObject({ has_active_subscription: allowed });
+        expect(subscriptionStateMutations[0].snapshot).not.toHaveProperty("environment_access_denied");
+    });
 
     it("uses only active entitlements for an inactive usage refresh", async () => {
         configureReadEnv();
@@ -751,6 +790,7 @@ describe("RevenueCat reconciliation routing", () => {
                     customer_id: "rc_user_1",
                     current_period_starts_at: 2_000,
                     current_period_ends_at: 5_000,
+                    environment: "production",
                     gives_access: true,
                     status: "active",
                     entitlements: { items: [{ id: "entl_polyglot" }] },
@@ -861,6 +901,7 @@ describe("RevenueCat reconciliation routing", () => {
                     product_id: "prod_polyglot",
                     current_period_starts_at: 2_000,
                     current_period_ends_at: 4_000,
+                    environment: "production",
                     gives_access: true,
                     status: "active",
                     entitlements: { items: [{ id: "entl_polyglot" }] },
@@ -970,6 +1011,7 @@ describe("RevenueCat reconciliation routing", () => {
                     product_id: "prod_polyglot",
                     current_period_starts_at: 2_000,
                     current_period_ends_at: 6_000,
+                    environment: "production",
                     gives_access: true,
                     status: "active",
                     entitlements: {
@@ -1021,6 +1063,7 @@ describe("RevenueCat reconciliation routing", () => {
                     product_id: "prod_polyglot",
                     current_period_starts_at: 1_000,
                     current_period_ends_at: 2_000,
+                    environment: "production",
                     gives_access: true,
                     status: "in_grace_period",
                     entitlements: {
@@ -1951,6 +1994,7 @@ describe("user deletion scheduling", () => {
             ...originalEnv,
             REVENUECAT_CI_SUBSCRIPTIONS_R_API_KEY: "rc_v2_secret",
             REVENUECAT_PROJECT_ID: "proj_test",
+            REVENUECAT_WEBHOOK_ENVIRONMENT: "PRODUCTION",
             REVENUECAT_POLYGLOT_ENTITLEMENT_ID: "entl_polyglot",
         };
         const fetchMock = jest.fn(async () => jsonResponse(200, { items: [] })) as jest.MockedFunction<

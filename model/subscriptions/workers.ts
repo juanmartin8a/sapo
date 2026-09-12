@@ -1141,6 +1141,7 @@ async function reconcileSubscriptionStateFromRevenueCat(
                       revenueCatAppUserId,
                       args.reconciliation_read === "active_entitlements_first"
                           ? {
+                                access_app_user_id: args.user_id,
                                 revenuecat_customer_id:
                                     existingState.revenuecat_customer_id,
                                 revenuecat_subscription_id:
@@ -1148,9 +1149,14 @@ async function reconcileSubscriptionStateFromRevenueCat(
                                 active_entitlement_snapshot:
                                     activeEntitlementSnapshot ?? undefined,
                             }
-                          : undefined
+                          : { access_app_user_id: args.user_id }
                   )
                 : null;
+        const environmentAccessDenied = subscriptionSnapshot?.environment_access_denied === true;
+        if (environmentAccessDenied) {
+            // Aggregate entitlements can include subscriptions this account cannot use.
+            activeEntitlementSnapshot = { has_active_subscription: false };
+        }
         const subscriptionStatus = subscriptionSnapshot?.subscription_status;
         if (
             args.reconciliation_read === "subscriptions_then_status_entitlement" &&
@@ -1176,9 +1182,11 @@ async function reconcileSubscriptionStateFromRevenueCat(
             );
         }
         const subscriptionMetadata = subscriptionSnapshot
-            ? (({ subscription_status: _subscriptionStatus, ...metadata }) => metadata)(
-                  subscriptionSnapshot
-              )
+            ? (({
+                  subscription_status: _subscriptionStatus,
+                  environment_access_denied: _environmentAccessDenied,
+                  ...metadata
+              }) => metadata)(subscriptionSnapshot)
             : null;
         const snapshot =
             subscriptionMetadata && activeEntitlementSnapshot?.has_active_subscription === true
@@ -1204,6 +1212,7 @@ async function reconcileSubscriptionStateFromRevenueCat(
         if (
             !snapshotHasActiveSubscription &&
             args.accept_inactive_subscription !== true &&
+            !environmentAccessDenied &&
             canServeActiveSubscriptionStateForUsage(existingState, applyAtMs)
         ) {
             const accessExpiresAtMs = getSubscriptionAccessExpiresAtMs(existingState);

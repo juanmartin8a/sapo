@@ -29,11 +29,28 @@ settings are required by this cleanup.
 
 | Variable | Allowed values | Purpose |
 | --- | --- | --- |
-| `REVENUECAT_WEBHOOK_ENVIRONMENT` | `SANDBOX` or `PRODUCTION` | Accept only RevenueCat webhook events for the deployment's environment. |
+| `REVENUECAT_WEBHOOK_ENVIRONMENT` | `SANDBOX` or `PRODUCTION` | Base environment policy for webhooks and subscription reconciliation. |
 
-Set this independently for every Convex deployment. Missing or invalid
-configuration fails closed. Authenticated, valid events from the other
-environment return HTTP 200 and are skipped so RevenueCat does not retry them.
+| `REVENUECAT_SANDBOX_ALLOWED_APP_USER_IDS` | Comma- or whitespace-separated App User IDs | Optional sandbox exceptions in a `PRODUCTION` deployment. Empty/unset permits no exceptions. |
+
+Set these independently for every Convex deployment. Keep
+`REVENUECAT_WEBHOOK_ENVIRONMENT=PRODUCTION` in production: production purchases
+are accepted normally, and sandbox purchases are accepted only for listed app
+accounts. `SANDBOX` deployments accept sandbox purchases only, without requiring
+an allowlist. Missing or invalid base environment configuration fails closed.
+Authenticated events that are not permitted return HTTP 200 and are skipped.
+Aliases and transfer participants are checked individually.
+
+For App Review, set the production Convex allowlist to the review account's
+RevenueCat App User ID (the ID passed to the SDK, not its email or Apple ID).
+For example: `REVENUECAT_SANDBOX_ALLOWED_APP_USER_IDS=reviewer_id,tester_id`.
+Keep the same IDs in RevenueCat's **Allowed App User IDs only** sandbox setting;
+these lists are managed independently. Configure the production RevenueCat
+webhook integration to send **both Sandbox and Production** events. Adding an ID
+does not itself grant access: a RevenueCat subscription granting the configured
+entitlement is still required. Allowlist changes take effect on subsequent
+processing/reconciliation; existing cached subscription state is not immediately
+invalidated by editing the environment variable.
 
 ## Integration contracts
 
@@ -72,8 +89,9 @@ Register `https://<deployment>.convex.site/webhooks/revenuecat` with the
 authorization value configured in `REVENUECAT_WEBHOOK_AUTH_SECRET`. The handler
 requires `REVENUECAT_WEBHOOK_ENVIRONMENT`, persists matching events, schedules
 processing, and returns HTTP 200; duplicate events, aliases, transfers, and
-retries are handled by the subscription component. This webhook filter does not
-affect client-initiated subscription reconciliation, including Apple Review.
+retries are handled by the subscription component. The same environment and
+account policy filters subscriptions during client-initiated and background
+reconciliation, including saved subscription resource lookups.
 Choose the intended app and sandbox/production filters in the
 [webhook dashboard](https://www.revenuecat.com/docs/integrations/webhooks).
 
