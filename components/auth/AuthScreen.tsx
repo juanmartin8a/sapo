@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { APP_ROUTES } from '@/constants/routes';
+import { UI_DISABLED_OPACITY } from '@/constants/ui';
 import AuthLegalNotice from '@/components/auth/AuthLegalNotice';
-import SocialSignInButton, { type SocialProvider } from '@/components/auth/SocialSignInButton';
+import SocialSignInButton from '@/components/auth/SocialSignInButton';
+import { useSignInStore } from '@/stores/signInStore';
 import GoogleGIcon from '@/assets/icons/google-g.svg';
 import ArrowLeftIcon from '@/assets/icons/arrow-left.svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,16 +14,15 @@ const SIGN_IN_TITLE = 'Sign in :)';
 const SIGNING_IN_TITLE = 'Signing in...';
 const TITLE_FADE_DURATION = 300;
 const TITLE_FADE_EASING = Easing.out(Easing.cubic);
+const SIGN_IN_SPACING = 12;
 
 const AuthScreen = () => {
     const insets = useSafeAreaInsets();
     const router = useRouter();
-    const [pendingProvider, setPendingProvider] = useState<SocialProvider | null>(null);
+    const pendingProvider = useSignInStore((state) => state.pendingProvider);
+    const setPendingProvider = useSignInStore((state) => state.start);
+    const handleSignInEnd = useSignInStore((state) => state.end);
     const [titleTransitionProgress] = useState(() => new Animated.Value(0));
-
-    const handleSignInEnd = useCallback((provider: SocialProvider) => {
-        setPendingProvider((currentProvider) => currentProvider === provider ? null : currentProvider);
-    }, []);
 
     const handleBackPress = useCallback(() => {
         if (router.canGoBack()) {
@@ -53,64 +55,71 @@ const AuthScreen = () => {
     });
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-            <TouchableOpacity
-                accessibilityLabel="Go back"
-                accessibilityRole="button"
-                activeOpacity={0.7}
-                disabled={isSignInPending}
-                onPress={handleBackPress}
-                style={[styles.backButton, { top: insets.top }]}
-            >
-                <ArrowLeftIcon width={40} height={32} stroke="#000" />
-            </TouchableOpacity>
-            <View style={styles.content}>
-                <View style={styles.hero}>
-                    <View style={styles.iconBadge}>
-                        <Image
-                            source={require("@/assets/images/sapo.png")}
-                            resizeMode="contain"
-                            style={styles.icon}
-                        />
+        <View
+            style={[styles.container, { paddingTop: insets.top }]}
+        >
+            <View style={styles.mainContent}>
+                <TouchableOpacity
+                    accessibilityLabel="Go back"
+                    accessibilityRole="button"
+                    activeOpacity={0.7}
+                    disabled={isSignInPending}
+                    onPress={handleBackPress}
+                    style={styles.backButton}
+                >
+                    <ArrowLeftIcon width={40} height={32} stroke="#000" />
+                </TouchableOpacity>
+                <View style={styles.content}>
+                    <View style={styles.hero}>
+                        <View style={styles.iconBadge}>
+                            <Image
+                                source={require("@/assets/images/sapo.png")}
+                                resizeMode="contain"
+                                style={styles.icon}
+                            />
+                        </View>
+                        <View
+                            accessibilityLiveRegion="polite"
+                            accessibilityLabel={isSignInPending ? SIGNING_IN_TITLE : SIGN_IN_TITLE}
+                            accessible
+                            style={styles.titleContainer}
+                        >
+                            <Animated.Text
+                                accessible={false}
+                                importantForAccessibility="no"
+                                style={[styles.title, styles.titleMeasure]}
+                            >
+                                {SIGNING_IN_TITLE}
+                            </Animated.Text>
+                            <Animated.Text
+                                accessible={false}
+                                importantForAccessibility="no"
+                                style={[styles.title, styles.titleLayer, { opacity: signInTitleOpacity }]}
+                            >
+                                {SIGN_IN_TITLE}
+                            </Animated.Text>
+                            <Animated.Text
+                                accessible={false}
+                                importantForAccessibility="no"
+                                style={[styles.title, styles.titleLayer, { opacity: signingInTitleOpacity }]}
+                            >
+                                {SIGNING_IN_TITLE}
+                            </Animated.Text>
+                        </View>
+                        <View style={styles.titleLoader}>
+                            {isSignInPending ? (
+                                <ActivityIndicator
+                                    size="small"
+                                    color="#000"
+                                    accessibilityRole="progressbar"
+                                />
+                            ) : null}
+                        </View>
                     </View>
-                    <View
-                        accessibilityLiveRegion="polite"
-                        accessibilityLabel={isSignInPending ? SIGNING_IN_TITLE : SIGN_IN_TITLE}
-                        accessible
-                        style={styles.titleContainer}
-                    >
-                        <Animated.Text
-                            accessible={false}
-                            importantForAccessibility="no"
-                            style={[styles.title, styles.titleMeasure]}
-                        >
-                            {SIGNING_IN_TITLE}
-                        </Animated.Text>
-                        <Animated.Text
-                            accessible={false}
-                            importantForAccessibility="no"
-                            style={[styles.title, styles.titleLayer, { opacity: signInTitleOpacity }]}
-                        >
-                            {SIGN_IN_TITLE}
-                        </Animated.Text>
-                        <Animated.Text
-                            accessible={false}
-                            importantForAccessibility="no"
-                            style={[styles.title, styles.titleLayer, { opacity: signingInTitleOpacity }]}
-                        >
-                            {SIGNING_IN_TITLE}
-                        </Animated.Text>
-                    </View>
-                    {isSignInPending ? (
-                        <ActivityIndicator
-                            size="small"
-                            color="#000"
-                            style={styles.titleLoader}
-                            accessibilityRole="progressbar"
-                        />
-                    ) : null}
-                </View>
 
+                </View>
+            </View>
+            <View style={[styles.footer, { paddingBottom: insets.bottom }]}>
                 <View style={styles.buttons}>
                     <SocialSignInButton
                         provider="google"
@@ -131,6 +140,19 @@ const AuthScreen = () => {
                         onSignInCancel={handleSignInEnd}
                         onSignInError={handleSignInEnd}
                     />
+                    <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityState={{ disabled: isSignInPending }}
+                        disabled={isSignInPending}
+                        activeOpacity={0.7}
+                        style={[styles.demoToggle, isSignInPending && styles.disabled]}
+                        onPress={() => router.navigate(APP_ROUTES.DEMO_ACCESS)}
+                    >
+                        <Text style={styles.demoLabel}>Demo access</Text>
+                    </TouchableOpacity>
+
+                </View>
+                <View style={styles.legalNotice}>
                     <AuthLegalNotice />
                 </View>
             </View>
@@ -143,15 +165,19 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#fff',
     },
+    mainContent: { flex: 1, overflow: 'hidden' },
+    footer: { paddingHorizontal: 28 },
+    legalNotice: { paddingTop: SIGN_IN_SPACING, paddingBottom: 32 },
     content: {
         flex: 1,
         paddingHorizontal: 28,
-        paddingVertical: 32,
-        justifyContent: 'space-between',
+        paddingTop: 32,
+        paddingBottom: SIGN_IN_SPACING,
         backgroundColor: '#fff',
     },
     backButton: {
         position: 'absolute',
+        top: 0,
         left: 18,
         padding: 6,
         zIndex: 1,
@@ -190,9 +216,14 @@ const styles = StyleSheet.create({
     titleLoader: {
         width: 24,
         height: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
+    demoToggle: { alignSelf: 'flex-start', justifyContent: 'center' },
+    disabled: { opacity: UI_DISABLED_OPACITY },
+    demoLabel: { fontSize: 12, lineHeight: 12, color: '#000', textDecorationLine: 'underline', fontWeight: "500" },
     buttons: {
-        gap: 12,
+        gap: SIGN_IN_SPACING,
     },
 });
 

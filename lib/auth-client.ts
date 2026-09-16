@@ -80,3 +80,12 @@ export async function getConvexAccessTokenWithUserId() {
 
     return null;
 }
+
+export async function signInWithDemoCode(code: string) {
+    const result = await authClient.$fetch("/sign-in/demo", {
+        method: "POST",
+        body: { code },
+    });
+    if (!result.error) authClient.$store.notify("$sessionSignal");
+    return result;
+}

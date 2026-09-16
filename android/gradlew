@@ -111,8 +111,9 @@ case "$( uname )" in                #(
   CYGWIN* )         cygwin=true  ;; #(
   Darwin* )         darwin=true  ;; #(
   MSYS* | MINGW* )  msys=true    ;; #(
-NONSTOP* )        nonstop=true ;;
+  NONSTOP* )        nonstop=true ;;
 esac
+
 
 
 # Determine the Java command to use to start the JVM.

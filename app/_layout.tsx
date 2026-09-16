@@ -23,7 +23,18 @@ export default function RootLayout() {
                 <KeyboardProvider>
                     <AuthGate />
                     <RevenueCatIdentitySync />
-                    <Stack screenOptions={{ headerShown: false }} />
+                    <Stack screenOptions={{ headerShown: false }}>
+                        <Stack.Screen
+                            name="demo-access"
+                            options={{
+                                presentation: 'formSheet',
+                                sheetAllowedDetents: 'fitToContents',
+                                sheetGrabberVisible: true,
+                                sheetCornerRadius: 28,
+                                contentStyle: { backgroundColor: '#fff' },
+                            }}
+                        />
+                    </Stack>
                 </KeyboardProvider>
             </AuthStateProvider>
         </ConvexBetterAuthProvider>
