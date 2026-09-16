@@ -1,5 +1,6 @@
 import { beforeEach, afterEach, describe, expect, it, jest } from '@jest/globals';
-import { demoAccess, DEMO_ACCESS_EMAIL, matchesDemoCode } from '../betterAuth/model/demoAccess';
+import { demoAccess, matchesDemoCode } from '../betterAuth/model/demoAccess';
+import { DEMO_ACCESS_EMAIL } from '../constants/demoAccess';
 import { setSessionCookie } from 'better-auth/cookies';
 
 jest.mock('better-auth/api', () => ({

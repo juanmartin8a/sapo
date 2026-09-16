@@ -3,12 +3,17 @@ import { createAuthEndpoint } from "better-auth/api";
 import { setSessionCookie } from "better-auth/cookies";
 import { z } from "zod";
 
-export const DEMO_ACCESS_EMAIL = "juanmarzabala8a@hotmail.com";
+import { DEMO_ACCESS_EMAIL } from "../../constants/demoAccess";
+
+const DEMO_CODE_PATTERN = /^\d{6}$/;
 
 export function matchesDemoCode(code: string, expected: string | undefined): boolean {
-    if (!expected || !/^\d{6}$/.test(expected) || !/^\d{6}$/.test(code)) return false;
+    if (!expected || !DEMO_CODE_PATTERN.test(expected) || !DEMO_CODE_PATTERN.test(code)) {
+        return false;
+    }
+
     let difference = 0;
-    for (let index = 0; index < 6; index += 1) {
+    for (let index = 0; index < code.length; index += 1) {
         difference |= code.charCodeAt(index) ^ expected.charCodeAt(index);
     }
     return difference === 0;
@@ -19,7 +24,7 @@ export const demoAccess = () => ({
     endpoints: {
         signInDemo: createAuthEndpoint("/sign-in/demo", {
             method: "POST",
-            body: z.object({ code: z.string().regex(/^\d{6}$/) }),
+            body: z.object({ code: z.string().regex(DEMO_CODE_PATTERN) }),
         }, async (ctx) => {
             const userId = process.env.DEMO_ACCESS_USER_ID;
             if (!userId || !matchesDemoCode(ctx.body.code, process.env.DEMO_ACCESS_CODE)) {
@@ -38,7 +43,10 @@ export const demoAccess = () => ({
                 throw ctx.error("UNAUTHORIZED", { message: "Demo access is unavailable or the code is incorrect." });
             }
             const session = await ctx.context.internalAdapter.createSession(user.id);
-            if (!session) throw ctx.error("INTERNAL_SERVER_ERROR", { message: "Unable to sign in." });
+            if (!session) {
+                throw ctx.error("INTERNAL_SERVER_ERROR", { message: "Unable to sign in." });
+            }
+
             await setSessionCookie(ctx, { session, user });
             return ctx.json({ success: true });
         }),
