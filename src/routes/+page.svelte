@@ -147,9 +147,9 @@
 				class="mx-auto max-w-4xl text-center text-sm leading-6 text-[#4C6349] sm:text-base sm:leading-7"
 			>
 				S&nbsp;A&nbsp;P&nbsp;O helps you translate words and see how they sound in another language.
-				It also supports linguistic research with an open phonetic database of phonetic
-				respellings for comparing pronunciations across languages. Subscriptions help keep the
-				app running and grow the dataset.
+				It also supports linguistic research with an open phonetic database of phonetic respellings
+				for comparing pronunciations across languages. Subscriptions help keep the app running and
+				grow the dataset.
 			</p>
 
 			<div class="flex flex-wrap items-center justify-center gap-3">
