@@ -31,26 +31,22 @@ settings are required by this cleanup.
 | --- | --- | --- |
 | `REVENUECAT_WEBHOOK_ENVIRONMENT` | `SANDBOX` or `PRODUCTION` | Base environment policy for webhooks and subscription reconciliation. |
 
-| `REVENUECAT_SANDBOX_ALLOWED_APP_USER_IDS` | Comma- or whitespace-separated App User IDs | Optional sandbox exceptions in a `PRODUCTION` deployment. Empty/unset permits no exceptions. |
+| `DEMO_ACCESS_USER_ID` | One exact Better Auth user ID | The only account permitted to use sandbox subscriptions in a `PRODUCTION` deployment. Empty/unset permits no sandbox exceptions. Also used for demo sign-in. |
 
-Set these independently for every Convex deployment. Keep
-`REVENUECAT_WEBHOOK_ENVIRONMENT=PRODUCTION` in production: production purchases
-are accepted normally, and sandbox purchases are accepted only for listed app
-accounts. `SANDBOX` deployments accept sandbox purchases only, without requiring
-an allowlist. Missing or invalid base environment configuration fails closed.
-Authenticated events that are not permitted return HTTP 200 and are skipped.
+Set `REVENUECAT_WEBHOOK_ENVIRONMENT=SANDBOX` in Convex dev. Sandbox
+subscriptions are accepted for all accounts without additional configuration.
+Set `REVENUECAT_WEBHOOK_ENVIRONMENT=PRODUCTION` in Convex prod. Production
+subscriptions are accepted normally; sandbox subscriptions are accepted only for
+`DEMO_ACCESS_USER_ID`. This is an exact ID comparison, with no lists or wildcard
+support. Missing or invalid base environment configuration fails closed.
 Aliases and transfer participants are checked individually.
 
-For App Review, set the production Convex allowlist to the review account's
-RevenueCat App User ID (the ID passed to the SDK, not its email or Apple ID).
-For example: `REVENUECAT_SANDBOX_ALLOWED_APP_USER_IDS=reviewer_id,tester_id`.
-Keep the same IDs in RevenueCat's **Allowed App User IDs only** sandbox setting;
-these lists are managed independently. Configure the production RevenueCat
-webhook integration to send **both Sandbox and Production** events. Adding an ID
-does not itself grant access: a RevenueCat subscription granting the configured
-entitlement is still required. Allowlist changes take effect on subsequent
-processing/reconciliation; existing cached subscription state is not immediately
-invalidated by editing the environment variable.
+In RevenueCat, use **Anybody** for sandbox testing in dev and restrict production
+sandbox access to the demo account. Configure the production webhook integration
+to send **both Sandbox and Production** events. These settings do not grant an
+entitlement: an active subscription granting the configured entitlement is still
+required. Environment changes take effect on subsequent processing/reconciliation;
+existing cached subscription state is not immediately invalidated.
 
 ## Integration contracts
 

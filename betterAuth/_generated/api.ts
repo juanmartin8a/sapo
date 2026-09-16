@@ -12,6 +12,7 @@ import type * as adapter from "../adapter.js";
 import type * as auth from "../auth.js";
 import type * as model_appleTokens from "../model/appleTokens.js";
 import type * as model_auth from "../model/auth.js";
+import type * as model_demoAccess from "../model/demoAccess.js";
 import type * as model_providerAccount from "../model/providerAccount.js";
 import type * as model_user from "../model/user.js";
 
@@ -27,6 +28,7 @@ const fullApi: ApiFromModules<{
   auth: typeof auth;
   "model/appleTokens": typeof model_appleTokens;
   "model/auth": typeof model_auth;
+  "model/demoAccess": typeof model_demoAccess;
   "model/providerAccount": typeof model_providerAccount;
   "model/user": typeof model_user;
 }> = anyApi as any;

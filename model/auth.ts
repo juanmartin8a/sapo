@@ -12,7 +12,8 @@ export async function resolveCurrentUser(ctx: QueryCtx | ActionCtx) {
 
     const userId = resolveBetterAuthUserId(user);
 
-    if (!userId || !(await hasSignInProviderAccount(ctx, userId))) {
+    const isDemoUser = Boolean(process.env.DEMO_ACCESS_USER_ID) && userId === process.env.DEMO_ACCESS_USER_ID;
+    if (!userId || (!isDemoUser && !(await hasSignInProviderAccount(ctx, userId)))) {
         return null;
     }
 

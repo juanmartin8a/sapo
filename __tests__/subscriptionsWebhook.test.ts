@@ -97,24 +97,32 @@ describe("RevenueCat webhook ingestion guards", () => {
     });
 
     it.each([
-        ["SANDBOX", "PRODUCTION", "reviewer", " reviewer, tester\nthird ", "match"],
+        ["SANDBOX", "PRODUCTION", "any_user", "*", "mismatch"],
+        ["SANDBOX", "PRODUCTION", "any_user", " reviewer, *\n", "mismatch"],
+        ["SANDBOX", "PRODUCTION", "any_user", "any_*", "mismatch"],
+        ["PRODUCTION", "SANDBOX", "any_user", "*", "mismatch"],
+        ["STAGING", "PRODUCTION", "any_user", "*", "invalid_event_environment"],
+        ["SANDBOX", "STAGING", "any_user", "*", "invalid_configuration"],
+        ["SANDBOX", "PRODUCTION", "reviewer", "reviewer", "match"],
         ["SANDBOX", "PRODUCTION", "review", "reviewer", "mismatch"],
         ["SANDBOX", "PRODUCTION", "reviewer", "", "mismatch"],
+        ["SANDBOX", "PRODUCTION", "reviewer", "reviewer,tester", "mismatch"],
+        ["SANDBOX", "SANDBOX", "any_user", "reviewer", "match"],
         ["PRODUCTION", "PRODUCTION", "customer", "", "match"],
         ["PRODUCTION", "SANDBOX", "reviewer", "reviewer", "mismatch"],
         ["SANDBOX", "SANDBOX", "tester", "", "match"],
         ["STAGING", "PRODUCTION", "reviewer", "reviewer", "invalid_event_environment"],
-    ])("checks %s in %s for %s", (event, deployment, user, allowed, expected) => {
-        expect(getRevenueCatWebhookEnvironmentDisposition(event, deployment, user, allowed))
+    ])("checks %s in %s for %s", (event, deployment, user, demoUserId, expected) => {
+        expect(getRevenueCatWebhookEnvironmentDisposition(event, deployment, user, demoUserId))
             .toBe(expected);
     });
 
-    it("ingests only allowlisted participants of a sandbox transfer in production", async () => {
+    it("ingests only the demo account among participants of a sandbox transfer in production", async () => {
         process.env = {
             ...originalEnv,
             REVENUECAT_WEBHOOK_AUTH_SECRET: "webhook-secret",
             REVENUECAT_WEBHOOK_ENVIRONMENT: "PRODUCTION",
-            REVENUECAT_SANDBOX_ALLOWED_APP_USER_IDS: "reviewer",
+            DEMO_ACCESS_USER_ID: "reviewer",
         };
         const ctx = {
             runQuery: jest.fn(async (_ref: unknown, args: Record<string, unknown>) =>
