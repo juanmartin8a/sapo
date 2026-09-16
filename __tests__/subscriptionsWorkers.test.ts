@@ -727,7 +727,7 @@ describe("RevenueCat reconciliation routing", () => {
 
     it.each([false, true])("reconciles sandbox access only for an allowed affected account (allowed=%s)", async (allowed) => {
         configureReadEnv();
-        process.env.REVENUECAT_SANDBOX_ALLOWED_APP_USER_IDS = allowed ? "user_1" : "rc_user_1";
+        process.env.DEMO_ACCESS_USER_ID = allowed ? "user_1" : "rc_user_1";
         jest.spyOn(Date, "now").mockReturnValue(3_000);
         globalThis.fetch = jest.fn(async (url: string | URL | Request) => jsonResponse(200,
             String(url).includes("/active_entitlements")

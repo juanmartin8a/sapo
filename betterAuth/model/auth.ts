@@ -1,3 +1,4 @@
+import { demoAccess } from "./demoAccess";
 import { APP_NAME } from "../../constants/app";
 import { createClient } from "@convex-dev/better-auth";
 import { convex, crossDomain } from "@convex-dev/better-auth/plugins";
@@ -420,6 +421,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
         rateLimit: {
             storage: "database",
             customRules: {
+                "/sign-in/demo": { window: 15 * 60, max: 5 },
                 "/delete-user": {
                     window: 60 * 60,
                     max: 3,
@@ -484,6 +486,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
         },
         plugins: [
             // The Expo and Convex plugins are required
+            demoAccess(),
             expo(),
             convex({ authConfig }),
             crossDomain({ siteUrl }),

@@ -47,6 +47,7 @@ import type * as model_subscription from "../model/subscription.js";
 import type * as model_subscriptions_componentApi from "../model/subscriptions/componentApi.js";
 import type * as model_subscriptions_config from "../model/subscriptions/config.js";
 import type * as model_subscriptions_revenueCatApi from "../model/subscriptions/revenueCatApi.js";
+import type * as model_subscriptions_revenueCatEnvironment from "../model/subscriptions/revenueCatEnvironment.js";
 import type * as model_subscriptions_revenueCatEventUsers from "../model/subscriptions/revenueCatEventUsers.js";
 import type * as model_subscriptions_revenueCatWebhook from "../model/subscriptions/revenueCatWebhook.js";
 import type * as model_subscriptions_revenueCatWebhookHttp from "../model/subscriptions/revenueCatWebhookHttp.js";
@@ -110,6 +111,7 @@ declare const fullApi: ApiFromModules<{
   "model/subscriptions/componentApi": typeof model_subscriptions_componentApi;
   "model/subscriptions/config": typeof model_subscriptions_config;
   "model/subscriptions/revenueCatApi": typeof model_subscriptions_revenueCatApi;
+  "model/subscriptions/revenueCatEnvironment": typeof model_subscriptions_revenueCatEnvironment;
   "model/subscriptions/revenueCatEventUsers": typeof model_subscriptions_revenueCatEventUsers;
   "model/subscriptions/revenueCatWebhook": typeof model_subscriptions_revenueCatWebhook;
   "model/subscriptions/revenueCatWebhookHttp": typeof model_subscriptions_revenueCatWebhookHttp;

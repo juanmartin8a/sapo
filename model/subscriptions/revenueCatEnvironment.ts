@@ -21,7 +21,7 @@ export function getRevenueCatWebhookEnvironmentDisposition(
     eventEnvironment: string | undefined,
     configuredEnvironment: string | undefined,
     appUserId?: string,
-    sandboxAllowedAppUserIds = process.env.REVENUECAT_SANDBOX_ALLOWED_APP_USER_IDS
+    demoAccessUserId = process.env.DEMO_ACCESS_USER_ID
 ): RevenueCatWebhookEnvironmentDisposition {
     const parsedConfiguredEnvironment = parseString(configuredEnvironment);
     if (
@@ -38,10 +38,9 @@ export function getRevenueCatWebhookEnvironmentDisposition(
 
     if (parsedEventEnvironment === parsedConfiguredEnvironment) return "match";
 
-    const allowedIds = new Set((sandboxAllowedAppUserIds ?? "").split(/[\s,]+/).filter(Boolean));
     return parsedConfiguredEnvironment === "PRODUCTION" &&
         parsedEventEnvironment === "SANDBOX" &&
-        typeof appUserId === "string" && allowedIds.has(appUserId)
+        Boolean(demoAccessUserId) && appUserId === demoAccessUserId
         ? "match"
         : "mismatch";
 }

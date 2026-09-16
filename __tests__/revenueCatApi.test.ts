@@ -44,7 +44,7 @@ describe("RevenueCat API reconciliation", () => {
             REVENUECAT_CI_SUBSCRIPTIONS_R_API_KEY: "rc_v2_secret",
             REVENUECAT_PROJECT_ID: "proj_test",
             REVENUECAT_WEBHOOK_ENVIRONMENT: "PRODUCTION",
-            REVENUECAT_SANDBOX_ALLOWED_APP_USER_IDS: "user_with_subscription",
+            DEMO_ACCESS_USER_ID: "user_with_subscription",
             REVENUECAT_POLYGLOT_ENTITLEMENT_ID: "entl_polyglot",
             ...extraEnv,
         };
@@ -252,15 +252,18 @@ describe("RevenueCat API reconciliation", () => {
         ["PRODUCTION", "", "sandbox", false],
         ["PRODUCTION", "customer", "sandbox", true],
         ["PRODUCTION", "another", "sandbox", false],
+        ["PRODUCTION", "*", "sandbox", false],
+        ["PRODUCTION", " another, *\n", "sandbox", false],
+        ["SANDBOX", "*", "production", false],
         ["PRODUCTION", "", "production", true],
         ["SANDBOX", "", "sandbox", true],
         ["SANDBOX", "customer", "production", false],
         ["PRODUCTION", "customer", undefined, false],
         ["PRODUCTION", "customer", "unknown", false],
-    ])("filters API access in %s with allowlist %s and transaction %s", async (deployment, allowed, environment, active) => {
+    ])("filters API access in %s with demo account %s and transaction %s", async (deployment, demoUserId, environment, active) => {
         configureRevenueCatEnv({
             REVENUECAT_WEBHOOK_ENVIRONMENT: deployment,
-            REVENUECAT_SANDBOX_ALLOWED_APP_USER_IDS: allowed,
+            DEMO_ACCESS_USER_ID: demoUserId,
         });
         globalThis.fetch = jest.fn(async () => jsonResponse(200, { items: [{
             id: "sub", gives_access: true, environment,
@@ -271,7 +274,7 @@ describe("RevenueCat API reconciliation", () => {
     });
 
     it("rejects a cached sandbox subscription and selects the production subscription", async () => {
-        configureRevenueCatEnv({ REVENUECAT_SANDBOX_ALLOWED_APP_USER_IDS: "" });
+        configureRevenueCatEnv({ DEMO_ACCESS_USER_ID: "" });
         const subscription = {
             id: "sandbox_sub", customer_id: "customer", gives_access: true,
             environment: "sandbox", current_period_starts_at: 3_000,
@@ -290,8 +293,8 @@ describe("RevenueCat API reconciliation", () => {
         })).resolves.toMatchObject({ has_active_subscription: true, revenuecat_subscription_id: "production_sub" });
     });
 
-    it("checks the affected account instead of allowing access through an allowlisted canonical ID", async () => {
-        configureRevenueCatEnv({ REVENUECAT_SANDBOX_ALLOWED_APP_USER_IDS: "canonical" });
+    it("checks the affected account instead of allowing access through the demo account’s canonical ID", async () => {
+        configureRevenueCatEnv({ DEMO_ACCESS_USER_ID: "canonical" });
         globalThis.fetch = jest.fn(async () => jsonResponse(200, { items: [{
             id: "sub", gives_access: true, environment: "sandbox",
             entitlements: { items: [{ id: "entl_polyglot" }] },
