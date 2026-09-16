@@ -3,12 +3,12 @@ import { Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react
 import * as AppleAuthentication from 'expo-apple-authentication';
 import AppleLogo from '@/assets/icons/apple-logo.svg';
 import { UI_DISABLED_OPACITY } from '@/constants/ui';
+import type { SocialProvider } from '@/types/auth';
 import { authClient } from '@/lib/auth-client';
 import { triggerLightImpactHaptic } from '@/lib/haptics';
 
 const SOCIAL_SIGN_IN_BUTTON_HEIGHT = 44;
 
-export type SocialProvider = 'google' | 'apple';
 
 interface SocialSignInButtonProps {
     provider: SocialProvider;

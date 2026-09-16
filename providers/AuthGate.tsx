@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "expo-router";
 import { signOutCurrentSession } from "@/lib/auth-session";
 import { APP_ROUTES } from "@/constants/routes";
 import { useAuthState } from "@/providers/AuthStateProvider";
+import { useSignInStore } from "@/stores/signInStore";
 
 export default function AuthGate() {
     const pathname = usePathname();
@@ -40,8 +41,9 @@ export default function AuthGate() {
         }
 
         signedOutSessionIdRef.current = null;
+        useSignInStore.getState().reset();
 
-        if (pathname === APP_ROUTES.AUTH) {
+        if (pathname === APP_ROUTES.AUTH || pathname === APP_ROUTES.DEMO_ACCESS) {
             router.dismissTo(APP_ROUTES.HOME);
         }
     }, [hasUnsupportedSession, pathname, router, sessionId, status]);

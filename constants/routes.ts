@@ -39,6 +39,7 @@ export const SETTINGS_ROUTES = {
 export const APP_ROUTES = {
     HOME: "/",
     AUTH: "/auth",
+    DEMO_ACCESS: "/demo-access",
     SETTINGS: SETTINGS_ROUTES.ROOT.href,
     DATA_CONTROLS: SETTINGS_ROUTES.DATA_CONTROLS.href,
     LOCAL_MODELS: SETTINGS_ROUTES.LOCAL_MODELS.href,

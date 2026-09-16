@@ -1,9 +1,12 @@
 {
   "expo.jsEngine": "hermes",
   "EX_DEV_CLIENT_NETWORK_INSPECTOR": "true",
-  "ios.deploymentTarget": "16.4",
+  "expo.inlineModules.watchedDirectories": "[]",
+  "expo.inlineModules.xcodeProjectTargets": "{\"mainTarget\":\"SAPO\",\"targets\":[]}",
+  "ios.deploymentTarget": "26.0",
   "ios.forceStaticLinking": "[]",
   "apple.privacyManifestAggregationEnabled": "true",
   "ios.buildReactNativeFromSource": "true",
-  "expo.useHermesV1": "true"
+  "expo.useHermesV1": "true",
+  "EXPO_USE_PRECOMPILED_MODULES": "true"
 }
