@@ -15,6 +15,15 @@ export default function DemoAccessScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { paddingTop: 32, paddingHorizontal: 28, backgroundColor: '#fff', gap: 20 },
-    description: { fontSize: 15, lineHeight: 22, color: '#666' },
+    container: {
+        paddingTop: 32,
+        paddingHorizontal: 28,
+        backgroundColor: '#fff',
+        gap: 20,
+    },
+    description: {
+        fontSize: 15,
+        lineHeight: 22,
+        color: '#666',
+    },
 });

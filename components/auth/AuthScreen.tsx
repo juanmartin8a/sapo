@@ -20,7 +20,7 @@ const AuthScreen = () => {
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const pendingProvider = useSignInStore((state) => state.pendingProvider);
-    const setPendingProvider = useSignInStore((state) => state.start);
+    const handleSignInStart = useSignInStore((state) => state.start);
     const handleSignInEnd = useSignInStore((state) => state.end);
     const [titleTransitionProgress] = useState(() => new Animated.Value(0));
 
@@ -30,7 +30,7 @@ const AuthScreen = () => {
             return;
         }
 
-        router.replace('/');
+        router.replace(APP_ROUTES.HOME);
     }, [router]);
 
     const isSignInPending = pendingProvider !== null;
@@ -116,7 +116,6 @@ const AuthScreen = () => {
                             ) : null}
                         </View>
                     </View>
-
                 </View>
             </View>
             <View style={[styles.footer, { paddingBottom: insets.bottom }]}>
@@ -127,7 +126,7 @@ const AuthScreen = () => {
                         icon={<GoogleGIcon />}
                         loading={pendingProvider === 'google'}
                         disabled={isSignInPending}
-                        onSignInStart={setPendingProvider}
+                        onSignInStart={handleSignInStart}
                         onSignInCancel={handleSignInEnd}
                         onSignInError={handleSignInEnd}
                     />
@@ -136,7 +135,7 @@ const AuthScreen = () => {
                         label="Sign in with Apple"
                         loading={pendingProvider === 'apple'}
                         disabled={isSignInPending}
-                        onSignInStart={setPendingProvider}
+                        onSignInStart={handleSignInStart}
                         onSignInCancel={handleSignInEnd}
                         onSignInError={handleSignInEnd}
                     />
@@ -150,7 +149,6 @@ const AuthScreen = () => {
                     >
                         <Text style={styles.demoLabel}>Demo access</Text>
                     </TouchableOpacity>
-
                 </View>
                 <View style={styles.legalNotice}>
                     <AuthLegalNotice />
@@ -165,9 +163,17 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#fff',
     },
-    mainContent: { flex: 1, overflow: 'hidden' },
-    footer: { paddingHorizontal: 28 },
-    legalNotice: { paddingTop: SIGN_IN_SPACING, paddingBottom: 32 },
+    mainContent: {
+        flex: 1,
+        overflow: 'hidden',
+    },
+    footer: {
+        paddingHorizontal: 28,
+    },
+    legalNotice: {
+        paddingTop: SIGN_IN_SPACING,
+        paddingBottom: 32,
+    },
     content: {
         flex: 1,
         paddingHorizontal: 28,
@@ -219,9 +225,20 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    demoToggle: { alignSelf: 'flex-start', justifyContent: 'center' },
-    disabled: { opacity: UI_DISABLED_OPACITY },
-    demoLabel: { fontSize: 12, lineHeight: 12, color: '#000', textDecorationLine: 'underline', fontWeight: "500" },
+    demoToggle: {
+        alignSelf: 'flex-start',
+        justifyContent: 'center',
+    },
+    disabled: {
+        opacity: UI_DISABLED_OPACITY,
+    },
+    demoLabel: {
+        fontSize: 12,
+        lineHeight: 12,
+        color: '#000',
+        textDecorationLine: 'underline',
+        fontWeight: '500',
+    },
     buttons: {
         gap: SIGN_IN_SPACING,
     },

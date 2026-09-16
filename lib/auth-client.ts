@@ -86,6 +86,9 @@ export async function signInWithDemoCode(code: string) {
         method: "POST",
         body: { code },
     });
-    if (!result.error) authClient.$store.notify("$sessionSignal");
+    if (!result.error) {
+        authClient.$store.notify("$sessionSignal");
+    }
+
     return result;
 }

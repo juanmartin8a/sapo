@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-type SignInMethod = 'google' | 'apple' | 'demo';
+import type { SignInMethod } from '@/types/auth';
 
 type SignInState = {
     pendingProvider: SignInMethod | null;
