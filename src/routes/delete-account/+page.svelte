@@ -171,7 +171,7 @@
 				</p>
 
 				<p>
-					If you cannot access the app or your account, email
+					To request deletion outside the app, including if you cannot access your account, email
 					<a
 						class="font-bold text-[#1E3526] underline underline-offset-4"
 						href="mailto:support@sapo.surf?subject=SAPO%20Account%20Deletion"
@@ -179,6 +179,26 @@
 						support@sapo.surf</a
 					>. Include the email address associated with your SAPO account. We may need to verify your
 					identity before deleting account data.
+				</p>
+
+				<p>
+					Deletion removes your account and authentication data and starts background cleanup of
+					associated subscription, usage, and quota records. Limited subscription identifiers and
+					quota counters may remain to prevent quota resets; frozen records become eligible for
+					cleanup 60 days after the quota period ends. Provider records, backups, and records needed
+					for security, legal obligations, or deletion recovery may remain as explained in our
+					<a
+						class="font-bold text-[#1E3526] underline underline-offset-4"
+						href={resolve('/privacy-policy/')}>Privacy Policy</a
+					>. Contact support to check the status of a deletion request.
+				</p>
+
+				<p>
+					<strong class="font-bold text-[#1E3526]"
+						>Account deletion does not cancel a subscription.</strong
+					>
+					Manage or cancel billing through Apple or Google Play. You can request account deletion without
+					first canceling. Remove downloaded models separately in Settings &rarr; Local models.
 				</p>
 			</div>
 
