@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator, ScrollView, Switch } from 'react-native';
 import { useNetworkState } from 'expo-network';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeOut, LinearTransition, SharedValue, useAnimatedStyle } from 'react-native-reanimated';
@@ -40,6 +40,8 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
         isConfirmedInactive: isSubscriptionInactive,
     } = useSubscriptionAccess();
     const operation = useTransformationOperationStore((state) => state.operation);
+    const translateThenRespell = useTransformationOperationStore((state) => state.translateThenRespell);
+    const setTranslateThenRespell = useTransformationOperationStore((state) => state.setTranslateThenRespell);
     const setOperation = useTransformationOperationStore((state) => state.setOperation);
     const isLocalModelDownloaded = useLocalModelStore((state) => state.isDownloaded);
     const isLocalModelEnabled = useLocalModelStore((state) => state.isEnabled);
@@ -69,6 +71,7 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
     const shouldShowLocalModeToggle = isAuthenticatedUser;
     const shouldShowLoadModelButton = isLocalModelDownloaded && !isLocalModelLoaded;
     // Get individual values from the store to avoid unnecessary re-renders
+    const respellLanguage = useLanguageSelectionStore(state => state.respellLanguage);
     const selectedIndex0 = useLanguageSelectionStore(state => state.selectedIndex0);
     const selectedIndex1 = useLanguageSelectionStore(state => state.selectedIndex1);
     const inputLanguage =
@@ -283,6 +286,24 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
                         </TouchableOpacity>
                     </View>
                 </View>
+                {operation === 'respell' && (
+                    <View style={styles.respellModeContainer}>
+                        <View style={styles.field}>
+                            <Text style={styles.respellModeLabel}>Translate, then respell back</Text>
+                            <Switch
+                                accessibilityLabel="Translate, then respell back"
+                                value={translateThenRespell}
+                                onValueChange={(enabled) => {
+                                    triggerSelectionHaptic();
+                                    setTranslateThenRespell(enabled);
+                                }}
+                            />
+                        </View>
+                        <Text style={styles.respellModeDescription}>
+                            Translate to the target language, then show its pronunciation in the Respell language.
+                        </Text>
+                    </View>
+                )}
                 <View style={styles.inputContainer}>
                     <TouchableOpacity
                         onPress={handleInputLanguagePress}
@@ -311,6 +332,19 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
                         </View>
                     </TouchableOpacity>
                 </View>
+                {operation === 'respell' && translateThenRespell && (
+                    <View style={styles.inputContainer}>
+                        <TouchableOpacity onPress={() => requestBottomSheet(HOME_BOTTOM_SHEET_KEYS.RESPELL_LANGUAGE)} activeOpacity={0.7}>
+                            <View style={styles.field}>
+                                <Text style={styles.label}>Respell:</Text>
+                                <View style={styles.languageValue}>
+                                    <Text style={styles.languageText} numberOfLines={1}>{respellLanguage}</Text>
+                                    <ChevronRightIcon width={22} height={22} stroke="black" />
+                                </View>
+                            </View>
+                        </TouchableOpacity>
+                    </View>
+                )}
                 <View style={styles.localModelContainer}>
                     {shouldShowLocalModeToggle && (
                         <View style={styles.localModeToggleContainer}>
@@ -441,6 +475,21 @@ const styles = StyleSheet.create({
     topContent: {
         flexGrow: 1,
         paddingBottom: 20,
+    },
+    respellModeContainer: {
+        paddingVertical: 12,
+        gap: 6,
+    },
+    respellModeLabel: {
+        flex: 1,
+        fontSize: 15,
+        fontWeight: "500",
+        color: "black",
+        marginRight: 12,
+    },
+    respellModeDescription: {
+        fontSize: 13,
+        color: "#666",
     },
     inputContainer: {
         paddingVertical: 6,

@@ -21,7 +21,7 @@
         "com.apple.developer.kernel.extended-virtual-addressing": true,
         "com.apple.developer.kernel.increased-memory-limit": true
       },
-      "buildNumber": "4",
+      "buildNumber": "5",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }

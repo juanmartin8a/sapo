@@ -23,6 +23,7 @@ import TextToTranslateInput from "@/components/home/TextToTranslateInput";
 import usePagerStore from "@/stores/pagerStore";
 import useLocalModelStore from "@/stores/localModelStore";
 import SourceLanguageSelectorBottomSheet from "@/components/home/SourceLanguageSelectorBottomSheet";
+import RespellLanguageSelectorBottomSheet from "./RespellLanguageSelectorBottomSheet";
 import TargetLanguageSelectorBottomSheet from "@/components/home/TargetLanguageSelectorBottomSheet";
 import LocalModelSelectorBottomSheet from "@/components/home/LocalModelSelectorBottomSheet";
 import { triggerLightImpactHaptic } from "@/lib/haptics";
@@ -347,6 +348,7 @@ export default function HomeScreen() {
                     </View>
                 </GestureDetector>
                 <TargetLanguageSelectorBottomSheet />
+                <RespellLanguageSelectorBottomSheet />
                 <SourceLanguageSelectorBottomSheet />
                 <LocalModelSelectorBottomSheet />
             </GestureHandlerRootView>

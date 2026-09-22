@@ -2,7 +2,8 @@ import { HOME_BOTTOM_SHEET_KEYS } from "@/constants/bottomSheets";
 
 type LanguageSelectorBottomSheetKey =
     | typeof HOME_BOTTOM_SHEET_KEYS.INPUT_LANGUAGE
-    | typeof HOME_BOTTOM_SHEET_KEYS.TARGET_LANGUAGE;
+    | typeof HOME_BOTTOM_SHEET_KEYS.TARGET_LANGUAGE
+    | typeof HOME_BOTTOM_SHEET_KEYS.RESPELL_LANGUAGE;
 
 type LocalModelSelectorBottomSheetKey = typeof HOME_BOTTOM_SHEET_KEYS.LOCAL_MODEL;
 

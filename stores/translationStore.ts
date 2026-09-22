@@ -35,6 +35,9 @@ type ActiveStreamSnapshot = {
 
 interface TranslationStoreState {
     displayText: string;
+    translationPreview: string;
+    isCombinedResponse: boolean;
+    isTranslatingPreview: boolean;
     mouthTriggerVersion: number;
     streamStartVersion: number;
     hasReceivedStreamToken: boolean;
@@ -159,6 +162,9 @@ const useTranslationStore = create<TranslationStoreState>((set, get) => {
 
     return {
         displayText: "",
+        translationPreview: "",
+        isCombinedResponse: false,
+        isTranslatingPreview: false,
         mouthTriggerVersion: 0,
         streamStartVersion: 0,
         hasReceivedStreamToken: false,
@@ -201,7 +207,9 @@ const useTranslationStore = create<TranslationStoreState>((set, get) => {
                 languages[selectedTargetIndex as keyof typeof languages] ??
                 languages[DEFAULT_TARGET_LANGUAGE_ID];
 
-            const operation = useTransformationOperationStore.getState().operation;
+            const { operation, translateThenRespell: isTranslateThenRespellEnabled } =
+                useTransformationOperationStore.getState();
+            const translateThenRespell = operation === "respell" && isTranslateThenRespellEnabled;
             const endpointPath = getTranslationStreamEndpointPath(operation);
             const convexSiteUrl = CONVEX_SITE_URL;
             const streamId = globalThis.crypto?.randomUUID?.()
@@ -279,6 +287,9 @@ const useTranslationStore = create<TranslationStoreState>((set, get) => {
                     set({
                         lastInput: input,
                         displayText: "",
+                        translationPreview: "",
+                        isCombinedResponse: false,
+                        isTranslatingPreview: false,
                         streamError: false,
                         streamErrorMessage: null,
                         abortController,
@@ -388,11 +399,14 @@ const useTranslationStore = create<TranslationStoreState>((set, get) => {
             set({
                 lastInput: input,
                 displayText: "",
+                translationPreview: "",
                 streamError: false,
                 streamErrorMessage: null,
                 abortController,
                 activeStreamId: streamId,
                 activeLocalStop: null,
+                isCombinedResponse: translateThenRespell,
+                isTranslatingPreview: translateThenRespell,
                 isStreaming: true,
                 hasReceivedStreamToken: false,
             });
@@ -408,9 +422,14 @@ const useTranslationStore = create<TranslationStoreState>((set, get) => {
             };
 
             try {
+                if (translateThenRespell) {
+                    setTranslateButtonState("stop");
+                }
                 const result = await runTranslationStream(
                     {
                         operation,
+                        translateThenRespell,
+                        respellLanguage: useLanguageSelectionStore.getState().respellLanguage,
                         convexSiteUrl,
                         inputLanguage,
                         targetLanguage,
@@ -426,7 +445,13 @@ const useTranslationStore = create<TranslationStoreState>((set, get) => {
                             }
 
                             setTranslateButtonState("stop");
-                            appendToken(token);
+                            if (token.type === "translation_preview") {
+                                set(state => ({ translationPreview: state.translationPreview + (token.value ?? "") }));
+                            } else if (token.type === "respell_start") {
+                                set({ isTranslatingPreview: false });
+                            } else {
+                                appendToken(token);
+                            }
                             return "continue";
                         },
                         onDone: () => {
