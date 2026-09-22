@@ -56,11 +56,14 @@ export default function HomeScreen() {
     const setPos = usePagerStore(state => state.setPos);
 
     const operation = useTransformationOperationStore((state) => state.operation);
+    const translateThenRespell = useTransformationOperationStore((state) => state.translateThenRespell);
     const isLocalModelEnabled = useLocalModelStore((state) => state.isEnabled);
     const operationText = operation.charAt(0).toUpperCase() + operation.slice(1);
-    const operationLabel = operation === 'translate' && isLocalModelEnabled
-        ? `${operationText} | local :)`
-        : operationText + " " + (operation === 'translate' ? ':)' : '(:');
+    const operationLabel = operation === 'respell'
+        ? translateThenRespell ? 'Translate & Respell :)' : 'Respell :)'
+        : isLocalModelEnabled
+            ? `${operationText} | local :)`
+            : `${operationText} :)`;
 
     const setSidebarStateJS = useCallback(
         (isOpen: boolean) => {
