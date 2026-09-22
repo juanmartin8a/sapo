@@ -287,11 +287,15 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
                     </View>
                 </View>
                 {operation === 'respell' && (
-                    <View style={styles.respellModeContainer}>
+                    <Animated.View
+                        entering={FadeIn.duration(180)}
+                        exiting={FadeOut.duration(120)}
+                        style={styles.respellModeContainer}
+                    >
                         <View style={styles.field}>
-                            <Text style={styles.respellModeLabel}>Translate, then respell back</Text>
+                            <Text style={styles.respellModeLabel}>Translate first, then respell</Text>
                             <Switch
-                                accessibilityLabel="Translate, then respell back"
+                                accessibilityLabel="Translate first, then respell"
                                 value={translateThenRespell}
                                 onValueChange={(enabled) => {
                                     triggerSelectionHaptic();
@@ -299,12 +303,9 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
                                 }}
                             />
                         </View>
-                        <Text style={styles.respellModeDescription}>
-                            Translate to the target language, then show its pronunciation in the Respell language.
-                        </Text>
-                    </View>
+                    </Animated.View>
                 )}
-                <View style={styles.inputContainer}>
+                <Animated.View layout={LinearTransition.duration(220)} style={styles.inputContainer}>
                     <TouchableOpacity
                         onPress={handleInputLanguagePress}
                         activeOpacity={0.7}
@@ -317,8 +318,8 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
                             </View>
                         </View>
                     </TouchableOpacity>
-                </View>
-                <View style={styles.inputContainer}>
+                </Animated.View>
+                <Animated.View layout={LinearTransition.duration(220)} style={styles.inputContainer}>
                     <TouchableOpacity
                         onPress={handleTargetLanguagePress}
                         activeOpacity={0.7}
@@ -331,9 +332,13 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
                             </View>
                         </View>
                     </TouchableOpacity>
-                </View>
+                </Animated.View>
                 {operation === 'respell' && translateThenRespell && (
-                    <View style={styles.inputContainer}>
+                    <Animated.View
+                        entering={FadeIn.duration(180)}
+                        exiting={FadeOut.duration(120)}
+                        style={styles.inputContainer}
+                    >
                         <TouchableOpacity onPress={() => requestBottomSheet(HOME_BOTTOM_SHEET_KEYS.RESPELL_LANGUAGE)} activeOpacity={0.7}>
                             <View style={styles.field}>
                                 <Text style={styles.label}>Respell:</Text>
@@ -343,9 +348,15 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
                                 </View>
                             </View>
                         </TouchableOpacity>
-                    </View>
+                    </Animated.View>
                 )}
-                <View style={styles.localModelContainer}>
+                {operation === 'translate' && (
+                <Animated.View
+                    entering={FadeIn.duration(180)}
+                    exiting={FadeOut.duration(120)}
+                    layout={LinearTransition.duration(220)}
+                    style={styles.localModelContainer}
+                >
                     {shouldShowLocalModeToggle && (
                         <View style={styles.localModeToggleContainer}>
                             <TouchableOpacity
@@ -461,7 +472,8 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
                                 </View>
                             </TouchableOpacity>
                         </Animated.View>
-                </View>
+                </Animated.View>
+                )}
             </ScrollView>
             <SidebarFooter />
         </Animated.View>
@@ -478,7 +490,6 @@ const styles = StyleSheet.create({
     },
     respellModeContainer: {
         paddingVertical: 12,
-        gap: 6,
     },
     respellModeLabel: {
         flex: 1,
@@ -486,10 +497,6 @@ const styles = StyleSheet.create({
         fontWeight: "500",
         color: "black",
         marginRight: 12,
-    },
-    respellModeDescription: {
-        fontSize: 13,
-        color: "#666",
     },
     inputContainer: {
         paddingVertical: 6,
