@@ -20,6 +20,7 @@ export default function TranslationPreview({ text }: { text: string }) {
         ref={scroll}
         horizontal
         style={styles.strip}
+        contentContainerStyle={styles.content}
         showsHorizontalScrollIndicator
         onScrollBeginDrag={() => { interacting.current = true; follow.current = false; }}
         onScroll={event => {
@@ -41,6 +42,7 @@ export default function TranslationPreview({ text }: { text: string }) {
     </ScrollView>;
 }
 const styles = StyleSheet.create({
-    strip: { height: 40, flexGrow: 0, marginBottom: 8 },
+    strip: { height: 40, flexGrow: 0, marginHorizontal: -24, marginBottom: 8 },
+    content: { paddingHorizontal: 24 },
     text: { fontFamily: "Times New Roman", fontSize: 24, lineHeight: 29, opacity: 0.5 },
 });
