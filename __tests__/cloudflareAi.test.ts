@@ -71,7 +71,7 @@ describe("Cloudflare AI streams", () => {
         expect(init?.headers).toMatchObject({ "cf-aig-authorization": "Bearer test-cloudflare-token" });
         expect(init?.headers).not.toHaveProperty("Authorization");
         const body = JSON.parse(init?.body as string);
-        expect(body).toMatchObject({ model: "gpt-5.6-luna", instructions: respellPrompt, input: args.input, reasoning: { effort: "none" }, stream: true, store: false });
+        expect(body).toMatchObject({ model: "gpt-6-luna", instructions: respellPrompt, input: args.input, reasoning: { effort: "none" }, stream: true, store: false });
         expect(body).not.toHaveProperty("prompt");
         expect(body.text.format).toEqual({ type: "json_schema", ...respellSchema });
         expect(body.text.format.name).toBe("sapopinguino");

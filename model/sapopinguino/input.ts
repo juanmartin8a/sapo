@@ -1,3 +1,4 @@
+import { isRespellLanguage } from "./languages";
 import { isRecord, readBoundedJsonRequestBody } from "../http/requestBody";
 
 const MAX_SAPOPINGUINO_REQUEST_BODY_BYTES = 131_072;
@@ -103,5 +104,29 @@ export function sanitizeSapopinguinoInputPayload(
             payload: inputPayload,
             userInput: inputPayload,
         };
+    }
+}
+
+export function readRespellPipelineLanguages(input: string) {
+    try {
+        const payload: unknown = JSON.parse(input);
+        if (!isRecord(payload)) {
+            return null;
+        }
+        const inputLanguage = payload.input_language;
+        const targetLanguage = payload.target_language;
+        if (
+            typeof inputLanguage !== "string" ||
+            typeof targetLanguage !== "string" ||
+            !inputLanguage.trim() ||
+            !targetLanguage.trim() ||
+            !(inputLanguage === "Auto-detect" || isRespellLanguage(inputLanguage)) ||
+            !isRespellLanguage(targetLanguage)
+        ) {
+            return null;
+        }
+        return { inputLanguage, targetLanguage };
+    } catch {
+        return null;
     }
 }

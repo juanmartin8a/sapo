@@ -1,6 +1,6 @@
 # Cloudflare AI setup
 
-Respelling calls `gpt-5.6-luna` through Cloudflare AI Gateway's provider-native Responses endpoint with `reasoning.effort: "none"`. Translation calls `@cf/google/gemma-4-26b-a4b-it` through the Workers AI chat-completions REST endpoint with `chat_template_kwargs.enable_thinking: false`. Cloudflare names the 26B model **A4B**, not E4B. Both calls run in Convex HTTP actions; no separate Worker deployment is needed.
+Respelling calls `gpt-6-luna` through Cloudflare AI Gateway's provider-native Responses endpoint with `reasoning.effort: "none"`. Translation calls `@cf/google/gemma-4-26b-a4b-it` through the Workers AI chat-completions REST endpoint with `chat_template_kwargs.enable_thinking: false`. Cloudflare names the 26B model **A4B**, not E4B. Both calls run in Convex HTTP actions; no separate Worker deployment is needed.
 
 ## Convex environment variables
 
@@ -12,7 +12,7 @@ Set these in the Convex dashboard for each deployment (development and productio
 | `CLOUDFLARE_AI_GATEWAY_ID` | Gateway ID/slug, not its complete URL. Required for respelling. |
 | `CLOUDFLARE_API_TOKEN` | Secret account-scoped token with **AI Gateway Run**, **Workers AI Read**, and **Workers AI Edit** permissions. |
 
-Create a gateway and enable Authenticated Gateway. To use GPT without an OpenAI key in Convex, load Cloudflare Unified Billing credits and confirm the gateway can run `gpt-5.6-luna`. Alternatively, store an OpenAI key with access to that model as the default OpenAI BYOK credential in the gateway. GPT still runs on OpenAI infrastructure through Cloudflare; Gemma runs on Workers AI. Translation uses direct Workers AI billing/access, separately from the gateway's Unified Billing balance.
+Create a gateway and enable Authenticated Gateway. To use GPT without an OpenAI key in Convex, load Cloudflare Unified Billing credits and confirm the gateway can run `gpt-6-luna`. Alternatively, store an OpenAI key with access to that model as the default OpenAI BYOK credential in the gateway. GPT still runs on OpenAI infrastructure through Cloudflare; Gemma runs on Workers AI. Translation uses direct Workers AI billing/access, separately from the gateway's Unified Billing balance.
 
 The backend no longer reads `OPENAI_API_KEY`, `OPENAI_SAPOPINGUINO_PROMPT_ID`, `OPENAI_SAPOPINGUINO_PROMPT_V`, `OPENAI_SAPOPINGUINO_TRANSLATE_PROMPT_ID`, or `OPENAI_SAPOPINGUINO_TRANSLATE_PROMPT_V`. Remove these obsolete Convex variables after rollout. Do not prefix Cloudflare credentials with `EXPO_PUBLIC_`.
 
@@ -30,8 +30,9 @@ The Responses API places `name`, `strict`, and `schema` directly inside `text.fo
 
 - [OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs): Responses `text.format`, strict schemas, supported JSON Schema subset, refusals, and streaming.
 
-- [OpenAI GPT-5.6 guidance](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.6): explicit reasoning settings, clear constraints, and less duplicated prompting. The respelling prompt retains the supplied token contract and language rules, adds an input-data boundary, and clarifies numbers, Unicode, Mandarin naming, and paragraph breaks. Repeated final-check instructions were removed.
-- [GPT-5.6 Luna model](https://developers.openai.com/api/docs/models/gpt-5.6-luna): model identifier and support for reasoning effort `none`.
+- [OpenAI GPT-6 guidance](https://developers.openai.com/api/docs/guides/latest-model): retain supported reasoning effort and evaluate prompts on the chosen model. The respelling prompt keeps the token contract and language rules while removing repeated instructions and long examples.
+- [GPT-6 Luna model](https://developers.openai.com/api/docs/models/gpt-6-luna): model identifier, Structured Outputs, and support for reasoning effort `none`.
+- [Rethinking skills and prompts for GPT-6 Astra](https://developers.openai.com/blog/rethinking-skills-and-prompts-for-gpt-6-astra): review accumulated instructions for unnecessary context. Its advice is written for agent prompts, so respelling quality still needs workload-specific evaluation.
 - [Cloudflare OpenAI provider](https://developers.cloudflare.com/ai-gateway/usage/providers/openai/): Responses endpoint and Cloudflare-only authentication using stored credentials or Unified Billing.
 - [Authenticated Gateway](https://developers.cloudflare.com/ai-gateway/configuration/authentication/) and [Workers AI REST setup](https://developers.cloudflare.com/workers-ai/get-started/rest-api/): token setup and permissions.
 - [Cloudflare Gemma model](https://developers.cloudflare.com/workers-ai/models/gemma-4-26b-a4b-it/) and [thinking-disabled example](https://developers.cloudflare.com/workers-ai/get-started/workers-wrangler/): exact model slug, chat completions, and `enable_thinking: false`.
@@ -39,3 +40,38 @@ The Responses API places `name`, `strict`, and `schema` directly inside `text.fo
 - [Community translation experience](https://discuss.ai.google.dev/t/gemma-4-really-good-with-ollama/140553): firsthand examples emphasize natural translation, preserved markup and names, and text-only responses. These are useful prompt design ideas, not a quality benchmark for this app.
 
 Before production rollout, smoke-test both models with real Cloudflare credentials and representative language pairs, mixed-language text, embedded instructions, emoji, placeholders, and multiline formatting. Local mocked tests verify the transport contract, not model quality, account access, or gateway model availability.
+
+
+## Translate, then respell back
+
+The respelling endpoint accepts an optional boolean `translateThenRespell` beside
+`input` and `streamId`. It defaults to false. When true, Convex buffers a complete
+translation, then passes it to the existing respelling integration with the source
+and respelling languages resolved as described below. Translation deltas are also
+forwarded to the client as preview events.
+
+This is one subscription-gated respelling request, measured using the original
+input characters. The existing quota lifecycle charges on the first respelling
+token; translation failures release the reservation without charging. Translation
+output is bounded to 65,536 UTF-16 code units. Each model call retains its existing
+timeouts and shares request cancellation. Empty keepalive lines preserve the
+respelling stream protocol during the two stages; the app allows 255 seconds for
+the combined request.
+
+### Respell language and translation preview
+
+Combined requests accept `respellLanguage` (`Source` by default, or a supported
+language). `Source` follows the explicit source or the detected original input
+language. The combined translation stage uses GPT-6 Luna through the same OpenAI
+Responses gateway as respelling; ordinary translation retains Workers AI.
+Only Auto-detect + Respell Source requests use strict structured translation
+output (`detectedSourceLanguage`, then `translation`). The backend decodes the
+translation incrementally and validates the full object after `response.completed`.
+Unknown or unsupported detection stops before respelling with a recoverable
+source-selection error. No model-generated terminator is used.
+
+The line protocol adds JSON events `translation_preview` (string `value`),
+`respell_start`, and `source_undetermined`. Preview text is not a respelling token
+and does not trigger mouth animation or quota charging. Existing quota charging
+still occurs on the first respelling token. The final end/error markers remain
+unchanged. Interrupted or invalid translations never start respelling.
