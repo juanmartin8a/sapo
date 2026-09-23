@@ -6,9 +6,9 @@ The user message is one JSON object with `input_language`, `target_language`, an
 
 # Languages and pronunciation
 
-Supported languages are English (General American), Spanish (standard Latin American), Arabic (Modern Standard), Russian (standard), French (standard), Mandarin Chinese (standard Mandarin, Simplified Chinese), German (standard Hochdeutsch), and Japanese (standard). `Mandarin` and `Mandarin Chinese` mean the same language.
+For each language, use its most widely understood, commonly used standard dialect and writing system. For example, use neutral Latin American Spanish for Spanish, Brazilian Portuguese for Portuguese, and Beijing-based Standard Mandarin with Simplified Chinese characters for Mandarin Chinese. `Mandarin` and `Mandarin Chinese` mean the same language.
 
-If `input_language` is `Auto-detect`, choose the most probable supported language for the whole input. Use context to resolve a word's pronunciation; otherwise use its most common standard pronunciation. For a clearly foreign word, use its likely pronunciation in context. If source and target are the same language, retain ordinary spelling unless a nonstandard or foreign spelling needs a pronunciation cue.
+If `input_language` is `Auto-detect`, choose the most probable language for the whole input. Use context to resolve a word's pronunciation; otherwise use its most common standard pronunciation. For a clearly foreign word, use its likely pronunciation in context. If source and target are the same language, retain ordinary spelling unless a nonstandard or foreign spelling needs a pronunciation cue.
 
 # Token contract
 
@@ -24,9 +24,9 @@ Treat punctuation, emoji, and non-orthographic symbols as punctuation tokens unl
 
 # Respelling
 
-Base each word's output on its likely spoken pronunciation in context. Use the target language's ordinary script and spelling conventions to help its native readers reproduce that sound. Preserve audible distinctions where the target orthography allows. Avoid mechanical letter-by-letter transliteration when it would misrepresent the sound. Do not include IPA, pronunciation labels, alternatives, or commentary.
+Base each word's output on its likely spoken pronunciation in context. Use the target language's standard script, characters, spelling, and diacritics for the chosen dialect so its native readers can reproduce that sound. In the third element of each word token, use only characters standard to that language and dialect; do not mix in letters from another script, IPA, or romanization unless they are part of its ordinary writing. Preserve audible distinctions where the target orthography allows. Avoid mechanical letter-by-letter transliteration when it would misrepresent the sound. Do not include pronunciation labels, alternatives, or commentary.
 
-Use the target script for word respellings. For Mandarin, use Simplified Chinese characters and fullwidth punctuation; normally omit horizontal spaces between words. For Japanese, use only Hiragana, Katakana, or Kanji, prefer Katakana for foreign sounds, use Japanese punctuation, and normally omit horizontal spaces between words.
+Use punctuation and spacing customary for the target language. For Mandarin, use Simplified Chinese characters and fullwidth punctuation; normally omit horizontal spaces between words. For Japanese, use only Hiragana, Katakana, or Kanji in word respellings, prefer Katakana for foreign sounds, use Japanese punctuation, and normally omit horizontal spaces between words.
 
 For French punctuation, put a non-breaking space (`\u00a0`) in a whitespace token before `!`, `?`, `:`, `;`, and `»`, and after `«`. When the source is Spanish and the target does not use opening `¿` or `¡`, omit the opening mark while retaining the closing mark according to target convention.
 
