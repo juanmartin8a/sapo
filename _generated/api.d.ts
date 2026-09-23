@@ -33,6 +33,7 @@ import type * as model_http_requestBody from "../model/http/requestBody.js";
 import type * as model_http_responses from "../model/http/responses.js";
 import type * as model_http_subscriptionReconciliation from "../model/http/subscriptionReconciliation.js";
 import type * as model_operationalAlerts from "../model/operationalAlerts.js";
+import type * as model_pronunciations from "../model/pronunciations.js";
 import type * as model_sapopinguino_abortableStream from "../model/sapopinguino/abortableStream.js";
 import type * as model_sapopinguino_cloudflareAi from "../model/sapopinguino/cloudflareAi.js";
 import type * as model_sapopinguino_input from "../model/sapopinguino/input.js";
@@ -61,6 +62,7 @@ import type * as model_subscriptions_userDeletionQueue from "../model/subscripti
 import type * as model_subscriptions_workers from "../model/subscriptions/workers.js";
 import type * as model_valueParsing from "../model/valueParsing.js";
 import type * as operationalAlerts from "../operationalAlerts.js";
+import type * as pronunciations from "../pronunciations.js";
 import type * as sapopinguinoHttp from "../sapopinguinoHttp.js";
 import type * as sapopinguinoTranslate from "../sapopinguinoTranslate.js";
 import type * as subscription from "../subscription.js";
@@ -101,6 +103,7 @@ declare const fullApi: ApiFromModules<{
   "model/http/responses": typeof model_http_responses;
   "model/http/subscriptionReconciliation": typeof model_http_subscriptionReconciliation;
   "model/operationalAlerts": typeof model_operationalAlerts;
+  "model/pronunciations": typeof model_pronunciations;
   "model/sapopinguino/abortableStream": typeof model_sapopinguino_abortableStream;
   "model/sapopinguino/cloudflareAi": typeof model_sapopinguino_cloudflareAi;
   "model/sapopinguino/input": typeof model_sapopinguino_input;
@@ -129,6 +132,7 @@ declare const fullApi: ApiFromModules<{
   "model/subscriptions/workers": typeof model_subscriptions_workers;
   "model/valueParsing": typeof model_valueParsing;
   operationalAlerts: typeof operationalAlerts;
+  pronunciations: typeof pronunciations;
   sapopinguinoHttp: typeof sapopinguinoHttp;
   sapopinguinoTranslate: typeof sapopinguinoTranslate;
   subscription: typeof subscription;
