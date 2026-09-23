@@ -1,6 +1,7 @@
 import TranslationPreview from './TranslationPreview';
-import { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, NativeSyntheticEvent, NativeScrollEvent, TextLayoutEventData, useWindowDimensions } from 'react-native';
+import SelectableText from './SelectableText';
+import { useEffect, useRef, type Ref } from 'react';
+import { View, Text, TextInput, StyleSheet, ScrollView, NativeSyntheticEvent, NativeScrollEvent, TextLayoutEventData, useWindowDimensions } from 'react-native';
 import Animated, {
     cancelAnimation,
     useAnimatedStyle,
@@ -12,7 +13,12 @@ import useTranslationStore from '@/stores/translationStore';
 import { triggerLightImpactHaptic } from '@/lib/haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-export default function Translate() {
+export default function Translate({ responseInputRef, previewInputRef, onDismissSelection, onDismissPreviewSelection }: {
+    responseInputRef?: Ref<TextInput>;
+    previewInputRef?: Ref<TextInput>;
+    onDismissPreviewSelection?: () => void;
+    onDismissSelection?: () => void;
+}) {
     const insets = useSafeAreaInsets();
     const { width: screenWidth } = useWindowDimensions();
     const translationPreview = useTranslationStore(state => state.translationPreview);
@@ -123,21 +129,25 @@ export default function Translate() {
             scrollEventThrottle={16}
         >
             <View style={[styles.container, { paddingBottom: sapoBocaAbiertaHeight + 10 + 24 + insets.bottom }]}>
-                {isCombinedResponse && translationPreview.length > 0 && <TranslationPreview text={translationPreview} />}
+                {isCombinedResponse && translationPreview.length > 0 && <TranslationPreview text={translationPreview} inputRef={previewInputRef} onDismissSelection={onDismissPreviewSelection} onInteractionStart={onDismissSelection} />}
                 <View style={{ position: 'relative' }}>
                     <View style={styles.textContainer}>
                         {streamError ? (
                             <Text style={styles.errorText}>{streamErrorMessage ?? "An error occurred"}</Text>
                         ) : (
-                            <Text
+                            <SelectableText
+                                text={displayText}
+                                inputRef={responseInputRef}
+                                accessibilityLabel="Response"
                                 onTextLayout={onTextLayout}
+                                onDismissSelection={onDismissSelection}
+                                onInteractionStart={onDismissPreviewSelection}
                                 style={styles.translatedText}
-                                selectable={true}>
-                                {displayText.length > 0 ? displayText : "\u200B"}
-                            </Text>
+                            />
                         )}
                     </View>
                     <Animated.View
+                        pointerEvents="none"
                         style={[
                             styles.frog,
                             { height: sapoBocaAbiertaHeight },

@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/immutability -- Reanimated shared values are intentionally mutated in worklets. */
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
-import { Platform, StyleSheet, View, Keyboard, Text, TouchableWithoutFeedback, StatusBar, useWindowDimensions } from "react-native";
+import { Platform, StyleSheet, View, Keyboard, Text, TouchableWithoutFeedback, StatusBar, useWindowDimensions, type TextInput } from "react-native";
 import { GestureHandlerRootView, GestureDetector, Gesture } from "react-native-gesture-handler";
 import Animated, {
     cancelAnimation,
@@ -33,6 +33,22 @@ export default function HomeScreen() {
     const { width: windowWidth } = useWindowDimensions();
     const sidebarWidth = windowWidth * 0.7;
     const pagerRef = useRef<HomePagerHandle>(null);
+    const responseInputRef = useRef<TextInput>(null);
+    const previewInputRef = useRef<TextInput>(null);
+    const dismissPreviewSelection = useCallback(() => {
+        previewInputRef.current?.setSelection(0, 0);
+        previewInputRef.current?.blur();
+    }, []);
+    const dismissResponseSelection = useCallback(() => {
+        const input = responseInputRef.current;
+        // Blurring alone can leave the selected range highlighted in a read-only UITextView.
+        input?.setSelection(0, 0);
+        input?.blur();
+    }, []);
+    const dismissTextSelections = useCallback(() => {
+        dismissResponseSelection();
+        dismissPreviewSelection();
+    }, [dismissResponseSelection, dismissPreviewSelection]);
     const pagerProgress = useSharedValue(0);
     const sideBarTranslationX = useSharedValue(0);
     const isAnimating = useSharedValue(false);
@@ -285,7 +301,7 @@ export default function HomeScreen() {
     });
 
     return (
-        <View style={styles.container}>
+        <View style={styles.container} onTouchStart={dismissTextSelections}>
             <StatusBar barStyle="dark-content" />
             <GestureHandlerRootView style={{ flex: 1 }}>
                 <GestureDetector gesture={panGesture}>
@@ -338,7 +354,8 @@ export default function HomeScreen() {
                                         <TextToTranslateInput />
                                     </View>
                                     <View key="2" style={{ width: "100%", height: "100%" }}>
-                                        <Translate />
+                                        <Translate responseInputRef={responseInputRef} previewInputRef={previewInputRef}
+                                            onDismissSelection={dismissResponseSelection} onDismissPreviewSelection={dismissPreviewSelection} />
                                     </View>
                                 </HomePager>
                             </GestureDetector>
