@@ -29,6 +29,12 @@ import LocalModelSelectorBottomSheet from "@/components/home/LocalModelSelectorB
 import { triggerLightImpactHaptic } from "@/lib/haptics";
 import HomePager, { type HomePagerHandle } from "@/components/home/HomePager";
 
+function dismissInputSelection(input: TextInput | null) {
+    // Blurring alone can leave the selected range highlighted in a read-only UITextView.
+    input?.setSelection(0, 0);
+    input?.blur();
+}
+
 export default function HomeScreen() {
     const { width: windowWidth } = useWindowDimensions();
     const sidebarWidth = windowWidth * 0.7;
@@ -36,14 +42,10 @@ export default function HomeScreen() {
     const responseInputRef = useRef<TextInput>(null);
     const previewInputRef = useRef<TextInput>(null);
     const dismissPreviewSelection = useCallback(() => {
-        previewInputRef.current?.setSelection(0, 0);
-        previewInputRef.current?.blur();
+        dismissInputSelection(previewInputRef.current);
     }, []);
     const dismissResponseSelection = useCallback(() => {
-        const input = responseInputRef.current;
-        // Blurring alone can leave the selected range highlighted in a read-only UITextView.
-        input?.setSelection(0, 0);
-        input?.blur();
+        dismissInputSelection(responseInputRef.current);
     }, []);
     const dismissTextSelections = useCallback(() => {
         dismissResponseSelection();
