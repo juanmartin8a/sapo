@@ -73,8 +73,8 @@ export default function TranslationPreview({ text, inputRef, onDismissSelection,
     </ScrollView>;
 }
 const styles = StyleSheet.create({
-    strip: { height: 40, flexGrow: 0, marginHorizontal: -24, },
+    strip: { height: 40, flexGrow: 0, marginHorizontal: -24, backgroundColor: 'transparent' },
     content: { paddingHorizontal: 24 },
     expanded: { marginHorizontal: -24, paddingHorizontal: 24, marginBottom: 8 },
-    text: {  fontSize: 24, lineHeight: 29, opacity: 0.25 },
+    text: {  fontSize: 24, lineHeight: 29, color: '#aaa' },
 });

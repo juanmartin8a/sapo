@@ -36,14 +36,12 @@ describe("combined translation display", () => {
     it("keeps the mouth still for preview and animates only respell words", async () => {
         const request = useTranslationStore.getState().sendMessage("Hello");
         callbacks.onToken({ type: "translation_preview", value: "こんにちは" });
-        jest.advanceTimersByTime(32);
         expect(useTranslationStore.getState()).toMatchObject({
             translationPreview: "こんにちは", displayText: "", isCombinedResponse: true,
             isTranslatingPreview: true, mouthTriggerVersion: initialState.mouthTriggerVersion,
         });
         callbacks.onToken({ type: "respell_start" });
         callbacks.onToken({ type: "word", input: "こんにちは", output: "konnichiwa" });
-        jest.advanceTimersByTime(32);
         expect(useTranslationStore.getState()).toMatchObject({
             translationPreview: "こんにちは", displayText: "konnichiwa", isTranslatingPreview: false,
             mouthTriggerVersion: initialState.mouthTriggerVersion + 1,
@@ -51,6 +49,23 @@ describe("combined translation display", () => {
         finish();
         await request;
         expect(useTranslationStore.getState().isStreaming).toBe(false);
+    });
+
+    it("shows each response token immediately, including the token before completion", async () => {
+        const request = useTranslationStore.getState().sendMessage("Hello");
+        const updates: string[] = [];
+        const unsubscribe = useTranslationStore.subscribe(state => updates.push(state.displayText));
+
+        callbacks.onToken({ type: "word", output: "First" });
+        callbacks.onToken({ type: "word", output: " line" });
+        callbacks.onToken({ type: "word", output: "\nLast line" });
+        expect(updates).toEqual(["First", "First line", "First line\nLast line"]);
+
+        callbacks.onDone();
+        finish();
+        await request;
+        expect(useTranslationStore.getState().displayText).toBe("First line\nLast line");
+        unsubscribe();
     });
 
     it("clears old results for a new request and ignores late tokens after cancellation", async () => {

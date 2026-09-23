@@ -1,7 +1,7 @@
 import TranslationPreview from './TranslationPreview';
 import SelectableText from './SelectableText';
 import { useEffect, useRef, type Ref } from 'react';
-import { View, Text, TextInput, StyleSheet, ScrollView, NativeSyntheticEvent, NativeScrollEvent, TextLayoutEventData, useWindowDimensions } from 'react-native';
+import { View, Text, TextInput, StyleSheet, ScrollView, NativeSyntheticEvent, NativeScrollEvent, TextLayoutEventData, LayoutChangeEvent, useWindowDimensions } from 'react-native';
 import Animated, {
     cancelAnimation,
     useAnimatedStyle,
@@ -12,6 +12,8 @@ import Animated, {
 import useTranslationStore from '@/stores/translationStore';
 import { triggerLightImpactHaptic } from '@/lib/haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const frogTopOffset = 10;
 
 export default function Translate({ responseInputRef, previewInputRef, onDismissSelection, onDismissPreviewSelection }: {
     responseInputRef?: Ref<TextInput>;
@@ -41,6 +43,8 @@ export default function Translate({ responseInputRef, previewInputRef, onDismiss
     const streamStartVersionRef = useRef(0);
     const scrollViewRef = useRef<ScrollView>(null);
     const shouldStickToBottomRef = useRef(true);
+    const textContainerHeightRef = useRef(0);
+    const wrappedLineBottomRef = useRef<number | null>(null);
 
     useEffect(() => {
         if (!hasMountedRef.current) {
@@ -91,10 +95,16 @@ export default function Translate({ responseInputRef, previewInputRef, onDismiss
     }));
 
     useEffect(() => {
-        if (!displayText) cursorY.set(0);
+        if (!displayText) {
+            cursorY.set(0);
+            shouldStickToBottomRef.current = true;
+            wrappedLineBottomRef.current = null;
+        }
     }, [displayText, cursorY]);
 
     const onTextLayout = (e: NativeSyntheticEvent<TextLayoutEventData>) => {
+        if (!displayText) return;
+
         const lines = e.nativeEvent.lines;
         const last = lines[lines.length - 1];
 
@@ -103,9 +113,18 @@ export default function Translate({ responseInputRef, previewInputRef, onDismiss
         }
 
         if (last.width < (screenWidth - sapoWidth)) {
+            wrappedLineBottomRef.current = null;
             cursorY.set(last.y);
         } else {
-            cursorY.set(last.y + last.height);
+            wrappedLineBottomRef.current = last.y + last.height;
+            cursorY.set(Math.max(wrappedLineBottomRef.current, textContainerHeightRef.current) - frogTopOffset);
+        }
+    };
+
+    const onTextContainerLayout = (e: LayoutChangeEvent) => {
+        textContainerHeightRef.current = e.nativeEvent.layout.height;
+        if (wrappedLineBottomRef.current !== null) {
+            cursorY.set(Math.max(wrappedLineBottomRef.current, textContainerHeightRef.current) - frogTopOffset);
         }
     };
 
@@ -116,7 +135,7 @@ export default function Translate({ responseInputRef, previewInputRef, onDismiss
     };
 
     const onContentSizeChange = () => {
-        if (isStreaming && shouldStickToBottomRef.current) {
+        if (shouldStickToBottomRef.current) {
             scrollViewRef.current?.scrollToEnd({ animated: false });
         }
     };
@@ -131,7 +150,7 @@ export default function Translate({ responseInputRef, previewInputRef, onDismiss
             <View style={[styles.container, { paddingBottom: sapoBocaAbiertaHeight + 10 + 24 + insets.bottom }]}>
                 {isCombinedResponse && translationPreview.length > 0 && <TranslationPreview text={translationPreview} inputRef={previewInputRef} onDismissSelection={onDismissPreviewSelection} onInteractionStart={onDismissSelection} />}
                 <View style={{ position: 'relative' }}>
-                    <View style={styles.textContainer}>
+                    <View style={styles.textContainer} onLayout={onTextContainerLayout}>
                         {streamError ? (
                             <Text style={styles.errorText}>{streamErrorMessage ?? "An error occurred"}</Text>
                         ) : (
@@ -197,8 +216,8 @@ const styles = StyleSheet.create({
     },
     frog: {
         position: "absolute",
+        top: frogTopOffset,
         justifyContent: "flex-end",
-        marginTop: 10,
     },
     frogImage: {
         bottom: 0,
