@@ -117,6 +117,47 @@ describe("runTranslationStream", () => {
         });
     });
 
+    it("sends the respelling mode and ignores keepalive lines", async () => {
+        mockGetConvexAccessTokenWithUserId.mockResolvedValue({ token: "token", userId: "user_1" });
+        mockExpoFetch.mockResolvedValue(streamingResponse([
+            "\n",
+            '{"type":"word","input":"Hola","output":"oh-lah"}\n',
+            "\n<end:)>\n",
+        ], "text/plain"));
+        const callbacks = createCallbacks();
+        await runTranslationStream({
+            ...createArguments(), operation: "respell", translateThenRespell: true,
+        }, callbacks);
+        const body = JSON.parse(mockExpoFetch.mock.calls[0][1]!.body as string);
+        expect(body.translateThenRespell).toBe(true);
+        expect(callbacks.onToken).toHaveBeenCalledTimes(1);
+        expect(callbacks.onToken).toHaveBeenCalledWith({ type: "word", input: "Hola", output: "oh-lah" });
+        expect(callbacks.onDone).toHaveBeenCalledTimes(1);
+    });
+
+    it("delivers preview and phase events independently of respell words", async () => {
+        mockGetConvexAccessTokenWithUserId.mockResolvedValue({ token: "token", userId: "user_1" });
+        mockExpoFetch.mockResolvedValue(streamingResponse([
+            '{"type":"translation_preview","value":"Ho',
+            'la"}\n{"type":"respell_start"}\n',
+            '{"type":"word","input":"Hola","output":"oh-lah"}\n<end:)>\n',
+        ], "text/plain"));
+        const callbacks = createCallbacks();
+        await runTranslationStream({ ...createArguments(), operation: "respell", translateThenRespell: true, respellLanguage: "French" }, callbacks);
+        expect(JSON.parse(mockExpoFetch.mock.calls[0][1]!.body as string).respellLanguage).toBe("French");
+        expect(callbacks.onToken.mock.calls.map(call => (call[0] as { type: string }).type)).toEqual(["translation_preview", "respell_start", "word"]);
+        expect(callbacks.onDone).toHaveBeenCalledTimes(1);
+    });
+
+    it("explains unresolved source languages without reporting success", async () => {
+        mockGetConvexAccessTokenWithUserId.mockResolvedValue({ token: "token", userId: "user_1" });
+        mockExpoFetch.mockResolvedValue(streamingResponse(['{"type":"source_undetermined"}\n'], "text/plain"));
+        const callbacks = createCallbacks();
+        await runTranslationStream({ ...createArguments(), operation: "respell" }, callbacks);
+        expect(callbacks.onStreamError).toHaveBeenCalledWith(expect.stringContaining("Choose a Source or Respell language"), "event");
+        expect(callbacks.onDone).not.toHaveBeenCalled();
+    });
+
     it("reports external aborts as cancellation", async () => {
         mockGetConvexAccessTokenWithUserId.mockResolvedValue({ token: "convex-token", userId: "user_1" });
         mockExpoFetch.mockImplementation(async (_url, init) => new Promise((_resolve, reject) => {

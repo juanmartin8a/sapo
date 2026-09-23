@@ -1,5 +1,7 @@
-import { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, NativeSyntheticEvent, NativeScrollEvent, TextLayoutEventData, useWindowDimensions } from 'react-native';
+import TranslationPreview from './TranslationPreview';
+import SelectableText from './SelectableText';
+import { useEffect, useRef, type Ref } from 'react';
+import { View, Text, TextInput, StyleSheet, ScrollView, NativeSyntheticEvent, NativeScrollEvent, TextLayoutEventData, useWindowDimensions } from 'react-native';
 import Animated, {
     cancelAnimation,
     useAnimatedStyle,
@@ -11,9 +13,16 @@ import useTranslationStore from '@/stores/translationStore';
 import { triggerLightImpactHaptic } from '@/lib/haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-export default function Translate() {
+export default function Translate({ responseInputRef, previewInputRef, onDismissSelection, onDismissPreviewSelection }: {
+    responseInputRef?: Ref<TextInput>;
+    previewInputRef?: Ref<TextInput>;
+    onDismissPreviewSelection?: () => void;
+    onDismissSelection?: () => void;
+}) {
     const insets = useSafeAreaInsets();
     const { width: screenWidth } = useWindowDimensions();
+    const translationPreview = useTranslationStore(state => state.translationPreview);
+    const isCombinedResponse = useTranslationStore(state => state.isCombinedResponse);
     const displayText = useTranslationStore((state) => state.displayText);
     const mouthTriggerVersion = useTranslationStore((state) => state.mouthTriggerVersion);
     const streamStartVersion = useTranslationStore((state) => state.streamStartVersion);
@@ -69,7 +78,7 @@ export default function Translate() {
 
     const frogAnimatedStyle = useAnimatedStyle(() => ({
         transform: [
-            { translateX: screenWidth - (sapoWidth - (sapoWidth * 0.23)) },
+            { translateX: screenWidth - 24 - (sapoWidth - (sapoWidth * 0.23)) },
             { translateY: cursorY.get() },
             { scaleX: -1 },
         ],
@@ -80,6 +89,10 @@ export default function Translate() {
     const openMouthAnimatedStyle = useAnimatedStyle(() => ({
         opacity: mouthOpen.get(),
     }));
+
+    useEffect(() => {
+        if (!displayText) cursorY.set(0);
+    }, [displayText, cursorY]);
 
     const onTextLayout = (e: NativeSyntheticEvent<TextLayoutEventData>) => {
         const lines = e.nativeEvent.lines;
@@ -116,47 +129,54 @@ export default function Translate() {
             scrollEventThrottle={16}
         >
             <View style={[styles.container, { paddingBottom: sapoBocaAbiertaHeight + 10 + 24 + insets.bottom }]}>
-                <View style={styles.textContainer}>
-                    {streamError ? (
-                        <Text style={styles.errorText}>{streamErrorMessage ?? "An error occurred"}</Text>
-                    ) : (
-                        <Text
-                            onTextLayout={onTextLayout}
-                            style={styles.translatedText}
-                            selectable={true}>
-                            {displayText.length > 0 ? displayText : "\u200B"}
-                        </Text>
-                    )}
-                </View>
-                <Animated.View
-                    style={[
-                        styles.frog,
-                        { height: sapoBocaAbiertaHeight },
-                        frogAnimatedStyle,
-                    ]}
-                >
-                    <View style={{ position: "relative" }}>
-                        <Animated.Image
-                            source={require("@/assets/images/sapo.png")}
-                            resizeMode="contain"
-                            style={[
-                                styles.frogImage,
-                                { width: sapoWidth, height: sapoHeight },
-                                closedMouthAnimatedStyle,
-                            ]}
-                        />
-                        <Animated.Image
-                            source={require("@/assets/images/sapo-mouth-open.png")}
-                            resizeMode="contain"
-                            style={[
-                                styles.frogImage,
-                                styles.openMouthImage,
-                                { width: sapoWidth, height: sapoBocaAbiertaHeight },
-                                openMouthAnimatedStyle,
-                            ]}
-                        />
+                {isCombinedResponse && translationPreview.length > 0 && <TranslationPreview text={translationPreview} inputRef={previewInputRef} onDismissSelection={onDismissPreviewSelection} onInteractionStart={onDismissSelection} />}
+                <View style={{ position: 'relative' }}>
+                    <View style={styles.textContainer}>
+                        {streamError ? (
+                            <Text style={styles.errorText}>{streamErrorMessage ?? "An error occurred"}</Text>
+                        ) : (
+                            <SelectableText
+                                text={displayText}
+                                inputRef={responseInputRef}
+                                accessibilityLabel="Response"
+                                onTextLayout={onTextLayout}
+                                onDismissSelection={onDismissSelection}
+                                onInteractionStart={onDismissPreviewSelection}
+                                style={styles.translatedText}
+                            />
+                        )}
                     </View>
-                </Animated.View>
+                    <Animated.View
+                        pointerEvents="none"
+                        style={[
+                            styles.frog,
+                            { height: sapoBocaAbiertaHeight },
+                            frogAnimatedStyle,
+                        ]}
+                    >
+                        <View style={{ position: "relative" }}>
+                            <Animated.Image
+                                source={require("@/assets/images/sapo.png")}
+                                resizeMode="contain"
+                                style={[
+                                    styles.frogImage,
+                                    { width: sapoWidth, height: sapoHeight },
+                                    closedMouthAnimatedStyle,
+                                ]}
+                            />
+                            <Animated.Image
+                                source={require("@/assets/images/sapo-mouth-open.png")}
+                                resizeMode="contain"
+                                style={[
+                                    styles.frogImage,
+                                    styles.openMouthImage,
+                                    { width: sapoWidth, height: sapoBocaAbiertaHeight },
+                                    openMouthAnimatedStyle,
+                                ]}
+                            />
+                        </View>
+                    </Animated.View>
+                </View>
             </View>
         </ScrollView>
     );

@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator, ScrollView, Switch } from 'react-native';
 import { useNetworkState } from 'expo-network';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeOut, LinearTransition, SharedValue, useAnimatedStyle } from 'react-native-reanimated';
@@ -40,6 +40,8 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
         isConfirmedInactive: isSubscriptionInactive,
     } = useSubscriptionAccess();
     const operation = useTransformationOperationStore((state) => state.operation);
+    const translateThenRespell = useTransformationOperationStore((state) => state.translateThenRespell);
+    const setTranslateThenRespell = useTransformationOperationStore((state) => state.setTranslateThenRespell);
     const setOperation = useTransformationOperationStore((state) => state.setOperation);
     const isLocalModelDownloaded = useLocalModelStore((state) => state.isDownloaded);
     const isLocalModelEnabled = useLocalModelStore((state) => state.isEnabled);
@@ -69,6 +71,7 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
     const shouldShowLocalModeToggle = isAuthenticatedUser;
     const shouldShowLoadModelButton = isLocalModelDownloaded && !isLocalModelLoaded;
     // Get individual values from the store to avoid unnecessary re-renders
+    const respellLanguage = useLanguageSelectionStore(state => state.respellLanguage);
     const selectedIndex0 = useLanguageSelectionStore(state => state.selectedIndex0);
     const selectedIndex1 = useLanguageSelectionStore(state => state.selectedIndex1);
     const inputLanguage =
@@ -283,7 +286,26 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
                         </TouchableOpacity>
                     </View>
                 </View>
-                <View style={styles.inputContainer}>
+                {operation === 'respell' && (
+                    <Animated.View
+                        entering={FadeIn.duration(180)}
+                        exiting={FadeOut.duration(120)}
+                        style={styles.respellModeContainer}
+                    >
+                        <View style={styles.field}>
+                            <Text style={styles.respellModeLabel}>Translate first, then respell</Text>
+                            <Switch
+                                accessibilityLabel="Translate first, then respell"
+                                value={translateThenRespell}
+                                onValueChange={(enabled) => {
+                                    triggerSelectionHaptic();
+                                    setTranslateThenRespell(enabled);
+                                }}
+                            />
+                        </View>
+                    </Animated.View>
+                )}
+                <Animated.View layout={LinearTransition.duration(220)} style={styles.inputContainer}>
                     <TouchableOpacity
                         onPress={handleInputLanguagePress}
                         activeOpacity={0.7}
@@ -296,8 +318,8 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
                             </View>
                         </View>
                     </TouchableOpacity>
-                </View>
-                <View style={styles.inputContainer}>
+                </Animated.View>
+                <Animated.View layout={LinearTransition.duration(220)} style={styles.inputContainer}>
                     <TouchableOpacity
                         onPress={handleTargetLanguagePress}
                         activeOpacity={0.7}
@@ -310,8 +332,31 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
                             </View>
                         </View>
                     </TouchableOpacity>
-                </View>
-                <View style={styles.localModelContainer}>
+                </Animated.View>
+                {operation === 'respell' && translateThenRespell && (
+                    <Animated.View
+                        entering={FadeIn.duration(180)}
+                        exiting={FadeOut.duration(120)}
+                        style={styles.inputContainer}
+                    >
+                        <TouchableOpacity onPress={() => requestBottomSheet(HOME_BOTTOM_SHEET_KEYS.RESPELL_LANGUAGE)} activeOpacity={0.7}>
+                            <View style={styles.field}>
+                                <Text style={styles.label}>Respell:</Text>
+                                <View style={styles.languageValue}>
+                                    <Text style={styles.languageText} numberOfLines={1}>{respellLanguage}</Text>
+                                    <ChevronRightIcon width={22} height={22} stroke="black" />
+                                </View>
+                            </View>
+                        </TouchableOpacity>
+                    </Animated.View>
+                )}
+                {operation === 'translate' && (
+                <Animated.View
+                    entering={FadeIn.duration(180)}
+                    exiting={FadeOut.duration(120)}
+                    layout={LinearTransition.duration(220)}
+                    style={styles.localModelContainer}
+                >
                     {shouldShowLocalModeToggle && (
                         <View style={styles.localModeToggleContainer}>
                             <TouchableOpacity
@@ -427,7 +472,8 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
                                 </View>
                             </TouchableOpacity>
                         </Animated.View>
-                </View>
+                </Animated.View>
+                )}
             </ScrollView>
             <SidebarFooter />
         </Animated.View>
@@ -441,6 +487,16 @@ const styles = StyleSheet.create({
     topContent: {
         flexGrow: 1,
         paddingBottom: 20,
+    },
+    respellModeContainer: {
+        paddingVertical: 12,
+    },
+    respellModeLabel: {
+        flex: 1,
+        fontSize: 15,
+        fontWeight: "500",
+        color: "black",
+        marginRight: 12,
     },
     inputContainer: {
         paddingVertical: 6,

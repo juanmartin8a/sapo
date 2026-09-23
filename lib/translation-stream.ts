@@ -14,6 +14,7 @@ import type { TransformationOperation } from "@/types/translation";
 const STREAM_RESPONSE_TIMEOUT_MS = 15_000;
 const STREAM_IDLE_TIMEOUT_MS = 25_000;
 const STREAM_TOTAL_TIMEOUT_MS = 135_000;
+const RESPELL_PIPELINE_TOTAL_TIMEOUT_MS = 255_000;
 
 export type TranslationStreamToken = {
     type: string;
@@ -24,6 +25,8 @@ export type TranslationStreamToken = {
 
 export type TranslationStreamArguments = {
     operation: TransformationOperation;
+    translateThenRespell?: boolean;
+    respellLanguage?: string;
     convexSiteUrl: string;
     inputLanguage: string;
     targetLanguage: string;
@@ -224,7 +227,15 @@ function processTokenPayload(
     }
 
     try {
-        return { type: callbacks.onToken(parseToken(payload, operation)) };
+        const token = parseToken(payload, operation);
+        if (token.type === "source_undetermined") {
+            callbacks.onStreamError("Couldn’t determine the source language. Choose a Source or Respell language.", "event");
+            return { type: "stop" };
+        }
+        if (token.type === "translation_preview" && typeof token.value !== "string") {
+            throw new Error("Invalid translation preview");
+        }
+        return { type: callbacks.onToken(token) };
     } catch (error) {
         return { type: "protocol-error", error };
     }
@@ -280,6 +291,7 @@ export async function runTranslationStream(
     args: TranslationStreamArguments,
     callbacks: TranslationStreamCallbacks
 ): Promise<TranslationStreamResult> {
+    const translateThenRespell = args.operation === "respell" && args.translateThenRespell === true;
     const endpointPath = getTranslationStreamEndpointPath(args.operation);
     const streamUrl = `${args.convexSiteUrl.replace(/\/$/, "")}${endpointPath}`;
     const requestInput = JSON.stringify({
@@ -334,7 +346,7 @@ export async function runTranslationStream(
     try {
         totalTimeoutId = setTimeout(
             () => abortStreamForTimeout("total"),
-            STREAM_TOTAL_TIMEOUT_MS
+            translateThenRespell ? RESPELL_PIPELINE_TOTAL_TIMEOUT_MS : STREAM_TOTAL_TIMEOUT_MS
         );
 
         const authContext = await getConvexAccessTokenWithUserId();
@@ -359,7 +371,11 @@ export async function runTranslationStream(
                     Accept: "text/event-stream",
                     Authorization: `Bearer ${convexToken}`,
                 },
-                body: JSON.stringify({ input: requestInput, streamId: args.streamId }),
+                body: JSON.stringify({
+                    input: requestInput,
+                    streamId: args.streamId,
+                    ...(translateThenRespell ? { translateThenRespell: true, respellLanguage: args.respellLanguage ?? "Source" } : {}),
+                }),
                 signal: args.abortController.signal,
             });
         } finally {

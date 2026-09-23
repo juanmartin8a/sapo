@@ -5,11 +5,15 @@ import { DEFAULT_SOURCE_LANGUAGE_ID, DEFAULT_TARGET_LANGUAGE_ID } from "@/consta
 interface LanguageSelectionStoreState {
     selectedIndex0: number,
     selectedIndex1: number,
+    respellLanguage: string;
+    selectRespellLanguage: (language: string) => void;
 
     selectLanguage: (forInput: boolean, index: number) => void,
 }
 
 const useLanguageSelectionStore = create<LanguageSelectionStoreState>((set, get) => ({
+    respellLanguage: "Source",
+    selectRespellLanguage: (respellLanguage) => set({ respellLanguage }),
     selectedIndex0: DEFAULT_SOURCE_LANGUAGE_ID, // for input languages
     selectedIndex1: DEFAULT_TARGET_LANGUAGE_ID, // for target languages
 
