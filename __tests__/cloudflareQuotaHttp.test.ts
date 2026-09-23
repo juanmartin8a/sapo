@@ -53,13 +53,15 @@ function context(options: { blocked?: string; chargeStatus?: string } = {}) {
     return { runMutation, calls };
 }
 
-async function request(operation: Operation, ctx: ReturnType<typeof context>, signal?: AbortSignal) {
+async function request(operation: Operation, ctx: ReturnType<typeof context>, signal?: AbortSignal, options: { translateThenRespell?: unknown; inputLanguage?: string; respellLanguage?: unknown } = {}) {
     const handler = operation === "respell" ? handleSapopinguinoRequest : handleSapopinguinoTranslateRequest;
     return handler(ctx as never, new Request("https://example.test", {
         method: "POST", signal,
         body: JSON.stringify({
-            input: JSON.stringify({ input_language: "English", target_language: "Spanish", input }),
+            input: JSON.stringify({ input_language: options.inputLanguage ?? "English", target_language: "Spanish", input }),
             streamId: "stream_1",
+            translateThenRespell: options.translateThenRespell,
+            respellLanguage: options.respellLanguage,
         }),
     }), { userId: "user_1", user: { createdAt: 1000 } } as never);
 }
@@ -173,5 +175,142 @@ describe.each<Operation>(["respell", "translate"])("%s Cloudflare HTTP quota int
         expect(response.status).toBe(reason === "duplicate_req_id" ? 409 : 429);
         expect(fetchMock).not.toHaveBeenCalled();
         expect(ctx.calls).toEqual(["reserveSubscriptionQuotaUsage"]);
+    });
+});
+
+
+describe("translate then respell HTTP pipeline", () => {
+    function providerResponse(events: unknown[]) {
+        return new Response(events.map(event => `data: ${JSON.stringify(event)}\n\n`).join(""));
+    }
+
+    it("translates first, reverses languages, and charges one respelling request", async () => {
+        const fetchMock = jest.spyOn(globalThis, "fetch")
+            .mockResolvedValueOnce(providerResponse([
+                delta("respell", "Hola"), delta("respell", " 😄"), completed("respell"),
+            ]))
+            .mockResolvedValueOnce(providerResponse([
+                delta("respell", '{"tokens":[["word","Hola","oh-lah"],["whitespace"," "],["punctuation","😄"]]}'),
+                completed("respell"),
+            ]));
+        const ctx = context();
+        const response = await request("respell", ctx, undefined, { translateThenRespell: true });
+        const body = await response.text();
+
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        const translateBody = JSON.parse(fetchMock.mock.calls[0][1]!.body as string);
+        expect(JSON.parse(translateBody.input)).toEqual({
+            input_language: "English", target_language: "Spanish", input,
+        });
+        const respellBody = JSON.parse(fetchMock.mock.calls[1][1]!.body as string);
+        expect(JSON.parse(respellBody.input)).toEqual({
+            input_language: "Spanish", target_language: "English", input: "Hola 😄",
+        });
+        expect(body).toContain('"input":"Hola","output":"oh-lah"');
+        expect(body).toContain(STREAM_END_MARKER);
+        expect(ctx.calls).toEqual([
+            "reserveSubscriptionQuotaUsage", "chargeSubscriptionQuotaUsage", "completeSubscriptionQuotaUsage",
+        ]);
+        expect(ctx.runMutation.mock.calls[0][1]).toMatchObject({
+            operation: "respell", input_char_count: 4,
+        });
+    });
+
+    it.each([
+        [failed("respell")],
+        [completed("respell")],
+        [delta("respell", "partial"), failed("respell")],
+        [delta("respell", "x".repeat(65_537)), completed("respell")],
+    ])("does not respell or charge a failed, empty, or oversized translation (%#)", async (...events) => {
+        const fetchMock = provider(events);
+        const ctx = context();
+        const body = await (await request("respell", ctx, undefined, { translateThenRespell: true })).text();
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(body).toContain(STREAM_ERROR_MARKER);
+        expect(body).not.toContain(STREAM_END_MARKER);
+        expect(ctx.calls).toEqual(["reserveSubscriptionQuotaUsage", "markSubscriptionQuotaUsageFailed"]);
+    });
+
+    it.each([
+        { translateThenRespell: "true" },
+        { translateThenRespell: true, respellLanguage: "Auto-detect" },
+    ])("rejects invalid mode options before reserving quota", async options => {
+        const fetchMock = provider([]);
+        const ctx = context();
+        expect((await request("respell", ctx, undefined, options)).status).toBe(400);
+        expect(ctx.calls).toEqual([]);
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects the mode on the translation endpoint", async () => {
+        const ctx = context();
+        expect((await request("translate", ctx, undefined, { translateThenRespell: true })).status).toBe(400);
+        expect(ctx.calls).toEqual([]);
+    });
+
+    it("cancels during translation without starting respelling or charging", async () => {
+        const fetchMock = jest.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
+            return new Promise<Response>((_resolve, reject) => {
+                init!.signal!.addEventListener("abort", () => {
+                    const error = new Error("Aborted");
+                    error.name = "AbortError";
+                    reject(error);
+                }, { once: true });
+            });
+        });
+        const ctx = context();
+        const controller = new AbortController();
+        const response = await request("respell", ctx, controller.signal, { translateThenRespell: true });
+        controller.abort();
+        await response.text();
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(ctx.calls).toEqual(["reserveSubscriptionQuotaUsage", "markSubscriptionQuotaUsageFailed"]);
+    });
+
+    it.each([
+        { inputLanguage: "Auto-detect", respellLanguage: "Source", detected: true, expected: "English" },
+        { inputLanguage: "Auto-detect", respellLanguage: "French", detected: false, expected: "French" },
+        { inputLanguage: "English", respellLanguage: "French", detected: false, expected: "French" },
+    ])("resolves the respelling language and streams preview before respelling: %j", async options => {
+        const translation = 'Hola "amigo" 😄';
+        const raw = options.detected ? JSON.stringify({ detectedSourceLanguage: "English", translation }) : translation;
+        const fetchMock = jest.spyOn(globalThis, "fetch")
+            .mockResolvedValueOnce(providerResponse([...raw].map(c => delta("respell", c)).concat([completed("respell") as never])))
+            .mockResolvedValueOnce(providerResponse([delta("respell", output("respell")), completed("respell")]));
+        const ctx = context();
+        const body = await (await request("respell", ctx, undefined, { translateThenRespell: true, ...options })).text();
+        const first = JSON.parse(fetchMock.mock.calls[0][1]!.body as string);
+        expect(first.model).toBe("gpt-6-luna");
+        expect(Boolean(first.text?.format)).toBe(options.detected);
+        expect(JSON.parse(JSON.parse(fetchMock.mock.calls[1][1]!.body as string).input)).toEqual({
+            input_language: "Spanish", target_language: options.expected, input: translation,
+        });
+        const lines = body.split("\n").filter(line => line.startsWith("{" )).map(line => JSON.parse(line));
+        expect(lines.filter(line => line.type === "translation_preview").map(line => line.value).join("")).toBe(translation);
+        expect(lines.findIndex(line => line.type === "respell_start")).toBeGreaterThan(0);
+        expect(body).toContain(STREAM_END_MARKER);
+    });
+
+    it.each([
+        ['{"detectedSourceLanguage":"Unknown","translation":"Hola"}', true],
+        ['{"detectedSourceLanguage":"Klingon","translation":"Hola"}', true],
+        ['{"detectedSourceLanguage":"English","translation":"Hola"', true],
+        ['{"detectedSourceLanguage":"English","translation":"Hola"}', false],
+    ])("never starts respelling on invalid or unfinished structured output", async (raw, complete) => {
+        const fetchMock = provider([delta("respell", raw as string), ...(complete ? [completed("respell")] : [])]);
+        const ctx = context();
+        const body = await (await request("respell", ctx, undefined, { translateThenRespell: true, inputLanguage: "Auto-detect" })).text();
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(body).toContain(STREAM_ERROR_MARKER);
+        expect(body).not.toContain('"type":"respell_start"');
+        expect(ctx.calls).not.toContain("chargeSubscriptionQuotaUsage");
+    });
+
+    it("keeps the disabled mode as a single respelling call", async () => {
+        const fetchMock = provider([delta("respell", output("respell")), completed("respell")]);
+        const ctx = context();
+        const body = await (await request("respell", ctx, undefined, { translateThenRespell: false })).text();
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(body).toContain(STREAM_END_MARKER);
     });
 });

@@ -1,6 +1,7 @@
 import { ABORT_ERROR_NAME } from "../../constants/errors";
 
 import { respellPrompt, translatePrompt } from "./prompts.generated";
+import { RESPELL_LANGUAGES } from "./languages";
 import respellSchema from "../../prompts/respell.schema.json";
 const AI_TOTAL_TIMEOUT_MS = 120_000;
 const AI_STREAM_IDLE_TIMEOUT_MS = 20_000;
@@ -58,6 +59,8 @@ function readSSEDataLines(rawEvent: string): string | null {
 export async function streamCloudflareAI(args: {
     input: string;
     operation: "respell" | "translate";
+    pipelineTranslation?: boolean;
+    detectSourceLanguage?: boolean;
     signal: AbortSignal;
     onDelta: (delta: string) => Promise<AIStreamStep>;
     onCompleted: () => Promise<void> | void;
@@ -67,26 +70,42 @@ export async function streamCloudflareAI(args: {
     const gatewayId = process.env.CLOUDFLARE_AI_GATEWAY_ID?.trim();
     const apiToken = process.env.CLOUDFLARE_API_TOKEN?.trim();
 
-    if (!accountId || !apiToken || (args.operation === "respell" && !gatewayId)) {
+    const useResponses = args.operation === "respell" || args.pipelineTranslation === true;
+    if (!accountId || !apiToken || (useResponses && !gatewayId)) {
         console.error("Cloudflare AI configuration missing", { operation: args.operation });
         await args.onErrored();
         return "errored";
     }
 
     const isRespell = args.operation === "respell";
-    const url = isRespell
+    const url = useResponses
         ? `https://gateway.ai.cloudflare.com/v1/${encodeURIComponent(accountId)}/${encodeURIComponent(gatewayId!)}/openai/responses`
         : `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/v1/chat/completions`;
-    const authHeaders: Record<string, string> = isRespell
+    const authHeaders: Record<string, string> = useResponses
         ? { "cf-aig-authorization": `Bearer ${apiToken}` }
         : { Authorization: `Bearer ${apiToken}` };
-    const body = isRespell
+    const body = useResponses
         ? {
-              model: "gpt-5.6-luna",
-              instructions: respellPrompt,
+              model: "gpt-6-luna",
+              instructions: isRespell ? respellPrompt : translatePrompt + (args.detectSourceLanguage
+                  ? '\nOverride the plain-text output contract: return the required JSON object. First identify the dominant language of the ORIGINAL input as detectedSourceLanguage, then translate into translation. Use Unknown if ambiguous, unsupported, or no language can be identified. Never infer the source from the translated text.'
+                  : ''),
               input: args.input,
               reasoning: { effort: "none" },
-              text: { format: { type: "json_schema", ...respellSchema } },
+              ...(isRespell ? { text: { format: { type: "json_schema", ...respellSchema } } }
+                  : args.detectSourceLanguage ? { text: { format: {
+                      type: "json_schema", name: "translation_with_source", strict: true,
+                      schema: {
+                          type: "object",
+                          properties: {
+                              detectedSourceLanguage: { type: "string", enum: [...RESPELL_LANGUAGES, "Unknown"] },
+                              translation: { type: "string" },
+                          },
+                          required: ["detectedSourceLanguage", "translation"],
+                          additionalProperties: false,
+                      },
+                  } } } : {}),
+              ...(!isRespell ? { max_output_tokens: 16_384 } : {}),
               store: false,
               stream: true,
           }
@@ -210,7 +229,7 @@ export async function streamCloudflareAI(args: {
                 return "errored";
             }
 
-            if (!isRespell) {
+            if (!useResponses) {
                 const choice = parsedEvent.choices?.find((item) => item.index === 0);
                 if (!choice) return "continue";
                 if (choice.delta?.refusal || (choice.finish_reason && choice.finish_reason !== "stop")) {

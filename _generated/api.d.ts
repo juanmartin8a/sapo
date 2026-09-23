@@ -10,6 +10,7 @@
 
 import type * as auth from "../auth.js";
 import type * as constants_app from "../constants/app.js";
+import type * as constants_demoAccess from "../constants/demoAccess.js";
 import type * as constants_errors from "../constants/errors.js";
 import type * as constants_http from "../constants/http.js";
 import type * as constants_limits from "../constants/limits.js";
@@ -35,14 +36,17 @@ import type * as model_operationalAlerts from "../model/operationalAlerts.js";
 import type * as model_sapopinguino_abortableStream from "../model/sapopinguino/abortableStream.js";
 import type * as model_sapopinguino_cloudflareAi from "../model/sapopinguino/cloudflareAi.js";
 import type * as model_sapopinguino_input from "../model/sapopinguino/input.js";
+import type * as model_sapopinguino_languages from "../model/sapopinguino/languages.js";
 import type * as model_sapopinguino_quota from "../model/sapopinguino/quota.js";
 import type * as model_sapopinguino_quotaHttp from "../model/sapopinguino/quotaHttp.js";
 import type * as model_sapopinguino_quotaStream from "../model/sapopinguino/quotaStream.js";
 import type * as model_sapopinguino_requestPreparation from "../model/sapopinguino/requestPreparation.js";
 import type * as model_sapopinguino_respellHttp from "../model/sapopinguino/respellHttp.js";
+import type * as model_sapopinguino_respellPipeline from "../model/sapopinguino/respellPipeline.js";
 import type * as model_sapopinguino_streamOutput from "../model/sapopinguino/streamOutput.js";
 import type * as model_sapopinguino_tokenParser from "../model/sapopinguino/tokenParser.js";
 import type * as model_sapopinguino_translateHttp from "../model/sapopinguino/translateHttp.js";
+import type * as model_sapopinguino_translationPreviewParser from "../model/sapopinguino/translationPreviewParser.js";
 import type * as model_subscription from "../model/subscription.js";
 import type * as model_subscriptions_componentApi from "../model/subscriptions/componentApi.js";
 import type * as model_subscriptions_config from "../model/subscriptions/config.js";
@@ -74,6 +78,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   "constants/app": typeof constants_app;
+  "constants/demoAccess": typeof constants_demoAccess;
   "constants/errors": typeof constants_errors;
   "constants/http": typeof constants_http;
   "constants/limits": typeof constants_limits;
@@ -99,14 +104,17 @@ declare const fullApi: ApiFromModules<{
   "model/sapopinguino/abortableStream": typeof model_sapopinguino_abortableStream;
   "model/sapopinguino/cloudflareAi": typeof model_sapopinguino_cloudflareAi;
   "model/sapopinguino/input": typeof model_sapopinguino_input;
+  "model/sapopinguino/languages": typeof model_sapopinguino_languages;
   "model/sapopinguino/quota": typeof model_sapopinguino_quota;
   "model/sapopinguino/quotaHttp": typeof model_sapopinguino_quotaHttp;
   "model/sapopinguino/quotaStream": typeof model_sapopinguino_quotaStream;
   "model/sapopinguino/requestPreparation": typeof model_sapopinguino_requestPreparation;
   "model/sapopinguino/respellHttp": typeof model_sapopinguino_respellHttp;
+  "model/sapopinguino/respellPipeline": typeof model_sapopinguino_respellPipeline;
   "model/sapopinguino/streamOutput": typeof model_sapopinguino_streamOutput;
   "model/sapopinguino/tokenParser": typeof model_sapopinguino_tokenParser;
   "model/sapopinguino/translateHttp": typeof model_sapopinguino_translateHttp;
+  "model/sapopinguino/translationPreviewParser": typeof model_sapopinguino_translationPreviewParser;
   "model/subscription": typeof model_subscription;
   "model/subscriptions/componentApi": typeof model_subscriptions_componentApi;
   "model/subscriptions/config": typeof model_subscriptions_config;

@@ -5,7 +5,7 @@ import type { AuthenticatedHttpContext } from "../../lib/httpAuth";
 import { TokenParser } from "./tokenParser";
 import { prepareSapopinguinoRequest } from "./requestPreparation";
 import { createSapopinguinoQuotaStream } from "./quotaStream";
-import { streamCloudflareAI } from "./cloudflareAi";
+import { streamRespellPipeline } from "./respellPipeline";
 import { tryEnqueueStreamOutput } from "./streamOutput";
 import {
     KEEP_ALIVE_CONNECTION,
@@ -17,6 +17,8 @@ import {
     STREAM_END_MARKER,
     STREAM_ERROR_MARKER,
 } from "../../constants/sapopinguino";
+
+const PIPELINE_KEEP_ALIVE_INTERVAL_MS = 10_000;
 
 export function responseHeaders(
     request: Request,
@@ -57,7 +59,7 @@ export async function handleSapopinguinoRequest(
         return preparedRequest.response;
     }
 
-    const { input, usage_event_id: usageEventId } = preparedRequest;
+    const { input, translateThenRespell, respellLanguage, usage_event_id: usageEventId } = preparedRequest;
 
     const encoder = new TextEncoder();
     const stream = createSapopinguinoQuotaStream(ctx, request, {
@@ -65,9 +67,32 @@ export async function handleSapopinguinoRequest(
         log_context: "sapopinguino stream",
         run: async ({ controller, upstream, ensureQuotaCharged, hasChargedQuota }) => {
             const tokenParser = new TokenParser();
-            return streamCloudflareAI({
+            // Empty lines keep the existing line protocol alive without emitting output tokens.
+            const keepAlive = translateThenRespell ? setInterval(() => {
+                if (!enqueueLine(controller, encoder, "")) {
+                    upstream.abort();
+                }
+            }, PIPELINE_KEEP_ALIVE_INTERVAL_MS) : null;
+            try {
+                return await streamRespellPipeline({
                     input,
-                    operation: "respell",
+                    translateThenRespell,
+                    respellLanguage,
+                    onTranslation: async (value) => {
+                        if (!enqueueLine(controller, encoder, JSON.stringify({ type: "translation_preview", value }))) {
+                            upstream.abort();
+                            upstream.signal.throwIfAborted();
+                        }
+                    },
+                    onRespellStart: () => {
+                        if (!enqueueLine(controller, encoder, JSON.stringify({ type: "respell_start" }))) {
+                            upstream.abort();
+                            upstream.signal.throwIfAborted();
+                        }
+                    },
+                    onSourceUndetermined: () => {
+                        enqueueLine(controller, encoder, JSON.stringify({ type: "source_undetermined" }));
+                    },
                     signal: upstream.signal,
                     onDelta: async (delta) => {
                         const parsedTokens = tokenParser.consume(delta);
@@ -99,7 +124,12 @@ export async function handleSapopinguinoRequest(
                     onErrored: () => {
                         enqueueLine(controller, encoder, STREAM_ERROR_MARKER);
                     },
-            });
+                });
+            } finally {
+                if (keepAlive !== null) {
+                    clearInterval(keepAlive);
+                }
+            }
         },
         on_unexpected_error: (controller) => {
             enqueueLine(controller, encoder, STREAM_ERROR_MARKER);

@@ -1,3 +1,4 @@
+import { isRespellLanguage } from "./languages";
 import type { ActionCtx } from "../../_generated/server";
 import { POST_OPTIONS_METHODS } from "../../constants/http";
 import { SUBSCRIPTION_QUOTA_ERROR_CODES } from "../../constants/subscriptions";
@@ -5,6 +6,7 @@ import type { AuthenticatedHttpContext } from "../../lib/httpAuth";
 import type { SubscriptionUsageOperation } from "../../constants/subscriptions";
 import {
     isValidSapopinguinoStreamId,
+    readRespellPipelineLanguages,
     readSapopinguinoJsonRequestBody,
     sanitizeSapopinguinoInputPayload,
 } from "./input";
@@ -15,6 +17,8 @@ import { reconcileSubscriptionStateForUsage } from "../subscriptions/workers";
 type StreamRequestBody = {
     input?: string;
     streamId?: string;
+    translateThenRespell?: boolean;
+    respellLanguage?: string;
 };
 
 type ResponseHeadersFactory = (
@@ -71,6 +75,17 @@ export async function prepareSapopinguinoRequest(
         !sanitizedInput ||
         typeof body.streamId !== "string" ||
         !isValidSapopinguinoStreamId(body.streamId)
+    ) {
+        return { ok: false as const, response: errorResponse(400) };
+    }
+
+    if (
+        (body.respellLanguage !== undefined && body.respellLanguage !== "Source" && !isRespellLanguage(body.respellLanguage)) ||
+        (body.translateThenRespell !== undefined && typeof body.translateThenRespell !== "boolean") ||
+        (body.translateThenRespell === true && (
+            args.operation !== "respell" ||
+            !readRespellPipelineLanguages(sanitizedInput.payload)
+        ))
     ) {
         return { ok: false as const, response: errorResponse(400) };
     }
@@ -132,6 +147,8 @@ export async function prepareSapopinguinoRequest(
         return {
             ok: true as const,
             input: sanitizedInput.payload,
+            translateThenRespell: body.translateThenRespell === true,
+            respellLanguage: body.respellLanguage ?? "Source",
             usage_event_id: quotaReservation.usageEventId,
         };
     } catch {
