@@ -26,6 +26,7 @@ export default defineSchema({
         respelling: v.string(),
         ipa: v.string(),
     })
-        .index("by_source_entry_target", ["source_language_code", "entry_id", "target_language_code"]),
+        .index("by_source_entry_target", ["source_language_code", "entry_id", "target_language_code"])
+        .index("by_source_and_target", ["source_language_code", "target_language_code"]),
 
 })
