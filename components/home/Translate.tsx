@@ -143,6 +143,8 @@ export default function Translate({ responseInputRef, previewInputRef, onDismiss
     return (
         <ScrollView
             ref={scrollViewRef}
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
             onScroll={onScroll}
             onContentSizeChange={onContentSizeChange}
             scrollEventThrottle={16}
@@ -202,7 +204,14 @@ export default function Translate({ responseInputRef, previewInputRef, onDismiss
 };
 
 const styles = StyleSheet.create({
+    scrollView: {
+        flex: 1,
+    },
+    scrollContent: {
+        flexGrow: 1,
+    },
     container: {
+        flexGrow: 1,
         paddingHorizontal: 24,
         paddingVertical: 10,
         width: "100%",
