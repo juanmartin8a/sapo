@@ -35,14 +35,17 @@ export async function streamRespellPipeline(args: RespellPipelineArguments) {
             detectSourceLanguage,
             signal: args.signal,
             onDelta: async (delta) => {
-                if (rawTranslation.length + delta.length > MAX_TRANSLATED_TEXT_CHARS * 6 + 1024) {
-                    await args.onErrored();
-                    return "errored";
+                if (parser) {
+                    if (rawTranslation.length + delta.length > MAX_TRANSLATED_TEXT_CHARS * 6 + 1024) {
+                        await args.onErrored();
+                        return "errored";
+                    }
+                    rawTranslation += delta;
                 }
-                rawTranslation += delta;
                 let text: string;
-                try { text = parser ? parser.consume(delta) : delta; }
-                catch {
+                try {
+                    text = parser ? parser.consume(delta) : delta;
+                } catch {
                     await args.onErrored();
                     return "errored";
                 }
