@@ -12,61 +12,65 @@
 	} from '$lib/convex';
 
 	const PAGE_SIZE = 50;
+	const filters = [
+		{ key: 'source', label: 'Source language' },
+		{ key: 'target', label: 'Target language' }
+	] as const;
 
-	let languages = $state<Language[]>([]);
+	let mounted = $state(false);
+	let languages = $state.raw<Language[]>([]);
 	let languagesStatus = $state<'loading' | 'ready' | 'error'>('loading');
-	let languagesError = $state('');
 
-	let source = $derived(page.url.searchParams.get('source') ?? '');
-	let target = $derived(page.url.searchParams.get('target') ?? '');
+	// Read query parameters only after hydration; the shell is statically prerendered.
+	let source = $derived(mounted ? (page.url.searchParams.get('source') ?? '') : '');
+	let target = $derived(mounted ? (page.url.searchParams.get('target') ?? '') : '');
 
-	let rows = $state<Pronunciation[]>([]);
+	let rows = $state.raw<Pronunciation[]>([]);
 	let resultsStatus = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
-	let resultsError = $state('');
 	// cursors[i] is the cursor that loads page i (page 0 starts at null).
-	let cursors = $state<(string | null)[]>([null]);
+	let cursors: (string | null)[] = [null];
 	let pageIndex = $state(0);
+	let requestedPage = 0;
 	let isDone = $state(true);
 	let requestId = 0;
 
 	const languageNames = $derived(new Map(languages.map((l) => [l.language_code, l.name])));
 	const nameFor = (code: string) => languageNames.get(code) ?? code;
 
-	const errorMessage = (error: unknown) =>
-		error instanceof Error ? error.message : 'Something went wrong.';
-
 	async function loadLanguages() {
 		languagesStatus = 'loading';
 		try {
-			languages = await getConvexClient().query(listLanguagesRef, {});
+			const result = await getConvexClient().query(listLanguagesRef, {});
+			if (!mounted) return;
+			languages = result;
 			languagesStatus = 'ready';
-		} catch (error) {
-			languagesError = errorMessage(error);
+		} catch {
+			if (!mounted) return;
 			languagesStatus = 'error';
 		}
 	}
 
 	async function loadPage(index: number) {
-		if (!source || !target) return;
+		const cursor = cursors[index];
+		if (!mounted || !source || !target || cursor === undefined) return;
 		const id = ++requestId;
+		requestedPage = index;
 		resultsStatus = 'loading';
 		try {
 			const result = await getConvexClient().query(listByLanguagePairRef, {
 				sourceLanguageCode: source,
 				targetLanguageCode: target,
-				paginationOpts: { numItems: PAGE_SIZE, cursor: cursors[index] ?? null }
+				paginationOpts: { numItems: PAGE_SIZE, cursor }
 			});
 			if (id !== requestId) return;
 			rows = result.page;
 			isDone = result.isDone;
 			pageIndex = index;
-			if (!result.isDone) {
-				cursors = [...cursors.slice(0, index + 1), result.continueCursor];
-			}
+			cursors = cursors.slice(0, index + 1);
+			if (!result.isDone) cursors.push(result.continueCursor);
 			resultsStatus = 'ready';
-		} catch (error) {
+		} catch {
 			if (id !== requestId) return;
-			resultsError = errorMessage(error);
 			resultsStatus = 'error';
 		}
 	}
@@ -75,10 +79,20 @@
 		const url = new URL(page.url);
 		if (value) url.searchParams.set(key, value);
 		else url.searchParams.delete(key);
-		goto(url, { replaceState: true, keepFocus: true, noScroll: true });
+		goto(resolve(`/pronunciations/?${url.searchParams}${url.hash}`), {
+			replaceState: true,
+			keepFocus: true,
+			noScroll: true
+		});
 	}
 
-	onMount(loadLanguages);
+	onMount(() => {
+		mounted = true;
+		void loadLanguages();
+		return () => {
+			mounted = false;
+		};
+	});
 
 	// Any filter change resets pagination to page 1.
 	$effect(() => {
@@ -86,6 +100,7 @@
 		untrack(() => {
 			cursors = [null];
 			pageIndex = 0;
+			requestedPage = 0;
 			rows = [];
 			if (hasPair) {
 				loadPage(0);
@@ -94,11 +109,14 @@
 				resultsStatus = 'idle';
 			}
 		});
+		return () => {
+			requestId++;
+		};
 	});
 
 	function goToPage(index: number) {
 		loadPage(index);
-		document.getElementById('results')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+		document.getElementById('results')?.scrollIntoView({ block: 'start' });
 	}
 </script>
 
@@ -125,7 +143,9 @@
 		</header>
 
 		<section class="pt-4 sm:pt-8">
-			<p class="mb-3 text-[0.68rem] font-bold tracking-[0.28em] text-[#647C61] uppercase sm:text-xs">
+			<p
+				class="mb-3 text-[0.68rem] font-bold tracking-[0.28em] text-[#647C61] uppercase sm:text-xs"
+			>
 				Pronunciations
 			</p>
 			<h1 class="text-4xl leading-none font-black tracking-[-0.06em] sm:text-6xl">
@@ -140,17 +160,16 @@
 			aria-label="Filters"
 			class="grid gap-4 rounded-3xl border border-[#D4E0D1] bg-white/80 p-4 sm:grid-cols-2 sm:p-6"
 		>
-			{#each [{ key: 'source', label: 'Source language', value: source }, { key: 'target', label: 'Target language', value: target }] as filter (filter.key)}
+			{#each filters as filter (filter.key)}
 				<label class="grid gap-2">
 					<span class="text-xs font-bold tracking-[0.2em] text-[#647C61] uppercase">
 						{filter.label}
 					</span>
 					<select
 						class="w-full rounded-2xl border border-[#C5D8C0] bg-[#F8FBF6] px-4 py-3 text-base font-semibold text-[#1E3526] focus:border-[#1E3526] focus:outline-none disabled:opacity-60"
-						value={filter.value}
+						value={filter.key === 'source' ? source : target}
 						disabled={languagesStatus !== 'ready'}
-						onchange={(event) =>
-							setFilter(filter.key as 'source' | 'target', event.currentTarget.value)}
+						onchange={(event) => setFilter(filter.key, event.currentTarget.value)}
 					>
 						<option value="">
 							{languagesStatus === 'loading' ? 'Loading languages…' : 'Choose a language'}
@@ -167,7 +186,7 @@
 					role="alert"
 					class="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-[#FBEDEA] p-4 text-sm text-[#7A2E22] sm:col-span-2"
 				>
-					<span>Couldn't load languages. {languagesError}</span>
+					<span>Couldn't load languages. Please try again.</span>
 					<button
 						type="button"
 						class="rounded-full bg-[#1E3526] px-4 py-2 font-semibold text-white"
@@ -177,11 +196,16 @@
 			{/if}
 		</section>
 
-		<section id="results" aria-live="polite" class="scroll-mt-4 pb-12">
+		<noscript><p>Enable JavaScript to browse pronunciations.</p></noscript>
+
+		<section
+			id="results"
+			aria-live="polite"
+			aria-busy={resultsStatus === 'loading'}
+			class="scroll-mt-4 pb-12"
+		>
 			{#if resultsStatus === 'idle'}
-				<p
-					class="rounded-3xl border border-dashed border-[#C5D8C0] p-8 text-center text-[#4C6349]"
-				>
+				<p class="rounded-3xl border border-dashed border-[#C5D8C0] p-8 text-center text-[#4C6349]">
 					Choose a source and a target language to see pronunciations.
 				</p>
 			{:else if resultsStatus === 'error'}
@@ -189,24 +213,22 @@
 					role="alert"
 					class="flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-[#FBEDEA] p-6 text-[#7A2E22]"
 				>
-					<span>Couldn't load pronunciations. {resultsError}</span>
+					<span>Couldn't load pronunciations. Please try again.</span>
 					<button
 						type="button"
 						class="rounded-full bg-[#1E3526] px-4 py-2 font-semibold text-white"
-						onclick={() => loadPage(pageIndex)}>Retry</button
+						onclick={() => loadPage(requestedPage)}>Retry</button
 					>
 				</div>
 			{:else if resultsStatus === 'loading' && rows.length === 0}
 				<div class="grid gap-3" aria-busy="true" aria-label="Loading pronunciations">
-					{#each Array(6) as _, i (i)}
+					{#each Array(6).keys() as i (i)}
 						<div class="h-14 animate-pulse rounded-2xl bg-[#E1ECDD]"></div>
 					{/each}
 				</div>
 			{:else if rows.length === 0}
-				<p
-					class="rounded-3xl border border-dashed border-[#C5D8C0] p-8 text-center text-[#4C6349]"
-				>
-					No pronunciations for {nameFor(source)} → {nameFor(target)} yet.
+				<p class="rounded-3xl border border-dashed border-[#C5D8C0] p-8 text-center text-[#4C6349]">
+					No pronunciations on this page for {nameFor(source)} → {nameFor(target)}.
 				</p>
 			{:else}
 				<div class:opacity-50={resultsStatus === 'loading'} class="transition-opacity">
@@ -254,7 +276,9 @@
 						{/each}
 					</ul>
 				</div>
+			{/if}
 
+			{#if resultsStatus === 'ready' || (resultsStatus === 'loading' && rows.length > 0)}
 				<nav aria-label="Pagination" class="mt-6 flex items-center justify-between gap-3">
 					<button
 						type="button"

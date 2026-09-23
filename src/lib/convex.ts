@@ -1,6 +1,10 @@
 import { PUBLIC_CONVEX_URL } from '$env/static/public';
 import { ConvexHttpClient } from 'convex/browser';
-import { makeFunctionReference } from 'convex/server';
+import {
+	makeFunctionReference,
+	type PaginationOptions,
+	type PaginationResult
+} from 'convex/server';
 
 /**
  * Read-only client for the SAPO Convex deployment.
@@ -21,22 +25,14 @@ export type Pronunciation = {
 	respelling: string;
 };
 
-export type PronunciationPage = {
-	page: Pronunciation[];
-	isDone: boolean;
-	continueCursor: string;
-};
-
-type PaginationOpts = { numItems: number; cursor: string | null };
-
 export const listLanguagesRef = makeFunctionReference<'query', Record<string, never>, Language[]>(
 	'pronunciations:listLanguages'
 );
 
 export const listByLanguagePairRef = makeFunctionReference<
 	'query',
-	{ sourceLanguageCode: string; targetLanguageCode: string; paginationOpts: PaginationOpts },
-	PronunciationPage
+	{ sourceLanguageCode: string; targetLanguageCode: string; paginationOpts: PaginationOptions },
+	PaginationResult<Pronunciation>
 >('pronunciations:listByLanguagePair');
 
 let client: ConvexHttpClient | null = null;
