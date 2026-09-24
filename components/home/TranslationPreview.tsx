@@ -1,80 +1,65 @@
 import SelectableText from "./SelectableText";
-import { useEffect, useRef, useState, type Ref } from "react";
-import { Pressable, ScrollView, Text, TextInput, View, Platform, StyleSheet, type NativeSyntheticEvent, type NativeScrollEvent } from "react-native";
-
+import { TRANSLATION_TEXT_TYPOGRAPHY } from "@/constants/ui";
+import { useState, type Ref } from "react";
+import { Pressable, Text, TextInput, View, StyleSheet } from "react-native";
 export default function TranslationPreview({ text, inputRef, onDismissSelection, onInteractionStart }: {
     text: string;
     inputRef?: Ref<TextInput>;
     onDismissSelection?: () => void;
     onInteractionStart?: () => void;
 }) {
-    const [expanded, setExpanded] = useState(false);
-    const scroll = useRef<ScrollView>(null);
-    const follow = useRef(true);
-    const interacting = useRef(false);
-    useEffect(() => {
-        if (!text) {
-            follow.current = true;
-            interacting.current = false;
-            scroll.current?.scrollTo({ x: 0, animated: false });
-        }
-    }, [text]);
-    const updateFollow = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-        const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-        follow.current = contentOffset.x + layoutMeasurement.width >= contentSize.width - 2;
-    };
+    const [expanded, setExpanded] = useState(true);
     const toggleExpanded = () => {
         onDismissSelection?.();
+        onInteractionStart?.();
         setExpanded(value => !value);
     };
-    const visibleText = expanded ? text : text.replace(/[\r\n\u2028\u2029]+/g, " ");
-    const preview = Platform.OS === "ios" ? (
-        <SelectableText
-            text={visibleText}
-            inputRef={inputRef}
-            accessibilityLabel="Translation preview"
-            accessibilityActions={[{ name: "toggleExpanded", label: expanded ? "Collapse translation" : "Expand translation" }]}
-            onAccessibilityAction={event => {
-                if (event.nativeEvent.actionName === "toggleExpanded") toggleExpanded();
-            }}
-            style={styles.text}
-            onDismissSelection={onDismissSelection}
-            onInteractionStart={onInteractionStart}
-            onUnselectedTap={toggleExpanded}
-        />
-    ) : (
-        <Pressable onPress={toggleExpanded} accessibilityRole="button" accessibilityLabel="Translation preview"
-            accessibilityHint={expanded ? "Double tap to collapse to one line" : "Double tap to show the full translation vertically"}>
-            <Text selectable style={styles.text}>{visibleText}</Text>
-        </Pressable>
-    );
-    if (expanded) return <View style={styles.expanded}>{preview}</View>;
 
-    return <ScrollView
-        ref={scroll}
-        horizontal
-        style={styles.strip}
-        contentContainerStyle={styles.content}
-        showsHorizontalScrollIndicator
-        onScrollBeginDrag={() => { interacting.current = true; follow.current = false; }}
-        onScroll={event => {
-            if (!interacting.current) return;
-            updateFollow(event);
-        }}
-        onScrollEndDrag={event => { updateFollow(event); interacting.current = false; }}
-        onMomentumScrollBegin={() => { interacting.current = true; }}
-        onMomentumScrollEnd={event => { updateFollow(event); interacting.current = false; }}
-        onContentSizeChange={() => {
-            if (follow.current) scroll.current?.scrollToEnd({ animated: false });
-        }}
-        scrollEventThrottle={16}
-    >
-        {preview}
-    </ScrollView>;
+    return (
+        <View style={styles.container}>
+            {expanded ? (
+                <SelectableText
+                    text={text}
+                    inputRef={inputRef}
+                    accessibilityLabel="Translation"
+                    style={styles.text}
+                    onDismissSelection={onDismissSelection}
+                    onInteractionStart={onInteractionStart}
+                />
+            ) : (
+                <Text
+                    selectable
+                    numberOfLines={2}
+                    ellipsizeMode="tail"
+                    accessibilityLabel="Translation preview"
+                    onPressIn={onInteractionStart}
+                    style={styles.text}
+                >
+                    {text}
+                </Text>
+            )}
+            <View>
+                <Pressable
+                    onPress={toggleExpanded}
+                    accessibilityRole="button"
+                    accessibilityLabel={expanded ? "Show less translation" : "Show full translation"}
+                    accessibilityState={{ expanded }}
+                    hitSlop={10}
+                    style={styles.toggle}
+                >
+                    <Text style={styles.toggleText}>{expanded ? "Show less" : "Show translation"}</Text>
+                    <View accessible={false} style={[styles.chevron, expanded && styles.chevronExpanded]} />
+                </Pressable>
+            </View>
+        </View>
+    );
 }
+
 const styles = StyleSheet.create({
-    strip: { height: 40, flexGrow: 0, marginHorizontal: -24, backgroundColor: 'transparent' },
-    content: { paddingHorizontal: 24 },
-    expanded: { marginHorizontal: -24, paddingHorizontal: 24, marginBottom: 8 },
-    text: {  fontSize: 24, lineHeight: 29, color: '#aaa' },
+    container: { marginBottom: 8 },
+    text: { ...TRANSLATION_TEXT_TYPOGRAPHY, color: '#aaa' },
+    toggle: { paddingTop: 4, flexDirection: 'row', alignItems: 'flex-start', alignSelf: 'flex-start', gap: 8 },
+    toggleText: { fontSize: 14, lineHeight: 20, color: '#aaa', textDecorationLine: 'underline' },
+    chevron: { width: 7, height: 7, borderRightWidth: 1.5, borderBottomWidth: 1.5, borderColor: '#aaa', transform: [{ rotate: '45deg' }], marginTop: 5 },
+    chevronExpanded: { transform: [{ rotate: '225deg' }], marginTop: 8 },
 });

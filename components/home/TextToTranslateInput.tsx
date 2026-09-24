@@ -7,6 +7,7 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import useLocalModelStore from "@/stores/localModelStore";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import useSubscriptionAccess from "@/hooks/useSubscriptionAccess";
+import { TRANSLATION_TEXT_TYPOGRAPHY } from "@/constants/ui";
 
 const TextToTranslateInput = () => {
     const insets = useSafeAreaInsets();
@@ -88,8 +89,7 @@ const styles = StyleSheet.create({
     },
     textInput: {
         flex: 1,
-        fontSize: 24,
-        lineHeight: 24 * 1.2,
+        ...TRANSLATION_TEXT_TYPOGRAPHY,
         textAlign: "left",
         textAlignVertical: "top",
         paddingHorizontal: 24,

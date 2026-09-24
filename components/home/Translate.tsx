@@ -1,4 +1,5 @@
 import TranslationPreview from './TranslationPreview';
+import { TRANSLATION_TEXT_TYPOGRAPHY } from '@/constants/ui';
 import SelectableText from './SelectableText';
 import { useEffect, useRef, type Ref } from 'react';
 import { View, Text, TextInput, StyleSheet, ScrollView, NativeSyntheticEvent, NativeScrollEvent, TextLayoutEventData, LayoutChangeEvent, useWindowDimensions } from 'react-native';
@@ -236,8 +237,7 @@ const styles = StyleSheet.create({
         position: "absolute",
     },
     translatedText: {
-        fontSize: 24,
-        lineHeight: 24 * 1.2,
+        ...TRANSLATION_TEXT_TYPOGRAPHY,
         textAlign: "left",
         textAlignVertical: "top",
         width: "100%",
