@@ -32,7 +32,6 @@ export default function Translate({ responseInputRef, previewInputRef, onDismiss
     const streamError = useTranslationStore((state) => state.streamError);
     const streamErrorMessage = useTranslationStore((state) => state.streamErrorMessage);
     const isStreaming = useTranslationStore((state) => state.isStreaming);
-    const disconnectStream = useTranslationStore((state) => state.disconnectStream);
 
     const sapoWidth = screenWidth * 0.4;
     const sapoHeight = sapoWidth * (800 / 929);
@@ -40,8 +39,8 @@ export default function Translate({ responseInputRef, previewInputRef, onDismiss
     const cursorY = useSharedValue(0);
     const mouthOpen = useSharedValue(0);
     const hasMountedRef = useRef(false);
-    const wasStreamingRef = useRef(false);
-    const streamStartVersionRef = useRef(0);
+    const wasStreamingRef = useRef(isStreaming);
+    const streamStartVersionRef = useRef(streamStartVersion);
     const scrollViewRef = useRef<ScrollView>(null);
     const shouldStickToBottomRef = useRef(true);
     const textContainerHeightRef = useRef(0);
@@ -74,12 +73,6 @@ export default function Translate({ responseInputRef, previewInputRef, onDismiss
             streamStartVersionRef.current = streamStartVersion;
         }
     }, [streamStartVersion]);
-
-    useEffect(() => {
-        return () => {
-            disconnectStream();
-        };
-    }, [disconnectStream]);
 
     const frogAnimatedStyle = useAnimatedStyle(() => ({
         transform: [

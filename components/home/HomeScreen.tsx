@@ -20,6 +20,7 @@ import Header from "@/components/ui/Header";
 import TranslateButton from "@/components/home/TranslateButton";
 import SidebarIcon from "@/assets/icons/sidebar.svg";
 import TextToTranslateInput from "@/components/home/TextToTranslateInput";
+import useTranslationStore from "@/stores/translationStore";
 import usePagerStore from "@/stores/pagerStore";
 import useLocalModelStore from "@/stores/localModelStore";
 import SourceLanguageSelectorBottomSheet from "@/components/home/SourceLanguageSelectorBottomSheet";
@@ -72,6 +73,8 @@ export default function HomeScreen() {
 
     const isSidebarOpen = useSidebarStore(state => state.isOpen);
     const isSidebarOpenOrClosed = useSidebarStore(state => state.isSidebarOpenOrClosed);
+    const singleScreen = usePagerStore(state => state.singleScreen);
+    const disconnectStream = useTranslationStore(state => state.disconnectStream);
     const setPos = usePagerStore(state => state.setPos);
 
     const operation = useTransformationOperationStore((state) => state.operation);
@@ -183,7 +186,7 @@ export default function HomeScreen() {
             .activeOffsetX([-8, 8])
             .failOffsetY([-12, 12]);
 
-        if (Platform.OS !== "web") {
+        if (Platform.OS !== "web" && !singleScreen) {
             gesture.requireExternalGestureToFail(pagerNativeGesture);
         }
 
@@ -256,7 +259,7 @@ export default function HomeScreen() {
                     animateToTarget(gestureStartIsOpen.value ? sidebarWidth : 0);
                 }
             });
-    }, [animateToTarget, animationTargetX, gestureAnimationTargetX, gesturePreviousTranslationX, gestureStartIsOpen, gestureStartX, hasCapturedSidebarGesture, isAnimating, pagerNativeGesture, sideBarTranslationX, sidebarWidth, triggerSidebarHapticJS]);
+    }, [animateToTarget, animationTargetX, gestureAnimationTargetX, gesturePreviousTranslationX, gestureStartIsOpen, gestureStartX, hasCapturedSidebarGesture, isAnimating, pagerNativeGesture, singleScreen, sideBarTranslationX, sidebarWidth, triggerSidebarHapticJS]);
 
     const overlayTapGesture = useMemo(() => {
         return Gesture.Tap()
@@ -271,6 +274,14 @@ export default function HomeScreen() {
                 animateToTarget(0);
             });
     }, [animateToTarget, overlayCloseTapLocked, triggerSidebarHapticJS]);
+
+    useEffect(() => () => disconnectStream(), [disconnectStream]);
+
+    useEffect(() => {
+        pos.current = 0;
+        setPos(0);
+        pagerProgress.set(0);
+    }, [singleScreen, pagerProgress, setPos]);
 
     useEffect(() => {
         const unsubscribe = usePagerStore.subscribe(
@@ -303,6 +314,12 @@ export default function HomeScreen() {
         };
     });
 
+    const input = <TextToTranslateInput keyboardVerticalOffset={inputKeyboardOffset} />;
+    const response = (
+        <Translate responseInputRef={responseInputRef} previewInputRef={previewInputRef}
+            onDismissSelection={dismissResponseSelection} onDismissPreviewSelection={dismissPreviewSelection} />
+    );
+
     return (
         <View style={styles.container} onTouchStart={dismissTextSelections}>
             <StatusBar barStyle="dark-content" />
@@ -333,38 +350,40 @@ export default function HomeScreen() {
                                     <Text style={styles.operationText}>{operationLabel}</Text>
                                 </View>
                             </View>
-                            <GestureDetector gesture={pagerNativeGesture}>
-                                <HomePager
-                                    ref={pagerRef}
-                                    progress={pagerProgress}
-                                    style={styles.pagerView}
-                                    initialPage={0}
-                                    onPageScrollStateChanged={(e) => {
-                                        if (e.nativeEvent.pageScrollState === 'idle') {
-                                            if (usePagerStore.getState().pos !== pos.current) {
-                                                setPos(pos.current)
+                            {singleScreen ? (
+                                <View style={styles.pagerView}>
+                                    <View style={styles.singleScreenPane}>{input}</View>
+                                    <View style={styles.responsePane}>{response}</View>
+                                </View>
+                            ) : (
+                                <GestureDetector gesture={pagerNativeGesture}>
+                                    <HomePager
+                                        ref={pagerRef}
+                                        progress={pagerProgress}
+                                        style={styles.pagerView}
+                                        initialPage={0}
+                                        onPageScrollStateChanged={(e) => {
+                                            if (e.nativeEvent.pageScrollState === 'idle') {
+                                                if (usePagerStore.getState().pos !== pos.current) {
+                                                    setPos(pos.current)
+                                                }
+                                            }
+                                        }}
+                                        scrollEnabled={true}
+                                        overScrollMode="never"
+                                        keyboardDismissMode="on-drag"
+                                        orientation="horizontal"
+                                        onPageSelected={
+                                            (e) => {
+                                                pos.current = e.nativeEvent.position
                                             }
                                         }
-                                    }}
-                                    scrollEnabled={true}
-                                    overScrollMode="never"
-                                    keyboardDismissMode="on-drag"
-                                    orientation="horizontal"
-                                    onPageSelected={
-                                        (e) => {
-                                            pos.current = e.nativeEvent.position
-                                        }
-                                    }
-                                >
-                                    <View key="1" style={{ width: "100%", height: "100%" }}>
-                                        <TextToTranslateInput keyboardVerticalOffset={inputKeyboardOffset} />
-                                    </View>
-                                    <View key="2" style={{ width: "100%", height: "100%" }}>
-                                        <Translate responseInputRef={responseInputRef} previewInputRef={previewInputRef}
-                                            onDismissSelection={dismissResponseSelection} onDismissPreviewSelection={dismissPreviewSelection} />
-                                    </View>
-                                </HomePager>
-                            </GestureDetector>
+                                    >
+                                        <View key="1" style={styles.page}>{input}</View>
+                                        <View key="2" style={styles.page}>{response}</View>
+                                    </HomePager>
+                                </GestureDetector>
+                            )}
                             {isSidebarOverlayMounted && (
                                 <GestureDetector gesture={overlayTapGesture}>
                                     <Animated.View style={styles.mainContentOverlay} />
@@ -398,6 +417,20 @@ const styles = StyleSheet.create({
         width: "100%",
         height: "100%",
         backgroundColor: "rgba(0,0,0,0)"
+    },
+    page: {
+        width: "100%",
+        height: "100%",
+    },
+    singleScreenPane: {
+        flex: 1,
+        minHeight: 0,
+    },
+    responsePane: {
+        flex: 1,
+        minHeight: 0,
+        borderTopWidth: 1,
+        borderTopColor: 'black',
     },
     pagerView: {
         flex: 1,
