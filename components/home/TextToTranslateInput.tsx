@@ -3,14 +3,16 @@ import { Alert, StyleSheet, TextInput } from "react-native"
 import useTranslationInputStore from "@/stores/translationInputStore";
 import useTransformationOperationStore from "@/stores/transformationOperationStore";
 import { getCharacterCount, getInputLimit } from "@/utils/inputLimits";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import useLocalModelStore from "@/stores/localModelStore";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import useSubscriptionAccess from "@/hooks/useSubscriptionAccess";
 import { TRANSLATION_TEXT_TYPOGRAPHY } from "@/constants/ui";
 
-const TextToTranslateInput = () => {
-    const insets = useSafeAreaInsets();
+interface TextToTranslateInputProps {
+    keyboardVerticalOffset: number;
+}
+
+const TextToTranslateInput = ({ keyboardVerticalOffset }: TextToTranslateInputProps) => {
     const text = useTranslationInputStore((state) => state.text)
     const textLength = useTranslationInputStore((state) => state.characterCount)
     const setText = useTranslationInputStore((state) => state.setText)
@@ -60,32 +62,31 @@ const TextToTranslateInput = () => {
     }, [inputLimit, isLimitExceeded, operation])
 
     return (
-        <KeyboardAwareScrollView
+        <KeyboardAvoidingView
             style={styles.innerContainer}
-            contentContainerStyle={styles.contentContainer}
-            bottomOffset={12}
+            behavior="padding"
+            keyboardVerticalOffset={keyboardVerticalOffset}
+            // Keep TextInput's JS press handler from forcing focus after a drag
+            // or a tap that stops momentum. Native text gestures still handle editing.
+            onStartShouldSetResponderCapture={() => true}
         >
             <TextInput
-                style={[styles.textInput, {paddingBottom: 10 + 24 + insets.bottom}]}
+                style={styles.textInput}
                 multiline
                 value={text}
                 onChangeText={handleTextChange}
-                rejectResponderTermination={false}
                 placeholder="Type something..."
                 placeholderTextColor="#aaa"
                 returnKeyType="done"
                 submitBehavior="blurAndSubmit"
             />
-        </KeyboardAwareScrollView>
+        </KeyboardAvoidingView>
     )
 }
 
 const styles = StyleSheet.create({
     innerContainer: {
         flex: 1,
-    },
-    contentContainer: {
-        flexGrow: 1,
     },
     textInput: {
         flex: 1,
@@ -94,6 +95,7 @@ const styles = StyleSheet.create({
         textAlignVertical: "top",
         paddingHorizontal: 24,
         paddingVertical: 10,
+        paddingBottom: 0,
         backgroundColor: "#fff",
     },
 })

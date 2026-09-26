@@ -66,6 +66,7 @@ export default function HomeScreen() {
     const sidebarPressCompletedRef = useRef(false);
     const sidebarPressFrameRef = useRef<number | null>(null);
 
+    const [inputKeyboardOffset, setInputKeyboardOffset] = useState(0);
     const [isSidebarOverlayMounted, setIsSidebarOverlayMounted] = useState(false);
     const pagerNativeGesture = useMemo(() => Gesture.Native(), []);
 
@@ -311,23 +312,26 @@ export default function HomeScreen() {
                         <Sidebar translationX={sideBarTranslationX} width={sidebarWidth} />
 
                         <Animated.View style={[styles.mainContent, mainContentAnimatedStyle]}>
-                            <Header
-                                title={"S A P O"}
-                                leftComponent={(
-                                    <TouchableWithoutFeedback
-                                        onPressIn={handleSidebarPressIn}
-                                        onPress={openSidebar}
-                                        onPressOut={handleSidebarPressOut}
-                                    >
-                                        <View style={{ padding: 6 }}>
-                                            <SidebarIcon width={40} height={32} stroke="black" />
-                                        </View>
-                                    </TouchableWithoutFeedback>
-                                )}
-                                rightComponent={<TranslateButton pagerProgress={pagerProgress} />}
-                            />
-                            <View style={{ backgroundColor: 'transparent', paddingHorizontal: 24, paddingTop: 0, paddingBottom: 3 }}>
-                                <Text style={styles.operationText}>{operationLabel}</Text>
+                            {/* Includes the safe-area header and the operation label. */}
+                            <View onLayout={(event) => setInputKeyboardOffset(event.nativeEvent.layout.height)}>
+                                <Header
+                                    title={"S A P O"}
+                                    leftComponent={(
+                                        <TouchableWithoutFeedback
+                                            onPressIn={handleSidebarPressIn}
+                                            onPress={openSidebar}
+                                            onPressOut={handleSidebarPressOut}
+                                        >
+                                            <View style={{ padding: 6 }}>
+                                                <SidebarIcon width={40} height={32} stroke="black" />
+                                            </View>
+                                        </TouchableWithoutFeedback>
+                                    )}
+                                    rightComponent={<TranslateButton pagerProgress={pagerProgress} />}
+                                />
+                                <View style={{ backgroundColor: 'transparent', paddingHorizontal: 24, paddingTop: 0, paddingBottom: 3 }}>
+                                    <Text style={styles.operationText}>{operationLabel}</Text>
+                                </View>
                             </View>
                             <GestureDetector gesture={pagerNativeGesture}>
                                 <HomePager
@@ -353,7 +357,7 @@ export default function HomeScreen() {
                                     }
                                 >
                                     <View key="1" style={{ width: "100%", height: "100%" }}>
-                                        <TextToTranslateInput />
+                                        <TextToTranslateInput keyboardVerticalOffset={inputKeyboardOffset} />
                                     </View>
                                     <View key="2" style={{ width: "100%", height: "100%" }}>
                                         <Translate responseInputRef={responseInputRef} previewInputRef={previewInputRef}
