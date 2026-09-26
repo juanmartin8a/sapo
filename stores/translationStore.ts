@@ -26,7 +26,6 @@ import useTranslateButtonStore, { type TranslateButtonState } from "./translateB
 
 const LOCAL_MODEL_SELECTION_ALERT_TITLE = "Select a local model";
 const LOCAL_MODEL_SELECTION_ALERT_MESSAGE = "A local model must be selected before using offline translations.";
-const TOKEN_FLUSH_INTERVAL_MS = 32;
 
 type ActiveStreamSnapshot = {
     abortController: AbortController | null;
@@ -57,9 +56,6 @@ interface TranslationStoreState {
 
 const useTranslationStore = create<TranslationStoreState>((set, get) => {
     let activeSendMessageId: string | null = null;
-    let pendingTokenText = "";
-    let pendingMouthTrigger = false;
-    let pendingTokenFlush: ReturnType<typeof setTimeout> | null = null;
 
     const clearActiveSendMessage = () => {
         activeSendMessageId = null;
@@ -105,22 +101,10 @@ const useTranslationStore = create<TranslationStoreState>((set, get) => {
         })();
     };
 
-    const flushPendingTokens = () => {
-        if (pendingTokenFlush !== null) {
-            clearTimeout(pendingTokenFlush);
-            pendingTokenFlush = null;
-        }
-
-        if (pendingTokenText.length === 0) {
-            pendingMouthTrigger = false;
-            return;
-        }
-
-        const text = pendingTokenText;
-        const shouldTriggerMouth = pendingMouthTrigger;
-        pendingTokenText = "";
-        pendingMouthTrigger = false;
-
+    const appendToken = (token: TranslationStreamToken) => {
+        const text = token.type === "word" ? token.output ?? "" : token.value ?? "";
+        if (text.length === 0) return;
+        const shouldTriggerMouth = token.type === "word" || token.type === "translate";
         set((state) => ({
             displayText: state.displayText + text,
             mouthTriggerVersion: shouldTriggerMouth
@@ -133,27 +117,7 @@ const useTranslationStore = create<TranslationStoreState>((set, get) => {
         }));
     };
 
-    const discardPendingTokens = () => {
-        if (pendingTokenFlush !== null) {
-            clearTimeout(pendingTokenFlush);
-            pendingTokenFlush = null;
-        }
-
-        pendingTokenText = "";
-        pendingMouthTrigger = false;
-    };
-
-    const appendToken = (token: TranslationStreamToken) => {
-        pendingTokenText += token.type === "word" ? token.output ?? "" : token.value ?? "";
-        pendingMouthTrigger ||= token.type === "word" || token.type === "translate";
-
-        if (pendingTokenFlush === null) {
-            pendingTokenFlush = setTimeout(flushPendingTokens, TOKEN_FLUSH_INTERVAL_MS);
-        }
-    };
-
     const setTranslationText = (value: string) => {
-        discardPendingTokens();
         set((state) => ({
             displayText: value,
             mouthTriggerVersion: state.mouthTriggerVersion + 1,
@@ -179,7 +143,6 @@ const useTranslationStore = create<TranslationStoreState>((set, get) => {
         disconnectStream: () => {
             const streamSnapshot = getActiveStreamSnapshot();
 
-            discardPendingTokens();
             clearActiveSendMessage();
             setIdleTranslateButtonState();
             set({
@@ -298,13 +261,11 @@ const useTranslationStore = create<TranslationStoreState>((set, get) => {
                         isStreaming: true,
                         hasReceivedStreamToken: false,
                     });
-                    discardPendingTokens();
 
                     const isActiveLocalRequest = () =>
                         get().abortController === abortController && get().activeStreamId === streamId;
 
                     const markLocalTranslationError = (message = "Local translation failed.") => {
-                        flushPendingTokens();
                         set({ streamError: true, streamErrorMessage: message });
                         setIdleTranslateButtonState();
                     };
@@ -410,13 +371,11 @@ const useTranslationStore = create<TranslationStoreState>((set, get) => {
                 isStreaming: true,
                 hasReceivedStreamToken: false,
             });
-            discardPendingTokens();
 
             const isActiveRequest = () =>
                 get().abortController === abortController && get().activeStreamId === streamId;
 
             const markStreamError = (message = "An error occurred") => {
-                flushPendingTokens();
                 set({ streamError: true, streamErrorMessage: message });
                 setIdleTranslateButtonState();
             };
@@ -455,7 +414,6 @@ const useTranslationStore = create<TranslationStoreState>((set, get) => {
                             return "continue";
                         },
                         onDone: () => {
-                            flushPendingTokens();
                             setIdleTranslateButtonState();
                         },
                         onStreamError: (message, source) => {
@@ -515,7 +473,6 @@ const useTranslationStore = create<TranslationStoreState>((set, get) => {
                 }
 
                 if (result.type === "completed" && isActiveRequest()) {
-                    flushPendingTokens();
                     setIdleTranslateButtonState();
                 }
             } finally {
@@ -544,7 +501,6 @@ const useTranslationStore = create<TranslationStoreState>((set, get) => {
         stopStream: () => {
             const streamSnapshot = getActiveStreamSnapshot();
 
-            discardPendingTokens();
             clearActiveSendMessage();
             setIdleTranslateButtonState();
             set({

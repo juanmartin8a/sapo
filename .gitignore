@@ -10,6 +10,7 @@ web-build/
 expo-env.d.ts
 
 # Native
+ios/.spm.pods/packages/.umbrella/.build/
 *.orig.*
 *.jks
 *.p8
