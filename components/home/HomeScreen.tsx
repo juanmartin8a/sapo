@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/immutability -- Reanimated shared values are intentionally mutated in worklets. */
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
-import { Platform, StyleSheet, View, Keyboard, Text, TouchableWithoutFeedback, StatusBar, useWindowDimensions, type TextInput } from "react-native";
+import { Platform, StyleSheet, View, Keyboard, Text, TouchableWithoutFeedback, StatusBar, useWindowDimensions } from "react-native";
 import { GestureHandlerRootView, GestureDetector, Gesture } from "react-native-gesture-handler";
 import Animated, {
     cancelAnimation,
@@ -28,26 +28,15 @@ import RespellLanguageSelectorBottomSheet from "./RespellLanguageSelectorBottomS
 import TargetLanguageSelectorBottomSheet from "@/components/home/TargetLanguageSelectorBottomSheet";
 import LocalModelSelectorBottomSheet from "@/components/home/LocalModelSelectorBottomSheet";
 import { triggerLightImpactHaptic } from "@/lib/haptics";
+import useTextSelection from "@/hooks/useTextSelection";
 import HomePager, { type HomePagerHandle } from "@/components/home/HomePager";
-
-function dismissInputSelection(input: TextInput | null) {
-    // Blurring alone can leave the selected range highlighted in a read-only UITextView.
-    input?.setSelection(0, 0);
-    input?.blur();
-}
 
 export default function HomeScreen() {
     const { width: windowWidth } = useWindowDimensions();
     const sidebarWidth = windowWidth * 0.7;
     const pagerRef = useRef<HomePagerHandle>(null);
-    const responseInputRef = useRef<TextInput>(null);
-    const previewInputRef = useRef<TextInput>(null);
-    const dismissPreviewSelection = useCallback(() => {
-        dismissInputSelection(previewInputRef.current);
-    }, []);
-    const dismissResponseSelection = useCallback(() => {
-        dismissInputSelection(responseInputRef.current);
-    }, []);
+    const { inputRef: responseInputRef, dismissSelection: dismissResponseSelection } = useTextSelection();
+    const { inputRef: previewInputRef, dismissSelection: dismissPreviewSelection } = useTextSelection();
     const dismissTextSelections = useCallback(() => {
         dismissResponseSelection();
         dismissPreviewSelection();
@@ -316,8 +305,12 @@ export default function HomeScreen() {
 
     const input = <TextToTranslateInput keyboardVerticalOffset={inputKeyboardOffset} />;
     const response = (
-        <Translate responseInputRef={responseInputRef} previewInputRef={previewInputRef}
-            onDismissSelection={dismissResponseSelection} onDismissPreviewSelection={dismissPreviewSelection} />
+        <Translate
+            responseInputRef={responseInputRef}
+            previewInputRef={previewInputRef}
+            onDismissSelection={dismissResponseSelection}
+            onDismissPreviewSelection={dismissPreviewSelection}
+        />
     );
 
     return (
@@ -339,21 +332,21 @@ export default function HomeScreen() {
                                             onPress={openSidebar}
                                             onPressOut={handleSidebarPressOut}
                                         >
-                                            <View style={{ padding: 6 }}>
+                                            <View style={styles.sidebarButton}>
                                                 <SidebarIcon width={40} height={32} stroke="black" />
                                             </View>
                                         </TouchableWithoutFeedback>
                                     )}
                                     rightComponent={<TranslateButton pagerProgress={pagerProgress} />}
                                 />
-                                <View style={{ backgroundColor: 'transparent', paddingHorizontal: 24, paddingTop: 0, paddingBottom: 3 }}>
+                                <View style={styles.operationLabel}>
                                     <Text style={styles.operationText}>{operationLabel}</Text>
                                 </View>
                             </View>
                             {singleScreen ? (
                                 <View style={styles.pagerView}>
                                     <View style={styles.singleScreenPane}>{input}</View>
-                                    <View style={styles.responsePane}>{response}</View>
+                                    <View style={[styles.singleScreenPane, styles.responsePane]}>{response}</View>
                                 </View>
                             ) : (
                                 <GestureDetector gesture={pagerNativeGesture}>
@@ -427,13 +420,18 @@ const styles = StyleSheet.create({
         minHeight: 0,
     },
     responsePane: {
-        flex: 1,
-        minHeight: 0,
         borderTopWidth: 1,
         borderTopColor: 'black',
     },
     pagerView: {
         flex: 1,
+    },
+    sidebarButton: {
+        padding: 6,
+    },
+    operationLabel: {
+        paddingHorizontal: 24,
+        paddingBottom: 3,
     },
     operationText: {
         fontSize: 13,
