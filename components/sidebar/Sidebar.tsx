@@ -290,10 +290,10 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
                     </View>
                 </View>
                 <View style={styles.modeToggleContainer}>
-                    <View style={styles.field}>
-                        <Text style={styles.modeToggleLabel}>Single screen mode</Text>
+                    <View style={styles.modeToggleField}>
+                        <Text style={styles.modeToggleLabel}>Single screen</Text>
                         <Switch
-                            accessibilityLabel="Single screen mode"
+                            accessibilityLabel="Single screen"
                             value={singleScreen}
                             onValueChange={(enabled) => {
                                 triggerSelectionHaptic();
@@ -308,10 +308,10 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
                         exiting={FadeOut.duration(120)}
                         style={styles.modeToggleContainer}
                     >
-                        <View style={styles.field}>
-                            <Text style={styles.modeToggleLabel}>Translate first, then respell</Text>
+                        <View style={styles.modeToggleField}>
+                            <Text style={styles.modeToggleLabel}>Translate first</Text>
                             <Switch
-                                accessibilityLabel="Translate first, then respell"
+                                accessibilityLabel="Translate first"
                                 value={translateThenRespell}
                                 onValueChange={(enabled) => {
                                     triggerSelectionHaptic();
@@ -321,7 +321,7 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
                         </View>
                     </Animated.View>
                 )}
-                <Animated.View layout={LinearTransition.duration(220)} style={styles.inputContainer}>
+                <Animated.View layout={LinearTransition.duration(220)} style={[styles.inputContainer, styles.sourceInputContainer]}>
                     <TouchableOpacity
                         onPress={handleInputLanguagePress}
                         activeOpacity={0.7}
@@ -507,6 +507,12 @@ const styles = StyleSheet.create({
     modeToggleContainer: {
         paddingVertical: 12,
     },
+    modeToggleField: {
+        width: '100%',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexDirection: 'row',
+    },
     modeToggleLabel: {
         flex: 1,
         fontSize: 15,
@@ -516,6 +522,9 @@ const styles = StyleSheet.create({
     },
     inputContainer: {
         paddingVertical: 6,
+    },
+    sourceInputContainer: {
+        marginTop: 32,
     },
     label: {
         fontSize: 15,
@@ -605,7 +614,7 @@ const styles = StyleSheet.create({
     localModelActionButton: {
         width: '100%',
         minHeight: 42,
-        marginTop: 10,
+        marginTop: 8,
         borderRadius: 12,
         backgroundColor: '#000',
         alignItems: 'stretch',
