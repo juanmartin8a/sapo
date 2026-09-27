@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator, ScrollView, Switch } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import { useNetworkState } from 'expo-network';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeOut, LinearTransition, SharedValue, useAnimatedStyle } from 'react-native-reanimated';
@@ -21,6 +21,7 @@ import useLocalModelStore from '@/stores/localModelStore';
 import { HomeBottomSheetKey } from '@/types/bottomSheets';
 import { LOCAL_TRANSLATION_MODELS } from '@/constants/localModelCatalog';
 import SidebarFooter from './SidebarFooter';
+import SidebarToggle from './SidebarToggle';
 import { useAuthState } from '@/providers/AuthStateProvider';
 import { triggerErrorHaptic, triggerLightImpactHaptic, triggerSelectionHaptic } from '@/lib/haptics';
 import { UI_DISABLED_OPACITY } from '@/constants/ui';
@@ -290,17 +291,11 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
                     </View>
                 </View>
                 <View style={styles.modeToggleContainer}>
-                    <View style={styles.modeToggleField}>
-                        <Text style={styles.modeToggleLabel}>Single screen</Text>
-                        <Switch
-                            accessibilityLabel="Single screen"
-                            value={singleScreen}
-                            onValueChange={(enabled) => {
-                                triggerSelectionHaptic();
-                                setSingleScreen(enabled);
-                            }}
-                        />
-                    </View>
+                    <SidebarToggle
+                        label="Single screen"
+                        value={singleScreen}
+                        onValueChange={setSingleScreen}
+                    />
                 </View>
                 {operation === 'respell' && (
                     <Animated.View
@@ -308,17 +303,11 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
                         exiting={FadeOut.duration(120)}
                         style={styles.modeToggleContainer}
                     >
-                        <View style={styles.modeToggleField}>
-                            <Text style={styles.modeToggleLabel}>Translate first</Text>
-                            <Switch
-                                accessibilityLabel="Translate first"
-                                value={translateThenRespell}
-                                onValueChange={(enabled) => {
-                                    triggerSelectionHaptic();
-                                    setTranslateThenRespell(enabled);
-                                }}
-                            />
-                        </View>
+                        <SidebarToggle
+                            label="Translate first"
+                            value={translateThenRespell}
+                            onValueChange={setTranslateThenRespell}
+                        />
                     </Animated.View>
                 )}
                 <Animated.View layout={LinearTransition.duration(220)} style={[styles.inputContainer, styles.sourceInputContainer]}>
@@ -506,19 +495,6 @@ const styles = StyleSheet.create({
     },
     modeToggleContainer: {
         paddingVertical: 12,
-    },
-    modeToggleField: {
-        width: '100%',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexDirection: 'row',
-    },
-    modeToggleLabel: {
-        flex: 1,
-        fontSize: 15,
-        fontWeight: "500",
-        color: "black",
-        marginRight: 12,
     },
     inputContainer: {
         paddingVertical: 6,

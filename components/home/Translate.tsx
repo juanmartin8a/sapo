@@ -14,14 +14,23 @@ import useTranslationStore from '@/stores/translationStore';
 import { triggerLightImpactHaptic } from '@/lib/haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { getTranslationFrogDimensions } from "@/utils/translationLayout";
+
 const frogTopOffset = 10;
 
-export default function Translate({ responseInputRef, previewInputRef, onDismissSelection, onDismissPreviewSelection }: {
+interface TranslateProps {
     responseInputRef?: Ref<TextInput>;
     previewInputRef?: Ref<TextInput>;
     onDismissPreviewSelection?: () => void;
     onDismissSelection?: () => void;
-}) {
+}
+
+export default function Translate({
+    responseInputRef,
+    previewInputRef,
+    onDismissSelection,
+    onDismissPreviewSelection,
+}: TranslateProps) {
     const insets = useSafeAreaInsets();
     const { width: screenWidth } = useWindowDimensions();
     const translationPreview = useTranslationStore(state => state.translationPreview);
@@ -34,9 +43,11 @@ export default function Translate({ responseInputRef, previewInputRef, onDismiss
     const isStreaming = useTranslationStore((state) => state.isStreaming);
     const activeStreamId = useTranslationStore((state) => state.activeStreamId);
 
-    const sapoWidth = screenWidth * 0.4;
-    const sapoHeight = sapoWidth * (800 / 929);
-    const sapoBocaAbiertaHeight = sapoWidth * (914 / 929);
+    const {
+        width: sapoWidth,
+        closedMouthHeight: sapoHeight,
+        openMouthHeight: sapoBocaAbiertaHeight,
+    } = getTranslationFrogDimensions(screenWidth);
     const cursorY = useSharedValue(0);
     const mouthOpen = useSharedValue(0);
     const hasMountedRef = useRef(false);
@@ -156,7 +167,14 @@ export default function Translate({ responseInputRef, previewInputRef, onDismiss
             scrollEventThrottle={16}
         >
             <View style={[styles.container, { paddingBottom: sapoBocaAbiertaHeight + 10 + 24 + insets.bottom }]}>
-                {isCombinedResponse && translationPreview.length > 0 && <TranslationPreview text={translationPreview} inputRef={previewInputRef} onDismissSelection={onDismissPreviewSelection} onInteractionStart={onDismissSelection} />}
+                {isCombinedResponse && translationPreview.length > 0 && (
+                    <TranslationPreview
+                        text={translationPreview}
+                        inputRef={previewInputRef}
+                        onDismissSelection={onDismissPreviewSelection}
+                        onInteractionStart={onDismissSelection}
+                    />
+                )}
                 <View style={{ position: 'relative' }}>
                     <View style={styles.textContainer} onLayout={onTextContainerLayout}>
                         {streamError ? (
@@ -221,8 +239,8 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
         paddingVertical: 10,
         width: "100%",
-        borderTopRightRadius: '20',
-        borderBottomRightRadius: '20',
+        borderTopRightRadius: 20,
+        borderBottomRightRadius: 20,
         backgroundColor: '#fff',
     },
     textContainer: {

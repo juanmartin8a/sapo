@@ -9,6 +9,8 @@ import usePagerStore from "@/stores/pagerStore";
 import useSubscriptionAccess from "@/hooks/useSubscriptionAccess";
 import { TRANSLATION_TEXT_TYPOGRAPHY } from "@/constants/ui";
 
+import { getTranslationFrogDimensions } from "@/utils/translationLayout";
+
 interface TextToTranslateInputProps {
     keyboardVerticalOffset: number;
 }
@@ -17,7 +19,7 @@ const TextToTranslateInput = ({ keyboardVerticalOffset }: TextToTranslateInputPr
     const { width: screenWidth } = useWindowDimensions()
     const singleScreen = usePagerStore((state) => state.singleScreen)
     // Match the response's open-mouth frog height only in paged mode.
-    const frogHeight = screenWidth * 0.4 * (914 / 929)
+    const { openMouthHeight: frogHeight } = getTranslationFrogDimensions(screenWidth)
     const text = useTranslationInputStore((state) => state.text)
     const textLength = useTranslationInputStore((state) => state.characterCount)
     const setText = useTranslationInputStore((state) => state.setText)

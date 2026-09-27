@@ -2,12 +2,20 @@ import SelectableText from "./SelectableText";
 import { TRANSLATION_TEXT_TYPOGRAPHY } from "@/constants/ui";
 import { useState, type Ref } from "react";
 import { Pressable, Text, TextInput, View, StyleSheet } from "react-native";
-export default function TranslationPreview({ text, inputRef, onDismissSelection, onInteractionStart }: {
+
+interface TranslationPreviewProps {
     text: string;
     inputRef?: Ref<TextInput>;
     onDismissSelection?: () => void;
     onInteractionStart?: () => void;
-}) {
+}
+
+export default function TranslationPreview({
+    text,
+    inputRef,
+    onDismissSelection,
+    onInteractionStart,
+}: TranslationPreviewProps) {
     const [expanded, setExpanded] = useState(true);
     const toggleExpanded = () => {
         onDismissSelection?.();
