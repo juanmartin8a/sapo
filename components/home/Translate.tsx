@@ -44,7 +44,7 @@ export default function Translate({ responseInputRef, previewInputRef, onDismiss
     const scrollViewRef = useRef<ScrollView>(null);
     const shouldStickToBottomRef = useRef(true);
     const textContainerHeightRef = useRef(0);
-    const wrappedLineBottomRef = useRef<number | null>(null);
+    const lastLineRef = useRef<TextLayoutEventData["lines"][number] | null>(null);
 
     useEffect(() => {
         if (!hasMountedRef.current) {
@@ -92,34 +92,36 @@ export default function Translate({ responseInputRef, previewInputRef, onDismiss
         if (!displayText) {
             cursorY.set(0);
             shouldStickToBottomRef.current = true;
-            wrappedLineBottomRef.current = null;
+            lastLineRef.current = null;
         }
     }, [displayText, cursorY]);
+
+    const updateFrogPosition = () => {
+        const last = lastLineRef.current;
+        if (!last) return;
+
+        // iOS renders selectable text with UITextView, whose font leading can make
+        // it taller than the hidden Text measurement. Anchor both cases to the
+        // visible container so that drift does not accumulate over long responses.
+        const textBottom = Math.max(last.y + last.height, textContainerHeightRef.current);
+        if (last.width < (screenWidth - sapoWidth)) {
+            cursorY.set(textBottom - last.height);
+        } else {
+            cursorY.set(textBottom - frogTopOffset);
+        }
+    };
 
     const onTextLayout = (e: NativeSyntheticEvent<TextLayoutEventData>) => {
         if (!displayText) return;
 
         const lines = e.nativeEvent.lines;
-        const last = lines[lines.length - 1];
-
-        if (!last) {
-            return;
-        }
-
-        if (last.width < (screenWidth - sapoWidth)) {
-            wrappedLineBottomRef.current = null;
-            cursorY.set(last.y);
-        } else {
-            wrappedLineBottomRef.current = last.y + last.height;
-            cursorY.set(Math.max(wrappedLineBottomRef.current, textContainerHeightRef.current) - frogTopOffset);
-        }
+        lastLineRef.current = lines[lines.length - 1] ?? null;
+        updateFrogPosition();
     };
 
     const onTextContainerLayout = (e: LayoutChangeEvent) => {
         textContainerHeightRef.current = e.nativeEvent.layout.height;
-        if (wrappedLineBottomRef.current !== null) {
-            cursorY.set(Math.max(wrappedLineBottomRef.current, textContainerHeightRef.current) - frogTopOffset);
-        }
+        updateFrogPosition();
     };
 
     const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {

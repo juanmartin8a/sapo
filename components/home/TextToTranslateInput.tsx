@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Alert, StyleSheet, TextInput } from "react-native"
+import { Alert, StyleSheet, TextInput, useWindowDimensions } from "react-native"
 import useTranslationInputStore from "@/stores/translationInputStore";
 import useTransformationOperationStore from "@/stores/transformationOperationStore";
 import { getCharacterCount, getInputLimit } from "@/utils/inputLimits";
@@ -13,6 +13,9 @@ interface TextToTranslateInputProps {
 }
 
 const TextToTranslateInput = ({ keyboardVerticalOffset }: TextToTranslateInputProps) => {
+    const { width: screenWidth } = useWindowDimensions()
+    // Match the open-mouth frog height reserved on the response page.
+    const frogHeight = screenWidth * 0.4 * (914 / 929)
     const text = useTranslationInputStore((state) => state.text)
     const textLength = useTranslationInputStore((state) => state.characterCount)
     const setText = useTranslationInputStore((state) => state.setText)
@@ -71,7 +74,7 @@ const TextToTranslateInput = ({ keyboardVerticalOffset }: TextToTranslateInputPr
             onStartShouldSetResponderCapture={() => true}
         >
             <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, { paddingBottom: frogHeight + 34 }]}
                 multiline
                 value={text}
                 onChangeText={handleTextChange}
@@ -95,7 +98,6 @@ const styles = StyleSheet.create({
         textAlignVertical: "top",
         paddingHorizontal: 24,
         paddingVertical: 10,
-        paddingBottom: 0,
         backgroundColor: "#fff",
     },
 })
