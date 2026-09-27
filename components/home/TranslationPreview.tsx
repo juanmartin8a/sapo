@@ -17,6 +17,8 @@ export default function TranslationPreview({
     onInteractionStart,
 }: TranslationPreviewProps) {
     const [expanded, setExpanded] = useState(true);
+    const [measurement, setMeasurement] = useState({ text: "", exceedsTwoLines: false });
+    const canCollapse = measurement.text === text && measurement.exceedsTwoLines;
     const toggleExpanded = () => {
         onDismissSelection?.();
         onInteractionStart?.();
@@ -25,7 +27,19 @@ export default function TranslationPreview({
 
     return (
         <View style={styles.container}>
-            {expanded ? (
+            <Text
+                accessible={false}
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                pointerEvents="none"
+                style={[styles.text, styles.measurement]}
+                onTextLayout={({ nativeEvent: { lines } }) => {
+                    setMeasurement({ text, exceedsTwoLines: lines.length > 2 });
+                }}
+            >
+                {text}
+            </Text>
+            {expanded || !canCollapse ? (
                 <SelectableText
                     text={text}
                     inputRef={inputRef}
@@ -46,7 +60,7 @@ export default function TranslationPreview({
                     {text}
                 </Text>
             )}
-            <View>
+            {canCollapse && <View>
                 <Pressable
                     onPress={toggleExpanded}
                     accessibilityRole="button"
@@ -58,7 +72,7 @@ export default function TranslationPreview({
                     <Text style={styles.toggleText}>{expanded ? "Show less" : "Show translation"}</Text>
                     <View accessible={false} style={[styles.chevron, expanded && styles.chevronExpanded]} />
                 </Pressable>
-            </View>
+            </View>}
         </View>
     );
 }
@@ -66,6 +80,7 @@ export default function TranslationPreview({
 const styles = StyleSheet.create({
     container: { marginBottom: 8 },
     text: { ...TRANSLATION_TEXT_TYPOGRAPHY, color: '#aaa' },
+    measurement: { position: 'absolute', top: 0, left: 0, right: 0, opacity: 0 },
     toggle: { paddingTop: 4, flexDirection: 'row', alignItems: 'flex-start', alignSelf: 'flex-start', gap: 8 },
     toggleText: { fontSize: 14, lineHeight: 20, color: '#aaa', textDecorationLine: 'underline' },
     chevron: { width: 7, height: 7, borderRightWidth: 1.5, borderBottomWidth: 1.5, borderColor: '#aaa', transform: [{ rotate: '45deg' }], marginTop: 5 },
