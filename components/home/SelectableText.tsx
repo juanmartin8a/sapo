@@ -1,4 +1,4 @@
-import { useRef, useState, type Ref } from "react";
+import { useCallback, useRef, useState, type Ref } from "react";
 import { Platform, StyleSheet, Text, TextInput, View, type TextProps } from "react-native";
 
 type Props = Pick<TextProps, "style" | "onTextLayout" | "accessibilityLabel" | "accessibilityActions" | "onAccessibilityAction"> & {
@@ -15,14 +15,25 @@ export default function SelectableText({ text, inputRef, style, onTextLayout, ac
     const tap = useRef<{ x: number; y: number; startedAt: number; selected: boolean } | null>(null);
     const [nativeContentHeight, setNativeContentHeight] = useState(0);
     const [measurementReady, setMeasurementReady] = useState(false);
+    const [measurementOffset, setMeasurementOffset] = useState(0);
+    const handleTextLayout = useCallback<NonNullable<TextProps["onTextLayout"]>>((event) => {
+        // Fabric emits TextInput contentSize only during updateLayoutMetrics, not
+        // for every controlled text update. Recheck after Text lays out the new
+        // content. Moving this invisible field by one point forces a native pass
+        // without changing its measuring width or moving the visible text.
+        // Events batched before the next render must request the same offset;
+        // functional toggles could cancel each other and skip that native pass.
+        setMeasurementOffset(measurementOffset === 0 ? 1 : 0);
+        onTextLayout?.(event);
+    }, [measurementOffset, onTextLayout]);
 
     if (Platform.OS !== "ios") {
         return <Text selectable style={style} onTextLayout={onTextLayout} accessibilityLabel={accessibilityLabel}>{text || "\u200B"}</Text>;
     }
 
     return <View>
-        {/* Only measure line positions here. The visible TextInput sizes the container itself. */}
-        <Text accessible={false} pointerEvents="none" onTextLayout={onTextLayout} style={[style, styles.measurement]}>
+        {/* Measure line positions and request a fresh native content-size measurement. */}
+        <Text accessible={false} pointerEvents="none" onTextLayout={handleTextLayout} style={[style, styles.measurement]}>
             {text || "\u200B"}
         </Text>
         {/* UITextView includes font leading that RN's intrinsic height calculation omits.
@@ -45,7 +56,7 @@ export default function SelectableText({ text, inputRef, style, onTextLayout, ac
             onContentSizeChange={({ nativeEvent: { contentSize } }) => {
                 setNativeContentHeight(Math.ceil(contentSize.height));
             }}
-            style={[style, styles.input, styles.measurement]}
+            style={[style, styles.input, styles.measurement, { top: measurementOffset }]}
         />
         <TextInput
             ref={inputRef}
