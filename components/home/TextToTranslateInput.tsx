@@ -5,6 +5,7 @@ import useTransformationOperationStore from "@/stores/transformationOperationSto
 import { getCharacterCount, getInputLimit } from "@/utils/inputLimits";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import useLocalModelStore from "@/stores/localModelStore";
+import usePagerStore from "@/stores/pagerStore";
 import useSubscriptionAccess from "@/hooks/useSubscriptionAccess";
 import { TRANSLATION_TEXT_TYPOGRAPHY } from "@/constants/ui";
 
@@ -14,7 +15,8 @@ interface TextToTranslateInputProps {
 
 const TextToTranslateInput = ({ keyboardVerticalOffset }: TextToTranslateInputProps) => {
     const { width: screenWidth } = useWindowDimensions()
-    // Match the open-mouth frog height reserved on the response page.
+    const singleScreen = usePagerStore((state) => state.singleScreen)
+    // Match the response's open-mouth frog height only in paged mode.
     const frogHeight = screenWidth * 0.4 * (914 / 929)
     const text = useTranslationInputStore((state) => state.text)
     const textLength = useTranslationInputStore((state) => state.characterCount)
@@ -74,7 +76,7 @@ const TextToTranslateInput = ({ keyboardVerticalOffset }: TextToTranslateInputPr
             onStartShouldSetResponderCapture={() => true}
         >
             <TextInput
-                style={[styles.textInput, { paddingBottom: frogHeight + 34 }]}
+                style={[styles.textInput, { paddingBottom: 34 + (singleScreen ? 0 : frogHeight) }]}
                 multiline
                 value={text}
                 onChangeText={handleTextChange}

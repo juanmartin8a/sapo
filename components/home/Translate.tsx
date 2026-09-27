@@ -1,7 +1,7 @@
 import TranslationPreview from './TranslationPreview';
 import { TRANSLATION_TEXT_TYPOGRAPHY } from '@/constants/ui';
 import SelectableText from './SelectableText';
-import { useEffect, useRef, type Ref } from 'react';
+import { useEffect, useLayoutEffect, useRef, type Ref } from 'react';
 import { View, Text, TextInput, StyleSheet, ScrollView, NativeSyntheticEvent, NativeScrollEvent, TextLayoutEventData, LayoutChangeEvent, useWindowDimensions } from 'react-native';
 import Animated, {
     cancelAnimation,
@@ -32,6 +32,7 @@ export default function Translate({ responseInputRef, previewInputRef, onDismiss
     const streamError = useTranslationStore((state) => state.streamError);
     const streamErrorMessage = useTranslationStore((state) => state.streamErrorMessage);
     const isStreaming = useTranslationStore((state) => state.isStreaming);
+    const activeStreamId = useTranslationStore((state) => state.activeStreamId);
 
     const sapoWidth = screenWidth * 0.4;
     const sapoHeight = sapoWidth * (800 / 929);
@@ -45,6 +46,7 @@ export default function Translate({ responseInputRef, previewInputRef, onDismiss
     const shouldStickToBottomRef = useRef(true);
     const textContainerHeightRef = useRef(0);
     const lastLineRef = useRef<TextLayoutEventData["lines"][number] | null>(null);
+    const previousStreamIdRef = useRef(activeStreamId);
 
     useEffect(() => {
         if (!hasMountedRef.current) {
@@ -88,13 +90,17 @@ export default function Translate({ responseInputRef, previewInputRef, onDismiss
         opacity: mouthOpen.get(),
     }));
 
-    useEffect(() => {
-        if (!displayText) {
+    useLayoutEffect(() => {
+        const isNewRequest = activeStreamId !== null && previousStreamIdRef.current !== activeStreamId;
+        previousStreamIdRef.current = activeStreamId;
+        if (!displayText || isNewRequest) {
             cursorY.set(0);
             shouldStickToBottomRef.current = true;
+            textContainerHeightRef.current = 0;
             lastLineRef.current = null;
+            scrollViewRef.current?.scrollTo({ y: 0, animated: false });
         }
-    }, [displayText, cursorY]);
+    }, [activeStreamId, displayText, cursorY]);
 
     const updateFrogPosition = () => {
         const last = lastLineRef.current;
@@ -125,13 +131,17 @@ export default function Translate({ responseInputRef, previewInputRef, onDismiss
     };
 
     const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+        // Ignore offsets from the previous response while the cleared layout settles.
+        if (!displayText && !translationPreview) return;
         const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
         shouldStickToBottomRef.current =
             contentOffset.y + layoutMeasurement.height >= contentSize.height - 2;
     };
 
     const onContentSizeChange = () => {
-        if (shouldStickToBottomRef.current) {
+        if (!displayText && !translationPreview) {
+            scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+        } else if (shouldStickToBottomRef.current) {
             scrollViewRef.current?.scrollToEnd({ animated: false });
         }
     };
