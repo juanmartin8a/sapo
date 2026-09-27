@@ -1,10 +1,11 @@
 import { useEffect, useRef } from "react";
-import { Alert, StyleSheet, TextInput } from "react-native"
+import { Alert, StyleSheet, TextInput, useWindowDimensions } from "react-native"
 import useTranslationInputStore from "@/stores/translationInputStore";
 import useTransformationOperationStore from "@/stores/transformationOperationStore";
 import { getCharacterCount, getInputLimit } from "@/utils/inputLimits";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import useLocalModelStore from "@/stores/localModelStore";
+import usePagerStore from "@/stores/pagerStore";
 import useSubscriptionAccess from "@/hooks/useSubscriptionAccess";
 import { TRANSLATION_TEXT_TYPOGRAPHY } from "@/constants/ui";
 
@@ -13,6 +14,10 @@ interface TextToTranslateInputProps {
 }
 
 const TextToTranslateInput = ({ keyboardVerticalOffset }: TextToTranslateInputProps) => {
+    const { width: screenWidth } = useWindowDimensions()
+    const singleScreen = usePagerStore((state) => state.singleScreen)
+    // Match the response's open-mouth frog height only in paged mode.
+    const frogHeight = screenWidth * 0.4 * (914 / 929)
     const text = useTranslationInputStore((state) => state.text)
     const textLength = useTranslationInputStore((state) => state.characterCount)
     const setText = useTranslationInputStore((state) => state.setText)
@@ -71,7 +76,7 @@ const TextToTranslateInput = ({ keyboardVerticalOffset }: TextToTranslateInputPr
             onStartShouldSetResponderCapture={() => true}
         >
             <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, { paddingBottom: 34 + (singleScreen ? 0 : frogHeight) }]}
                 multiline
                 value={text}
                 onChangeText={handleTextChange}
@@ -95,7 +100,6 @@ const styles = StyleSheet.create({
         textAlignVertical: "top",
         paddingHorizontal: 24,
         paddingVertical: 10,
-        paddingBottom: 0,
         backgroundColor: "#fff",
     },
 })

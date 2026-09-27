@@ -14,6 +14,7 @@ export default function SelectableText({ text, inputRef, style, onTextLayout, ac
     const hasSelection = useRef(false);
     const tap = useRef<{ x: number; y: number; startedAt: number; selected: boolean } | null>(null);
     const [nativeContentHeight, setNativeContentHeight] = useState(0);
+    const [measurementReady, setMeasurementReady] = useState(false);
 
     if (Platform.OS !== "ios") {
         return <Text selectable style={style} onTextLayout={onTextLayout} accessibilityLabel={accessibilityLabel}>{text || "\u200B"}</Text>;
@@ -28,7 +29,11 @@ export default function SelectableText({ text, inputRef, style, onTextLayout, ac
             A non-scrolling field reports its constrained frame as contentSize, so measure
             in a separate scrolling field whose height is independent of the visible one. */}
         <TextInput
-            value={text}
+            // Fabric can recycle a field without resetting its last reported content size.
+            // Lay out an empty field first so remounting an unchanged response still
+            // reports its full native height instead of falling back to intrinsic sizing.
+            value={measurementReady ? text : ""}
+            onLayout={() => setMeasurementReady(true)}
             multiline
             editable={false}
             scrollEnabled
