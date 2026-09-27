@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeOut, LinearTransition, SharedValue, useAnimatedStyle } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import ChevronRightIcon from "../../assets/icons/chevron-right.svg";
+import usePagerStore from '@/stores/pagerStore';
 import useLanguageSelectionStore from '@/stores/languageSelectionStore';
 import {
     DEFAULT_SOURCE_LANGUAGE_ID,
@@ -39,6 +40,8 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
         hasActiveSubscription,
         isConfirmedInactive: isSubscriptionInactive,
     } = useSubscriptionAccess();
+    const singleScreen = usePagerStore((state) => state.singleScreen);
+    const setSingleScreen = usePagerStore((state) => state.setSingleScreen);
     const operation = useTransformationOperationStore((state) => state.operation);
     const translateThenRespell = useTransformationOperationStore((state) => state.translateThenRespell);
     const setTranslateThenRespell = useTransformationOperationStore((state) => state.setTranslateThenRespell);
@@ -286,16 +289,29 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
                         </TouchableOpacity>
                     </View>
                 </View>
+                <View style={styles.modeToggleContainer}>
+                    <View style={styles.modeToggleField}>
+                        <Text style={styles.modeToggleLabel}>Single screen</Text>
+                        <Switch
+                            accessibilityLabel="Single screen"
+                            value={singleScreen}
+                            onValueChange={(enabled) => {
+                                triggerSelectionHaptic();
+                                setSingleScreen(enabled);
+                            }}
+                        />
+                    </View>
+                </View>
                 {operation === 'respell' && (
                     <Animated.View
                         entering={FadeIn.duration(180)}
                         exiting={FadeOut.duration(120)}
-                        style={styles.respellModeContainer}
+                        style={styles.modeToggleContainer}
                     >
-                        <View style={styles.field}>
-                            <Text style={styles.respellModeLabel}>Translate first, then respell</Text>
+                        <View style={styles.modeToggleField}>
+                            <Text style={styles.modeToggleLabel}>Translate first</Text>
                             <Switch
-                                accessibilityLabel="Translate first, then respell"
+                                accessibilityLabel="Translate first"
                                 value={translateThenRespell}
                                 onValueChange={(enabled) => {
                                     triggerSelectionHaptic();
@@ -305,7 +321,7 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
                         </View>
                     </Animated.View>
                 )}
-                <Animated.View layout={LinearTransition.duration(220)} style={styles.inputContainer}>
+                <Animated.View layout={LinearTransition.duration(220)} style={[styles.inputContainer, styles.sourceInputContainer]}>
                     <TouchableOpacity
                         onPress={handleInputLanguagePress}
                         activeOpacity={0.7}
@@ -488,10 +504,16 @@ const styles = StyleSheet.create({
         flexGrow: 1,
         paddingBottom: 20,
     },
-    respellModeContainer: {
+    modeToggleContainer: {
         paddingVertical: 12,
     },
-    respellModeLabel: {
+    modeToggleField: {
+        width: '100%',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexDirection: 'row',
+    },
+    modeToggleLabel: {
         flex: 1,
         fontSize: 15,
         fontWeight: "500",
@@ -500,6 +522,9 @@ const styles = StyleSheet.create({
     },
     inputContainer: {
         paddingVertical: 6,
+    },
+    sourceInputContainer: {
+        marginTop: 32,
     },
     label: {
         fontSize: 15,
@@ -589,7 +614,7 @@ const styles = StyleSheet.create({
     localModelActionButton: {
         width: '100%',
         minHeight: 42,
-        marginTop: 10,
+        marginTop: 8,
         borderRadius: 12,
         backgroundColor: '#000',
         alignItems: 'stretch',

@@ -24,6 +24,10 @@ type TranslateButtonProps = {
 const TranslateButton = ({ pagerProgress }: TranslateButtonProps) => {
     const translateButtonState = useTranslateButtonStore((state) => state.state)
     const lastInput = useTranslationStore((state) => state.lastInput)
+    const singleScreen = usePagerStore((state) => state.singleScreen)
+    const inputMatchesLastTranslation = useTranslationInputStore((state) =>
+        lastInput !== null && state.text === lastInput
+    )
     const hasText = useTranslationInputStore((state) => state.hasText)
     const { status: authStatus } = useAuthState()
     const isAuthPending = authStatus === 'checking'
@@ -38,10 +42,10 @@ const TranslateButton = ({ pagerProgress }: TranslateButtonProps) => {
     const stopStream = useTranslationStore((state) => state.stopStream)
     const repeatLastTranslation = useTranslationStore((state) => state.repeatLastTranslation)
     const arrowAnimatedStyle = useAnimatedStyle(() => ({
-        opacity: 1 - pagerProgress.get(),
+        opacity: singleScreen ? (inputMatchesLastTranslation ? 0 : 1) : 1 - pagerProgress.get(),
     }));
     const repeatAnimatedStyle = useAnimatedStyle(() => ({
-        opacity: pagerProgress.get(),
+        opacity: singleScreen ? (inputMatchesLastTranslation ? 1 : 0) : pagerProgress.get(),
     }));
 
     const next = useCallback(() => {
