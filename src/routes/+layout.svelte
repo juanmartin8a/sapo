@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onNavigate } from '$app/navigation';
 	import './layout.css';
+	import SiteShell from '$lib/SiteShell.svelte';
 
 	let { children } = $props();
 
@@ -12,7 +13,7 @@
 		startViewTransition?: (callback: () => Promise<void>) => SapoViewTransition;
 	};
 
-	const frogTransitionRoutes = new Set(['/', '/support', '/delete-account']);
+	const frogTransitionRoutes = new Set(['/', '/support', '/contact-us', '/delete-account']);
 	const normalizeFrogTransitionPath = (path: string) => path.replace(/\/$/, '') || '/';
 	const frogTransitionClass = 'sapo-frog-view-transitioning';
 
@@ -68,4 +69,4 @@
 		fetchpriority="high"
 	/>
 </svelte:head>
-{@render children()}
+<SiteShell>{@render children()}</SiteShell>

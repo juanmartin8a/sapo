@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PageHeading from '$lib/PageHeading.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -128,182 +129,288 @@
 	/>
 </svelte:head>
 
-<main class="min-h-svh px-4 py-4 text-[#181A18] sm:px-6 sm:py-5 lg:px-10">
-	<div class="mx-auto flex w-full max-w-5xl flex-col gap-8">
-		<header class="flex items-center justify-between gap-4">
-			<a href={resolve('/')} class="text-sm font-semibold tracking-[0.34em] text-[#181A18]">
-				S&nbsp;A&nbsp;P&nbsp;O
-			</a>
-			<nav
-				class="flex items-center gap-3 text-[0.7rem] font-semibold tracking-[0.2em] text-[#686B65] uppercase sm:text-xs"
+<section aria-label="Open database">
+	<PageHeading title="How words sound" />
+	<p class="page-intro">
+		Pick the language a word is written in and the language you want it pronounced for.
+	</p>
+</section>
+
+<section aria-label="Filters" class="filters resource-section">
+	{#each filters as filter (filter.key)}
+		<label>
+			<span>{filter.label}</span>
+			<select
+				value={filter.key === 'source' ? source : target}
+				disabled={languagesStatus !== 'ready'}
+				onchange={(event) => setFilter(filter.key, event.currentTarget.value)}
 			>
-				<a class="transition hover:text-[#181A18]" href={resolve('/')}>Home</a>
-				<a class="transition hover:text-[#181A18]" href={resolve('/support/')}>Support</a>
-			</nav>
-		</header>
-
-		<section class="pt-4 sm:pt-8">
-			<p
-				class="mb-3 text-[0.68rem] font-bold tracking-[0.28em] text-[#797C75] uppercase sm:text-xs"
+				<option value=""
+					>{languagesStatus === 'loading' ? 'Loading languages…' : 'Choose a language'}</option
+				>
+				{#each languages as language (language.language_code)}
+					<option value={language.language_code}>{language.name}</option>
+				{/each}
+			</select>
+		</label>
+	{/each}
+	{#if languagesStatus === 'error'}
+		<div role="alert" class="status-message filter-error">
+			<span>Couldn't load languages. Please try again.</span>
+			<button type="button" class="text-button" onclick={loadLanguages}
+				>Retry <span aria-hidden="true">↗</span></button
 			>
-				Pronunciations
-			</p>
-			<h1 class="text-4xl leading-none font-black tracking-[-0.06em] sm:text-6xl">
-				How words sound
-			</h1>
-			<p class="mt-4 max-w-2xl text-[#686B65]">
-				Pick the language a word is written in and the language you want it pronounced for.
-			</p>
-		</section>
+		</div>
+	{/if}
+</section>
 
-		<section
-			aria-label="Filters"
-			class="grid gap-4 rounded-3xl border border-[#E5E8DF] bg-white/80 p-4 sm:grid-cols-2 sm:p-6"
-		>
-			{#each filters as filter (filter.key)}
-				<label class="grid gap-2">
-					<span class="text-xs font-bold tracking-[0.2em] text-[#797C75] uppercase">
-						{filter.label}
-					</span>
-					<select
-						class="w-full rounded-2xl border border-[#C5D8C0] bg-[#F8FBF6] px-4 py-3 text-base font-semibold text-[#181A18] focus:border-[#181A18] focus:outline-none disabled:opacity-60"
-						value={filter.key === 'source' ? source : target}
-						disabled={languagesStatus !== 'ready'}
-						onchange={(event) => setFilter(filter.key, event.currentTarget.value)}
-					>
-						<option value="">
-							{languagesStatus === 'loading' ? 'Loading languages…' : 'Choose a language'}
-						</option>
-						{#each languages as language (language.language_code)}
-							<option value={language.language_code}>{language.name}</option>
-						{/each}
-					</select>
-				</label>
-			{/each}
+<noscript><p class="status-message">Enable JavaScript to browse pronunciations.</p></noscript>
 
-			{#if languagesStatus === 'error'}
-				<div
-					role="alert"
-					class="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-[#FBEDEA] p-4 text-sm text-[#7A2E22] sm:col-span-2"
-				>
-					<span>Couldn't load languages. Please try again.</span>
-					<button
-						type="button"
-						class="rounded-full bg-[#181A18] px-4 py-2 font-semibold text-white"
-						onclick={loadLanguages}>Retry</button
-					>
-				</div>
-			{/if}
-		</section>
-
-		<noscript><p>Enable JavaScript to browse pronunciations.</p></noscript>
-
-		<section
-			id="results"
-			aria-live="polite"
-			aria-busy={resultsStatus === 'loading'}
-			class="scroll-mt-4 pb-12"
-		>
-			{#if resultsStatus === 'idle'}
-				<p class="rounded-3xl border border-dashed border-[#C5D8C0] p-8 text-center text-[#686B65]">
-					Choose a source and a target language to see pronunciations.
-				</p>
-			{:else if resultsStatus === 'error'}
-				<div
-					role="alert"
-					class="flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-[#FBEDEA] p-6 text-[#7A2E22]"
-				>
-					<span>Couldn't load pronunciations. Please try again.</span>
-					<button
-						type="button"
-						class="rounded-full bg-[#181A18] px-4 py-2 font-semibold text-white"
-						onclick={() => loadPage(requestedPage)}>Retry</button
-					>
-				</div>
-			{:else if resultsStatus === 'loading' && rows.length === 0}
-				<div class="grid gap-3" aria-busy="true" aria-label="Loading pronunciations">
-					{#each Array(6).keys() as i (i)}
-						<div class="h-14 animate-pulse rounded-2xl bg-[#E1ECDD]"></div>
-					{/each}
-				</div>
-			{:else if rows.length === 0}
-				<p class="rounded-3xl border border-dashed border-[#C5D8C0] p-8 text-center text-[#686B65]">
-					No pronunciations on this page for {nameFor(source)} → {nameFor(target)}.
-				</p>
-			{:else}
-				<div class:opacity-50={resultsStatus === 'loading'} class="transition-opacity">
-					<!-- Desktop table -->
-					<div class="hidden overflow-x-auto rounded-3xl border border-[#E5E8DF] bg-white md:block">
-						<table class="w-full border-collapse text-left">
-							<thead class="bg-[#E1ECDD] text-xs tracking-[0.16em] text-[#686B65] uppercase">
-								<tr>
-									<th class="px-4 py-3">Word</th>
-									<th class="px-4 py-3">Source</th>
-									<th class="px-4 py-3">Target</th>
-									<th class="px-4 py-3">IPA</th>
-									<th class="px-4 py-3">Respelling</th>
-								</tr>
-							</thead>
-							<tbody>
-								{#each rows as row (row._id)}
-									<tr class="border-t border-[#E5E8DF] align-top">
-										<td class="px-4 py-3 text-lg font-bold"><bdi>{row.orthographic_form}</bdi></td>
-										<td class="px-4 py-3 text-[#686B65]">{nameFor(row.source_language_code)}</td>
-										<td class="px-4 py-3 text-[#686B65]">{nameFor(row.target_language_code)}</td>
-										<td class="ipa px-4 py-3"><bdi>{row.ipa}</bdi></td>
-										<td class="px-4 py-3"><bdi>{row.respelling}</bdi></td>
-									</tr>
-								{/each}
-							</tbody>
-						</table>
-					</div>
-
-					<!-- Mobile cards -->
-					<ul class="grid gap-3 md:hidden">
+<section id="results" aria-live="polite" aria-busy={resultsStatus === 'loading'}>
+	{#if resultsStatus === 'idle'}
+		<p class="empty-state">Choose a source and a target language to see pronunciations.</p>
+	{:else if resultsStatus === 'error'}
+		<div role="alert" class="status-message">
+			<span>Couldn't load pronunciations. Please try again.</span>
+			<button type="button" class="text-button" onclick={() => loadPage(requestedPage)}
+				>Retry <span aria-hidden="true">↗</span></button
+			>
+		</div>
+	{:else if resultsStatus === 'loading' && rows.length === 0}
+		<div class="loading-rows" aria-label="Loading pronunciations">
+			<p class="loading-label">Loading pronunciations…</p>
+			{#each Array(6).keys() as i (i)}<div class="loading-row"></div>{/each}
+		</div>
+	{:else if rows.length === 0}
+		<p class="empty-state">
+			No pronunciations on this page for {nameFor(source)} → {nameFor(target)}.
+		</p>
+	{:else}
+		<div class="result-list" class:loading={resultsStatus === 'loading'}>
+			<div class="desktop-results">
+				<table>
+					<thead>
+						<tr
+							><th scope="col">Word</th><th scope="col">Source</th><th scope="col">Target</th><th
+								scope="col">IPA</th
+							><th scope="col">Respelling</th></tr
+						>
+					</thead>
+					<tbody>
 						{#each rows as row (row._id)}
-							<li class="rounded-2xl border border-[#E5E8DF] bg-white p-4">
-								<p class="text-xl font-bold break-words"><bdi>{row.orthographic_form}</bdi></p>
-								<p class="mt-1 text-xs tracking-[0.12em] text-[#797C75] uppercase">
-									{nameFor(row.source_language_code)} → {nameFor(row.target_language_code)}
-								</p>
-								<dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-									<dt class="text-sm text-[#797C75]">IPA</dt>
-									<dd class="ipa break-words"><bdi>{row.ipa}</bdi></dd>
-									<dt class="text-sm text-[#797C75]">Respelling</dt>
-									<dd class="break-words"><bdi>{row.respelling}</bdi></dd>
-								</dl>
-							</li>
+							<tr>
+								<td class="word"><bdi>{row.orthographic_form}</bdi></td>
+								<td class="language">{nameFor(row.source_language_code)}</td>
+								<td class="language">{nameFor(row.target_language_code)}</td>
+								<td class="ipa"><bdi>{row.ipa}</bdi></td>
+								<td><bdi>{row.respelling}</bdi></td>
+							</tr>
 						{/each}
-					</ul>
-				</div>
-			{/if}
+					</tbody>
+				</table>
+			</div>
+			<ul class="mobile-results">
+				{#each rows as row (row._id)}
+					<li>
+						<p class="word"><bdi>{row.orthographic_form}</bdi></p>
+						<p class="language-pair">
+							{nameFor(row.source_language_code)} → {nameFor(row.target_language_code)}
+						</p>
+						<dl>
+							<dt>IPA</dt>
+							<dd class="ipa"><bdi>{row.ipa}</bdi></dd>
+							<dt>Respelling</dt>
+							<dd><bdi>{row.respelling}</bdi></dd>
+						</dl>
+					</li>
+				{/each}
+			</ul>
+		</div>
+	{/if}
 
-			{#if resultsStatus === 'ready' || (resultsStatus === 'loading' && rows.length > 0)}
-				<nav aria-label="Pagination" class="mt-6 flex items-center justify-between gap-3">
-					<button
-						type="button"
-						class="rounded-full border border-[#C5D8C0] px-5 py-2 font-semibold disabled:opacity-40"
-						disabled={pageIndex === 0 || resultsStatus === 'loading'}
-						onclick={() => goToPage(pageIndex - 1)}>← Previous</button
-					>
-					<span class="text-sm font-semibold text-[#686B65]">Page {pageIndex + 1}</span>
-					<button
-						type="button"
-						class="rounded-full border border-[#C5D8C0] px-5 py-2 font-semibold disabled:opacity-40"
-						disabled={isDone || resultsStatus === 'loading'}
-						onclick={() => goToPage(pageIndex + 1)}>Next →</button
-					>
-				</nav>
-			{/if}
-		</section>
-	</div>
-</main>
+	{#if resultsStatus === 'ready' || (resultsStatus === 'loading' && rows.length > 0)}
+		<nav aria-label="Pagination" class="pagination">
+			<button
+				type="button"
+				class="text-button"
+				disabled={pageIndex === 0 || resultsStatus === 'loading'}
+				onclick={() => goToPage(pageIndex - 1)}>← Previous</button
+			>
+			<span>Page {pageIndex + 1}</span>
+			<button
+				type="button"
+				class="text-button"
+				disabled={isDone || resultsStatus === 'loading'}
+				onclick={() => goToPage(pageIndex + 1)}>Next →</button
+			>
+		</nav>
+	{/if}
+</section>
 
 <style>
+	.filters {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 24px 48px;
+		margin-bottom: 32px;
+	}
+	label {
+		display: grid;
+		gap: 12px;
+		min-width: 0;
+		font-size: 13px;
+		color: var(--muted);
+	}
+	select {
+		width: 100%;
+		min-height: 48px;
+		border: 1px solid var(--line);
+		border-radius: 0;
+		background: #fff;
+		padding: 12px;
+		color: var(--ink);
+		font: inherit;
+		font-size: 15px;
+	}
+	select:disabled {
+		opacity: 0.6;
+	}
+	.filter-error {
+		grid-column: 1 / -1;
+	}
+	#results {
+		scroll-margin-top: 24px;
+	}
+	.empty-state {
+		border-top: 1px solid var(--line);
+		padding: 32px 0;
+		color: var(--muted);
+		font-size: 15px;
+		line-height: 1.75;
+	}
+	.result-list {
+		transition: opacity 150ms;
+	}
+	.result-list.loading {
+		opacity: 0.5;
+	}
+	.desktop-results {
+		overflow-x: auto;
+	}
+	table {
+		width: 100%;
+		border-collapse: collapse;
+		text-align: left;
+		font-size: 15px;
+	}
+	th,
+	td {
+		padding: 16px 20px 16px 0;
+		border-bottom: 1px solid var(--line);
+		vertical-align: top;
+	}
+	th {
+		border-top: 1px solid var(--line);
+		color: var(--muted);
+		font-size: 13px;
+		font-weight: 400;
+	}
+	th:last-child,
+	td:last-child {
+		padding-right: 0;
+	}
+	.word {
+		font-family: 'Times New Roman', Times, serif;
+		font-size: 22px;
+		line-height: 1.2;
+		overflow-wrap: anywhere;
+	}
+	.language,
+	.language-pair,
+	dt {
+		color: var(--muted);
+	}
 	.ipa {
 		font-family:
 			'Charis SIL', 'Doulos SIL', 'Gentium Plus', 'Noto Sans', 'Segoe UI', 'Lucida Sans Unicode',
 			sans-serif;
 		font-size: 1.05rem;
+	}
+	.mobile-results {
+		display: none;
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+	.mobile-results li {
+		border-top: 1px solid var(--line);
+		padding: 24px 0;
+	}
+	.mobile-results li:last-child {
+		border-bottom: 1px solid var(--line);
+	}
+	.mobile-results p {
+		margin: 0;
+	}
+	.mobile-results .language-pair {
+		margin-top: 8px;
+		font-size: 13px;
+	}
+	dl {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr);
+		gap: 8px 16px;
+		margin: 20px 0 0;
+		font-size: 15px;
+	}
+	dd {
+		margin: 0;
+		overflow-wrap: anywhere;
+	}
+	.pagination {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		margin-top: 24px;
+		font-size: 13px;
+		color: var(--muted);
+	}
+	.loading-label {
+		color: var(--muted);
+		font-size: 15px;
+	}
+	.loading-row {
+		height: 56px;
+		border-top: 1px solid var(--line);
+		background: #f7f8f6;
+		animation: pulse 1.5s ease-in-out infinite;
+	}
+	@keyframes pulse {
+		50% {
+			opacity: 0.4;
+		}
+	}
+	@media (max-width: 767px) {
+		.desktop-results {
+			display: none;
+		}
+		.mobile-results {
+			display: block;
+		}
+	}
+	@media (max-width: 640px) {
+		.filters {
+			grid-template-columns: 1fr;
+			gap: 24px;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.loading-row {
+			animation: none;
+		}
+		.result-list {
+			transition: none;
+		}
 	}
 </style>

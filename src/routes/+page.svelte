@@ -76,145 +76,72 @@
 	/>
 </svelte:head>
 
-<div class="site-shell">
-	<a class="skip-link" href="#main-content">Skip to content</a>
-	<header>
-		<a class="wordmark" href={resolve('/')} aria-label="SAPO home">S A P O</a>
-		<nav aria-label="Main navigation">
-			<a href={resolve('/pronunciations/')}>Open database</a>
-			<a href={resolve('/support/')}>Support</a>
-		</nav>
-	</header>
-
-	<main id="main-content">
-		<section class="hero" aria-labelledby="project-name">
-			<div class="hero-copy">
-				<div class="project-identity">
-					<button
-						type="button"
-						class="sapo-frog-transition frog"
-						class:speaking
-						disabled={speaking || revealed < 4}
-						onclick={openMouth}
-						aria-label="Make the SAPO frog open its mouth"
-					>
-						<span class="frog-art">
-							<img class="closed" src="/sapo-frog.svg" alt="" width="929" height="800" />
-							<img class="open" src="/sapo-frog-open.svg" alt="" width="929" height="914" />
-						</span>
-					</button>
-					<h1
-						id="project-name"
-						class="project-name"
-						aria-label="Sound Adaptation and Phonetic Orchestration"
-					>
-						{#each lines as line, row (row)}
-							<span class="name-line" aria-hidden="true">
-								{#each line as word (word.text)}
-									<span class="name-word" class:unspoken={revealed < word.index}>{word.text}</span>
-								{/each}
-							</span>
+<section class="hero" aria-labelledby="project-name">
+	<div class="hero-copy">
+		<div class="project-identity">
+			<button
+				type="button"
+				class="sapo-frog-transition frog"
+				class:speaking
+				disabled={speaking || revealed < 4}
+				onclick={openMouth}
+				aria-label="Make the SAPO frog open its mouth"
+			>
+				<span class="frog-art">
+					<img class="closed" src="/sapo-frog.svg" alt="" width="929" height="800" />
+					<img class="open" src="/sapo-frog-open.svg" alt="" width="929" height="914" />
+				</span>
+			</button>
+			<h1
+				id="project-name"
+				class="project-name"
+				aria-label="Sound Adaptation and Phonetic Orchestration"
+			>
+				{#each lines as line, row (row)}
+					<span class="name-line" aria-hidden="true">
+						{#each line as word (word.text)}
+							<span class="name-word" class:unspoken={revealed < word.index}>{word.text}</span>
 						{/each}
-					</h1>
-				</div>
-				<p class="mission">
-					SAPO aims to make pronunciation across languages easier through phonetic respelling:
-					writing how words sound using the spelling patterns of another language.
-				</p>
-			</div>
-		</section>
+					</span>
+				{/each}
+			</h1>
+		</div>
+		<p class="mission">
+			SAPO aims to make pronunciation across languages easier through phonetic respelling: writing
+			how words sound using the spelling patterns of another language.
+		</p>
+	</div>
+</section>
 
-		<section class="destinations" aria-label="Available resources">
-			<article class="destination">
-				<h2>Open database</h2>
-				<p>
-					Phonetic respellings across languages, available for language learning and linguistic
-					research.
-				</p>
-				<a class="resource-link" href={resolve('/pronunciations/')}>
-					Browse the database <span aria-hidden="true">↗</span>
-				</a>
-			</article>
-			<article class="destination app-destination">
-				<h2>Mobile app</h2>
-				<p>
-					An iOS app for translation and phonetic respelling, with optional local models for offline
-					use.
-				</p>
-				<a
-					class="resource-link"
-					href="https://apps.apple.com/us/app/s-a-p-o-transl-ate-iterate/id6752793342"
-					target="_blank"
-					rel="noreferrer"
-				>
-					View on the App Store <span aria-hidden="true">↗</span>
-				</a>
-			</article>
-		</section>
-	</main>
-
-	<footer>
-		<p>S A P O</p>
-		<nav aria-label="Footer navigation">
-			<a href={resolve('/terms-of-use/')}>Terms</a>
-			<a href={resolve('/privacy-policy/')}>Privacy</a>
-		</nav>
-	</footer>
-</div>
+<section class="destinations" aria-label="Available resources">
+	<article class="destination">
+		<h2>Open database</h2>
+		<p>
+			Phonetic respellings across languages, available for language learning and linguistic
+			research.
+		</p>
+		<a class="resource-link" href={resolve('/pronunciations/')}>
+			Browse the database <span aria-hidden="true">↗</span>
+		</a>
+	</article>
+	<article class="destination app-destination">
+		<h2>Mobile app</h2>
+		<p>
+			An iOS app for translation and phonetic respelling, with optional local models for offline
+			use.
+		</p>
+		<a
+			class="resource-link"
+			href="https://apps.apple.com/us/app/s-a-p-o-transl-ate-iterate/id6752793342"
+			target="_blank"
+			rel="noreferrer"
+		>
+			View on the App Store <span aria-hidden="true">↗</span>
+		</a>
+	</article>
+</section>
 
 <style>
-	.site-shell {
-		--ink: #202320;
-		--muted: #666b66;
-		--line: #e5e8e3;
-		width: min(100%, 1120px);
-		min-height: 100svh;
-		padding: 0 56px;
-		margin: auto;
-		display: flex;
-		flex-direction: column;
-		color: var(--ink);
-	}
-	.skip-link {
-		position: absolute;
-		top: 12px;
-		left: 16px;
-		z-index: 1;
-		padding: 12px 16px;
-		background: white;
-		transform: translateY(-200%);
-	}
-	.skip-link:focus {
-		transform: translateY(0);
-	}
-	header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		min-height: 100px;
-		gap: 24px;
-	}
-	.wordmark {
-		font-size: 19px;
-		font-weight: 700;
-		white-space: nowrap;
-	}
-	nav {
-		display: flex;
-		align-items: center;
-		gap: 28px;
-		font-size: 13px;
-	}
-	header nav {
-		color: var(--muted);
-	}
-	nav a {
-		padding: 12px 0;
-	}
-	main {
-		margin: auto 0;
-		padding: 72px 0 88px;
-	}
 	.project-identity {
 		display: flex;
 		align-items: center;
@@ -331,25 +258,7 @@
 	a:hover {
 		opacity: 0.65;
 	}
-	footer {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		gap: 24px;
-		padding: 16px 0 24px;
-		color: var(--muted);
-		font-size: 11px;
-	}
-	footer p {
-		margin: 0;
-	}
-	footer nav {
-		font-size: inherit;
-	}
 	@media (max-width: 900px) {
-		.site-shell {
-			padding: 0 36px;
-		}
 		.project-name {
 			font-size: clamp(26px, 3.8vw, 32px);
 		}
@@ -362,23 +271,6 @@
 		}
 	}
 	@media (max-width: 640px) {
-		.site-shell {
-			padding: 0 24px;
-		}
-		header {
-			min-height: 84px;
-			gap: 16px;
-		}
-		.wordmark {
-			font-size: 17px;
-		}
-		nav {
-			gap: 18px;
-			font-size: 12px;
-		}
-		main {
-			padding: 32px 0 48px;
-		}
 		.project-identity {
 			justify-content: center;
 			max-width: 480px;
@@ -409,10 +301,6 @@
 		}
 		.destination p {
 			margin: 12px 0 16px;
-		}
-		footer {
-			gap: 12px;
-			font-size: 10px;
 		}
 	}
 	@media (prefers-reduced-motion: reduce) {
