@@ -23,6 +23,11 @@
 		speaking = false;
 		revealed = 4;
 	}
+	function openMouth() {
+		stop();
+		speaking = true;
+		timers.push(setTimeout(() => (speaking = false), 200));
+	}
 	function recite() {
 		stop();
 		if (reducedMotion) return;
@@ -88,8 +93,8 @@
 						type="button"
 						class="sapo-frog-transition frog"
 						class:speaking
-						onclick={recite}
-						aria-label="Animate the SAPO frog and replay the project name"
+						onclick={openMouth}
+						aria-label="Make the SAPO frog open its mouth"
 					>
 						<span class="frog-art">
 							<img class="closed" src="/sapo-frog.svg" alt="" width="929" height="800" />
@@ -236,6 +241,7 @@
 		opacity: 0;
 	}
 	.mission {
+		text-align: left;
 		max-width: 470px;
 		margin: 0;
 		color: var(--muted);
@@ -371,9 +377,6 @@
 		main {
 			padding: 32px 0 48px;
 		}
-		.hero-copy {
-			text-align: center;
-		}
 		.project-identity {
 			justify-content: center;
 			max-width: 480px;
@@ -385,7 +388,7 @@
 		}
 		.mission {
 			max-width: 420px;
-			margin: 0 auto;
+			margin: 0;
 			font-size: 15px;
 		}
 		.destinations {
