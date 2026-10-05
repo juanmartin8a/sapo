@@ -131,12 +131,9 @@
 
 <section aria-label="Open database">
 	<PageHeading title="How words sound" />
-	<p class="page-intro">
-		Pick the language a word is written in and the language you want it pronounced for.
-	</p>
 </section>
 
-<section aria-label="Filters" class="filters resource-section">
+<section aria-label="Filters" class="filters">
 	{#each filters as filter (filter.key)}
 		<label>
 			<span>{filter.label}</span>
@@ -252,7 +249,7 @@
 		display: grid;
 		grid-template-columns: 1fr 1fr;
 		gap: 24px 48px;
-		margin-bottom: 32px;
+		margin: 24px 0 32px;
 	}
 	label {
 		display: grid;
