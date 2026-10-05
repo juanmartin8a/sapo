@@ -128,45 +128,45 @@
 	/>
 </svelte:head>
 
-<main class="min-h-svh px-4 py-4 text-[#1E3526] sm:px-6 sm:py-5 lg:px-10">
+<main class="min-h-svh px-4 py-4 text-[#181A18] sm:px-6 sm:py-5 lg:px-10">
 	<div class="mx-auto flex w-full max-w-5xl flex-col gap-8">
 		<header class="flex items-center justify-between gap-4">
-			<a href={resolve('/')} class="text-sm font-semibold tracking-[0.34em] text-[#1E3526]">
+			<a href={resolve('/')} class="text-sm font-semibold tracking-[0.34em] text-[#181A18]">
 				S&nbsp;A&nbsp;P&nbsp;O
 			</a>
 			<nav
-				class="flex items-center gap-3 text-[0.7rem] font-semibold tracking-[0.2em] text-[#4C6349] uppercase sm:text-xs"
+				class="flex items-center gap-3 text-[0.7rem] font-semibold tracking-[0.2em] text-[#686B65] uppercase sm:text-xs"
 			>
-				<a class="transition hover:text-[#1E3526]" href={resolve('/')}>Home</a>
-				<a class="transition hover:text-[#1E3526]" href={resolve('/support/')}>Support</a>
+				<a class="transition hover:text-[#181A18]" href={resolve('/')}>Home</a>
+				<a class="transition hover:text-[#181A18]" href={resolve('/support/')}>Support</a>
 			</nav>
 		</header>
 
 		<section class="pt-4 sm:pt-8">
 			<p
-				class="mb-3 text-[0.68rem] font-bold tracking-[0.28em] text-[#647C61] uppercase sm:text-xs"
+				class="mb-3 text-[0.68rem] font-bold tracking-[0.28em] text-[#797C75] uppercase sm:text-xs"
 			>
 				Pronunciations
 			</p>
 			<h1 class="text-4xl leading-none font-black tracking-[-0.06em] sm:text-6xl">
 				How words sound
 			</h1>
-			<p class="mt-4 max-w-2xl text-[#4C6349]">
+			<p class="mt-4 max-w-2xl text-[#686B65]">
 				Pick the language a word is written in and the language you want it pronounced for.
 			</p>
 		</section>
 
 		<section
 			aria-label="Filters"
-			class="grid gap-4 rounded-3xl border border-[#D4E0D1] bg-white/80 p-4 sm:grid-cols-2 sm:p-6"
+			class="grid gap-4 rounded-3xl border border-[#E5E8DF] bg-white/80 p-4 sm:grid-cols-2 sm:p-6"
 		>
 			{#each filters as filter (filter.key)}
 				<label class="grid gap-2">
-					<span class="text-xs font-bold tracking-[0.2em] text-[#647C61] uppercase">
+					<span class="text-xs font-bold tracking-[0.2em] text-[#797C75] uppercase">
 						{filter.label}
 					</span>
 					<select
-						class="w-full rounded-2xl border border-[#C5D8C0] bg-[#F8FBF6] px-4 py-3 text-base font-semibold text-[#1E3526] focus:border-[#1E3526] focus:outline-none disabled:opacity-60"
+						class="w-full rounded-2xl border border-[#C5D8C0] bg-[#F8FBF6] px-4 py-3 text-base font-semibold text-[#181A18] focus:border-[#181A18] focus:outline-none disabled:opacity-60"
 						value={filter.key === 'source' ? source : target}
 						disabled={languagesStatus !== 'ready'}
 						onchange={(event) => setFilter(filter.key, event.currentTarget.value)}
@@ -189,7 +189,7 @@
 					<span>Couldn't load languages. Please try again.</span>
 					<button
 						type="button"
-						class="rounded-full bg-[#1E3526] px-4 py-2 font-semibold text-white"
+						class="rounded-full bg-[#181A18] px-4 py-2 font-semibold text-white"
 						onclick={loadLanguages}>Retry</button
 					>
 				</div>
@@ -205,7 +205,7 @@
 			class="scroll-mt-4 pb-12"
 		>
 			{#if resultsStatus === 'idle'}
-				<p class="rounded-3xl border border-dashed border-[#C5D8C0] p-8 text-center text-[#4C6349]">
+				<p class="rounded-3xl border border-dashed border-[#C5D8C0] p-8 text-center text-[#686B65]">
 					Choose a source and a target language to see pronunciations.
 				</p>
 			{:else if resultsStatus === 'error'}
@@ -216,7 +216,7 @@
 					<span>Couldn't load pronunciations. Please try again.</span>
 					<button
 						type="button"
-						class="rounded-full bg-[#1E3526] px-4 py-2 font-semibold text-white"
+						class="rounded-full bg-[#181A18] px-4 py-2 font-semibold text-white"
 						onclick={() => loadPage(requestedPage)}>Retry</button
 					>
 				</div>
@@ -227,15 +227,15 @@
 					{/each}
 				</div>
 			{:else if rows.length === 0}
-				<p class="rounded-3xl border border-dashed border-[#C5D8C0] p-8 text-center text-[#4C6349]">
+				<p class="rounded-3xl border border-dashed border-[#C5D8C0] p-8 text-center text-[#686B65]">
 					No pronunciations on this page for {nameFor(source)} → {nameFor(target)}.
 				</p>
 			{:else}
 				<div class:opacity-50={resultsStatus === 'loading'} class="transition-opacity">
 					<!-- Desktop table -->
-					<div class="hidden overflow-x-auto rounded-3xl border border-[#D4E0D1] bg-white md:block">
+					<div class="hidden overflow-x-auto rounded-3xl border border-[#E5E8DF] bg-white md:block">
 						<table class="w-full border-collapse text-left">
-							<thead class="bg-[#E1ECDD] text-xs tracking-[0.16em] text-[#4C6349] uppercase">
+							<thead class="bg-[#E1ECDD] text-xs tracking-[0.16em] text-[#686B65] uppercase">
 								<tr>
 									<th class="px-4 py-3">Word</th>
 									<th class="px-4 py-3">Source</th>
@@ -246,10 +246,10 @@
 							</thead>
 							<tbody>
 								{#each rows as row (row._id)}
-									<tr class="border-t border-[#D4E0D1] align-top">
+									<tr class="border-t border-[#E5E8DF] align-top">
 										<td class="px-4 py-3 text-lg font-bold"><bdi>{row.orthographic_form}</bdi></td>
-										<td class="px-4 py-3 text-[#4C6349]">{nameFor(row.source_language_code)}</td>
-										<td class="px-4 py-3 text-[#4C6349]">{nameFor(row.target_language_code)}</td>
+										<td class="px-4 py-3 text-[#686B65]">{nameFor(row.source_language_code)}</td>
+										<td class="px-4 py-3 text-[#686B65]">{nameFor(row.target_language_code)}</td>
 										<td class="ipa px-4 py-3"><bdi>{row.ipa}</bdi></td>
 										<td class="px-4 py-3"><bdi>{row.respelling}</bdi></td>
 									</tr>
@@ -261,15 +261,15 @@
 					<!-- Mobile cards -->
 					<ul class="grid gap-3 md:hidden">
 						{#each rows as row (row._id)}
-							<li class="rounded-2xl border border-[#D4E0D1] bg-white p-4">
+							<li class="rounded-2xl border border-[#E5E8DF] bg-white p-4">
 								<p class="text-xl font-bold break-words"><bdi>{row.orthographic_form}</bdi></p>
-								<p class="mt-1 text-xs tracking-[0.12em] text-[#647C61] uppercase">
+								<p class="mt-1 text-xs tracking-[0.12em] text-[#797C75] uppercase">
 									{nameFor(row.source_language_code)} → {nameFor(row.target_language_code)}
 								</p>
 								<dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-									<dt class="text-sm text-[#647C61]">IPA</dt>
+									<dt class="text-sm text-[#797C75]">IPA</dt>
 									<dd class="ipa break-words"><bdi>{row.ipa}</bdi></dd>
-									<dt class="text-sm text-[#647C61]">Respelling</dt>
+									<dt class="text-sm text-[#797C75]">Respelling</dt>
 									<dd class="break-words"><bdi>{row.respelling}</bdi></dd>
 								</dl>
 							</li>
@@ -286,7 +286,7 @@
 						disabled={pageIndex === 0 || resultsStatus === 'loading'}
 						onclick={() => goToPage(pageIndex - 1)}>← Previous</button
 					>
-					<span class="text-sm font-semibold text-[#4C6349]">Page {pageIndex + 1}</span>
+					<span class="text-sm font-semibold text-[#686B65]">Page {pageIndex + 1}</span>
 					<button
 						type="button"
 						class="rounded-full border border-[#C5D8C0] px-5 py-2 font-semibold disabled:opacity-40"

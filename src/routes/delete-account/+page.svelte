@@ -67,20 +67,20 @@
 	/>
 </svelte:head>
 
-<main class="min-h-svh px-4 py-4 text-[#1E3526] sm:px-6 sm:py-5 lg:px-10">
+<main class="min-h-svh px-4 py-4 text-[#181A18] sm:px-6 sm:py-5 lg:px-10">
 	<div
 		class="mx-auto grid min-h-[calc(100svh-2rem)] w-full max-w-5xl grid-rows-[auto_1fr_auto] gap-3 sm:min-h-[calc(100svh-2.5rem)]"
 	>
 		<header class="flex items-center justify-between gap-4">
-			<a href={resolve('/')} class="text-sm font-semibold tracking-[0.34em] text-[#1E3526]">
+			<a href={resolve('/')} class="text-sm font-semibold tracking-[0.34em] text-[#181A18]">
 				S&nbsp;A&nbsp;P&nbsp;O
 			</a>
 
 			<nav
-				class="flex items-center gap-3 text-[0.7rem] font-semibold tracking-[0.2em] text-[#4C6349] uppercase sm:text-xs"
+				class="flex items-center gap-3 text-[0.7rem] font-semibold tracking-[0.2em] text-[#686B65] uppercase sm:text-xs"
 			>
-				<a class="transition hover:text-[#1E3526]" href={resolve('/')}>Home</a>
-				<a class="transition hover:text-[#1E3526]" href={resolve('/support/')}>Support</a>
+				<a class="transition hover:text-[#181A18]" href={resolve('/')}>Home</a>
+				<a class="transition hover:text-[#181A18]" href={resolve('/support/')}>Support</a>
 			</nav>
 		</header>
 
@@ -119,7 +119,7 @@
 
 				<div class="text-center sm:text-left">
 					<p
-						class="mb-3 text-[0.68rem] font-bold tracking-[0.28em] text-[#647C61] uppercase sm:text-xs"
+						class="mb-3 text-[0.68rem] font-bold tracking-[0.28em] text-[#797C75] uppercase sm:text-xs"
 					>
 						Account deletion
 					</p>
@@ -156,11 +156,11 @@
 			</div>
 
 			<div
-				class="mx-auto grid max-w-4xl gap-3 text-center text-sm leading-6 text-[#4C6349] sm:text-base sm:leading-7"
+				class="mx-auto grid max-w-4xl gap-3 text-center text-sm leading-6 text-[#686B65] sm:text-base sm:leading-7"
 			>
 				<p>
 					To delete your SAPO account, open the SAPO app and go to
-					<strong class="font-bold text-[#1E3526]">
+					<strong class="font-bold text-[#181A18]">
 						Settings &rarr; Data Controls &rarr; Delete account</strong
 					>.
 				</p>
@@ -173,7 +173,7 @@
 				<p>
 					To request deletion outside the app, including if you cannot access your account, email
 					<a
-						class="font-bold text-[#1E3526] underline underline-offset-4"
+						class="font-bold text-[#181A18] underline underline-offset-4"
 						href="mailto:support@sapo.surf?subject=SAPO%20Account%20Deletion"
 					>
 						support@sapo.surf</a
@@ -188,13 +188,13 @@
 					cleanup 60 days after the quota period ends. Provider records, backups, and records needed
 					for security, legal obligations, or deletion recovery may remain as explained in our
 					<a
-						class="font-bold text-[#1E3526] underline underline-offset-4"
+						class="font-bold text-[#181A18] underline underline-offset-4"
 						href={resolve('/privacy-policy/')}>Privacy Policy</a
 					>. Contact support to check the status of a deletion request.
 				</p>
 
 				<p>
-					<strong class="font-bold text-[#1E3526]"
+					<strong class="font-bold text-[#181A18]"
 						>Account deletion does not cancel a subscription.</strong
 					>
 					Manage or cancel billing through Apple or Google Play. You can request account deletion without
@@ -204,7 +204,7 @@
 
 			<div class="flex justify-center">
 				<a
-					class="inline-flex rounded-full bg-black px-5 py-3 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#1E3526]"
+					class="inline-flex rounded-full bg-black px-5 py-3 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#181A18]"
 					href="mailto:support@sapo.surf?subject=SAPO%20Account%20Deletion"
 				>
 					Email support
@@ -213,10 +213,10 @@
 		</section>
 
 		<footer
-			class="flex justify-center gap-3 text-[0.68rem] font-medium text-[#647C61] sm:justify-end sm:text-xs"
+			class="flex justify-center gap-3 text-[0.68rem] font-medium text-[#797C75] sm:justify-end sm:text-xs"
 		>
-			<a class="hover:text-[#1E3526]" href={resolve('/terms-of-use/')}>Terms</a>
-			<a class="hover:text-[#1E3526]" href={resolve('/privacy-policy/')}>Privacy</a>
+			<a class="hover:text-[#181A18]" href={resolve('/terms-of-use/')}>Terms</a>
+			<a class="hover:text-[#181A18]" href={resolve('/privacy-policy/')}>Privacy</a>
 		</footer>
 	</div>
 </main>

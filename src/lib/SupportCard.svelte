@@ -63,17 +63,17 @@
 	<meta name="description" content="Contact S A P O support." />
 </svelte:head>
 
-<main class="min-h-svh px-4 py-4 text-[#1E3526] sm:px-6 sm:py-5 lg:px-10">
+<main class="min-h-svh px-4 py-4 text-[#181A18] sm:px-6 sm:py-5 lg:px-10">
 	<div
 		class="mx-auto grid min-h-[calc(100svh-2rem)] w-full max-w-5xl grid-rows-[auto_1fr_auto] gap-3 sm:min-h-[calc(100svh-2.5rem)]"
 	>
 		<header class="flex items-center justify-between gap-4">
-			<a href={resolve('/')} class="text-sm font-semibold tracking-[0.34em] text-[#1E3526]">
+			<a href={resolve('/')} class="text-sm font-semibold tracking-[0.34em] text-[#181A18]">
 				S&nbsp;A&nbsp;P&nbsp;O
 			</a>
 
-			<nav class="text-[0.7rem] font-semibold tracking-[0.2em] text-[#4C6349] uppercase sm:text-xs">
-				<a class="transition hover:text-[#1E3526]" href={resolve('/')}>Home</a>
+			<nav class="text-[0.7rem] font-semibold tracking-[0.2em] text-[#686B65] uppercase sm:text-xs">
+				<a class="transition hover:text-[#181A18]" href={resolve('/')}>Home</a>
 			</nav>
 		</header>
 
@@ -109,7 +109,7 @@
 
 			<div class="text-center sm:text-left">
 				<p
-					class="mb-3 text-[0.68rem] font-bold tracking-[0.28em] text-[#647C61] uppercase sm:text-xs"
+					class="mb-3 text-[0.68rem] font-bold tracking-[0.28em] text-[#797C75] uppercase sm:text-xs"
 				>
 					Support
 				</p>
@@ -141,10 +141,10 @@
 					</span>
 				</h1>
 
-				<p class="mt-5 max-w-md text-base leading-7 text-[#4C6349]">
+				<p class="mt-5 max-w-md text-base leading-7 text-[#686B65]">
 					Leave us an email at
 					<a
-						class="font-bold text-[#1E3526] underline underline-offset-4"
+						class="font-bold text-[#181A18] underline underline-offset-4"
 						href="mailto:support@sapo.surf?subject=SAPO%20Support"
 					>
 						support@sapo.surf</a
@@ -152,7 +152,7 @@
 				</p>
 
 				<a
-					class="mt-7 inline-flex rounded-full bg-black px-5 py-3 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#1E3526]"
+					class="mt-7 inline-flex rounded-full bg-black px-5 py-3 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#181A18]"
 					href="mailto:support@sapo.surf?subject=SAPO%20Support"
 				>
 					Email support
@@ -161,10 +161,10 @@
 		</section>
 
 		<footer
-			class="flex justify-center gap-3 text-[0.68rem] font-medium text-[#647C61] sm:justify-end sm:text-xs"
+			class="flex justify-center gap-3 text-[0.68rem] font-medium text-[#797C75] sm:justify-end sm:text-xs"
 		>
-			<a class="hover:text-[#1E3526]" href={resolve('/terms-of-use/')}>Terms</a>
-			<a class="hover:text-[#1E3526]" href={resolve('/privacy-policy/')}>Privacy</a>
+			<a class="hover:text-[#181A18]" href={resolve('/terms-of-use/')}>Terms</a>
+			<a class="hover:text-[#181A18]" href={resolve('/privacy-policy/')}>Privacy</a>
 		</footer>
 	</div>
 </main>
