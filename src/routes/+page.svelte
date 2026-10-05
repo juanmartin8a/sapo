@@ -24,6 +24,7 @@
 		revealed = 4;
 	}
 	function openMouth() {
+		if (speaking || revealed < 4) return;
 		stop();
 		speaking = true;
 		timers.push(setTimeout(() => (speaking = false), 200));
@@ -93,6 +94,7 @@
 						type="button"
 						class="sapo-frog-transition frog"
 						class:speaking
+						disabled={speaking || revealed < 4}
 						onclick={openMouth}
 						aria-label="Make the SAPO frog open its mouth"
 					>
