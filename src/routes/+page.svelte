@@ -107,8 +107,9 @@
 			</h1>
 		</div>
 		<p class="mission">
-			SAPO aims to make pronunciation across languages easier through phonetic respelling: writing
-			how words sound using the spelling patterns of another language.
+			SAPO aims to bridge language gaps by making pronunciation across languages easier and more
+			intuitive through phonetic respelling—writing words as they sound using the spelling patterns
+			of another language.
 		</p>
 	</div>
 </section>
