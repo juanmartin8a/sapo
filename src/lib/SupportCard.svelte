@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import PageHeading from '$lib/PageHeading.svelte';
 </script>
 
@@ -18,9 +17,6 @@
 	<div class="resource-section">
 		<a class="resource-link" href="mailto:support@sapo.surf?subject=SAPO%20Support"
 			>Email support <span aria-hidden="true">↗</span></a
-		>
-		<a class="resource-link" href={resolve('/delete-account/')}
-			>Account deletion <span aria-hidden="true">→</span></a
 		>
 	</div>
 </section>
