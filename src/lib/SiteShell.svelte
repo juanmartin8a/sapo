@@ -28,6 +28,7 @@
 		{@render children()}
 	</main>
 	<footer class="site-footer">
+		<span>© 2026 Happ Technologies Inc.</span>
 		<nav aria-label="Footer navigation">
 			<a
 				href={resolve('/terms-of-use/')}
@@ -109,7 +110,8 @@
 	}
 	.site-footer {
 		display: flex;
-		justify-content: flex-end;
+		flex-wrap: wrap;
+		justify-content: space-between;
 		align-items: center;
 		gap: 24px;
 		padding: 16px 0 24px;
@@ -117,6 +119,7 @@
 		font-size: 11px;
 	}
 	.site-footer nav {
+		margin-left: auto;
 		font-size: inherit;
 	}
 
