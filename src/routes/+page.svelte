@@ -116,8 +116,17 @@
 		</div>
 		<p class="mission">
 			SAPO aims to bridge language gaps by making pronunciation across languages easier and more
-			intuitive through phonetic respelling—writing words as they sound using the spelling patterns
-			of another language.
+			intuitive through phonetic representation. These representations can include
+			<a
+				href="https://en.wikipedia.org/wiki/Phonetic_transcription"
+				target="_blank"
+				rel="noopener noreferrer">phonetic transcription</a
+			>, but SAPO focuses primarily on cross-lingual
+			<a
+				href="https://en.wikipedia.org/wiki/Pronunciation_respelling"
+				target="_blank"
+				rel="noopener noreferrer">pronunciation respelling</a
+			>—writing words as they sound using the spelling patterns of another language.
 		</p>
 	</div>
 </section>
@@ -180,11 +189,21 @@
 	}
 	.mission {
 		text-align: left;
-		max-width: 470px;
+		max-width: 760px;
 		margin: 0;
 		color: var(--muted);
 		font-size: 17px;
 		line-height: 1.75;
+	}
+	.mission a {
+		color: #0645ad;
+		text-decoration: none;
+		text-decoration-thickness: 1px;
+		text-underline-offset: 3px;
+	}
+	.mission a:hover {
+		opacity: 1;
+		text-decoration-line: underline;
 	}
 	.frog {
 		width: 88px;
@@ -290,7 +309,6 @@
 			text-align: left;
 		}
 		.mission {
-			max-width: 420px;
 			margin: 0;
 			font-size: 15px;
 		}

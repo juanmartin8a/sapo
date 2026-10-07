@@ -130,7 +130,7 @@
 </svelte:head>
 
 <section aria-label="Open database">
-	<PageHeading title="S A P O database" frog />
+	<PageHeading title="Multilingual phonetic representations" frog />
 </section>
 
 <section aria-label="Filters" class="filters">
@@ -139,12 +139,9 @@
 			<span>{filter.label}</span>
 			<select
 				value={filter.key === 'source' ? source : target}
-				disabled={languagesStatus !== 'ready'}
 				onchange={(event) => setFilter(filter.key, event.currentTarget.value)}
 			>
-				<option value=""
-					>{languagesStatus === 'loading' ? 'Loading languages…' : 'Choose a language'}</option
-				>
+				<option value="">Choose a language</option>
 				{#each languages as language (language.language_code)}
 					<option value={language.language_code}>{language.name}</option>
 				{/each}
@@ -268,9 +265,6 @@
 		color: var(--ink);
 		font: inherit;
 		font-size: 15px;
-	}
-	select:disabled {
-		opacity: 0.6;
 	}
 	.filter-error {
 		grid-column: 1 / -1;
