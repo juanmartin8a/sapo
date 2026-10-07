@@ -130,7 +130,7 @@
 </svelte:head>
 
 <section aria-label="Open database">
-	<PageHeading title="How words sound" />
+	<PageHeading title="S A P O database" frog />
 </section>
 
 <section aria-label="Filters" class="filters">

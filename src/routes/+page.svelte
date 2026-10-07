@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
+	import { waitForFrogImages, waitForFrogTransition } from '$lib/frogTransition';
 
 	const lines = [
 		[
@@ -53,15 +54,22 @@
 		}, 80);
 	}
 	onMount(() => {
+		let disposed = false;
 		const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
 		const updateMotion = () => {
 			reducedMotion = motion.matches;
 			if (reducedMotion) stop();
 		};
 		updateMotion();
-		recite();
+		if (!reducedMotion) revealed = -1;
+		void waitForFrogImages()
+			.then(waitForFrogTransition)
+			.then(() => {
+				if (!disposed) recite();
+			});
 		motion.addEventListener('change', updateMotion);
 		return () => {
+			disposed = true;
 			stop();
 			motion.removeEventListener('change', updateMotion);
 		};

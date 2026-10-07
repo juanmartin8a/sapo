@@ -50,6 +50,26 @@ body {
 	animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
+/* Keep one fully opaque pose while the group moves between page headings. */
+:root.sapo-frog-view-transitioning .sapo-frog-transition .closed {
+	visibility: visible;
+}
+
+:root.sapo-frog-view-transitioning .sapo-frog-transition .open {
+	visibility: hidden;
+}
+
+::view-transition-old(sapo-frog) {
+	animation: none;
+	opacity: 0;
+}
+
+::view-transition-new(sapo-frog) {
+	animation: none;
+	opacity: 1;
+	mix-blend-mode: normal;
+}
+
 ::view-transition-old(root),
 ::view-transition-new(root) {
 	animation-duration: 180ms;

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { waitForFrogImages, waitForFrogTransition } from '$lib/frogTransition';
 
 	let { title, frog = false }: { title: string; frog?: boolean } = $props();
 	const words = $derived(title.split(' '));
@@ -23,29 +24,34 @@
 
 	onMount(() => {
 		if (!frog) return;
+		let disposed = false;
 		const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
 		const updateMotion = () => {
 			reducedMotion = motion.matches;
 			if (reducedMotion) stop();
 		};
 		updateMotion();
-		if (!reducedMotion) {
-			revealed = -1;
-			words.forEach((_, index) => {
-				timers.push(
-					setTimeout(
-						() => {
-							revealed = index;
-							speaking = true;
-						},
-						80 + index * 240
-					)
-				);
-				timers.push(setTimeout(() => (speaking = false), 240 + index * 240));
+		if (!reducedMotion) revealed = -1;
+		void waitForFrogImages()
+			.then(waitForFrogTransition)
+			.then(() => {
+				if (disposed || reducedMotion) return;
+				words.forEach((_, index) => {
+					timers.push(
+						setTimeout(
+							() => {
+								revealed = index;
+								speaking = true;
+							},
+							80 + index * 240
+						)
+					);
+					timers.push(setTimeout(() => (speaking = false), 240 + index * 240));
+				});
 			});
-		}
 		motion.addEventListener('change', updateMotion);
 		return () => {
+			disposed = true;
 			stop();
 			motion.removeEventListener('change', updateMotion);
 		};

@@ -14,7 +14,7 @@
 			>support@sapo.surf</a
 		>.
 	</p>
-	<div class="resource-section">
+	<div class="support-actions">
 		<a class="resource-link" href="mailto:support@sapo.surf?subject=SAPO%20Support"
 			>Email support <span aria-hidden="true">↗</span></a
 		>
@@ -22,10 +22,10 @@
 </section>
 
 <style>
-	.resource-section {
+	.support-actions {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 16px 40px;
-		border-top: 0;
+		margin-top: 16px;
 	}
 </style>
