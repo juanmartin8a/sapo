@@ -80,7 +80,7 @@
 	<title>SAPO — Phonetic respelling</title>
 	<meta
 		name="description"
-		content="SAPO is a project for phonetic respelling across languages, with an open database and an iOS app for translation and respelling."
+		content="SAPO offers a multilingual phonetic representations database and an iOS app for translation and cross-lingual pronunciation respelling."
 	/>
 </svelte:head>
 
@@ -133,20 +133,23 @@
 
 <section class="destinations" aria-label="Available resources">
 	<article class="destination">
-		<h2>Open database</h2>
+		<h2>Multilingual phonetic representations database</h2>
 		<p>
-			Phonetic respellings across languages, available for language learning and linguistic
-			research.
+			Phonetic transcriptions and pronunciation respellings across languages, available for language
+			learning and linguistic research.
 		</p>
 		<a class="resource-link" href={resolve('/pronunciations/')}>
 			Browse the database <span aria-hidden="true">↗</span>
 		</a>
 	</article>
 	<article class="destination app-destination">
-		<h2>Mobile app</h2>
+		<h2>Tools</h2>
 		<p>
-			An iOS app for translation and phonetic respelling, with optional local models for offline
-			use.
+			Currently, we only offer an iOS app for translation and cross-lingual pronunciation
+			respelling, with optional local models for offline use.
+			<br />
+			<br />
+			An Android version, a web app, and more are coming soon.
 		</p>
 		<a
 			class="resource-link"
@@ -269,7 +272,6 @@
 		align-items: center;
 		gap: 10px;
 		min-height: 44px;
-		margin-top: auto;
 		font-size: 14px;
 		font-weight: 400;
 		text-decoration: underline;

@@ -14,7 +14,7 @@
 		<nav aria-label="Main navigation">
 			<a
 				href={resolve('/pronunciations/')}
-				aria-current={pathname === '/pronunciations' ? 'page' : undefined}>Open database</a
+				aria-current={pathname === '/pronunciations' ? 'page' : undefined}>Database</a
 			>
 			<a
 				href={resolve('/support/')}

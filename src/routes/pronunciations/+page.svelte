@@ -129,7 +129,7 @@
 	/>
 </svelte:head>
 
-<section aria-label="Open database">
+<section aria-label="Multilingual phonetic representations">
 	<PageHeading title="Multilingual phonetic representations" frog />
 </section>
 
