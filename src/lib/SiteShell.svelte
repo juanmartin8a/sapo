@@ -13,8 +13,9 @@
 		<a class="wordmark" href={resolve('/')} aria-label="SAPO home">S A P O</a>
 		<nav aria-label="Main navigation">
 			<a
-				href={resolve('/pronunciations/')}
-				aria-current={pathname === '/pronunciations' ? 'page' : undefined}>Database</a
+				href={resolve('/multilingual-phonetic-representations/')}
+				aria-current={pathname === '/multilingual-phonetic-representations' ? 'page' : undefined}
+				>Database</a
 			>
 			<a
 				href={resolve('/support/')}
@@ -27,7 +28,6 @@
 		{@render children()}
 	</main>
 	<footer class="site-footer">
-		<p>S A P O</p>
 		<nav aria-label="Footer navigation">
 			<a
 				href={resolve('/terms-of-use/')}
@@ -109,15 +109,12 @@
 	}
 	.site-footer {
 		display: flex;
-		justify-content: space-between;
+		justify-content: flex-end;
 		align-items: center;
 		gap: 24px;
 		padding: 16px 0 24px;
 		color: var(--muted);
 		font-size: 11px;
-	}
-	.site-footer p {
-		margin: 0;
 	}
 	.site-footer nav {
 		font-size: inherit;

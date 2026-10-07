@@ -133,12 +133,12 @@
 
 <section class="destinations" aria-label="Available resources">
 	<article class="destination">
-		<h2>Multilingual phonetic representations database</h2>
+		<h2>Multilingual phonetic representations</h2>
 		<p>
-			Phonetic transcriptions and pronunciation respellings across languages, available for language
+			A database containing phonetic transcriptions and pronunciation respellings across languages, available for language
 			learning and linguistic research.
 		</p>
-		<a class="resource-link" href={resolve('/pronunciations/')}>
+		<a class="resource-link" href={resolve('/multilingual-phonetic-representations/')}>
 			Browse the database <span aria-hidden="true">↗</span>
 		</a>
 	</article>

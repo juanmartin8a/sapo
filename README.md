@@ -23,7 +23,7 @@ bun x sv@0.15.3 create --template minimal --types ts --add prettier eslint tailw
 Copy `.env.example` to `.env.local` and set `PUBLIC_CONVEX_URL` to the Convex deployment
 that exposes `pronunciations:listLanguages` and `pronunciations:listByLanguagePair`.
 The URL is public and embedded at build time; configure it in the build environment
-when deploying. No Convex admin key is needed. The `/pronunciations/` page prerenders
+when deploying. No Convex admin key is needed. The `/multilingual-phonetic-representations/` page prerenders
 its shell and fetches data in the browser.
 
 Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:

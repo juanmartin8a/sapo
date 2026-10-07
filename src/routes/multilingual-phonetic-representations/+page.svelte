@@ -80,7 +80,7 @@
 		const url = new URL(page.url);
 		if (value) url.searchParams.set(key, value);
 		else url.searchParams.delete(key);
-		goto(resolve(`/pronunciations/?${url.searchParams}${url.hash}`), {
+		goto(resolve(`/multilingual-phonetic-representations/?${url.searchParams}${url.hash}`), {
 			replaceState: true,
 			keepFocus: true,
 			noScroll: true
