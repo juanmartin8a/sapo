@@ -2,7 +2,7 @@
 
 **Effective Date:** 2026-10-07
 
-**Version:** v3.1
+**Version:** 3
 
 These Terms are an agreement between you and **Happ Technologies Inc.**, a Delaware C corporation (**SAPO**, **we**, **us**, or **our**), for the S A P O app, cloud services, subscriptions, websites, and Multilingual phonetic representations database (the **Service**).
 

@@ -2,7 +2,7 @@
 
 **Effective Date:** 2026-10-07
 
-**Version:** v4.1
+**Version:** 5
 
 **Happ Technologies Inc.**, a Delaware C corporation based in the United States (**SAPO**, **we**, **us**, or **our**), is the controller for personal data we process to operate the S A P O app, cloud services, subscriptions, websites, and Multilingual phonetic representations database.
 
