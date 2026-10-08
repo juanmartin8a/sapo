@@ -20,7 +20,8 @@ bun x sv@0.15.3 create --template minimal --types ts --add prettier eslint tailw
 
 ## Developing
 
-Use Node.js 26.11.1 (pinned in `.nvmrc`) with Bun as the package manager:
+Use Node.js 24.21.0 (pinned in `.nvmrc`) with Bun as the package manager.
+The `package.json` engine selects Node.js 24.x for Vercel builds.
 
 ```sh
 nvm install
