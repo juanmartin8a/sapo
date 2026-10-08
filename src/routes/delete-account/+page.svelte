@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import PageHeading from '$lib/PageHeading.svelte';
+	import PageHeading from '#lib/PageHeading.svelte';
 </script>
 
 <svelte:head>
@@ -16,7 +16,8 @@
 	<div class="page-prose">
 		<p>
 			To delete your SAPO account, open the SAPO app and go to
-			<strong> Settings &rarr; Data Controls &rarr; Delete account</strong>.
+			<strong>Settings → Data Controls → Delete account</strong>
+			.
 		</p>
 
 		<p>
@@ -37,14 +38,14 @@
 			counters may remain to prevent quota resets; frozen records become eligible for cleanup 60
 			days after the quota period ends. Provider records, backups, and records needed for security,
 			legal obligations, or deletion recovery may remain as explained in our
-			<a href={resolve('/privacy-policy/')}>Privacy Policy</a>. Contact support to check the status
-			of a deletion request.
+			<a href={resolve('privacy-policy/')}>Privacy Policy</a>
+			. Contact support to check the status of a deletion request.
 		</p>
 
 		<p>
 			<strong>Account deletion does not cancel a subscription.</strong>
 			Manage or cancel billing through Apple or Google Play. You can request account deletion without
-			first canceling. Remove downloaded models separately in Settings &rarr; Local models.
+			first canceling. Remove downloaded models separately in Settings → Local models.
 		</p>
 	</div>
 	<div class="resource-section">
