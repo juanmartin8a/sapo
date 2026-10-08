@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { markdownToHtml } from '$lib/markdown';
+	import { markdownToHtml } from '#lib/markdown.js';
 
 	let { markdown, title }: { markdown: string; title: string } = $props();
 	const html = $derived(markdownToHtml(markdown));

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
-	import { waitForFrogImages, waitForFrogTransition } from '$lib/frogTransition';
+	import { waitForFrogImages, waitForFrogTransition } from '#lib/frogTransition.js';
 
 	const lines = [
 		[
@@ -135,11 +135,13 @@
 	<article class="destination">
 		<h2>Multilingual phonetic representations</h2>
 		<p>
-			A database containing phonetic transcriptions and pronunciation respellings across languages, available for language
-			learning and linguistic research.
+			A database containing phonetic transcriptions and pronunciation respellings across languages,
+			available for language learning and linguistic research.
 		</p>
-		<a class="resource-link" href={resolve('/multilingual-phonetic-representations/')}>
-			Browse the database <span aria-hidden="true">↗</span>
+
+		<a class="resource-link" href={resolve('multilingual-phonetic-representations/')}>
+			Browse the database
+			<span aria-hidden="true">↗</span>
 		</a>
 	</article>
 	<article class="destination app-destination">

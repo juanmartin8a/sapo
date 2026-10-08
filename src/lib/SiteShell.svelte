@@ -13,12 +13,12 @@
 		<a class="wordmark" href={resolve('/')} aria-label="SAPO home">S A P O</a>
 		<nav aria-label="Main navigation">
 			<a
-				href={resolve('/multilingual-phonetic-representations/')}
+				href={resolve('multilingual-phonetic-representations/')}
 				aria-current={pathname === '/multilingual-phonetic-representations' ? 'page' : undefined}
 				>Database</a
 			>
 			<a
-				href={resolve('/support/')}
+				href={resolve('support/')}
 				aria-current={['/support', '/contact-us'].includes(pathname) ? 'page' : undefined}
 				>Support</a
 			>
@@ -31,11 +31,11 @@
 		<span>© 2026 Happ Technologies Inc.</span>
 		<nav aria-label="Footer navigation">
 			<a
-				href={resolve('/terms-of-use/')}
+				href={resolve('terms-of-use/')}
 				aria-current={pathname === '/terms-of-use' ? 'page' : undefined}>Terms</a
 			>
 			<a
-				href={resolve('/privacy-policy/')}
+				href={resolve('privacy-policy/')}
 				aria-current={pathname === '/privacy-policy' ? 'page' : undefined}>Privacy</a
 			>
 		</nav>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import PageHeading from '$lib/PageHeading.svelte';
+	import PageHeading from '#lib/PageHeading.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -10,7 +10,7 @@
 		listLanguagesRef,
 		type Language,
 		type Pronunciation
-	} from '$lib/convex';
+	} from '#lib/convex.js';
 
 	const PAGE_SIZE = 50;
 	const filters = [
@@ -24,8 +24,8 @@
 
 	// Read query parameters only after hydration; the shell is statically prerendered.
 	let source = $derived(mounted ? (page.url.searchParams.get('source') ?? '') : '');
-	let target = $derived(mounted ? (page.url.searchParams.get('target') ?? '') : '');
 
+	let target = $derived(mounted ? (page.url.searchParams.get('target') ?? '') : '');
 	let rows = $state.raw<Pronunciation[]>([]);
 	let resultsStatus = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
 	// cursors[i] is the cursor that loads page i (page 0 starts at null).
@@ -77,13 +77,14 @@
 	}
 
 	function setFilter(key: 'source' | 'target', value: string) {
-		const url = new URL(page.url);
+		const url = new URL(page.url.href);
+
 		if (value) url.searchParams.set(key, value);
 		else url.searchParams.delete(key);
-		goto(resolve(`/multilingual-phonetic-representations/?${url.searchParams}${url.hash}`), {
-			replaceState: true,
-			keepFocus: true,
-			noScroll: true
+
+		goto(resolve(`multilingual-phonetic-representations/?${url.searchParams}${url.hash}`), {
+			replace: true,
+			reset: false
 		});
 	}
 

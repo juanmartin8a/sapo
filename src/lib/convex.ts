@@ -1,4 +1,4 @@
-import { PUBLIC_CONVEX_URL } from '$env/static/public';
+import { PUBLIC_CONVEX_URL } from '$app/env/public';
 import { ConvexHttpClient } from 'convex/browser';
 import {
 	makeFunctionReference,

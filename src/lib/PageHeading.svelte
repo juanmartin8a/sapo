@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { waitForFrogImages, waitForFrogTransition } from '$lib/frogTransition';
+	import { waitForFrogImages, waitForFrogTransition } from '#lib/frogTransition.js';
 
 	let { title, frog = false }: { title: string; frog?: boolean } = $props();
 	const words = $derived(title.split(' '));

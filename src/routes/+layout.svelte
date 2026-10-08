@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onNavigate } from '$app/navigation';
 	import './layout.css';
-	import SiteShell from '$lib/SiteShell.svelte';
-	import { beginFrogTransition, waitForFrogImages } from '$lib/frogTransition';
+	import SiteShell from '#lib/SiteShell.svelte';
+	import { beginFrogTransition, waitForFrogImages } from '#lib/frogTransition.js';
 
 	let { children } = $props();
 
@@ -21,6 +21,8 @@
 	let currentTransition: SapoViewTransition | undefined;
 
 	onNavigate((navigation) => {
+		if (navigation.shallow && navigation.type === 'goto') return;
+
 		// A rapid second navigation must not inherit or clean up the previous transition.
 		currentTransition?.skipTransition();
 		currentTransition = undefined;
@@ -74,7 +76,9 @@
 
 <svelte:head>
 	<link rel="icon" href="/sapo-favicon.svg" type="image/svg+xml" />
+
 	<link rel="preload" as="image" href="/sapo-frog.svg" type="image/svg+xml" fetchpriority="high" />
+
 	<link
 		rel="preload"
 		as="image"
