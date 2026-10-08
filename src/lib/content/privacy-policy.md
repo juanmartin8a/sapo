@@ -1,248 +1,166 @@
 # S A P O Privacy Policy
 
-**Effective Date:** 2026-09-16
+**Effective Date:** 2026-10-07
 
-**Version:** v4.0
+**Version:** 5
 
-This Privacy Policy explains how **Happ Technologies Inc.**, a Delaware C corporation (**S A P O**, **SAPO**, **we**, **us**, or **our**), processes personal data when you use our mobile app, cloud translation and respelling services, local translation features, related websites, subscriptions, and support channels. Happ Technologies Inc. is the controller of personal data for which we determine the purposes and means of processing.
+**Happ Technologies Inc.**, a Delaware C corporation based in the United States (**SAPO**, **we**, **us**, or **our**), is the controller for personal data we process to operate the S A P O app, cloud services, subscriptions, websites, and Multilingual phonetic representations database.
 
-**Privacy contact:** [support@sapo.surf](mailto:support@sapo.surf). Use this address for privacy rights, complaints, and questions. Account deletion instructions are also available on our [Delete account page](/delete-account).
+**Privacy contact:** [support@sapo.surf](mailto:support@sapo.surf). Account deletion instructions are available [here](/delete-account).
 
-This Policy is a notice about our practices, not a request for blanket consent. Where separate consent is required, accepting our Terms or reading this Policy does not replace that consent. Your mandatory rights under applicable law are not limited by this Policy.
+This Policy explains our practices and does not itself provide consent. Where separate permission is required, accepting the Terms or using the Service does not replace it. Your mandatory privacy rights remain available.
 
----
+## 1. Data We Process And Why
 
-## 1. Key Points
+| Category                      | Data and source                                                                                                                                                                                                                                                                                                      | Purpose                                                                                    |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Account and authentication    | User ID, name, email (including Apple relay addresses), profile image if supplied, sign-in provider/account identifiers, verification status, account dates, and authentication, session, and verification tokens from you, Apple, Google, and our backend                                                           | Create and secure accounts, sign you in, manage sessions, and verify deletion              |
+| Submitted content             | Your text and language choices; generated translations, previews, pronunciation respellings, and detected source language where needed                                                                                                                                                                               | Perform the feature you request on-device or through cloud providers                       |
+| Usage and security            | Account/request IDs, operation, model identifier where recorded, input character counts, quota reservations/charges, status, timestamps, IP address, user agent, and security events from your device and backend                                                                                                    | Enforce access and quotas, prevent duplicate charges and abuse, and investigate failures   |
+| Purchases and subscriptions   | SAPO/RevenueCat customer IDs, products, entitlements, store and transaction/subscription IDs, receipts or purchase tokens handled by the SDK, status, billing/expiration dates, webhook records, and management links from RevenueCat and stores                                                                     | Verify purchases, provide and restore access, reconcile billing, and prevent fraud         |
+| Device and local storage      | Platform, OS/app/SDK versions, SDK identifiers where used, request and diagnostic information; secure account/subscription caches containing user ID, email, plan, access status/expiration, and confirmation time; model selection/status, storage checks, model files, partial downloads, and verification records | Compatibility, delivery, troubleshooting, offline access checks, and local model operation |
+| Website and database browsing | Requested URLs, language filters, page requests, IP address, time, and ordinary browser/network information from your browser and providers                                                                                                                                                                          | Deliver pages and database results and secure the website/backend                          |
+| Support, email, and deletion  | Contact details and correspondence you send; verification links, email delivery information, account/subscription identifiers, cleanup status, retries, error summaries, operational alerts, and timestamps                                                                                                          | Provide support, complete deletion, resolve failures, and meet legal obligations           |
 
-- **Local translation:** On supported iOS and Android devices, you can download and load a local model and enable local translation without signing in. Text and output are processed on your device without sending that translation request to SAPO's backend or cloud AI providers. Model downloads require an internet connection.
-- **Cloud services:** Online translation and respelling require sign-in. Cloud translation uses Convex and Cloudflare Workers AI. Cloud respelling uses Convex and OpenAI through Cloudflare AI Gateway. These services receive the text and language information needed to generate a result.
-- **Storage:** We do not maintain a translation-history database. Text and output remain in app memory during use. Cloud provider logs or caches may retain content, as explained in sections 4 and 10; cloud processing is not a promise of zero retention.
-- **On-device data:** The native app stores authentication data and limited account/subscription caches in secure storage, and downloaded model files and verification records in its cache directory.
-- **Purchases:** Apple or Google processes store payments; RevenueCat and SAPO process subscription and purchase metadata. We do not receive your full payment card details.
-- **Advertising:** We do not sell personal data, share it for targeted or cross-context behavioral advertising, serve ads, or use third-party advertising or general-purpose analytics SDKs in the current app.
-- **Deletion:** You can request account deletion in the app or by email through our website. Account deletion does not cancel an app-store subscription.
+Account and request information is necessary for cloud features; purchase records are necessary for subscription access. Local translation and public database browsing do not require an account. Earlier anonymous-account records remain covered by this Policy, although the current app does not create new anonymous accounts. Do not submit personal or confidential information through shared review/demo accounts.
 
----
+The current app does not request camera, microphone, contacts, photo-library, precise GPS, health/fitness, SMS, or advertising-tracking access. IP addresses can reveal approximate location. Text and support messages may contain personal or sensitive information even though we do not request it.
 
-## 2. Data, Sources, And Purposes
-
-| Category                         | Data and source                                                                                                                                                                                                                                                                     | Why we process it                                                                                       |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Account and sign-in              | User ID, name, email (including an Apple relay address), profile image if supplied, provider account ID, email verification status, account timestamps, and authentication tokens from you, Apple, or Google                                                                        | Create and secure your account, sign you in, manage sessions, and verify deletion                       |
-| Session and security             | Session and verification tokens, IP address, user agent, request times, and authentication/security events from your device and service providers                                                                                                                                   | Authenticate requests, prevent abuse, protect accounts, and investigate failures                        |
-| Submitted content                | Text, source/target language labels, and generated translation or respelling output                                                                                                                                                                                                 | Perform the operation you request, locally or through cloud providers depending on the feature selected |
-| Cloud usage                      | Account ID, request ID, operation type, model identifier where recorded, input character counts, quota reservations/charges, processing status, and timestamps generated by the backend                                                                                             | Enforce quotas, prevent duplicate charges and abuse, and operate the service                            |
-| Purchases and subscriptions      | SAPO and RevenueCat customer IDs, entitlement/product IDs, store, transaction/subscription IDs, receipts or purchase tokens processed by the subscription SDK, subscription status, billing/expiration dates, webhook data, and management links from RevenueCat, Apple, and Google | Purchase verification, access, restoration, billing reconciliation, and fraud prevention                |
-| Device and technical information | Platform, operating system, SDK/app version, network/request metadata, SDK identifiers where used, and error/diagnostic information from the app and providers                                                                                                                      | Compatibility, delivery, security, subscription processing, and troubleshooting                         |
-| Local account caches             | User ID and email; user ID, plan, active/inactive status, access expiration, and confirmation time saved on your device                                                                                                                                                             | Maintain confirmed account and subscription state during connectivity interruptions                     |
-| Local model information          | Selected model and download/loading status, available storage checked on-device, model files, partial downloads, and file verification metadata; download hosts receive IP address and download-request metadata                                                                    | Download, verify, load, run, and remove local models                                                    |
-| Support and email                | Contact details, correspondence you send us, deletion-verification links, email delivery status, and operational alert details                                                                                                                                                      | Answer requests, verify deletion, resolve service failures, and meet legal obligations                  |
-| Deletion and operational records | Account/subscription identifiers, cleanup steps, retries, error summaries, incident status, and timestamps                                                                                                                                                                          | Complete and verify deletion, coordinate provider cleanup, and recover failures                         |
-
-We do not request access to your camera, microphone, contacts, photo library, precise GPS location, health or fitness data, SMS, or advertising tracking in the current app. IP addresses may reveal approximate location to network and service providers. Free-form text or support messages can contain personal or sensitive information even though we do not ask for it.
-
-Providing an account and the necessary request data is required for cloud features; without it we cannot authenticate or complete those requests. Purchases require subscription metadata. Local translation does not require an account. Optional support information should be limited to what is necessary to resolve your request.
-
----
-
-## 3. Accounts, Device Storage, And Websites
-
-The current app supports Google and Apple sign-in and does not create new anonymous SAPO accounts. Earlier versions used anonymous sessions; any remaining associated records are covered by this Policy and may be the subject of a privacy request. Restricted demo access may also be provided for review or testing; do not enter personal or confidential information into a shared demo account.
-
-On native devices, authentication/session information and the account/subscription caches described above use **Expo SecureStore**, backed by operating-system secure storage. Sign-out and account-state changes trigger cache cleanup. Expired subscription confirmations are not treated as valid access. Operating-system backup, restore, and keychain behavior can affect how long local data remains; uninstalling the app is not a request to delete server records.
-
-The current app does not save submitted text or generated output as a persistent local translation history. The current input, output, language selections, and active request state are held in memory. Model files, partial downloads, and verification records are saved separately in the app's cache directory. You can remove downloaded models through **Settings > Local models**; the operating system may also evict cached files.
-
-Where the web app is available, its authentication integration uses browser storage for session functionality. Our public website and hosting providers process ordinary HTTP request information, such as IP address, requested URL, browser information, and time, to deliver and secure pages. Authentication storage is used for the requested functionality, not advertising. You can clear browser site data, which may sign you out. Sign-in providers and external sites operate their own cookies and storage under their policies.
-
----
-
-## 4. Local And Cloud AI Processing
+## 2. Local And Cloud Processing
 
 ### Local translation
 
-When you enable local translation and load a downloaded model, translation runs on your device using the local inference runtime. That request does not send your text, selected languages, output, or character count to our cloud quota system. A local-model error does not automatically resubmit your text to cloud AI. Respelling is a separate cloud feature, even when local translation is enabled.
+On supported iOS and Android devices, downloaded models can translate text on-device without sending that request's text, languages, output, or character count to SAPO's backend or cloud AI. Local-model errors do not automatically send text to cloud AI. Once a model is downloaded and loaded, local translation can work offline; sign-in and subscription features may still communicate when connected.
 
-Models are downloaded from **Hugging Face** and its file-delivery infrastructure. Download requests disclose your IP address, requested model/file, request time, and ordinary network/client headers to the download host; they do not include your translation text or SAPO sign-in token. Once a model is downloaded and loaded, local translation can operate offline. Other app functions, including sign-in and subscription synchronization, may still communicate over the network when connected.
+Models come from **Hugging Face** and its delivery infrastructure. The download host receives your IP address, requested file/model, time, and ordinary request headers, but not your translation text or SAPO sign-in token.
 
-### Cloud translation and respelling
+### Cloud translation and pronunciation respelling
 
-For a cloud request, the app sends your text, source/target language labels, operation, request identifier, and authorization token to our **Convex** backend. The backend checks access and quota and forwards the text and language information, with task instructions, to:
+Cloud requests send your text, language choices, operation, request ID, and authorization token to **Convex** for authentication, access checks, and processing. The backend sends text and language information with task instructions to:
 
-- **Cloudflare Workers AI** for online translation, using a model hosted by Cloudflare.
-- **OpenAI through Cloudflare AI Gateway** for respelling. Both Cloudflare and OpenAI process the request and response.
+- **Cloudflare Workers AI** for standalone cloud translation.
+- **OpenAI through Cloudflare AI Gateway** for pronunciation respelling and both stages of **translate and respell** mode.
 
-The AI request does not intentionally include your SAPO account email, name, purchase data, or session token. Anything you include in the text itself is, however, included in the content sent to the AI service. Cloud content is therefore not necessarily anonymous. The backend can associate a request with your account, and text can identify you or other people.
+In translate and respell mode, OpenAI first translates the original text into your target language. Convex streams a preview to the app and sends the completed translation to OpenAI through the gateway for pronunciation respelling in your selected language. Choosing **Source** uses the original source language, detected by OpenAI where needed. Both stages run in the cloud even when local translation is enabled. An interrupted or failed translation does not start respelling.
 
-Our application database records usage metadata rather than raw input/output as translation history. **Provider systems are separate:** Cloudflare AI Gateway can log prompts and responses, and its logging is enabled by default unless disabled in deployment settings. Content may therefore persist in gateway logs or caches beyond the request. The respelling integration sends OpenAI's `store: false` option; that does not disable Cloudflare logging or all OpenAI retention. OpenAI documents default abuse-monitoring retention of up to 30 days, subject to legal/security exceptions, and model-dependent prompt caching that may last up to 24 hours. We do not represent that the service has approved zero-data-retention controls.
+AI requests do not intentionally include your account name, email, purchase records, or session token. Personal information included in your text or generated translation is nevertheless sent to the relevant AI providers, and Convex can associate the request with your account. Cloud content is not necessarily anonymous.
 
-We do not use your text or output to train SAPO-owned AI models. Our policy is to opt out of third-party use of submitted text and generated output for model training or other purposes unrelated to providing the requested service, and to disable optional content retention wherever the provider makes those controls available to us. OpenAI states that API data is not used to train its models by default unless the API customer opts in.
+Our database records usage metadata, not a translation history of raw input, intermediate translations, or output. Combined requests use the original input character count in a single respelling usage event; limits and charging rules are in the [Terms of Use](/terms-of-use).
 
-These choices do not guarantee zero retention: providers may still process or retain content or technical information as necessary to deliver the service, maintain security, prevent abuse, or comply with law, and some retention controls require separate provider approval. The provider-specific limitations described above still apply. Provider handling is also governed by the relevant service agreements and data controls; this Policy does not turn cloud requests into device-only processing.
+**Provider retention:** [Cloudflare AI Gateway](https://developers.cloudflare.com/ai-gateway/observability/logging/) can log prompts and responses; logging is enabled by default unless disabled in deployment settings. Logs and caches may outlast either stage. Our OpenAI calls use `store: false`, which does not disable gateway logging or all OpenAI retention. [OpenAI's data controls](https://developers.openai.com/api/docs/guides/your-data) describe default abuse-monitoring retention of up to 30 days, subject to legal/security exceptions, and model-dependent prompt caching with a maximum application-state retention period of 24 hours. We do not claim approved zero-data-retention controls.
 
-Please do not submit passwords, government identifiers, payment credentials, health records, biometric information, or other highly sensitive information to cloud features. Remove unnecessary personal details and submit other people's information only when you have lawful authority. **Merely entering sensitive text is not treated as explicit consent** to special-category processing, AI training, publication, or unrelated uses.
+We do not train SAPO-owned AI models on your text or output. Our policy is to opt out of third-party training or other unrelated uses and disable optional content retention where those controls are available to us. OpenAI states that API data is not used for model training by default unless the API customer opts in. Providers may still process and retain data for service delivery, security, abuse prevention, or law.
 
----
+Do not submit passwords, payment credentials, government identifiers, health records, biometric information, or other highly sensitive data to cloud features. Remove unnecessary personal details and submit others' information only with lawful authority. Entering sensitive text is not explicit consent to special-category processing, training, or publication.
 
-## 5. Subscriptions
+## 3. Device Storage And Public Database
 
-The **Polyglot** subscription is offered through supported app stores, with **RevenueCat** providing subscription management. Apple and Google handle payment credentials, billing, and store-account records under their own terms. SAPO and RevenueCat use subscription metadata to verify access, restore purchases, reconcile changes, resolve disputes, and prevent one store subscription from being linked to multiple SAPO accounts.
+The app holds input, output, translation previews, language/mode selections, and active requests in memory, without a persistent local translation-history feature. Native authentication and account/subscription caches use **Expo SecureStore** and operating-system secure storage. Sign-out/account-state changes trigger cache cleanup; expired subscription confirmations do not grant access. OS backup, restore, and keychain behavior may leave residual copies. Uninstalling the app does not delete server records.
 
-Cloud quota is measured in input characters. Current plan limits and local-translation limits are described in the [Terms of Use](/terms-of-use) and in the app. Local translation does not consume cloud quota.
+Model files, partial downloads, and verification records are stored in the app cache. Remove models through **Settings > Local models**; the OS may also remove cached files. Text you choose to copy can remain on the clipboard and be available to other apps or synchronized devices under OS settings.
 
-**Deleting your SAPO account or uninstalling the app does not cancel a subscription.** Manage cancellation through [Apple subscriptions](https://apps.apple.com/account/subscriptions) or [Google Play subscriptions](https://play.google.com/store/account/subscriptions), as applicable.
+Web-app authentication, where available, uses browser storage for sessions, not advertising. Clearing site data may sign you out. External sign-in providers and sites use storage under their own policies.
 
----
+The public **[Multilingual phonetic representations](/multilingual-phonetic-representations)** browser makes read-only requests to Convex without sign-in. It sends language filters and page-request information with network metadata; filters also appear in the URL and can remain in browser history or shared links. Browsing does not send text to AI providers. Using the app does not contribute your input, intermediate translation, or output to the public database. Published entries can be accessed and copied by others; contact our privacy address if an entry exposes personal data or infringes your rights.
 
-## 6. Purposes And Legal Grounds
+## 4. Legal Grounds
 
-Where applicable law requires a legal basis, including the GDPR, UK GDPR, or Brazil's LGPD, we use the grounds available under that law for the particular processing:
+Where applicable law requires a legal basis, including the GDPR, UK GDPR, or Brazil's LGPD, we use the relevant grounds for each purpose:
 
-| Purpose                                                                                                                 | Legal ground where applicable                                                                                                 |
-| ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Account access, requested cloud processing, model delivery, subscriptions, and account administration                   | Performance of our contract with you or steps you request before entering it                                                  |
-| Service security, abuse prevention, diagnostic investigation, subscription integrity, and recovery of failed operations | Our legitimate interests in providing a secure, reliable service, subject to your rights and reasonable expectations          |
-| Responding to support and privacy requests                                                                              | Contract for service support; legal obligation for applicable statutory rights; legitimate interests for other correspondence |
-| Required records, valid legal process, and regulatory duties                                                            | Compliance with applicable legal obligations                                                                                  |
-| Establishing, exercising, or defending legal claims                                                                     | Legitimate interests or another applicable legal ground                                                                       |
-| Processing for which the law requires consent                                                                           | Consent obtained separately for the specified purpose, which can be withdrawn                                                 |
+| Purpose                                                                                                                   | Legal ground where applicable                                                                                                |
+| ------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Requested features, accounts, model delivery, subscriptions, website/database results, and service support                | Contract performance or steps you request before entering a contract                                                         |
+| Security, abuse prevention, diagnostics, subscription integrity, failure recovery, other correspondence, and legal claims | Legitimate interests in a secure, reliable service and protecting rights, subject to your rights and reasonable expectations |
+| Statutory privacy requests, required records, valid legal process, and regulatory duties                                  | Legal obligation                                                                                                             |
+| Processing requiring consent                                                                                              | Separate consent for the specified purpose                                                                                   |
 
-Contract necessity does not automatically authorize processing personal data about someone else or special-category data. We do not rely on a blanket consent inferred from use of the app. Where consent is the basis, you can withdraw it by contacting us or using any relevant in-app control; withdrawal does not invalidate earlier lawful processing. Withholding or withdrawing necessary permission may prevent the affected cloud feature from operating, but does not require you to consent to unrelated processing.
+Contract necessity does not automatically authorize processing others' personal data or special-category data. Where consent is the basis, withdraw it through our privacy contact or an available relevant control; withdrawal does not invalidate earlier lawful processing. We do not condition unrelated services on optional processing. Refusal or withdrawal may prevent a feature that needs the affected data from operating. You may object to legitimate-interest processing; we stop unless law permits continuation.
 
-**You may object to processing based on legitimate interests.** We will assess the objection and stop the processing unless applicable law permits us to continue. We do not use data for direct marketing or targeted advertising.
+## 5. Recipients
 
----
+We disclose data for the purposes in this Policy and limit access to the relevant role. We require third parties receiving personal data from SAPO to provide the same or equivalent protection described in this Policy and required by applicable law and app-store rules. Providers acting on our behalf are subject to contractual data-protection duties. Apple, Google, and other providers may act separately as controllers for their own accounts, billing, security, or legal obligations; their policies do not remove SAPO's responsibilities.
 
-## 7. Recipients And Service Providers
+| Provider                                                                                        | Role and data involved                                                                                                                                        |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Convex](https://www.convex.dev/privacy)                                                        | Backend/database; accounts, authentication, usage, subscription/deletion records, technical logs, cloud content in processing, and database browsing requests |
+| Better Auth                                                                                     | Authentication software running in our backend; account, session, verification, and provider-token records                                                    |
+| [Cloudflare](https://www.cloudflare.com/privacypolicy/)                                         | Workers AI and AI Gateway; text, languages, intermediate translations, output, request metadata, and logs/caches where enabled                                |
+| [OpenAI](https://openai.com/policies/privacy-policy/)                                           | API translation/respelling and source detection; text, languages, intermediate translations, instructions, output, and operational/abuse-monitoring data      |
+| [Hugging Face](https://huggingface.co/privacy) and download hosts                               | Model delivery; IP address, requested files, and download metadata, not local translation content                                                             |
+| [RevenueCat](https://www.revenuecat.com/privacy/)                                               | Subscription management; customer IDs, purchases/receipts, products, entitlements, status, webhooks, and SDK metadata                                         |
+| [Apple](https://www.apple.com/legal/privacy/) and [Google](https://policies.google.com/privacy) | Sign-in data and store purchases; payment and store-account information under their control                                                                   |
+| [Resend](https://resend.com/legal/privacy-policy)                                               | Verification emails, delivery metadata, and operational emails with relevant account/event identifiers and errors                                             |
+| Website hosting, network, and support providers                                                 | Page/request metadata, security logs, and support correspondence                                                                                              |
 
-We disclose information only for the purposes described in this Policy. Access by personnel and service providers is limited to their role. Providers processing data on our behalf are subject to applicable contractual data-protection duties; Apple, Google, and other providers may separately act as controllers for their own accounts, security, billing, or legal obligations. Their policies do not remove our responsibilities for our processing.
+Apple and Google handle payment credentials; SAPO does not receive full payment-card details. We may also disclose necessary data to advisers or authorities for legal obligations, claims, or protection of rights and safety, or during a business transfer, subject to safeguards and required notice.
 
-| Recipient or technology                                                                         | Role and information involved                                                                                                                                                  |
-| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [Convex](https://www.convex.dev/privacy)                                                        | Backend hosting/database, account and authentication records, usage/quota, subscription and deletion records, technical logs, and cloud content in transit/processing          |
-| Better Auth                                                                                     | Authentication software running with our backend; account, session, verification, and provider-token records, rather than a separate sign-in advertising service               |
-| [Cloudflare](https://www.cloudflare.com/privacypolicy/)                                         | Workers AI translation and AI Gateway routing for respelling; text, languages, output, technical request information, and gateway logs/caches where enabled                    |
-| [OpenAI](https://openai.com/policies/privacy-policy/)                                           | Cloud respelling through the API; text, languages, instructions, output, and technical information; see [API data controls](https://platform.openai.com/docs/guides/your-data) |
-| [Hugging Face](https://huggingface.co/privacy) and its download infrastructure                  | Local-model files; IP address, model/file requested, and download-request metadata, not local translation content                                                              |
-| [RevenueCat](https://www.revenuecat.com/privacy/)                                               | Customer identifiers, purchases/receipts, products, entitlements, subscription status, webhook events, and SDK technical information                                           |
-| [Apple](https://www.apple.com/legal/privacy/) and [Google](https://policies.google.com/privacy) | Sign-in data and app-store purchases; store payment/account information under their own control                                                                                |
-| [Resend](https://resend.com/legal/privacy-policy)                                               | Deletion verification emails and delivery metadata; operational notification emails that can contain relevant account/event identifiers and error information                  |
-| Website hosting, network, and support providers                                                 | Page/request metadata, security logs, and correspondence needed to deliver the website and support service                                                                     |
+## 6. International Processing
 
-We may disclose necessary data to professional advisers, authorities, or other parties to comply with valid legal process, protect rights and safety, or establish or defend legal claims. A merger or transfer of the business may involve personal data, subject to applicable safeguards and notice requirements; it does not authorize unrelated new uses without the required legal basis.
+Our providers may process data in the United States and other countries where they and their subprocessors operate. Local laws and government-access rules may differ; cloud data is not guaranteed to stay in your country.
 
----
+Transfers requiring safeguards must use an applicable adequacy decision, standard contractual clauses with required UK/Swiss provisions, or another locally authorized mechanism. A provider's Data Privacy Framework certification applies only if current and relevant; SAPO does not claim its own certification. Locally required transfer consent or other conditions remain necessary. Contact our privacy address for processing locations and applicable safeguards, including copies subject to necessary redactions.
 
-## 8. Open Phonetic Database
+## 7. Retention
 
-A portion of SAPO's revenue will be used to develop an open phonetic database containing mappings of phonetic respellings between languages. This funding does not make your submitted text a public contribution. We do not publish your identifiable input or output in that database merely because you use SAPO. Any separate contribution feature would require its own clear information and any legally required permission.
+We retain data only as needed for the purposes described, taking account of account status, subscriptions, security, disputes, legal duties, and deletion requests. Where a fixed period is unavailable, these criteria determine retention.
 
----
+| Data                                                                      | Retention and deletion                                                                                                                                                                                                                   |
+| ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Input, previews, and output                                               | In app/runtime memory; no persistent translation history. Cloud provider logs/caches follow section 2 and configured controls rather than an assumed automatic deletion period                                                           |
+| Models and verification files                                             | Until removed in local-model settings or evicted by the OS; interrupted downloads may leave partial files                                                                                                                                |
+| Secure account/subscription caches                                        | Replaced as confirmed state changes and cleared through sign-out/account cleanup, subject to OS storage/backup behavior                                                                                                                  |
+| Account, authentication, usage, quota, and subscription records           | For account operation and the purposes above; account deletion removes associated records except the limited exceptions below. Earlier anonymous records follow the same criteria or a verified deletion request                         |
+| Preserved subscription quota after deletion                               | User ID removed; subscription/period identifiers and counters may remain to prevent quota resets. Frozen records become eligible for daily cleanup 60 days after the quota period ends; they are pseudonymous, not necessarily anonymous |
+| Backend RevenueCat webhook records                                        | Terminal records become eligible for daily cleanup 90 days after their last update; unresolved/retry records remain until resolved                                                                                                       |
+| Operational alerts                                                        | Resolved alerts become eligible for daily cleanup 90 days after resolution; unresolved alerts remain for investigation/recovery                                                                                                          |
+| Convex transactional email records                                        | Daily cleanup retains finalized emails for one week and abandoned emails for four weeks; Resend's records are governed separately                                                                                                        |
+| Deletion records                                                          | Until cleanup and necessary retry/recovery complete                                                                                                                                                                                      |
+| Other request/security logs, backups, support, and privacy correspondence | For delivery, security, recovery, response handling, legal duties, or disputes, under the relevant retention/deletion cycles                                                                                                             |
 
-## 9. International Processing
+Batches, outages, retries, and legal holds can delay cleanup. Retained exceptions are limited to their necessary purpose. Backups and providers may take additional time to expire; stores may retain legally required transaction records. Browser history and clipboard or external copies follow the relevant device/browser controls.
 
-Happ Technologies Inc. is based in the United States. Our cloud, authentication, subscription, email, and download providers may process information in the United States and other countries where they and their subprocessors operate. Cloud use does not guarantee that data remains in your country. Overseas laws and government-access rules may differ from those where you live.
+## 8. Deletion And Your Controls
 
-Where a transfer requires safeguards, applicable mechanisms can include an adequacy decision, European Commission standard contractual clauses with relevant UK or Swiss provisions, or another locally authorized mechanism. A provider's Data Privacy Framework certification can be relied upon only if current and applicable to that transfer; SAPO does not claim its own certification. Where local law requires separate transfer consent, assessments, or other conditions, those requirements must also be met; accepting this Policy is not a waiver of them.
+**In-app deletion:** Go to **Settings > Data controls > Delete account** and request the verification email. Open the link on a device with SAPO installed and signed in to the requesting account. An expired link, browser, or different account can prevent completion.
 
-Contact [support@sapo.surf](mailto:support@sapo.surf) for information about the recipients, processing locations, and applicable safeguards for your data, including a copy of relevant safeguards subject to necessary redactions.
+**Outside the app:** Use the [Delete account page](/delete-account) or email [support@sapo.surf](mailto:support@sapo.surf) with **SAPO Account Deletion** and your account email, including if you cannot access the app. We may require proportionate identity verification. Do not send passwords or sign-in tokens.
 
----
+Deletion removes the account and authentication data and starts background cleanup of related subscription, usage, quota, and event records, with RevenueCat customer deletion and revocation of available Apple sign-in tokens. Limited records remain as described in section 7. Failed cleanup is retried; contact support for status.
 
-## 10. Retention
+**Account deletion does not cancel an app-store subscription.** You do not need to cancel before requesting deletion, but must manage billing through [Apple](https://apps.apple.com/account/subscriptions) or [Google Play](https://play.google.com/store/account/subscriptions). Deletion ends account-based access. You may request deletion of particular data without closing the account where law permits, although some data is necessary for continued features.
 
-We keep data for the purposes described here, taking account of account status, active subscriptions, legal duties, security incidents, disputes, and deletion requests. Where no fixed period is stated, these are the criteria used to determine retention; it does not mean all records automatically expire after a short period.
+Remove models in local-model settings, sign out for account-cache cleanup, and use device/browser controls for local copies. Server deletion does not erase every device, backup, clipboard, or store record. For older anonymous-session records, contact us with available identifying information; we may be unable to locate records that cannot reasonably be linked to you.
 
-| Data                                                      | Retention and deletion                                                                                                                                                                                                                                                   |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Local input and output                                    | In app/runtime memory during use; no persistent translation-history feature                                                                                                                                                                                              |
-| Downloaded models and verification files                  | Until removed using local-model controls or evicted from the app cache by the operating system; partial files can remain after interrupted downloads                                                                                                                     |
-| Secure account/subscription caches                        | Replaced as confirmed state changes and cleared by sign-out/account-state cleanup; OS secure-storage and backup behavior may affect residual copies                                                                                                                      |
-| Account, provider-token, and session records              | For account operation; sessions/tokens expire or are invalidated as applicable, and account deletion removes associated authentication records                                                                                                                           |
-| Legacy anonymous records                                  | Until deleted through applicable cleanup or a verified request, subject to the same necessity and legal-retention criteria                                                                                                                                               |
-| Cloud content                                             | Not saved as translation history in our application database; provider logs/caches may outlast the request as explained in section 4. Gateway storage depends on configured deletion and storage controls, not an assumed automatic time limit                           |
-| Cloud usage events, quota, and subscription state         | For account operation, quota enforcement, subscription integrity, security, and disputes; account deletion removes associated records except limited preserved records described below                                                                                   |
-| Preserved subscription quota after deletion               | User ID is removed, but store subscription/period identifiers and counters may remain to prevent quota resets on re-registration. Frozen records become eligible for daily cleanup 60 days after the quota period ends; they are pseudonymous, not necessarily anonymous |
-| Terminal RevenueCat webhook records in our backend        | Eligible for daily cleanup after 90 days based on the record's last update; unresolved/retry records may remain until resolved. These are separate from records retained by RevenueCat or the store                                                                      |
-| Operational alerts                                        | Resolved alerts become eligible for daily cleanup 90 days after resolution; unresolved alerts remain for investigation/recovery                                                                                                                                          |
-| Transactional email records in our Convex email component | Daily cleanup uses one-week retention for finalized emails and four-week retention for abandoned emails; Resend's own records are governed separately                                                                                                                    |
-| Deletion queue                                            | Until cleanup completes, including any necessary retry/recovery period                                                                                                                                                                                                   |
-| Other logs, backups, support, and privacy correspondence  | For delivery, security, recovery, response handling, legal duties, or disputes, according to the relevant system's retention/deletion cycles                                                                                                                             |
+## 9. Privacy Rights And Requests
 
-Scheduled cleanup is not instantaneous: batches, outages, retries, and legal holds can delay removal. Retained exceptions are limited to their necessary purpose. Backups and provider systems may take additional time to expire; stores may retain transaction records under their own legal duties even after your SAPO account is deleted.
+Depending on applicable law, you may confirm processing, access your data and its sources/recipients, correct it, obtain a portable copy, delete it, restrict or object to processing, withdraw consent, and complain to a regulator. Local rights may also include anonymizing or blocking unnecessary/unlawful data, limiting qualifying sensitive-data processing, appointing an agent or nominee, or reviewing certain automated decisions.
 
----
+Send requests to [support@sapo.surf](mailto:support@sapo.surf) with enough information to locate your records. No new account is required. Authorized agents may act with proof of authority, and proportionate verification may be required. Verification information is used for verification/security only.
 
-## 11. Account Deletion And Your Controls
+We respond within applicable legal deadlines and notify you of permitted extensions. Requests are normally free; we charge or refuse only where law permits and explain any refusal and available remedies. We do not unlawfully discriminate or retaliate for exercising rights.
 
-**In the app:** Go to **Settings > Data controls > Delete account** and request the verification email. Open its deletion link on a device with SAPO installed and signed in to the account that requested deletion. A browser, expired link, or different account can prevent the automated flow from completing.
+To appeal, reply to our decision or email **Privacy Appeal** to the same address. We respond within the applicable appeal deadline and explain further remedies. You may complain directly to your competent privacy regulator where permitted, including an EEA supervisory authority, the UK ICO, or your local national/state authority. You may ask about the consequences of refusing or withdrawing consent. Regional rights apply where the relevant law covers our processing.
 
-**Outside the app:** Visit [sapo.surf/delete-account](/delete-account) or email [support@sapo.surf](mailto:support@sapo.surf) with the subject **SAPO Account Deletion** and the account email. You can use this method without reinstalling the app, including if you cannot access your account. We may need proportionate verification; do not send passwords, sign-in tokens, or a copy of an identity document unless specifically requested through an appropriate process.
+## 10. Advertising And U.S. State Disclosures
 
-Account deletion removes the account and associated authentication data and initiates background cleanup of subscription state, usage events, quota records, and related event references. The workflow coordinates RevenueCat customer deletion and revocation of available Sign in with Apple tokens. Limited records may remain for the purposes and periods in section 10. Failed cleanup is retried and may require operational intervention. Contact us for deletion status or if confirmation fails.
+We do not sell personal data, share it for cross-context behavioral advertising, use it for direct marketing, serve ads, or use third-party advertising or general-purpose analytics SDKs in the current app. We do not offer financial incentives for personal information or use sensitive information to infer characteristics about you. Sensitive information is used only for requested services and legally permitted operational purposes.
 
-**You do not have to cancel your subscription before requesting deletion.** However, deletion does not cancel store billing, and the deleted account can no longer provide account-based access. Manage or cancel billing directly with your store. You may also request deletion of particular personal data without closing your account where applicable; some data is necessary to continue providing account features.
+Relevant categories during the current/prior policy period include identifiers, customer-record information, commercial information, internet/electronic activity, user content, provider-supplied profile images, and sensitive information in authentication credentials or voluntarily submitted text. Sections 1, 4, 5, and 7 describe sources, purposes, recipients, and retention. Disclosures are for those operational/business purposes. We do not sell or share for advertising information about people under 16.
 
-For local data, remove models in **Settings > Local models**, sign out to trigger account-cache cleanup, and use your device or browser data controls as appropriate. Server account deletion does not remotely erase every device, operating-system backup, or store record. For records from an older anonymous session, contact us with the limited identifying information you have; we may be unable to locate records that cannot reasonably be linked to you.
+We honor legally required opt-out signals, including Global Privacy Control where applicable. No advertising opt-out is needed to stop activities we do not conduct; Do Not Track does not otherwise change essential service processing. Applicable state rights, agents, sensitive-data limitations, and appeals follow section 9.
 
----
+## 11. Security, Children, And Automated Processing
 
-## 12. Privacy Rights And Requests
+We use encrypted transport, OS secure storage for native authentication/account caches, access controls, server-side authorization, and operational monitoring. No system is completely secure. We provide legally required breach notifications.
 
-Subject to applicable law and its exceptions, you may have rights to confirm processing, access your data and information about its sources and recipients, correct inaccurate data, obtain a portable copy, delete data, restrict or object to processing, withdraw consent, and complain to a regulator. Some laws also provide rights to anonymize or block unnecessary/unlawfully processed data, obtain information about specific recipients, nominate a person to exercise rights, or request review of certain automated decisions.
+SAPO is not directed to children under 13 or intended for people below the age at which they may lawfully use it and authorize the relevant processing. Users under 18 also need parental permission; a store rating does not replace local requirements. We do not offer verified parental-consent enrollment or knowingly collect personal data from children below the applicable minimum age. If this occurs, contact us to investigate and delete the data or take other required action. Parents/guardians may submit verified privacy requests.
 
-Send requests to [support@sapo.surf](mailto:support@sapo.surf). State the request and enough information to locate the relevant account or records. You do not need to create an account to submit a request. An authorized agent may contact us with evidence of authority; we may also verify the person represented where lawful. Verification information is used for verification and security, not unrelated purposes.
+AI generates translations and pronunciation respellings and may detect input language. Automated systems check access, quotas, subscriptions, deletion status, and abuse. We do not use personal data for solely automated decisions producing legal or similarly significant effects, targeted advertising, or profiling with such effects. Contact support to contest an incorrect access/subscription decision.
 
-We respond within the period required by the law that applies to your request. For example, GDPR/UK GDPR requests generally receive a response within one month, with a permitted extension of up to two further months for complexity or number of requests after timely notice. Applicable U.S. state access, correction, and deletion requests generally have a 45-day response period, with extensions only where permitted. Under Brazil's LGPD, confirmation/access can be provided immediately in simplified form or by a full declaration within 15 days. Other jurisdictions and request types may require shorter periods, which take precedence.
+## 12. Changes And Contact
 
-Requests are normally free. We charge or refuse only where applicable law permits it and explain the reason. If we cannot fulfill all or part of a request, we explain the applicable reason and available review or complaint options. We will not unlawfully discriminate or retaliate against you for exercising privacy rights.
-
-**Appeals and complaints:** Reply to our decision or email the same address with **Privacy Appeal** to request reconsideration. We respond within the applicable appeal deadline and explain further remedies. You can also complain to your competent authority, without first contacting us where the law permits: for example, an EEA supervisory authority, the UK ICO, Swiss FDPIC, Brazil's ANPD, Canadian federal/provincial privacy commissioner, Australia's OAIC, New Zealand's Privacy Commissioner, South Africa's Information Regulator, or your U.S. state attorney general/privacy regulator. Residents of other countries retain the rights and complaint channels available under their local law.
-
-For Canada and other consent-based regimes, you may ask about the consequences of refusing or withdrawing consent; we do not make optional processing a condition of unrelated services. Regional rights apply when the relevant law covers our processing, rather than solely because that law is named here.
-
----
-
-## 13. U.S. State Disclosures
-
-The categories relevant to current practices and the prior policy period include identifiers (name, email, account and network identifiers); customer-record information (such as name/email); commercial information (subscription and purchase records); internet/electronic activity (requests, usage, diagnostics); user content; and sensitive information where present in authentication credentials or voluntarily submitted content. A provider-supplied profile image is also processed if supplied. Sources, purposes, recipients, and retention criteria are described in sections 2, 6, 7, and 10. Earlier versions also used anonymous identifiers.
-
-We disclose these categories for the business purposes described, such as hosting, AI processing, authentication, billing, security, and support. We do not collect precise geolocation, biometric identifiers, or health information as dedicated features, or create advertising profiles. Sensitive content can nevertheless be included in text you submit. We do not use sensitive information to infer characteristics about you or for purposes beyond providing requested services and other legally permitted operational purposes.
-
-We do not sell personal information or share it for cross-context behavioral advertising, including information about people under 16. We do not offer financial incentives in exchange for personal information. You may exercise applicable rights to know/access, correct, delete, port, appeal, use an agent, or limit qualifying sensitive-data processing through section 12. We do not conduct targeted advertising or profiling that produces legal or similarly significant effects.
-
-**Global Privacy Control and Do Not Track:** We do not conduct the sale, advertising sharing, or cross-site advertising tracking these signals commonly address. No advertising opt-out is needed to stop those activities in the current service. We honor applicable legally required opt-out signals; browser Do Not Track does not otherwise change essential service processing.
-
----
-
-## 14. Security
-
-Safeguards include encrypted network transport, operating-system secure storage for native authentication/account caches, access controls, server-side authorization, and operational monitoring. Local-model files are app-cache files, not authentication secrets. No transmission or storage system can be guaranteed completely secure. Where a personal-data breach requires notification, we will notify affected people and/or authorities as required by applicable law.
-
----
-
-## 15. Children And Teens
-
-SAPO is a general-audience service, not directed to children under 13. It is not intended for people below the age at which they may lawfully use the service and authorize the relevant data processing in their location. A store age rating does not replace those requirements. Users under 18 must have a parent or guardian's permission and must still meet applicable minimum-age requirements. We do not offer a verified parental-consent enrollment process.
-
-We do not knowingly collect personal data from children below the applicable minimum age. If you believe this has happened, contact [support@sapo.surf](mailto:support@sapo.surf) so we can investigate and delete the data or take other legally required action. A parent or guardian may submit a child's privacy request subject to appropriate verification.
-
----
-
-## 16. Automated Processing
-
-AI generates translations and respellings. Automated systems also validate requests, enforce quotas, check subscriptions, and restrict access during deletion or abuse prevention. We do not use personal data for solely automated decisions producing legal or similarly significant effects on you. Contact support to contest an incorrect access or subscription decision. AI output may be inaccurate and should not be relied on for medical, legal, financial, emergency, or safety-critical decisions.
-
----
-
-## 17. Changes And Contact
-
-We update this Policy when practices or requirements change and revise the effective date/version. For material changes, we provide the notice required by applicable law and obtain fresh consent where required before the relevant new processing. Continued use alone is not consent to a new purpose that requires separate permission.
+We update the date/version when practices change, give required notice of material changes, and obtain fresh consent where required before new processing. Continued use alone is not consent to a new purpose requiring permission.
 
 **Controller:** Happ Technologies Inc., United States.
 
-**Privacy and support:** [support@sapo.surf](mailto:support@sapo.surf).
-
-**Account deletion:** [Instructions and external request option](/delete-account).
-
-Do not send requests to **donotreply@sapo.surf**, which sends transactional email and is not the privacy contact. Contact support if you need this Policy or help exercising rights in an accessible format.
+**Privacy and support:** [support@sapo.surf](mailto:support@sapo.surf). Use this address for questions, rights requests, complaints, or an accessible copy. **donotreply@sapo.surf** sends transactional email and is not the privacy contact.
