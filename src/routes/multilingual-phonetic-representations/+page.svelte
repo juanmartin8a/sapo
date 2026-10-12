@@ -6,6 +6,7 @@
 	import { onMount, untrack } from 'svelte';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import type { Language, Pronunciation, PronunciationPage } from '#lib/pronunciations.js';
+	import { fetchData } from '#lib/fetchData.js';
 	const filters = [
 		{ key: 'source', label: 'Source language' },
 		{ key: 'target', label: 'Target language' }
@@ -32,14 +33,6 @@
 
 	const languageNames = $derived(new Map(languages.map((l) => [l.language_code, l.name])));
 	const nameFor = (code: string) => languageNames.get(code) ?? code;
-
-	async function fetchData<T>(url: string, signal: AbortSignal): Promise<T> {
-		const response = await fetch(url, {
-			signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)])
-		});
-		if (!response.ok) throw new Error('Database request failed.');
-		return response.json();
-	}
 
 	async function loadLanguages() {
 		languagesRequest?.abort();

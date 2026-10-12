@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { InvalidPronunciationQuery } from './pronunciations.ts';
+import { DatabaseCapacityError } from './turso-client.ts';
 
 export async function databaseResponse(query: () => Promise<unknown>, maxAge: number) {
 	try {
@@ -11,6 +12,7 @@ export async function databaseResponse(query: () => Promise<unknown>, maxAge: nu
 		});
 	} catch (error) {
 		const invalid = error instanceof InvalidPronunciationQuery;
+		const overloaded = error instanceof DatabaseCapacityError;
 		// SDK errors can contain upstream responses or credentials. Do not expose them.
 		return json(
 			{
@@ -18,7 +20,7 @@ export async function databaseResponse(query: () => Promise<unknown>, maxAge: nu
 			},
 			{
 				status: invalid ? 400 : 503,
-				headers: { 'Cache-Control': 'no-store' }
+				headers: { 'Cache-Control': 'no-store', ...(overloaded ? { 'Retry-After': '1' } : {}) }
 			}
 		);
 	}

@@ -13,14 +13,64 @@ import { databaseResponse } from './database-response.ts';
 const db = createClient({ url: ':memory:' });
 after(() => db.close());
 
-// A minimal fixture matching sapo-mpr/database/schema.sql, including the seek index.
+// Full schema snapshot from sapo-mpr/database/schema.sql, including all indexes.
 await db.executeMultiple(`
-	CREATE TABLE languages (id TEXT PRIMARY KEY, created_at REAL, language_code TEXT, name TEXT);
-	CREATE UNIQUE INDEX languages_by_language_code ON languages(language_code);
-	CREATE TABLE entries (id TEXT PRIMARY KEY, created_at REAL, orthographic_form TEXT, frequency REAL, language_id TEXT);
-	CREATE TABLE phonetic_transcriptions (id TEXT PRIMARY KEY, created_at REAL, entry_id TEXT, type TEXT, transcription TEXT);
-	CREATE TABLE pronunciation_respellings (id TEXT PRIMARY KEY, created_at REAL, entry_id TEXT, phonetic_transcription_id TEXT, target_language_id TEXT, type TEXT, respelling TEXT, source_language_id TEXT);
-	CREATE INDEX pronunciation_respellings_by_source_and_target ON pronunciation_respellings(source_language_id, target_language_id, created_at, id);
+	PRAGMA foreign_keys = ON;
+	CREATE TABLE IF NOT EXISTS languages (
+	    id TEXT PRIMARY KEY NOT NULL,
+	    created_at REAL NOT NULL,
+	    language_code TEXT NOT NULL,
+	    name TEXT NOT NULL
+	);
+
+	CREATE TABLE IF NOT EXISTS entries (
+	    id TEXT PRIMARY KEY NOT NULL,
+	    created_at REAL NOT NULL,
+	    orthographic_form TEXT NOT NULL,
+	    frequency REAL NOT NULL,
+	    language_id TEXT NOT NULL REFERENCES languages(id)
+	);
+
+	CREATE TABLE IF NOT EXISTS phonetic_transcriptions (
+	    id TEXT PRIMARY KEY NOT NULL,
+	    created_at REAL NOT NULL,
+	    entry_id TEXT NOT NULL REFERENCES entries(id),
+	    type TEXT NOT NULL CHECK (type = 'ipa'),
+	    transcription TEXT NOT NULL,
+	    UNIQUE (id, entry_id)
+	);
+
+	CREATE TABLE IF NOT EXISTS pronunciation_respellings (
+	    id TEXT PRIMARY KEY NOT NULL,
+	    created_at REAL NOT NULL,
+	    entry_id TEXT NOT NULL REFERENCES entries(id),
+	    phonetic_transcription_id TEXT NOT NULL,
+	    target_language_id TEXT NOT NULL REFERENCES languages(id),
+	    type TEXT NOT NULL CHECK (type IN ('cross-lingual', 'intralingual')),
+	    respelling TEXT NOT NULL,
+	    source_language_id TEXT NOT NULL REFERENCES languages(id),
+	    FOREIGN KEY (phonetic_transcription_id, entry_id)
+	        REFERENCES phonetic_transcriptions(id, entry_id),
+	    CHECK (
+	        (type = 'intralingual' AND source_language_id = target_language_id)
+	        OR (type = 'cross-lingual' AND source_language_id <> target_language_id)
+	    )
+	);
+
+	CREATE UNIQUE INDEX IF NOT EXISTS languages_by_language_code
+	    ON languages(language_code);
+	CREATE INDEX IF NOT EXISTS entries_by_orth
+	    ON entries(orthographic_form);
+	CREATE INDEX IF NOT EXISTS entries_by_language_and_orth
+	    ON entries(language_id, orthographic_form, id);
+	CREATE INDEX IF NOT EXISTS phonetic_transcriptions_by_entry
+	    ON phonetic_transcriptions(entry_id);
+	CREATE UNIQUE INDEX IF NOT EXISTS pronunciation_respellings_unique_target
+	    ON pronunciation_respellings(phonetic_transcription_id, target_language_id);
+	CREATE INDEX IF NOT EXISTS pronunciation_respellings_by_source_and_target
+	    ON pronunciation_respellings(source_language_id, target_language_id, created_at, id);
+	CREATE INDEX IF NOT EXISTS pronunciation_respellings_by_entry
+	    ON pronunciation_respellings(entry_id);
 	INSERT INTO languages VALUES ('en', 0, 'en', 'English'), ('es', 0, 'es', 'Spanish'), ('fr', 0, 'fr', 'French');
 `);
 
@@ -144,6 +194,56 @@ test('both initial and cursor queries use the pair index without a temporary sor
 			},
 			input
 		);
+	}
+});
+
+test('an exactly full final page has no next cursor', async () => {
+	const tx = await db.transaction('write');
+	try {
+		for (let i = 1; i < 50; i++) {
+			const entry = `r${String(i).padStart(3, '0')}`;
+			await tx.execute({
+				sql: "INSERT INTO pronunciation_respellings VALUES (?, 1, ?, ?, 'fr', 'cross-lingual', 'guide', 'en')",
+				args: [`f${i}`, entry, entry]
+			});
+		}
+		const result = await listPronunciations(tx, query('en', 'fr'));
+		assert.equal(result.page.length, 50);
+		assert.equal(result.nextCursor, null);
+	} finally {
+		await tx.rollback();
+		tx.close();
+	}
+});
+
+test('pagination survives deletion of its boundary row and includes later inserts', async () => {
+	const tx = await db.transaction('write');
+	try {
+		const first = await listPronunciations(tx, query());
+		assert.ok(first.nextCursor);
+		await tx.execute({
+			sql: 'DELETE FROM pronunciation_respellings WHERE id = ?',
+			args: [first.page.at(-1)!.id]
+		});
+		await tx.execute(
+			"INSERT INTO phonetic_transcriptions VALUES ('new-ipa', 4, 'r000', 'ipa', '/new/')"
+		);
+		await tx.execute(
+			"INSERT INTO pronunciation_respellings VALUES ('new-row', 4, 'r000', 'new-ipa', 'es', 'cross-lingual', 'new', 'en')"
+		);
+		const second = await listPronunciations(tx, query('en', 'es', first.nextCursor));
+		assert.equal(second.page[0].id, 'r050');
+		assert.ok(second.nextCursor);
+		const last = await listPronunciations(tx, query('en', 'es', second.nextCursor));
+		assert.equal(last.page.at(-1)!.id, 'new-row');
+		assert.equal(last.nextCursor, null);
+		assert.equal(
+			new Set([...first.page, ...second.page, ...last.page].map((row) => row.id)).size,
+			104
+		);
+	} finally {
+		await tx.rollback();
+		tx.close();
 	}
 });
 

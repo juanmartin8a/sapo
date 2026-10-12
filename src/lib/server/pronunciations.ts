@@ -1,9 +1,9 @@
 import { Buffer } from 'node:buffer';
-import type { Client, InValue, Row } from '@libsql/client';
+import type { InValue, Row } from '@libsql/client';
+import type { Database } from './turso-client.ts';
 import type { Language, Pronunciation, PronunciationPage } from '../pronunciations.ts';
 
 const PAGE_SIZE = 50;
-type Database = Pick<Client, 'execute'>;
 type Position = { createdAt: number; id: string };
 export type PronunciationQuery = {
 	source: string;

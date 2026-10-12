@@ -49,7 +49,7 @@ Do not expose either variable through public environment configuration. Remove t
 old `PUBLIC_CONVEX_URL`; Convex is no longer a website dependency.
 
 The pages remain prerendered. The pronunciation browser calls the same-origin
-`/api/languages/` and `/api/pronunciations/?source=en&target=es` endpoints, which
+`/api/languages` and `/api/pronunciations?source=en&target=es` endpoints, which
 query Turso on the server through `@libsql/client/http`. Pronunciations use a fixed
 50-row page and a pair-bound `cursor` returned as `nextCursor` (null on the last
 page). Pagination seeks by `(created_at, id)` using the existing pair index instead
@@ -59,7 +59,10 @@ appear on subsequent pages; it is not a database snapshot.
 Successful API responses cache in the browser for 60 seconds and in shared caches
 for 5 minutes (pronunciations) or 1 hour (languages), with 60 seconds of stale
 revalidation. Errors are not cached and never expose upstream SDK messages.
-Database HTTP requests time out after 8 seconds and reject redirects.
+Database HTTP requests time out after 8 seconds and reject redirects. Each server
+instance admits at most 20 concurrent reads; excess requests receive an uncached
+503 with `Retry-After: 1` rather than waiting in an unbounded SDK queue. Browser
+requests have a 15-second deadline and cancel when their filters change.
 
 Once you've installed dependencies, start a development server:
 
