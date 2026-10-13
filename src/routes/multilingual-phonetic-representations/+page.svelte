@@ -139,6 +139,9 @@
 
 <section aria-label="Multilingual phonetic representations">
 	<PageHeading title="Multilingual phonetic representations" frog />
+	<a class="resource-link" href={resolve('multilingual-phonetic-representations/about/')}
+		>About this database <span aria-hidden="true">→</span></a
+	>
 </section>
 
 <section aria-label="Filters" class="filters">

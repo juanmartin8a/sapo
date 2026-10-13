@@ -1,8 +1,8 @@
 # S A P O Terms of Use
 
-**Effective Date:** 2026-10-07
+**Effective Date:** 2026-10-13
 
-**Version:** 3
+**Version:** 4
 
 These Terms are an agreement between you and **Happ Technologies Inc.**, a Delaware C corporation (**SAPO**, **we**, **us**, or **our**), for the S A P O app, cloud services, subscriptions, websites, and Multilingual phonetic representations database (the **Service**).
 
@@ -67,11 +67,15 @@ The Privacy Policy and applicable law control any conflict about privacy or data
 
 A portion of SAPO's revenue will be used to develop **Multilingual phonetic representations**, our open phonetic database of written forms, phonetic transcriptions (including the International Phonetic Alphabet, or IPA), and pronunciation respellings across languages. Browse available entries on the [database page](/multilingual-phonetic-representations); coverage may expand over time.
 
-Using the app does not contribute your input, intermediate translation, or output to the public database. The current browser is read-only. Funding the database does not give subscribers ownership, governance, or revenue rights. SAPO determines its development and release process. Any published dataset license governs the data it covers and takes precedence over these Terms for that data; public access alone does not establish a particular license.
+Using the app does not contribute your input, intermediate translation, or output to the public database. The current browser is read-only. Funding the database does not give subscribers ownership, governance, or revenue rights. SAPO determines its development and release process.
+
+MPR publishes its database under [Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)](https://creativecommons.org/licenses/by-sa/4.0/). This covers its language records, word entries, frequencies, IPA transcriptions, pronunciation respellings, and MPR's rights in the database compilation. See [About the database](/multilingual-phonetic-representations/about/) and [Data sources & attribution](/multilingual-phonetic-representations/about/attribution/) for details and source credits. The applicable data licenses take precedence over these Terms for the material they cover.
 
 ## 7. Acceptable Use
 
 Do not use the Service to violate law or others' rights, submit unlawful or harmful content, compromise accounts or security, overload the Service, or evade quotas and subscription checks. Automated access, scraping, resale, or commercial exploitation requires permission unless an applicable license permits it. These restrictions do not override rights granted by law or an open-source or dataset license.
+
+Reuse of MPR data under CC BY-SA 4.0 does not require separate permission from SAPO.
 
 Report harmful or unlawful output or other concerns to [support@sapo.surf](mailto:support@sapo.surf), providing only the information needed to investigate.
 

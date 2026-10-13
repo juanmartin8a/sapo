@@ -73,6 +73,26 @@ bun run dev
 bun run dev --open
 ```
 
+## Database documentation and attribution
+
+The browser links to `/multilingual-phonetic-representations/about/`, which explains
+the database, generation process, limitations, and CC BY-SA 4.0 data license.
+Full upstream credits are published at
+`/multilingual-phonetic-representations/about/attribution/`. These pages are
+prerendered using the existing Markdown document component. Their sources are
+`src/lib/content/database-about.md` and `src/lib/content/database-attribution.md`.
+
+The attribution source is adapted from `ATTRIBUTION.md` in `sapo-mpr`. Keep its
+upstream notices and provenance details synchronized when the database attribution
+changes. Website links replace repository-relative links, and list items stay on
+one source line because the Markdown renderer does not support list continuations.
+
+Successful responses from both database API endpoints include a `Link` header
+with `rel="license"` pointing to CC BY-SA 4.0 and `rel="describedby"` pointing to
+the public attribution page. JSON response shapes are unchanged. When distributing
+database exports, retain the attribution, include the license or a link to it, and
+identify any changes to the data.
+
 ## Building
 
 To create a production version of your app:

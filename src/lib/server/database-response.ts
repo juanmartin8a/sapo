@@ -6,6 +6,7 @@ export async function databaseResponse(query: () => Promise<unknown>, maxAge: nu
 	try {
 		return json(await query(), {
 			headers: {
+				Link: '<https://creativecommons.org/licenses/by-sa/4.0/>; rel="license", <https://sapo.surf/multilingual-phonetic-representations/about/attribution/>; rel="describedby"',
 				'Cache-Control': `public, max-age=60, s-maxage=${maxAge}, stale-while-revalidate=60`,
 				'X-Content-Type-Options': 'nosniff'
 			}
