@@ -4,15 +4,9 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { onMount, untrack } from 'svelte';
-	import {
-		getConvexClient,
-		listByLanguagePairRef,
-		listLanguagesRef,
-		type Language,
-		type Pronunciation
-	} from '#lib/convex.js';
-
-	const PAGE_SIZE = 50;
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
+	import type { Language, Pronunciation, PronunciationPage } from '#lib/pronunciations.js';
+	import { fetchData } from '#lib/fetchData.js';
 	const filters = [
 		{ key: 'source', label: 'Source language' },
 		{ key: 'target', label: 'Target language' }
@@ -34,19 +28,24 @@
 	let requestedPage = 0;
 	let isDone = $state(true);
 	let requestId = 0;
+	let languagesRequest: AbortController | undefined;
+	let resultsRequest: AbortController | undefined;
 
 	const languageNames = $derived(new Map(languages.map((l) => [l.language_code, l.name])));
 	const nameFor = (code: string) => languageNames.get(code) ?? code;
 
 	async function loadLanguages() {
+		languagesRequest?.abort();
+		const controller = new AbortController();
+		languagesRequest = controller;
 		languagesStatus = 'loading';
 		try {
-			const result = await getConvexClient().query(listLanguagesRef, {});
-			if (!mounted) return;
+			const result = await fetchData<Language[]>(resolve('/api/languages'), controller.signal);
+			if (!mounted || controller.signal.aborted) return;
 			languages = result;
 			languagesStatus = 'ready';
 		} catch {
-			if (!mounted) return;
+			if (!mounted || controller.signal.aborted) return;
 			languagesStatus = 'error';
 		}
 	}
@@ -54,24 +53,28 @@
 	async function loadPage(index: number) {
 		const cursor = cursors[index];
 		if (!mounted || !source || !target || cursor === undefined) return;
+		resultsRequest?.abort();
+		const controller = new AbortController();
+		resultsRequest = controller;
 		const id = ++requestId;
 		requestedPage = index;
 		resultsStatus = 'loading';
 		try {
-			const result = await getConvexClient().query(listByLanguagePairRef, {
-				sourceLanguageCode: source,
-				targetLanguageCode: target,
-				paginationOpts: { numItems: PAGE_SIZE, cursor }
-			});
-			if (id !== requestId) return;
+			const params = new SvelteURLSearchParams({ source, target });
+			if (cursor !== null) params.set('cursor', cursor);
+			const result = await fetchData<PronunciationPage>(
+				`${resolve('/api/pronunciations')}?${params}`,
+				controller.signal
+			);
+			if (!mounted || id !== requestId || controller.signal.aborted) return;
 			rows = result.page;
-			isDone = result.isDone;
+			isDone = result.nextCursor === null;
 			pageIndex = index;
 			cursors = cursors.slice(0, index + 1);
-			if (!result.isDone) cursors.push(result.continueCursor);
+			if (result.nextCursor !== null) cursors.push(result.nextCursor);
 			resultsStatus = 'ready';
 		} catch {
-			if (id !== requestId) return;
+			if (!mounted || id !== requestId || controller.signal.aborted) return;
 			resultsStatus = 'error';
 		}
 	}
@@ -93,6 +96,9 @@
 		void loadLanguages();
 		return () => {
 			mounted = false;
+			requestId++;
+			languagesRequest?.abort();
+			resultsRequest?.abort();
 		};
 	});
 
@@ -113,6 +119,7 @@
 		});
 		return () => {
 			requestId++;
+			resultsRequest?.abort();
 		};
 	});
 
@@ -132,6 +139,9 @@
 
 <section aria-label="Multilingual phonetic representations">
 	<PageHeading title="Multilingual phonetic representations" frog />
+	<a class="resource-link" href={resolve('multilingual-phonetic-representations/about/')}
+		>About this database <span aria-hidden="true">→</span></a
+	>
 </section>
 
 <section aria-label="Filters" class="filters">
@@ -192,7 +202,7 @@
 						>
 					</thead>
 					<tbody>
-						{#each rows as row (row._id)}
+						{#each rows as row (row.id)}
 							<tr>
 								<td class="word"><bdi>{row.orthographic_form}</bdi></td>
 								<td class="language">{nameFor(row.source_language_code)}</td>
@@ -205,7 +215,7 @@
 				</table>
 			</div>
 			<ul class="mobile-results">
-				{#each rows as row (row._id)}
+				{#each rows as row (row.id)}
 					<li>
 						<p class="word"><bdi>{row.orthographic_form}</bdi></p>
 						<p class="language-pair">

@@ -14,8 +14,11 @@
 		<nav aria-label="Main navigation">
 			<a
 				href={resolve('multilingual-phonetic-representations/')}
-				aria-current={pathname === '/multilingual-phonetic-representations' ? 'page' : undefined}
-				>Database</a
+				aria-current={pathname === '/multilingual-phonetic-representations'
+					? 'page'
+					: pathname.startsWith('/multilingual-phonetic-representations/')
+						? 'location'
+						: undefined}>Database</a
 			>
 			<a
 				href={resolve('support/')}
@@ -105,7 +108,7 @@
 	a:hover {
 		opacity: 0.65;
 	}
-	nav a[aria-current='page'] {
+	nav a[aria-current] {
 		color: var(--ink);
 	}
 	.site-footer {
