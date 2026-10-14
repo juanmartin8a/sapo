@@ -24,6 +24,8 @@
 	let resultsStatus = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
 	// cursors[i] is the cursor that loads page i (page 0 starts at null).
 	let cursors: (string | null)[] = [null];
+	let pageOffsets = [0];
+	let rowOffset = $state(0);
 	let pageIndex = $state(0);
 	let requestedPage = 0;
 	let isDone = $state(true);
@@ -70,8 +72,13 @@
 			rows = result.page;
 			isDone = result.nextCursor === null;
 			pageIndex = index;
+			rowOffset = pageOffsets[index];
 			cursors = cursors.slice(0, index + 1);
-			if (result.nextCursor !== null) cursors.push(result.nextCursor);
+			pageOffsets = pageOffsets.slice(0, index + 1);
+			if (result.nextCursor !== null) {
+				cursors.push(result.nextCursor);
+				pageOffsets.push(rowOffset + rows.length);
+			}
 			resultsStatus = 'ready';
 		} catch {
 			if (!mounted || id !== requestId || controller.signal.aborted) return;
@@ -107,6 +114,8 @@
 		const hasPair = Boolean(source && target);
 		untrack(() => {
 			cursors = [null];
+			pageOffsets = [0];
+			rowOffset = 0;
 			pageIndex = 0;
 			requestedPage = 0;
 			rows = [];
@@ -195,12 +204,17 @@
 			<div class="desktop-results">
 				<table>
 					<thead>
-						<tr><th scope="col">Word</th><th scope="col">IPA</th><th scope="col">Respelling</th></tr
-						>
+						<tr>
+							<th scope="col" aria-label="Number">#</th>
+							<th scope="col">Word</th>
+							<th scope="col">IPA</th>
+							<th scope="col">Respelling</th>
+						</tr>
 					</thead>
 					<tbody>
-						{#each rows as row (row.id)}
+						{#each rows as row, index (row.id)}
 							<tr>
+								<td class="row-number">{rowOffset + index + 1}</td>
 								<td class="word"><bdi>{row.orthographic_form}</bdi></td>
 								<td class="ipa"><bdi>{row.ipa}</bdi></td>
 								<td><bdi>{row.respelling}</bdi></td>
@@ -210,9 +224,12 @@
 				</table>
 			</div>
 			<ul class="mobile-results">
-				{#each rows as row (row.id)}
+				{#each rows as row, index (row.id)}
 					<li>
-						<p class="word"><bdi>{row.orthographic_form}</bdi></p>
+						<p class="word">
+							<span class="row-number">{rowOffset + index + 1}.</span>
+							<bdi>{row.orthographic_form}</bdi>
+						</p>
 						<dl>
 							<dt>IPA</dt>
 							<dd class="ipa"><bdi>{row.ipa}</bdi></dd>
@@ -319,6 +336,13 @@
 		line-height: 1.2;
 		overflow-wrap: anywhere;
 	}
+	.row-number {
+		color: var(--muted);
+		font-family: inherit;
+		font-size: 13px;
+		font-variant-numeric: tabular-nums;
+		white-space: nowrap;
+	}
 	dt {
 		color: var(--muted);
 	}
@@ -343,6 +367,11 @@
 	}
 	.mobile-results p {
 		margin: 0;
+	}
+	.mobile-results .word {
+		display: flex;
+		align-items: baseline;
+		gap: 12px;
 	}
 	dl {
 		display: grid;
