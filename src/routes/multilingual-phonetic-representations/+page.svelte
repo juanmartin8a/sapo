@@ -195,18 +195,13 @@
 			<div class="desktop-results">
 				<table>
 					<thead>
-						<tr
-							><th scope="col">Word</th><th scope="col">Source</th><th scope="col">Target</th><th
-								scope="col">IPA</th
-							><th scope="col">Respelling</th></tr
+						<tr><th scope="col">Word</th><th scope="col">IPA</th><th scope="col">Respelling</th></tr
 						>
 					</thead>
 					<tbody>
 						{#each rows as row (row.id)}
 							<tr>
 								<td class="word"><bdi>{row.orthographic_form}</bdi></td>
-								<td class="language">{nameFor(row.source_language_code)}</td>
-								<td class="language">{nameFor(row.target_language_code)}</td>
 								<td class="ipa"><bdi>{row.ipa}</bdi></td>
 								<td><bdi>{row.respelling}</bdi></td>
 							</tr>
@@ -218,9 +213,6 @@
 				{#each rows as row (row.id)}
 					<li>
 						<p class="word"><bdi>{row.orthographic_form}</bdi></p>
-						<p class="language-pair">
-							{nameFor(row.source_language_code)} → {nameFor(row.target_language_code)}
-						</p>
 						<dl>
 							<dt>IPA</dt>
 							<dd class="ipa"><bdi>{row.ipa}</bdi></dd>
@@ -327,8 +319,6 @@
 		line-height: 1.2;
 		overflow-wrap: anywhere;
 	}
-	.language,
-	.language-pair,
 	dt {
 		color: var(--muted);
 	}
@@ -353,10 +343,6 @@
 	}
 	.mobile-results p {
 		margin: 0;
-	}
-	.mobile-results .language-pair {
-		margin-top: 8px;
-		font-size: 13px;
 	}
 	dl {
 		display: grid;
