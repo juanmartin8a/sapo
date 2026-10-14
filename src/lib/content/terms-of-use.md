@@ -22,7 +22,7 @@ SAPO translates text and generates **pronunciation respellings**, which represen
 
 **Translate and respell** mode (shown as **Translate & Respell**, enabled through **Translate first** in Respell mode) translates into your selected target language and then respells that translation using your selected respelling language. Choosing **Source** uses the original source language, detected where supported. The app may show a translation preview before respelling completes.
 
-Standalone cloud translation uses Cloudflare Workers AI through Convex. Pronunciation respelling and both stages of translate and respell mode use OpenAI through Cloudflare AI Gateway and Convex. The [Privacy Policy](/privacy-policy) describes the data sent to these providers.
+SAPO's backend uses Cloudflare Workers AI for standalone cloud translation. Pronunciation respelling and both stages of translate and respell mode use OpenAI through Cloudflare AI Gateway via SAPO's backend. The [Privacy Policy](/privacy-policy) describes the data sent to these providers.
 
 On compatible iOS and Android devices, you can download a model from Hugging Face and enable local translation. Local translation does not send the request to cloud AI or consume cloud quota. Pronunciation respelling and translate and respell mode remain cloud features even when local translation is enabled. Local-model errors do not automatically send your text to cloud AI. Local models require compatible hardware, memory, and storage; downloads use internet data, cached files may be removed, and inference can use significant battery and memory. Third-party model licenses apply.
 

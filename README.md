@@ -45,8 +45,7 @@ website token with `turso db tokens create <database-name> --read-only`.
 See [Turso's TypeScript SDK docs](https://docs.turso.tech/sdk/ts/quickstart) and
 [read-only tokens](https://docs.turso.tech/cli/db/tokens/create).
 
-Do not expose either variable through public environment configuration. Remove the
-old `PUBLIC_CONVEX_URL`; Convex is no longer a website dependency.
+Keep both Turso variables private and available only to the website's server.
 
 The pages remain prerendered. The pronunciation browser calls the same-origin
 `/api/languages` and `/api/pronunciations?source=en&target=es` endpoints, which

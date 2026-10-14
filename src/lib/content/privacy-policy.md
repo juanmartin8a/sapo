@@ -36,14 +36,14 @@ Models come from **Hugging Face** and its delivery infrastructure. The download 
 
 ### Cloud translation and pronunciation respelling
 
-Cloud requests send your text, language choices, operation, request ID, and authorization token to **Convex** for authentication, access checks, and processing. The backend sends text and language information with task instructions to:
+Cloud requests send your text, language choices, operation, request ID, and authorization token to **SAPO's backend** for authentication, access checks, and processing. The backend sends text and language information with task instructions to:
 
 - **Cloudflare Workers AI** for standalone cloud translation.
 - **OpenAI through Cloudflare AI Gateway** for pronunciation respelling and both stages of **translate and respell** mode.
 
-In translate and respell mode, OpenAI first translates the original text into your target language. Convex streams a preview to the app and sends the completed translation to OpenAI through the gateway for pronunciation respelling in your selected language. Choosing **Source** uses the original source language, detected by OpenAI where needed. Both stages run in the cloud even when local translation is enabled. An interrupted or failed translation does not start respelling.
+In translate and respell mode, OpenAI first translates the original text into your target language. SAPO's backend streams a preview to the app and sends the completed translation to OpenAI through the gateway for pronunciation respelling in your selected language. Choosing **Source** uses the original source language, detected by OpenAI where needed. Both stages run in the cloud even when local translation is enabled. An interrupted or failed translation does not start respelling.
 
-AI requests do not intentionally include your account name, email, purchase records, or session token. Personal information included in your text or generated translation is nevertheless sent to the relevant AI providers, and Convex can associate the request with your account. Cloud content is not necessarily anonymous.
+AI requests do not intentionally include your account name, email, purchase records, or session token. Personal information included in your text or generated translation is nevertheless sent to the relevant AI providers, and SAPO's backend can associate the request with your account. Cloud content is not necessarily anonymous.
 
 Our database records usage metadata, not a translation history of raw input, intermediate translations, or output. Combined requests use the original input character count in a single respelling usage event; limits and charging rules are in the [Terms of Use](/terms-of-use).
 
@@ -82,7 +82,7 @@ We disclose data for the purposes in this Policy and limit access to the relevan
 
 | Provider                                                                                        | Role and data involved                                                                                                                                   |
 | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Convex](https://www.convex.dev/privacy)                                                        | Backend/database; accounts, authentication, usage, subscription/deletion records, technical logs, and cloud content in processing                        |
+| SAPO backend hosting and database providers                                                     | Backend/database; accounts, authentication, usage, subscription/deletion records, technical logs, and cloud content in processing                        |
 | [Turso](https://turso.tech/privacy-policy)                                                      | Published pronunciation database hosting and backend database query metadata                                                                             |
 | Better Auth                                                                                     | Authentication software running in our backend; account, session, verification, and provider-token records                                               |
 | [Cloudflare](https://www.cloudflare.com/privacypolicy/)                                         | Workers AI and AI Gateway; text, languages, intermediate translations, output, request metadata, and logs/caches where enabled                           |
@@ -114,7 +114,7 @@ We retain data only as needed for the purposes described, taking account of acco
 | Preserved subscription quota after deletion                               | User ID removed; subscription/period identifiers and counters may remain to prevent quota resets. Frozen records become eligible for daily cleanup 60 days after the quota period ends; they are pseudonymous, not necessarily anonymous |
 | Backend RevenueCat webhook records                                        | Terminal records become eligible for daily cleanup 90 days after their last update; unresolved/retry records remain until resolved                                                                                                       |
 | Operational alerts                                                        | Resolved alerts become eligible for daily cleanup 90 days after resolution; unresolved alerts remain for investigation/recovery                                                                                                          |
-| Convex transactional email records                                        | Daily cleanup retains finalized emails for one week and abandoned emails for four weeks; Resend's records are governed separately                                                                                                        |
+| Backend transactional email records                                       | Daily cleanup retains finalized emails for one week and abandoned emails for four weeks; Resend's records are governed separately                                                                                                        |
 | Deletion records                                                          | Until cleanup and necessary retry/recovery complete                                                                                                                                                                                      |
 | Other request/security logs, backups, support, and privacy correspondence | For delivery, security, recovery, response handling, legal duties, or disputes, under the relevant retention/deletion cycles                                                                                                             |
 

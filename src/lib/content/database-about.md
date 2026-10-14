@@ -2,6 +2,8 @@
 
 Multilingual Phonetic Representations (MPR) connects words across languages with their IPA pronunciations and readable pronunciation guides. It is the open database behind SAPO's public pronunciation browser.
 
+The published database is hosted by Turso and uses a libSQL schema. The website's backend queries it to serve the pronunciation browser; browsing is read-only and does not require an account.
+
 ## What an entry contains
 
 A word can be written one way and pronounced another. MPR brings together the written word, its pronunciation in the International Phonetic Alphabet (IPA), and a pronunciation guide called a respelling.
