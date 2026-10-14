@@ -110,16 +110,22 @@ test('languages are projected and ordered by name', async () => {
 
 test('keyset pagination preserves ties, fractional timestamps, and IPA variants without duplicates', async () => {
 	const first = await listPronunciations(db, query());
-	assert.equal(first.page.length, 50);
+	assert.equal(first.page.length, 25);
 	assert.equal(first.page[0].id, 'r000');
 	assert.ok(first.nextCursor);
 	const second = await listPronunciations(db, query('en', 'es', first.nextCursor));
-	assert.equal(second.page.length, 50);
+	assert.equal(second.page.length, 25);
 	assert.ok(second.nextCursor);
-	const last = await listPronunciations(db, query('en', 'es', second.nextCursor));
+	const third = await listPronunciations(db, query('en', 'es', second.nextCursor));
+	assert.equal(third.page.length, 25);
+	assert.ok(third.nextCursor);
+	const fourth = await listPronunciations(db, query('en', 'es', third.nextCursor));
+	assert.equal(fourth.page.length, 25);
+	assert.ok(fourth.nextCursor);
+	const last = await listPronunciations(db, query('en', 'es', fourth.nextCursor));
 	assert.equal(last.page.length, 3);
 	assert.equal(last.nextCursor, null);
-	const rows = [...first.page, ...second.page, ...last.page];
+	const rows = [...first.page, ...second.page, ...third.page, ...fourth.page, ...last.page];
 	assert.equal(new Set(rows.map((row) => row.id)).size, 103);
 	assert.deepEqual(rows.at(-1), {
 		id: 'variant',
@@ -200,7 +206,7 @@ test('both initial and cursor queries use the pair index without a temporary sor
 test('an exactly full final page has no next cursor', async () => {
 	const tx = await db.transaction('write');
 	try {
-		for (let i = 1; i < 50; i++) {
+		for (let i = 1; i < 25; i++) {
 			const entry = `r${String(i).padStart(3, '0')}`;
 			await tx.execute({
 				sql: "INSERT INTO pronunciation_respellings VALUES (?, 1, ?, ?, 'fr', 'cross-lingual', 'guide', 'en')",
@@ -208,7 +214,7 @@ test('an exactly full final page has no next cursor', async () => {
 			});
 		}
 		const result = await listPronunciations(tx, query('en', 'fr'));
-		assert.equal(result.page.length, 50);
+		assert.equal(result.page.length, 25);
 		assert.equal(result.nextCursor, null);
 	} finally {
 		await tx.rollback();
@@ -232,15 +238,18 @@ test('pagination survives deletion of its boundary row and includes later insert
 			"INSERT INTO pronunciation_respellings VALUES ('new-row', 4, 'r000', 'new-ipa', 'es', 'cross-lingual', 'new', 'en')"
 		);
 		const second = await listPronunciations(tx, query('en', 'es', first.nextCursor));
-		assert.equal(second.page[0].id, 'r050');
+		assert.equal(second.page[0].id, 'r025');
 		assert.ok(second.nextCursor);
-		const last = await listPronunciations(tx, query('en', 'es', second.nextCursor));
+		const rows = [...first.page, ...second.page];
+		let last = second;
+		while (last.nextCursor) {
+			last = await listPronunciations(tx, query('en', 'es', last.nextCursor));
+			assert.ok(last.page.length <= 25);
+			rows.push(...last.page);
+		}
 		assert.equal(last.page.at(-1)!.id, 'new-row');
 		assert.equal(last.nextCursor, null);
-		assert.equal(
-			new Set([...first.page, ...second.page, ...last.page].map((row) => row.id)).size,
-			104
-		);
+		assert.equal(new Set(rows.map((row) => row.id)).size, 104);
 	} finally {
 		await tx.rollback();
 		tx.close();

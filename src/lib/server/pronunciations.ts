@@ -3,7 +3,7 @@ import type { InValue, Row } from '@libsql/client';
 import type { Database } from './turso-client.ts';
 import type { Language, Pronunciation, PronunciationPage } from '../pronunciations.ts';
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 25;
 type Position = { createdAt: number; id: string };
 export type PronunciationQuery = {
 	source: string;

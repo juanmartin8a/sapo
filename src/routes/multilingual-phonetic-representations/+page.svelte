@@ -147,10 +147,11 @@
 </svelte:head>
 
 <section aria-label="Multilingual phonetic representations">
-	<PageHeading title="Multilingual phonetic representations" frog />
-	<a class="resource-link" href={resolve('multilingual-phonetic-representations/about/')}
-		>About this database <span aria-hidden="true">→</span></a
-	>
+	<PageHeading title="Multilingual phonetic representations" frog>
+		<a class="resource-link" href={resolve('multilingual-phonetic-representations/about/')}
+			>About this database <span aria-hidden="true">→</span></a
+		>
+	</PageHeading>
 </section>
 
 <section aria-label="Filters" class="filters">
@@ -201,44 +202,35 @@
 		</p>
 	{:else}
 		<div class="result-list" class:loading={resultsStatus === 'loading'}>
-			<div class="desktop-results">
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex (Keyboard users need to focus this region to scroll the table.) -->
+			<div class="table-results" tabindex="0" role="region" aria-label="Pronunciations table">
 				<table>
+					<colgroup>
+						<col class="number-track" />
+						<col />
+						<col />
+						<col />
+					</colgroup>
 					<thead>
 						<tr>
-							<th scope="col" aria-label="Number">#</th>
+							<th scope="col" class="number-column" aria-label="Number">#</th>
 							<th scope="col">Word</th>
-							<th scope="col">IPA</th>
 							<th scope="col">Respelling</th>
+							<th scope="col">IPA</th>
 						</tr>
 					</thead>
 					<tbody>
 						{#each rows as row, index (row.id)}
 							<tr>
-								<td class="row-number">{rowOffset + index + 1}</td>
+								<td class="number-column row-number">{rowOffset + index + 1}</td>
 								<td class="word"><bdi>{row.orthographic_form}</bdi></td>
-								<td class="ipa"><bdi>{row.ipa}</bdi></td>
 								<td><bdi>{row.respelling}</bdi></td>
+								<td class="ipa"><bdi>{row.ipa}</bdi></td>
 							</tr>
 						{/each}
 					</tbody>
 				</table>
 			</div>
-			<ul class="mobile-results">
-				{#each rows as row, index (row.id)}
-					<li>
-						<p class="word">
-							<span class="row-number">{rowOffset + index + 1}.</span>
-							<bdi>{row.orthographic_form}</bdi>
-						</p>
-						<dl>
-							<dt>IPA</dt>
-							<dd class="ipa"><bdi>{row.ipa}</bdi></dd>
-							<dt>Respelling</dt>
-							<dd><bdi>{row.respelling}</bdi></dd>
-						</dl>
-					</li>
-				{/each}
-			</ul>
 		</div>
 	{/if}
 
@@ -305,20 +297,23 @@
 	.result-list.loading {
 		opacity: 0.5;
 	}
-	.desktop-results {
+	.table-results {
 		overflow-x: auto;
 	}
 	table {
 		width: 100%;
+		min-width: 560px;
+		table-layout: fixed;
 		border-collapse: collapse;
 		text-align: left;
 		font-size: 15px;
 	}
 	th,
 	td {
-		padding: 16px 20px 16px 0;
+		padding: 12px 16px;
 		border-bottom: 1px solid var(--line);
-		vertical-align: top;
+		vertical-align: middle;
+		overflow-wrap: anywhere;
 	}
 	th {
 		border-top: 1px solid var(--line);
@@ -326,9 +321,12 @@
 		font-size: 13px;
 		font-weight: 400;
 	}
-	th:last-child,
-	td:last-child {
-		padding-right: 0;
+	.number-track {
+		width: 80px;
+	}
+	.number-column {
+		padding: 12px;
+		text-align: center;
 	}
 	.word {
 		font-family: 'Times New Roman', Times, serif;
@@ -343,62 +341,33 @@
 		font-variant-numeric: tabular-nums;
 		white-space: nowrap;
 	}
-	dt {
-		color: var(--muted);
-	}
 	.ipa {
 		font-family:
 			'Charis SIL', 'Doulos SIL', 'Gentium Plus', 'Noto Sans', 'Segoe UI', 'Lucida Sans Unicode',
 			sans-serif;
 		font-size: 1.05rem;
 	}
-	.mobile-results {
-		display: none;
-		list-style: none;
-		margin: 0;
-		padding: 0;
-	}
-	.mobile-results li {
-		border-top: 1px solid var(--line);
-		padding: 24px 0;
-	}
-	.mobile-results li:last-child {
-		border-bottom: 1px solid var(--line);
-	}
-	.mobile-results p {
-		margin: 0;
-	}
-	.mobile-results .word {
-		display: flex;
-		align-items: baseline;
-		gap: 12px;
-	}
-	dl {
-		display: grid;
-		grid-template-columns: auto minmax(0, 1fr);
-		gap: 8px 16px;
-		margin: 20px 0 0;
-		font-size: 15px;
-	}
-	dd {
-		margin: 0;
-		overflow-wrap: anywhere;
-	}
 	.pagination {
-		display: flex;
+		display: grid;
+		grid-template-columns: 1fr auto 1fr;
 		align-items: center;
-		justify-content: space-between;
 		gap: 12px;
 		margin-top: 24px;
 		font-size: 13px;
 		color: var(--muted);
+	}
+	.pagination button:first-child {
+		justify-self: start;
+	}
+	.pagination button:last-child {
+		justify-self: end;
 	}
 	.loading-label {
 		color: var(--muted);
 		font-size: 15px;
 	}
 	.loading-row {
-		height: 56px;
+		height: 52px;
 		border-top: 1px solid var(--line);
 		background: #f7f8f6;
 		animation: pulse 1.5s ease-in-out infinite;
@@ -406,14 +375,6 @@
 	@keyframes pulse {
 		50% {
 			opacity: 0.4;
-		}
-	}
-	@media (max-width: 767px) {
-		.desktop-results {
-			display: none;
-		}
-		.mobile-results {
-			display: block;
 		}
 	}
 	@media (max-width: 640px) {
