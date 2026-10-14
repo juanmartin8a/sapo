@@ -1,8 +1,13 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import { onMount } from 'svelte';
 	import { waitForFrogImages, waitForFrogTransition } from '#lib/frogTransition.js';
 
-	let { title, frog = false }: { title: string; frog?: boolean } = $props();
+	let {
+		title,
+		frog = false,
+		children
+	}: { title: string; frog?: boolean; children?: Snippet } = $props();
 	const words = $derived(title.split(' '));
 	let revealed = $state(Infinity);
 	let speaking = $state(false);
@@ -74,18 +79,24 @@
 			</span>
 		</button>
 	{/if}
-	<h1 class="page-title" aria-label={title}>
-		{#each words as word, index (index)}
-			<span aria-hidden="true" class:unspoken={revealed < index}
-				>{word + (index < words.length - 1 ? ' ' : '')}</span
-			>
-		{/each}
-	</h1>
+	<div class="heading-content">
+		<h1 class="page-title" aria-label={title}>
+			{#each words as word, index (index)}
+				<span aria-hidden="true" class:unspoken={revealed < index}
+					>{word + (index < words.length - 1 ? ' ' : '')}</span
+				>
+			{/each}
+		</h1>
+		{@render children?.()}
+	</div>
 </div>
 
 <style>
 	.page-heading {
 		margin-bottom: 16px;
+	}
+	.heading-content {
+		min-width: 0;
 	}
 	.with-frog {
 		display: flex;
