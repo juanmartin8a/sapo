@@ -4,7 +4,7 @@ import type { Database } from './turso-client.ts';
 import type { Language, Pronunciation, PronunciationPage } from '../pronunciations.ts';
 
 const PAGE_SIZE = 25;
-type Position = { createdAt: number; id: string };
+type Position = { word: string; entryId: string; id: string };
 export type PronunciationQuery = {
 	source: string;
 	target: string;
@@ -32,22 +32,24 @@ export function parsePronunciationQuery(params: URLSearchParams): PronunciationQ
 	const cursor = params.get('cursor');
 	if (cursor === null) return { source, target, position: null };
 	try {
-		if (!cursor || cursor.length > 2048 || !/^[\w-]+$/.test(cursor)) throw new Error();
+		if (!cursor || cursor.length > 16384 || !/^[\w-]+$/.test(cursor)) throw new Error();
 		const value: unknown = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
 		if (
 			!Array.isArray(value) ||
-			value.length !== 5 ||
-			value[0] !== 1 ||
+			value.length !== 6 ||
+			value[0] !== 2 ||
 			value[1] !== source ||
 			value[2] !== target ||
-			typeof value[3] !== 'number' ||
-			!Number.isFinite(value[3]) ||
+			typeof value[3] !== 'string' ||
 			typeof value[4] !== 'string' ||
 			!value[4] ||
-			value[4].length > 256
+			value[4].length > 256 ||
+			typeof value[5] !== 'string' ||
+			!value[5] ||
+			value[5].length > 256
 		)
 			throw new Error();
-		return { source, target, position: { createdAt: value[3], id: value[4] } };
+		return { source, target, position: { word: value[3], entryId: value[4], id: value[5] } };
 	} catch {
 		throw new InvalidPronunciationQuery('Invalid pagination cursor for this language pair.');
 	}
@@ -75,19 +77,23 @@ export async function listPronunciations(
 ): Promise<PronunciationPage> {
 	const { source, target, position } = query;
 	const args: InValue[] = [source, target];
-	if (position) args.push(position.createdAt, position.id);
+	if (position) {
+		args.push(position.word, position.entryId, position.word, position.entryId, position.id);
+	}
 	args.push(PAGE_SIZE + 1);
 	const { rows } = await db.execute({
-		// The pair and tuple seek match pronunciation_respellings_by_source_and_target.
-		// Join on both transcription and entry IDs to preserve pronunciation variants.
-		sql: `SELECT r.id, r.created_at, e.orthographic_form, p.transcription AS ipa, r.respelling
-			FROM pronunciation_respellings AS r
-			JOIN entries AS e ON e.id = r.entry_id AND e.language_id = r.source_language_id
-			JOIN phonetic_transcriptions AS p ON p.id = r.phonetic_transcription_id AND p.entry_id = r.entry_id
-			WHERE r.source_language_id = (SELECT id FROM languages WHERE language_code = ?)
+		// Drive the join from the covering alphabetical index, not the timestamp pair index.
+		// CROSS JOIN fixes that loop order; only each entry's variants need a small sort.
+		// Include the boundary entry so pages can split its pronunciation variants.
+		sql: `SELECT r.id, e.id AS entry_id, e.orthographic_form, p.transcription AS ipa, r.respelling
+			FROM entries AS e INDEXED BY entries_by_language_and_orth
+			CROSS JOIN pronunciation_respellings AS r INDEXED BY pronunciation_respellings_by_entry
+			JOIN phonetic_transcriptions AS p ON p.id = r.phonetic_transcription_id AND p.entry_id = e.id
+			WHERE e.language_id = (SELECT id FROM languages WHERE language_code = ?)
+				AND r.entry_id = e.id AND r.source_language_id = e.language_id
 				AND r.target_language_id = (SELECT id FROM languages WHERE language_code = ?)
-				${position ? 'AND (r.created_at, r.id) > (?, ?)' : ''}
-			ORDER BY r.created_at, r.id
+				${position ? 'AND (e.orthographic_form, e.id) >= (?, ?) AND (e.orthographic_form != ? OR e.id != ? OR r.id > ?)' : ''}
+			ORDER BY e.orthographic_form, e.id, r.id
 			LIMIT ?`,
 		args
 	});
@@ -103,11 +109,15 @@ export async function listPronunciations(
 	let nextCursor: string | null = null;
 	if (rows.length > PAGE_SIZE) {
 		const last = visible[visible.length - 1];
-		if (typeof last.created_at !== 'number' || !Number.isFinite(last.created_at)) {
-			throw new Error('Invalid database timestamp.');
-		}
 		nextCursor = Buffer.from(
-			JSON.stringify([1, source, target, last.created_at, text(last, 'id')])
+			JSON.stringify([
+				2,
+				source,
+				target,
+				text(last, 'orthographic_form'),
+				text(last, 'entry_id'),
+				text(last, 'id')
+			])
 		).toString('base64url');
 	}
 	return { page, nextCursor };

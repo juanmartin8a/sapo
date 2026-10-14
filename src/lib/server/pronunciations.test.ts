@@ -108,7 +108,7 @@ test('languages are projected and ordered by name', async () => {
 	]);
 });
 
-test('keyset pagination preserves ties, fractional timestamps, and IPA variants without duplicates', async () => {
+test('alphabetical keyset pagination preserves IPA variants without duplicates', async () => {
 	const first = await listPronunciations(db, query());
 	assert.equal(first.page.length, 25);
 	assert.equal(first.page[0].id, 'r000');
@@ -127,7 +127,14 @@ test('keyset pagination preserves ties, fractional timestamps, and IPA variants 
 	assert.equal(last.nextCursor, null);
 	const rows = [...first.page, ...second.page, ...third.page, ...fourth.page, ...last.page];
 	assert.equal(new Set(rows.map((row) => row.id)).size, 103);
-	assert.deepEqual(rows.at(-1), {
+	const expectedIds = Array.from({ length: 102 }, (_, i) => i)
+		.sort((a, b) => (`word ${a}` < `word ${b}` ? -1 : 1))
+		.flatMap((i) => (i === 0 ? ['r000', 'variant'] : [`r${String(i).padStart(3, '0')}`]));
+	assert.deepEqual(
+		rows.map((row) => row.id),
+		expectedIds
+	);
+	assert.deepEqual(rows[1], {
 		id: 'variant',
 		orthographic_form: 'word 0',
 		source_language_code: 'en',
@@ -136,6 +143,78 @@ test('keyset pagination preserves ties, fractional timestamps, and IPA variants 
 		respelling: 'alternate'
 	});
 	assert.deepEqual(await listPronunciations(db, query('en', 'es', first.nextCursor)), second);
+});
+
+test('pages split repeated words and many variants without skipping either tie-breaker', async () => {
+	const tx = await db.transaction('write');
+	try {
+		await tx.execute("INSERT INTO languages VALUES ('ties', 0, 'ties', 'Ties')");
+		const expected: string[] = [];
+		for (const [entry, count] of [
+			['tie-a', 31],
+			['tie-b', 2],
+			['tie-c', 30]
+		] as const) {
+			await tx.execute({
+				sql: "INSERT INTO entries VALUES (?, 0, 'same word', 1, 'ties')",
+				args: [entry]
+			});
+			for (let i = 0; i < count; i++) {
+				const id = `${entry}-${String(i).padStart(2, '0')}`;
+				expected.push(id);
+				await tx.execute({
+					sql: "INSERT INTO phonetic_transcriptions VALUES (?, 0, ?, 'ipa', '/variant/')",
+					args: [id, entry]
+				});
+				await tx.execute({
+					sql: "INSERT INTO pronunciation_respellings VALUES (?, 0, ?, ?, 'es', 'cross-lingual', 'guide', 'ties')",
+					args: [id, entry, id]
+				});
+			}
+		}
+		const ids: string[] = [];
+		let cursor: string | undefined;
+		do {
+			const result = await listPronunciations(tx, query('ties', 'es', cursor));
+			assert.ok(result.page.length <= 25);
+			ids.push(...result.page.map((row) => row.id));
+			cursor = result.nextCursor ?? undefined;
+		} while (cursor);
+		assert.deepEqual(ids, expected);
+	} finally {
+		await tx.rollback();
+		tx.close();
+	}
+});
+
+test('alphabetical order follows the existing case-sensitive Unicode index collation', async () => {
+	const tx = await db.transaction('write');
+	try {
+		await tx.execute("INSERT INTO languages VALUES ('letters', 0, 'letters', 'Letters')");
+		for (const word of ['éclair', 'alpha', 'Éclair', 'Alpha', 'zebra']) {
+			await tx.execute({
+				sql: "INSERT INTO entries VALUES (?, 0, ?, 1, 'letters')",
+				args: [word, word]
+			});
+			await tx.execute({
+				sql: "INSERT INTO phonetic_transcriptions VALUES (?, 0, ?, 'ipa', '/word/')",
+				args: [word, word]
+			});
+			await tx.execute({
+				sql: "INSERT INTO pronunciation_respellings VALUES (?, 0, ?, ?, 'es', 'cross-lingual', 'guide', 'letters')",
+				args: [word, word, word]
+			});
+		}
+		const result = await listPronunciations(tx, query('letters', 'es'));
+		assert.deepEqual(
+			result.page.map((row) => row.orthographic_form),
+			['Alpha', 'alpha', 'zebra', 'Éclair', 'éclair']
+		);
+		assert.equal(result.nextCursor, null);
+	} finally {
+		await tx.rollback();
+		tx.close();
+	}
 });
 
 test('empty pairs, unknown languages, and SQL-like input return no rows; same-language pairs work', async () => {
@@ -165,9 +244,19 @@ test('invalid parameters and cursors are rejected, including cursors from anothe
 		'source=en&source=es&target=es',
 		'source=en&target=es&cursor=',
 		'source=en&target=es&cursor=not-json',
-		'source=en&target=es&cursor=' + 'a'.repeat(2049),
+		'source=en&target=es&cursor=' + 'a'.repeat(16385),
 		'source=en&target=es&cursor=' +
 			Buffer.from(JSON.stringify([1, 'en', 'es', '0', 'r000'])).toString('base64url'),
+		...[
+			[1, 'en', 'es', 0.125, 'r000'], // Previous timestamp cursor format.
+			[2, 'en', 'es', 0, 'r000', 'r000'],
+			[2, 'en', 'es', 'word 0', '', 'r000'],
+			[2, 'en', 'es', 'word 0', 'r000', ''],
+			[2, 'en', 'es', 'word 0', 'r000', 'x'.repeat(257)]
+		].map(
+			(value) =>
+				'source=en&target=es&cursor=' + Buffer.from(JSON.stringify(value)).toString('base64url')
+		),
 		'source=en&target=fr&cursor=' + first.nextCursor,
 		'source=' + 'a'.repeat(65) + '&target=es'
 	];
@@ -179,10 +268,17 @@ test('invalid parameters and cursors are rejected, including cursors from anothe
 	}
 });
 
-test('both initial and cursor queries use the pair index without a temporary sort', async () => {
+test('initial and deep cursor queries seek alphabetical entries and only sort within entries', async () => {
 	const first = await listPronunciations(db, query());
 	assert.ok(first.nextCursor);
-	for (const input of [query(), query('en', 'es', first.nextCursor)]) {
+	const deepCursor = Buffer.from(
+		JSON.stringify([2, 'en', 'es', 'word 90', 'r090', 'r090'])
+	).toString('base64url');
+	for (const input of [
+		query(),
+		query('en', 'es', first.nextCursor),
+		query('en', 'es', deepCursor)
+	]) {
 		await listPronunciations(
 			{
 				execute: async (statement) => {
@@ -190,11 +286,16 @@ test('both initial and cursor queries use the pair index without a temporary sor
 					const { sql, args } = statement as { sql: string; args: InArgs };
 					const plan = await db.execute({ sql: `EXPLAIN QUERY PLAN ${sql}`, args });
 					const details = plan.rows.map((row) => String(row.detail)).join('\n');
+					assert.match(details, /SEARCH e USING COVERING INDEX entries_by_language_and_orth/);
 					assert.match(
 						details,
-						/SEARCH r USING INDEX pronunciation_respellings_by_source_and_target/
+						/SEARCH r USING INDEX pronunciation_respellings_by_entry \(entry_id=\?\)/
 					);
-					assert.doesNotMatch(details, /USE TEMP B-TREE|SCAN r/);
+					if (input.position) {
+						assert.match(details, /\(orthographic_form,id\)>\(\?,\?\)/);
+					}
+					// A block sort of variants is fine; a whole-result sort or table scan is not.
+					assert.doesNotMatch(details, /USE TEMP B-TREE FOR ORDER BY|SCAN [er]\b/);
 					return db.execute(statement);
 				}
 			},
@@ -222,7 +323,7 @@ test('an exactly full final page has no next cursor', async () => {
 	}
 });
 
-test('pagination survives deletion of its boundary row and includes later inserts', async () => {
+test('pagination survives boundary deletion; inserts before the cursor require restarting', async () => {
 	const tx = await db.transaction('write');
 	try {
 		const first = await listPronunciations(tx, query());
@@ -231,14 +332,22 @@ test('pagination survives deletion of its boundary row and includes later insert
 			sql: 'DELETE FROM pronunciation_respellings WHERE id = ?',
 			args: [first.page.at(-1)!.id]
 		});
-		await tx.execute(
-			"INSERT INTO phonetic_transcriptions VALUES ('new-ipa', 4, 'r000', 'ipa', '/new/')"
-		);
-		await tx.execute(
-			"INSERT INTO pronunciation_respellings VALUES ('new-row', 4, 'r000', 'new-ipa', 'es', 'cross-lingual', 'new', 'en')"
-		);
+		for (const [id, word] of [
+			['early', '!early'],
+			['new-row', 'zzz']
+		]) {
+			await tx.execute({ sql: "INSERT INTO entries VALUES (?, 4, ?, 1, 'en')", args: [id, word] });
+			await tx.execute({
+				sql: "INSERT INTO phonetic_transcriptions VALUES (?, 4, ?, 'ipa', '/new/')",
+				args: [id, id]
+			});
+			await tx.execute({
+				sql: "INSERT INTO pronunciation_respellings VALUES (?, 4, ?, ?, 'es', 'cross-lingual', 'new', 'en')",
+				args: [id, id, id]
+			});
+		}
 		const second = await listPronunciations(tx, query('en', 'es', first.nextCursor));
-		assert.equal(second.page[0].id, 'r025');
+		assert.ok(!second.page.some((row) => row.id === first.page.at(-1)!.id));
 		assert.ok(second.nextCursor);
 		const rows = [...first.page, ...second.page];
 		let last = second;
@@ -250,6 +359,8 @@ test('pagination survives deletion of its boundary row and includes later insert
 		assert.equal(last.page.at(-1)!.id, 'new-row');
 		assert.equal(last.nextCursor, null);
 		assert.equal(new Set(rows.map((row) => row.id)).size, 104);
+		assert.ok(!rows.some((row) => row.id === 'early'));
+		assert.equal((await listPronunciations(tx, query())).page[0].id, 'early');
 	} finally {
 		await tx.rollback();
 		tx.close();

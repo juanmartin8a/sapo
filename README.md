@@ -50,10 +50,18 @@ Keep both Turso variables private and available only to the website's server.
 The pages remain prerendered. The pronunciation browser calls the same-origin
 `/api/languages` and `/api/pronunciations?source=en&target=es` endpoints, which
 query Turso on the server through `@libsql/client/http`. Pronunciations use a fixed
-50-row page and a pair-bound `cursor` returned as `nextCursor` (null on the last
-page). Pagination seeks by `(created_at, id)` using the existing pair index instead
-of scanning an offset or counting all rows. It is a live view: later inserts can
-appear on subsequent pages; it is not a database snapshot.
+25-row page and a pair-bound `cursor` returned as `nextCursor` (null on the last
+page). Words are ordered alphabetically using SQLite's existing `BINARY` collation
+(case-sensitive, without locale-specific accent folding), with entry and respelling
+IDs breaking ties. Pagination seeks by `(orthographic_form, entry_id, respelling_id)`
+using the existing `entries_by_language_and_orth` and
+`pronunciation_respellings_by_entry` indexes. Only variants within an individual
+entry need sorting; the query does not sort the entire language pair, scan an
+offset, or count all rows. Sparse target-language coverage can require checking
+more entries to fill a page. No schema changes or write permissions are needed.
+It is a live view, not a database snapshot: inserts after the cursor can appear on
+subsequent pages; inserts before it require restarting browsing. Renaming words
+while browsing can move them across the cursor. Old timestamp cursors are rejected.
 
 Successful API responses cache in the browser for 60 seconds and in shared caches
 for 5 minutes (pronunciations) or 1 hour (languages), with 60 seconds of stale
