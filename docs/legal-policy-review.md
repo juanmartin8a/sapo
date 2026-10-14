@@ -10,6 +10,11 @@ guidance. It is not a certification of worldwide compliance. Production deployme
 state, provider dashboards, contracts, historical practices, and the jurisdictions
 in which the business actually offers services were not verified.
 
+The published MPR database now uses Turso with a libSQL schema. The website
+queries it through read-only server endpoints, independently of the mobile app's
+authentication and cloud-processing backend reviewed below. This database
+migration does not change the mobile backend's processing or retention behavior.
+
 ## Publication blockers and implementation follow-up
 
 1. **Apple Standard EULA and business details:** The owner chose Apple's Standard
@@ -31,11 +36,11 @@ in which the business actually offers services were not verified.
    permission before sharing personal data with third-party AI. Add an in-app
    explanation of data and recipients before the first cloud submission, an
    affirmative choice, and appropriate withdrawal/version handling. Cover both
-   translation (Convex/Cloudflare) and respelling (Convex/Cloudflare/OpenAI),
+   translation (SAPO backend/Cloudflare) and respelling (SAPO backend/Cloudflare/OpenAI),
    including repeat requests. A link to these policies is not a substitute.
 3. **AI logs, caches, and training settings:** Confirm Cloudflare AI Gateway
    payload logging, caching, automatic deletion, and existing log contents.
-   `convex/model/sapopinguino/cloudflareAi.ts` sets OpenAI `store: false` but does
+   The backend module `model/sapopinguino/cloudflareAi.ts` sets OpenAI `store: false` but does
    not set a gateway logging opt-out header. Cloudflare documents payload logging
    enabled by default; storage-capacity cleanup is not a time-based retention
    guarantee. Disable unnecessary content persistence or establish and disclose
@@ -50,7 +55,7 @@ in which the business actually offers services were not verified.
    commitment; it is not evidence of zero retention or a provider audit.
 4. **Transfers, officers, and target markets:** The owner intends worldwide
    distribution, has no appointed privacy officer or regional representative,
-   and believes Convex is hosted in the United States; the region is unverified.
+   and believes the mobile backend is hosted in the United States; the region is unverified.
    Document actual hosting/processing
    countries, processor agreements, subprocessors, transfer mechanisms and
    assessments. Determine whether EEA/UK representatives, a DPO, Brazilian
@@ -84,23 +89,25 @@ in which the business actually offers services were not verified.
 
 ## Source evidence
 
-Paths below are relative to `~/development/react-native/SAPO`.
+Paths below are relative to `~/development/react-native/SAPO`. References marked
+**backend** are relative to its backend submodule, whose path is configured in
+that repository's `.gitmodules`.
 
-| Finding                                                                                                                                                          | Source                                                                                                                                                                               |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Cloud sign-in required; local translation available signed out; respelling requires subscription                                                                 | `components/home/TranslateButton.tsx`, `providers/AuthGate.tsx`, `convex/betterAuth/model/auth.ts`                                                                                   |
-| Cloud translation uses Workers AI; respelling uses OpenAI Responses through Cloudflare AI Gateway, with `store: false`                                           | `convex/model/sapopinguino/cloudflareAi.ts`                                                                                                                                          |
-| Local request returns before cloud path; no automatic cloud fallback                                                                                             | `stores/translationStore.ts`, `lib/local-translation.native.ts`                                                                                                                      |
-| Hugging Face model downloads; model/partial/verification files in cache; available-storage check                                                                 | `constants/localModelCatalog.ts`, `lib/local-model.native.ts`                                                                                                                        |
-| Secure user ID/email and subscription snapshots; web auth uses browser storage                                                                                   | `lib/confirmed-user-cache.ts`, `lib/confirmed-subscription-cache.ts`, `lib/secure-storage.ts`, `lib/auth-client.ts`                                                                  |
-| Free cloud: 500/request, 5,000/month translation, no respelling; Polyglot: 10,000/request, 500,000/month translation and 2,000/request, 100,000/month respelling | `convex/constants/subscriptions.ts`, `constants/subscription.ts`                                                                                                                     |
-| Local input limit: 2,000 characters                                                                                                                              | `constants/localModels.ts`, `utils/inputLimits.ts`                                                                                                                                   |
-| Account/usage/subscription records, no translation-history table; frozen quota retains store IDs after removing user ID                                          | `convex/subscriptions/schema.ts`, `convex/subscriptions/model/webhook.ts`                                                                                                            |
-| Frozen quota cleanup cutoff is 60 days after period end, not after deletion                                                                                      | `convex/constants/subscriptions.ts`, `convex/subscriptions/model/webhook.ts`                                                                                                         |
-| Terminal webhook cleanup: 90 days from update; resolved alerts: 90 days from resolution; daily scheduled cleanup                                                 | `convex/model/subscriptions/workers.ts`, `convex/model/operationalAlerts.ts`, `convex/crons.ts`                                                                                      |
-| Email component retains finalized records one week and abandoned records four weeks; operational emails can include identifiers                                  | `convex/email.ts`, `convex/model/email.ts`, `convex/model/operationalAlerts.ts`, `convex/CONFIGURATION.md`                                                                           |
-| Email-confirmed deletion and provider cleanup                                                                                                                    | `components/account/DeleteAccountScreen.tsx`, `components/settings/data-controls/DataControlsScreen.tsx`, `convex/betterAuth/model/auth.ts`, `convex/model/subscriptions/workers.ts` |
-| App legal links point to this website; mobile repository has an older standalone policy                                                                          | `constants/legal.ts`, `PrivacyPolicy.md`                                                                                                                                             |
+| Finding                                                                                                                                                          | Source                                                                                                                                                                                 |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cloud sign-in required; local translation available signed out; respelling requires subscription                                                                 | `components/home/TranslateButton.tsx`, `providers/AuthGate.tsx`, backend `betterAuth/model/auth.ts`                                                                                    |
+| Cloud translation uses Workers AI; respelling uses OpenAI Responses through Cloudflare AI Gateway, with `store: false`                                           | backend `model/sapopinguino/cloudflareAi.ts`                                                                                                                                           |
+| Local request returns before cloud path; no automatic cloud fallback                                                                                             | `stores/translationStore.ts`, `lib/local-translation.native.ts`                                                                                                                        |
+| Hugging Face model downloads; model/partial/verification files in cache; available-storage check                                                                 | `constants/localModelCatalog.ts`, `lib/local-model.native.ts`                                                                                                                          |
+| Secure user ID/email and subscription snapshots; web auth uses browser storage                                                                                   | `lib/confirmed-user-cache.ts`, `lib/confirmed-subscription-cache.ts`, `lib/secure-storage.ts`, `lib/auth-client.ts`                                                                    |
+| Free cloud: 500/request, 5,000/month translation, no respelling; Polyglot: 10,000/request, 500,000/month translation and 2,000/request, 100,000/month respelling | backend `constants/subscriptions.ts`, `constants/subscription.ts`                                                                                                                      |
+| Local input limit: 2,000 characters                                                                                                                              | `constants/localModels.ts`, `utils/inputLimits.ts`                                                                                                                                     |
+| Account/usage/subscription records, no translation-history table; frozen quota retains store IDs after removing user ID                                          | backend `subscriptions/schema.ts`, backend `subscriptions/model/webhook.ts`                                                                                                            |
+| Frozen quota cleanup cutoff is 60 days after period end, not after deletion                                                                                      | backend `constants/subscriptions.ts`, backend `subscriptions/model/webhook.ts`                                                                                                         |
+| Terminal webhook cleanup: 90 days from update; resolved alerts: 90 days from resolution; daily scheduled cleanup                                                 | backend `model/subscriptions/workers.ts`, backend `model/operationalAlerts.ts`, backend `crons.ts`                                                                                     |
+| Email component retains finalized records one week and abandoned records four weeks; operational emails can include identifiers                                  | backend `email.ts`, backend `model/email.ts`, backend `model/operationalAlerts.ts`, backend `CONFIGURATION.md`                                                                         |
+| Email-confirmed deletion and provider cleanup                                                                                                                    | `components/account/DeleteAccountScreen.tsx`, `components/settings/data-controls/DataControlsScreen.tsx`, backend `betterAuth/model/auth.ts`, backend `model/subscriptions/workers.ts` |
+| App legal links point to this website; mobile repository has an older standalone policy                                                                          | `constants/legal.ts`, `PrivacyPolicy.md`                                                                                                                                               |
 
 The mobile repository's standalone `PrivacyPolicy.md` is dated 2026-05-11 and
 describes older practices. Synchronize it with the published policy or replace it
