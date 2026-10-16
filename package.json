@@ -1,83 +1,33 @@
 {
   "name": "sapo",
-  "main": "expo-router/entry",
-  "version": "1.0.0",
+  "private": true,
+  "packageManager": "bun@1.4.0",
+  "engines": {
+    "node": "24.x"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "prompts:generate": "node scripts/generate-ai-prompts.mjs",
-    "prompts:check": "node scripts/generate-ai-prompts.mjs --check",
-    "convex:dev": "npm run prompts:generate && convex dev",
-    "convex:deploy": "npm run prompts:generate && convex deploy",
-    "start": "expo start",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
-    "web": "expo start --web",
-    "test": "jest --watchAll",
-    "lint": "expo lint"
-  },
-  "jest": {
-    "preset": "jest-expo"
-  },
-  "dependencies": {
-    "@better-auth/expo": "~1.6.26",
-    "@convex-dev/better-auth": "^0.12.5",
-    "@convex-dev/resend": "^0.2.6",
-    "@expo/metro-runtime": "~57.0.8",
-    "@expo/ui": "~57.0.8",
-    "@gorhom/bottom-sheet": "^5.2.14",
-    "better-auth": "~1.6.26",
-    "convex": "^1.41.0",
-    "expo": "^57.0.0",
-    "expo-apple-authentication": "~57.0.1",
-    "expo-build-properties": "~57.0.8",
-    "expo-constants": "~57.0.8",
-    "expo-dev-client": "~57.0.10",
-    "expo-file-system": "~57.0.1",
-    "expo-haptics": "~57.0.1",
-    "expo-linking": "~57.0.4",
-    "expo-network": "~57.0.1",
-    "expo-router": "~57.0.9",
-    "expo-secure-store": "~57.0.1",
-    "expo-splash-screen": "~57.0.5",
-    "expo-web-browser": "~57.0.2",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
-    "react-native": "0.86.2",
-    "react-native-gesture-handler": "~2.32.0",
-    "react-native-keyboard-controller": "1.21.9",
-    "react-native-litert-lm": "^0.5.1",
-    "react-native-nitro-modules": "^0.36.1",
-    "react-native-otp-entry": "^1.8.6",
-    "react-native-pager-view": "8.0.4",
-    "react-native-purchases": "^9.10.0",
-    "react-native-reanimated": "4.5.1",
-    "react-native-safe-area-context": "5.7.0",
-    "react-native-screens": "~4.26.0",
-    "react-native-svg": "15.15.4",
-    "react-native-web": "0.21.2",
-    "react-native-worklets": "0.10.1",
-    "zod": "4.3.6",
-    "zustand": "^5.0.3"
-  },
-  "devDependencies": {
-    "@babel/core": "^7.25.2",
-    "@react-native/jest-preset": "0.86.2",
-    "@types/react": "~19.2.10",
-    "eslint": "^9.0.0",
-    "eslint-config-expo": "~57.0.1",
-    "jest": "^29.2.1",
-    "jest-expo": "~57.0.3",
-    "react-native-svg-transformer": "^1.5.0",
-    "typescript": "6.0.3"
-  },
-  "expo": {
-    "doctor": {
-      "appConfigFieldsNotSyncedCheck": {
-        "enabled": false
-      }
-    }
+    "start": "bun run --filter @sapo/mobile start",
+    "dev:mobile": "bun run --filter @sapo/mobile start",
+    "dev:web": "bun run --filter @sapo/web dev",
+    "dev:backend": "bun run --filter @sapo/backend dev",
+    "ios": "bun run --filter @sapo/mobile ios",
+    "android": "bun run --filter @sapo/mobile android",
+    "web": "bun run --filter @sapo/web dev",
+    "convex:dev": "bun run --filter @sapo/backend dev",
+    "convex:deploy": "bun run --filter @sapo/backend deploy",
+    "convex:codegen": "bun run --filter @sapo/backend codegen",
+    "prompts:generate": "bun run --filter @sapo/backend prompts:generate",
+    "prompts:check": "bun run --filter @sapo/backend prompts:check",
+    "typecheck": "bun run --filter \"*\" typecheck",
+    "lint": "bun run --filter \"*\" lint",
+    "test": "bun run --filter \"*\" test",
+    "build:web": "bun run --filter @sapo/web build"
   },
   "trustedDependencies": [
     "react-native-litert-lm"
-  ],
-  "private": true
+  ]
 }

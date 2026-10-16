@@ -1,0 +1,66 @@
+{
+  "name": "@sapo/backend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    "./api": {
+      "types": "./convex/_generated/api.d.ts",
+      "default": "./convex/_generated/api.js"
+    },
+    "./constants/*": "./convex/constants/*.ts"
+  },
+  "scripts": {
+    "dev": "bun run prompts:generate && convex dev",
+    "deploy": "bun run prompts:generate && convex deploy",
+    "codegen": "convex codegen",
+    "prompts:generate": "node scripts/generate-ai-prompts.mjs",
+    "prompts:check": "node scripts/generate-ai-prompts.mjs --check",
+    "test": "jest --watchAll=false",
+    "test:watch": "jest --watchAll",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint convex scripts"
+  },
+  "dependencies": {
+    "@better-auth/expo": "~1.6.26",
+    "@convex-dev/better-auth": "^0.12.5",
+    "better-auth": "~1.6.26",
+    "convex": "^1.41.0",
+    "zod": "4.3.6",
+    "@convex-dev/resend": "^0.2.6"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@babel/preset-typescript": "^7.28.5",
+    "@jest/globals": "^29.2.1",
+    "@types/jest": "^29.5.14",
+    "@types/node": "25.3.0",
+    "babel-jest": "^29.2.1",
+    "eslint": "^9.0.0",
+    "jest": "^29.2.1",
+    "typescript": "6.0.3",
+    "@babel/plugin-transform-modules-commonjs": "^7.28.6",
+    "eslint-config-expo": "~57.0.1"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "transform": {
+      "^.+\\.[jt]sx?$": [
+        "babel-jest",
+        {
+          "presets": [
+            [
+              "@babel/preset-typescript",
+              {
+                "allowDeclareFields": true
+              }
+            ]
+          ],
+          "plugins": [
+            "@babel/plugin-transform-modules-commonjs"
+          ]
+        }
+      ]
+    }
+  }
+}

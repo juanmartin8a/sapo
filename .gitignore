@@ -39,3 +39,11 @@ yarn-error.*
 app-example
 
 .env
+
+# Workspace outputs and private environment files
+.env.*
+!.env.example
+.vercel/
+.svelte-kit/
+.output/
+coverage/

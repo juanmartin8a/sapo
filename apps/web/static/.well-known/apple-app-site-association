@@ -1,0 +1,17 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "XP3RDM7448.com.juanmartin8a.SAPO",
+        "components": [
+          {
+            "/": "/delete-account",
+            "?": { "token": "?*" },
+            "comment": "Matches /delete-account only when the token query item is present and non-empty."
+          }
+        ]
+      }
+    ]
+  }
+}

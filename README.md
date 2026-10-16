@@ -1,77 +1,107 @@
-# SAPO
+# SAPO monorepo
 
-SAPO is an Expo, React Native, and TypeScript app using Expo Router.
+SAPO's mobile app, website, and Convex backend live in one Git repository.
 
-## Project structure
+## Workspaces
 
-- `app/`: Expo Router route and layout adapters only
-- `components/`: feature screens and reusable UI
-- `hooks/`: reusable React behavior
-- `providers/`: app-wide lifecycle and synchronization components
-- `lib/`: authentication, purchases, streaming, and native integrations
-- `stores/`: Zustand application state
-- `constants/`: static configuration and domain data
-- `types/`: shared TypeScript contracts
-- `utils/`: pure, framework-independent helpers
-- `convex/`: backend submodule and generated Convex bindings
+| Workspace | Directory | Purpose |
+| --- | --- | --- |
+| `@sapo/mobile` | `apps/mobile` | Expo + React Native app, native projects, and EAS configuration |
+| `@sapo/web` | `apps/web` | SvelteKit website and server-side Turso reader |
+| `@sapo/backend` | `packages/backend` | Convex functions, components, generated bindings, and prompt generation |
 
-## Get started
+The website continues to use Turso independently of Convex. Each workspace owns
+its dependencies, environment files, checks, and deployment configuration.
 
-1. Install dependencies
+## Development
 
-   ```bash
-   npm install
-   ```
+Use Node.js 24 (`.nvmrc`) and Bun 1.4.0 (`packageManager`). Install from this root;
+commit only the root `bun.lock`. Bun uses isolated installs so the apps can keep
+separate tooling versions and native modules resolve from the mobile workspace.
 
-2. Start the app
+```sh
+nvm use
+bun install --frozen-lockfile
+bun run dev:mobile
+bun run dev:web
+bun run dev:backend
+```
 
-   ```bash
-    npm run start
-   ```
+Run those development commands in separate terminals. `bun run start`,
+`bun run ios`, and `bun run android` target the mobile app. `bun run web` targets
+the SvelteKit website; use `bun run --filter @sapo/mobile web` for Expo's web target.
 
-In the output, you'll find options to open the app in a
+Private environment files belong in their workspace, never in Git:
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+- `apps/mobile/.env.local`: existing `EXPO_PUBLIC_*` client configuration.
+- `packages/backend/.env.local`: `CONVEX_DEPLOYMENT` for the existing development
+  deployment (or the appropriate Convex CLI credentials in CI). Server secrets
+  remain in the Convex dashboard, separately for each deployment.
+- `apps/web/.env.local`: private Turso settings; see `apps/web/.env.example`.
 
-Add navigation entries in `app/`, but keep screen implementations and non-route code outside that directory. See the [Expo Router core concepts](https://docs.expo.dev/router/basics/core-concepts/) for the file-based routing rules.
+Keep the existing Convex deployment identity when starting the backend. Moving
+source directories does not require creating a new Convex project or database.
 
-## RevenueCat development setup
+## Verification
 
-SDK logging defaults to warnings and errors. Set `EXPO_PUBLIC_REVENUE_CAT_DEBUG=true`
-to enable verbose purchase diagnostics in development.
+```sh
+bun run typecheck
+bun run lint
+bun run test
+bun run prompts:check
+bun run build:web
+```
 
-If offerings fail with "None of the products registered in the RevenueCat dashboard
-could be fetched from App Store Connect", the SDK reached RevenueCat but StoreKit
-did not return the configured products. Clearing Metro's cache does not fix store
-configuration. For the iOS development build, check:
+Run individual workspace commands with `bun run --filter @sapo/mobile test`,
+`bun run --filter @sapo/backend test`, or `bun run --filter @sapo/web check`.
+Tests are one-shot by default; mobile and backend also provide `test:watch`.
 
-- The App Store Connect app and RevenueCat iOS app use bundle ID `com.juanmartin8a.SAPO`.
-- The offering's product ID exactly matches the App Store Connect subscription
-  (`com.juanmartin8a.sapo.polyglot.monthly` in the reported failure), and
-  `EXPO_PUBLIC_IOS_SUBSCRIPTION_PRODUCT_ID` matches that product.
-- The subscription has complete metadata, pricing, and storefront availability.
-- The latest Paid Applications Agreement is active and required banking and tax
-  information is complete in App Store Connect.
-- `EXPO_PUBLIC_REVENUE_CAT_APPLE_API_KEY` belongs to that RevenueCat iOS app.
+Mobile imports backend API bindings through `@sapo/backend/api` and public
+constants through `@sapo/backend/constants/*`. Never import backend action or
+authentication implementations into a client bundle. Generated Convex files
+remain committed and must be regenerated with the Convex CLI, not edited manually.
 
-See RevenueCat's [empty offerings troubleshooting guide](https://www.revenuecat.com/docs/offerings/troubleshooting-offerings)
-and [iOS product setup](https://www.revenuecat.com/docs/getting-started/entitlements/ios-products).
-If developing without purchases, leave the platform's RevenueCat API key unset;
-the app already skips purchase initialization when no key is configured.
+## Prompts and backend
 
-## Learn more
+Edit Markdown in `packages/backend/convex/prompts`, then run
+`bun run prompts:generate`. Commit the Markdown and its generated bundle together.
+`bun run convex:dev` and `bun run convex:deploy` generate prompts automatically.
+`bun run convex:codegen` runs code generation from the backend workspace.
 
-To learn more about developing your project with Expo, look at the following resources:
+See [backend configuration](packages/backend/convex/CONFIGURATION.md) and
+[prompt configuration](packages/backend/convex/prompts/README.md).
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Deployment
 
-## Join the community
+- **Mobile / EAS:** run EAS CLI commands from `apps/mobile`; `app.json`, `eas.json`,
+  `ios/`, and `android/` stay together there. Install CocoaPods dependencies from
+  `apps/mobile/ios` after the first workspace install before opening Xcode.
+  If using Expo's GitHub integration, set its app base directory to `apps/mobile`.
+- **Website / Vercel:** connect this repository and set Root Directory to
+  `apps/web`. Use `bun run build` for the build command and
+  `bun install --frozen-lockfile` for installation. Permit workspace source files
+  outside the root directory. Keep the current domain, Node.js 24 runtime, and
+  private Turso environment settings.
+- **Convex:** deploy with `bun run convex:deploy` from the repository root. Retain
+  the current deployment credentials and server environment values.
 
-Join our community of developers creating universal apps.
+Each service deploys independently. Remote deployment settings are not changed
+by this local migration.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Preserved Git history
+
+The migration imports the original histories as merge parents, without rewriting
+commits or changing their authors, dates, messages, or hashes:
+
+| Source | Original HEAD |
+| --- | --- |
+| Mobile | `f6353d39657e93b36d771e5be0d150bc11635367` |
+| Convex | `2c2110d8c3b300d3f8a702b96f63685273dd68a2` |
+| Website | `cad4c62363e9232a9fc92d09191082c2d0c202f6` |
+
+Older commits show their original layouts. `git log --all --graph` shows the
+combined histories; use `git log -m --follow -- <path>` when tracing a moved file.
+The `-m` option compares merges with each parent so Git can follow backend and
+website files across their import into the monorepo.
+Convex is now ordinary tracked source, with its original license retained in
+`packages/backend/convex/LICENSE`; no submodule initialization is needed.
