@@ -1,0 +1,33 @@
+{
+  "name": "sapo",
+  "private": true,
+  "packageManager": "bun@1.4.0",
+  "engines": {
+    "node": "24.x"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "start": "bun run --filter @sapo/mobile start",
+    "dev:mobile": "bun run --filter @sapo/mobile start",
+    "dev:web": "bun run --filter @sapo/web dev",
+    "dev:backend": "bun run --filter @sapo/backend dev",
+    "ios": "bun run --filter @sapo/mobile ios",
+    "android": "bun run --filter @sapo/mobile android",
+    "web": "bun run --filter @sapo/web dev",
+    "convex:dev": "bun run --filter @sapo/backend dev",
+    "convex:deploy": "bun run --filter @sapo/backend deploy",
+    "convex:codegen": "bun run --filter @sapo/backend codegen",
+    "prompts:generate": "bun run --filter @sapo/backend prompts:generate",
+    "prompts:check": "bun run --filter @sapo/backend prompts:check",
+    "typecheck": "bun run --filter \"*\" typecheck",
+    "lint": "bun run --filter \"*\" lint",
+    "test": "bun run --filter \"*\" test",
+    "build:web": "bun run --filter @sapo/web build"
+  },
+  "trustedDependencies": [
+    "react-native-litert-lm"
+  ]
+}

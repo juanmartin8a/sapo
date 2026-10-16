@@ -1,46 +1,52 @@
 # AGENTS.md
 
-Compact guidance for future OpenCode sessions in this repo.
+## Project shape
 
-## Project Shape
-
-- Expo + React Native + TypeScript app using Expo Router (`package.json` `main` is `expo-router/entry`). Keep `app/` limited to routes and layouts; feature screens and reusable UI live in `components/`.
-- `app/_layout.tsx` wires the global providers: Convex, Better Auth, auth gating, RevenueCat identity sync, and keyboard handling.
-- App state is in Zustand stores under `stores/`; reusable React behavior is in `hooks/`; app-wide lifecycle components are in `providers/`; external and native integrations are in `lib/`.
-- `convex/` is both backend code and a configured git submodule (`.gitmodules`); edits there are in the nested repo and root git status only shows the submodule pointer. If it is missing after clone, run `git submodule update --init --recursive`.
-- Convex is componentized: root `convex/convex.config.ts` uses `betterAuth`, `operations`, `subscriptions`, and `@convex-dev/resend` components.
+- Bun workspace monorepo: `apps/mobile` (Expo + React Native), `apps/web`
+  (SvelteKit + Turso), and `packages/backend` (Convex).
+- Keep mobile `app/` limited to routes and layouts; screens and UI belong in
+  `components/`. Stores, hooks, providers, and integrations retain their own dirs.
+- Convex is ordinary tracked source under `packages/backend/convex`, not a Git
+  submodule. Its Better Auth, operations, subscriptions, and Resend components
+  retain their existing boundaries.
+- Mobile imports `@sapo/backend/api` and `@sapo/backend/constants/*`; do not add
+  client imports of backend implementations. The website does not use Convex.
+- Keep UI, framework configuration, and dependencies local to their workspaces.
 
 ## Commands
 
-- Use npm scripts from repo root. The repo has `bun.lock` but no `package-lock.json`; avoid introducing a new lockfile unless requested.
-- Install: `npm install`
-- Start Expo: `npm run start`
-- Native runs: `npm run ios`, `npm run android`
-- Web: `npm run web`
-- Lint default Expo paths: `npm run lint`
-- Lint non-default dirs when touched: `npm run lint -- convex stores hooks lib providers utils constants types`
-- Run all tests once: `npm exec jest -- --watchAll=false`
-- Run one test file: `npm exec jest -- convex/__tests__/sapopinguinoInput.test.ts --watchAll=false`
-- Type-check: `npm exec tsc -- --noEmit` (there is no `typecheck` script).
-- Convex dev/codegen: `npm run convex:dev` (regenerates Markdown AI prompt bundle first).
-- Convex deploy: `npm run convex:deploy`.
-- AI prompt edits: edit `convex/prompts/*.md`, run `npm run prompts:generate`, and commit the generated bundle with the Markdown. `npm run prompts:check` verifies freshness.
+- Use Node.js 24 and Bun 1.4.0. Install from the repo root with
+  `bun install --frozen-lockfile`. Keep one root `bun.lock`; do not introduce npm
+  or per-workspace lockfiles.
+- Development: `bun run dev:mobile`, `bun run dev:web`, `bun run dev:backend`.
+- Native: `bun run ios`, `bun run android`. EAS CLI runs from `apps/mobile`.
+- Verification: `bun run typecheck`, `bun run lint`, `bun run test`,
+  `bun run prompts:check`, `bun run build:web`.
+- Individual commands: `bun run --filter @sapo/mobile test`,
+  `bun run --filter @sapo/backend test`, `bun run --filter @sapo/web check`.
+- Jest is one-shot by default. Use workspace `test:watch` only intentionally.
+- Mobile lint explicitly covers routes, components, hooks, stores, integrations,
+  providers, utilities, constants, and types. Backend lint runs independently.
+- Convex dev/codegen/deploy: `bun run convex:dev`, `bun run convex:codegen`,
+  `bun run convex:deploy`.
 
-## Verification Notes
+## Generated files
 
-- `npm test` runs Jest in watch mode (`jest --watchAll`); do not use it for one-shot verification.
-- Jest uses the `jest-expo` preset from `package.json`. Tests live beside their modules in `__tests__/` directories.
-- `expo lint` only targets Expo’s default directories unless paths are supplied; include backend, store, hook, provider, and integration directories explicitly when touched.
+- Do not hand-edit `packages/backend/convex/**/_generated/`. Regenerate using the
+  backend workspace's Convex CLI and preserve committed output.
+- Edit `packages/backend/convex/prompts/*.md`, run `bun run prompts:generate`,
+  and commit the generated prompt bundle with the Markdown.
+- Do not hand-edit `apps/mobile/expo-env.d.ts`; Expo owns it.
+- Mobile SVG imports are React components through the existing Metro transformer.
 
-## Generated And Integration Files
+## Environment and deployment
 
-- Do not hand-edit Convex generated output: `convex/_generated/`, `convex/betterAuth/_generated/`, `convex/operations/_generated/`, or `convex/subscriptions/_generated/`. Regenerate with `npm exec convex dev`.
-- Do not hand-edit `expo-env.d.ts`; Expo owns it.
-- SVGs are imported as React components; `metro.config.js` removes `svg` from asset extensions and uses `react-native-svg-transformer/expo`.
-
-## Environment Gotchas
-
-- Client startup requires `EXPO_PUBLIC_CONVEX_URL`; auth, SSE, and subscription reconciliation calls use `EXPO_PUBLIC_CONVEX_SITE_URL`.
-- RevenueCat client config is optional but platform-specific: `EXPO_PUBLIC_REVENUE_CAT_APPLE_API_KEY`, `EXPO_PUBLIC_REVENUE_CAT_GOOGLE_API_KEY`, product IDs, and entitlement ID.
-- Convex server env is separate from Expo public env; backend code reads Cloudflare AI, Better Auth, Apple/Google auth, RevenueCat webhook/API, Resend, and `CLIENT_ORIGIN` values. Cloudflare setup and required variables are documented in `convex/prompts/README.md`.
-- Never expose server-only env values by adding an `EXPO_PUBLIC_` prefix.
+- Keep private env files in the owning workspace. Mobile uses
+  `EXPO_PUBLIC_CONVEX_URL` and `EXPO_PUBLIC_CONVEX_SITE_URL`; RevenueCat client
+  config remains optional and platform-specific.
+- Backend `.env.local` selects the existing Convex deployment with
+  `CONVEX_DEPLOYMENT`; server secrets remain in Convex's deployment environment.
+- Never expose server secrets with an `EXPO_PUBLIC_` prefix.
+- Website Turso credentials are private server settings; see its `.env.example`.
+- EAS config and native projects live in `apps/mobile`. Vercel Root Directory is
+  `apps/web`; retain the existing independent deployment targets and databases.

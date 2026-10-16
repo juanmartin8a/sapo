@@ -13,20 +13,21 @@ SAPO is an Expo, React Native, and TypeScript app using Expo Router.
 - `constants/`: static configuration and domain data
 - `types/`: shared TypeScript contracts
 - `utils/`: pure, framework-independent helpers
-- `convex/`: backend submodule and generated Convex bindings
+- `../../packages/backend`: Convex workspace; import `@sapo/backend/api` and public constants
 
 ## Get started
 
 1. Install dependencies
 
    ```bash
-   npm install
+   cd ../..
+   bun install --frozen-lockfile
    ```
 
 2. Start the app
 
    ```bash
-    npm run start
+    bun run dev:mobile
    ```
 
 In the output, you'll find options to open the app in a

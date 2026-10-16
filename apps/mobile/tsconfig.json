@@ -6,7 +6,11 @@
       "@/*": [
         "./*"
       ]
-    }
+    },
+    "types": [
+      "expo/types",
+      "node"
+    ]
   },
   "include": [
     "**/*.ts",

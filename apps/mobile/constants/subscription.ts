@@ -2,12 +2,12 @@ import {
     DEFAULT_SUBSCRIPTION_PLAN_LIMITS,
     type SubscriptionPlanKey,
     type SubscriptionUsageOperation,
-} from "@/convex/constants/subscriptions";
+} from "@sapo/backend/constants/subscriptions";
 
 export {
     SUBSCRIPTION_PLAN_KEYS,
     SUBSCRIPTION_QUOTA_ERROR_CODES,
-} from "@/convex/constants/subscriptions";
+} from "@sapo/backend/constants/subscriptions";
 
 export const SUBSCRIPTION_LINKED_ELSEWHERE_ALERT_TITLE = "Subscription linked elsewhere";
 export const SUBSCRIPTION_SESSION_CHANGED_ALERT_TITLE = "Session changed";

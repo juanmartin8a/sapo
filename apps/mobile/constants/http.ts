@@ -1,6 +1,6 @@
-export { HTTP_ROUTES } from "@/convex/constants/http";
+export { HTTP_ROUTES } from "@sapo/backend/constants/http";
 export {
     SAPOPINGUINO_SSE_EVENTS,
     STREAM_END_MARKER,
     STREAM_ERROR_MARKER,
-} from "@/convex/constants/sapopinguino";
+} from "@sapo/backend/constants/sapopinguino";

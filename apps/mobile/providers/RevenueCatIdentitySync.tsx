@@ -3,7 +3,7 @@ import { useQuery } from "convex/react";
 import { AppState } from "react-native";
 import Purchases, { type CustomerInfo } from "react-native-purchases";
 
-import { api } from "@/convex/_generated/api";
+import { api } from "@sapo/backend/api";
 import {
     getRevenueCatAccessExpirationAtMs,
     getRevenueCatSubscriptionFingerprint,

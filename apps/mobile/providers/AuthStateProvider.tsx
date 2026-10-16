@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState, type PropsWithC
 import { useQuery } from "convex/react";
 import { AppState } from "react-native";
 
-import { api } from "@/convex/_generated/api";
+import { api } from "@sapo/backend/api";
 import { authClient } from "@/lib/auth-client";
 import {
     clearConfirmedUserSnapshot,
