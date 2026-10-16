@@ -56,3 +56,29 @@ Before the first monorepo deployment, change Vercel's repository/root directory
 to this repository and `apps/web`, and any EAS GitHub app base directory to
 `apps/mobile`. The existing deployment identities, databases, and domain remain
 applicable. Remote hosting configuration and repositories have not been changed.
+
+## Review in the permanent checkout
+
+The standalone repository is at `~/development/js/sapo`, on
+`codex/sapo-monorepo`. Its `.git` directory and objects are independent of the
+original repositories and the temporary migration worktree. The Git origin
+continues to point to the original SAPO GitHub repository; nothing has been pushed.
+
+A fresh frozen-lockfile install and the workspace checks were repeated there
+with Node.js 24.21.0 and Bun 1.4.0. All 513 tests, type checks, linters, prompt
+freshness checks, the website production build, iOS/Android Metro exports, and
+Android Gradle configuration pass. Every original source file was accounted for;
+all 460 original commits and the original direct dependency versions were checked.
+Backend implementations and generated bindings remain byte-for-byte identical.
+
+Moving the repository changes Hermes's generated `HERMES_CLI_PATH` in its podspec.
+CocoaPods therefore regenerated only the Hermes podspec checksum in `Podfile.lock`
+for the final location. Pod versions did not change. A subsequent
+`pod install --deployment` passes there. A new location may require a normal
+`pod install` before using deployment mode because of this upstream absolute path.
+
+The pre-existing local changes in `apps/mobile/app.json` and
+`apps/mobile/ios/SAPO/Info.plist` remain staged and outside the migration commits.
+The original mobile, backend, and website working directories are unchanged.
+The full iOS compiler issue and remote deployment rollout requirements above
+remain applicable; this review does not claim a successful full native build.
