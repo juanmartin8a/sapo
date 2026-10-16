@@ -100,6 +100,8 @@ commits or changing their authors, dates, messages, or hashes:
 | Website | `cad4c62363e9232a9fc92d09191082c2d0c202f6` |
 
 Older commits show their original layouts. `git log --all --graph` shows the
-combined histories; use `git log --follow -- <path>` when tracing a moved file.
+combined histories; use `git log -m --follow -- <path>` when tracing a moved file.
+The `-m` option compares merges with each parent so Git can follow backend and
+website files across their import into the monorepo.
 Convex is now ordinary tracked source, with its original license retained in
 `packages/backend/convex/LICENSE`; no submodule initialization is needed.
