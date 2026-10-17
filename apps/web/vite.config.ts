@@ -1,34 +1,62 @@
-import adapter from '@sveltejs/adapter-vercel';
-import tailwindcss from '@tailwindcss/vite';
-import { sveltekit } from '@sveltejs/kit/vite';
-import { defineConfig } from 'vite';
+import { fileURLToPath } from "node:url";
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { defineConfig, loadEnv } from "vite";
+import { tanstackStart } from "@tanstack/solid-start/plugin/vite";
+import solid from "@solidjs/vite-plugin";
+import { nitro } from "nitro/vite";
 
-export default defineConfig({
-	server: {
-		host: '127.0.0.1',
-		port: 3000,
-		strictPort: true,
-		proxy: {
-			'^/app(?:/|$)': { target: 'http://127.0.0.1:3001', ws: true }
-		}
-	},
-	plugins: [
-		tailwindcss(),
-		sveltekit({
-			compilerOptions: {
-				// Force runes mode for the project, except for libraries. Can be removed in svelte 6.
-				runes: ({ filename }) =>
-					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
-			},
-			adapter: adapter({ runtime: 'nodejs24.x' }),
-			prerender: {
-				entries: ['*'],
-				handleHttpError: ({ path, status, message }) => {
-					// /app belongs to the sibling TanStack build, merged after this build.
-					if (path === '/app/' && status === 404) return;
-					throw new Error(message);
-				}
-			}
-		})
-	]
+export default defineConfig(({ mode }) => {
+    // Vite exposes only VITE_* to the client; private local settings are for SSR.
+    for (const [key, value] of Object.entries(
+        loadEnv(mode, process.cwd(), ["TURSO_", "STRIPE_"]),
+    )) {
+        process.env[key] ??= value;
+    }
+    return {
+        plugins: [
+            tanstackStart({
+                prerender: {
+                    enabled: true,
+                    autoSubfolderIndex: true,
+                    crawlLinks: false,
+                    filter: ({ path }) =>
+                        path === "/" || (!path.startsWith("/app") && !path.startsWith("/api/")),
+                    failOnError: true,
+                },
+            }),
+            solid({ ssr: true }),
+            nitro({
+                vercel: { functions: { runtime: "nodejs24.x" } },
+                modules: [
+                    (nitro) => {
+                        if (nitro.options.preset !== "vercel") return;
+                        nitro.hooks.hook("compiled", async () => {
+                            const path = join(nitro.options.output.dir, "config.json");
+                            const config = JSON.parse(await readFile(path, "utf8"));
+                            const appHeaders = config.routes.find(
+                                (route: { src?: string }) => route.src === "/app/(.*)",
+                            );
+                            // Nitro 3 emits a terminal header rule. Dynamic app paths
+                            // must continue through the filesystem to the server fallback.
+                            if (appHeaders) appHeaders.continue = true;
+                            await writeFile(path, JSON.stringify(config, null, 2) + "\n");
+                        });
+                    },
+                ],
+                routeRules: {
+                    "/.well-known/apple-app-site-association": {
+                        headers: { "content-type": "application/json" },
+                    },
+                    "/app": { redirect: { to: "/app/", status: 308 } },
+                    "/app/**": { headers: { "cache-control": "no-store" } },
+                    "/app/sw.js": { headers: { "cache-control": "no-cache" } },
+                    "/app/manifest.webmanifest": { headers: { "cache-control": "no-cache" } },
+                },
+            }),
+        ],
+        resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
+        preview: { port: 4173, strictPort: false },
+        server: { host: "127.0.0.1", port: 3000, strictPort: true },
+    };
 });

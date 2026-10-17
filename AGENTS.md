@@ -3,7 +3,7 @@
 ## Project shape
 
 - Bun workspace monorepo: `apps/mobile` (Expo + React Native), `apps/web`
-  (SvelteKit + Turso), `apps/translator` (TanStack Start + Solid 2 at `/app`),
+  (TanStack Start + Solid 2, Turso, and the translator at `/app`),
   `packages/client-core` (pure shared client code), and `packages/backend` (Convex).
 - Keep mobile `app/` limited to routes and layouts; screens and UI belong in
   `components/`. Stores, hooks, providers, and integrations retain their own dirs.
@@ -11,7 +11,7 @@
   submodule. Its Better Auth, operations, subscriptions, and Resend components
   retain their existing boundaries.
 - Mobile imports `@sapo/backend/api` and `@sapo/backend/constants/*`; do not add
-  client imports of backend implementations. The SvelteKit site uses Turso; the translator uses the same Convex deployment as mobile.
+  client imports of backend implementations. The website uses Turso; its translator uses the same Convex deployment as mobile.
 - Mobile and translator share pure constants and streaming through `@sapo/client-core`.
   Do not import React, Expo, or native modules into the translator.
 - Keep UI, framework configuration, and dependencies local to their workspaces.
@@ -22,7 +22,7 @@
   `bun install --frozen-lockfile`. Keep one root `bun.lock`; do not introduce npm
   or per-workspace lockfiles.
 - Development: `bun run dev:mobile`, `bun run dev:web`, `bun run dev:backend`.
-  `dev:web` starts the site on 3000 and translator on 3001, proxied at `/app/`.
+  `dev:web` starts the unified website and translator on port 3000.
 - Native: `bun run ios`, `bun run android`. EAS CLI runs from `apps/mobile`.
 - Verification: `bun run typecheck`, `bun run lint`, `bun run test`,
   `bun run prompts:check`, `bun run build:web`.
@@ -53,7 +53,6 @@
 - Never expose server secrets with an `EXPO_PUBLIC_` prefix.
 - Website Turso credentials are private server settings; see its `.env.example`.
 - EAS config and native projects live in `apps/mobile`. Vercel Root Directory is
-  `apps/web`; its build merges the translator Vercel output into the same website
-  deployment. Preserve the Turso database and shared mobile/translator Convex identity.
-- Translator public env lives in `apps/translator/.env.local`. Use only `VITE_CONVEX_URL`
+  `apps/web`; its TanStack Start build produces one Vercel deployment. Preserve the Turso database and shared mobile/translator Convex identity.
+- Translator public env lives in `apps/web/.env.local`. Use only `VITE_CONVEX_URL`
   and `VITE_CONVEX_SITE_URL` for public deployment URLs; Stripe secrets are server-only.

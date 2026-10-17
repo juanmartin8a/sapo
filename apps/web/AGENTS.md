@@ -1,0 +1,13 @@
+# SAPO website and translator
+
+- One TanStack Start + Solid 2 app serves the public website and `/app/` translator.
+- Follow TanStack file routing: `src/routes/__root.tsx` owns the document, `_site.tsx` is the public layout, and `app.tsx` scopes translator providers. Keep route modules thin, UI in `components/`, state factories in `stores/`, lifecycle in `providers/`, and integrations in `lib/`.
+- Use four-space indentation, double quotes, and the existing feature boundaries. Share pure domain constants through `@sapo/client-core` and the backend public client surface. Never import React, Expo, or native modules.
+- Use Solid 2 APIs: `createStore` from `solid-js` with draft setters, `onSettled` lifecycle, split `createEffect`, and JSX types from `@solidjs/web`. Create state per provider or router instance for SSR isolation.
+- Preserve page wording. Legal Markdown lives in `src/lib/content`; its renderer and preservation tests cover the existing terms, privacy policy, and database notices.
+- Turso credentials are server-only. Preserve the existing read-only database, pagination, API validation, deadlines, capacity limits, and cache headers.
+- Convex remains authoritative for translator identity, subscription access, and quotas shared with mobile. No local AI, demo access, or checkout. Never infer paid access from browser storage.
+- Keep translator assets, OAuth callbacks, manifest, and service worker under `/app/`. The worker must never cache auth, API responses, or user text or control public pages. Persist preferences only.
+- Treat native components as the translator's visual source of truth. Preserve native structural separators and visible keyboard focus.
+- Run commands from the root with Node 24 and Bun 1.4.0. Use `bun run dev:web`, `bun run build:web`, and `bun run --filter @sapo/web typecheck/test/lint`. Run `bun run --filter @sapo/web verify:build` after a production build. Keep the single root `bun.lock`.
+- Vercel Root Directory remains `apps/web`, Framework Preset is Other, and Nitro targets Node 24. Public Convex URLs use `VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL`; Turso and Stripe secrets are server-only.

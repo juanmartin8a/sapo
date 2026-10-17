@@ -2,7 +2,7 @@
 
 The website policy sources are `src/lib/content/privacy-policy.md` (v4.0) and
 `src/lib/content/terms-of-use.md` (v3.0). The external deletion resource is
-`src/routes/delete-account/+page.svelte`. The effective date is set to this review
+`src/components/site/DeleteAccountPage.tsx`. The effective date is set to this review
 date; coordinate it with the actual publication and required user notice.
 
 This review compares the local SAPO mobile/backend source with current official

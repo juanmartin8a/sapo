@@ -1,41 +1,42 @@
-# sv
+# SAPO web
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+One TanStack Start + Solid 2 application serves the website and translator at
+`/app/`. Public pages are prerendered; API routes and translator pages use SSR.
 
-## Creating a project
+## Development
 
-If you're seeing this, you've probably already done this step. Congrats!
-
-```sh
-# create a new project
-npx sv create my-app
-```
-
-To recreate this project with the same configuration:
+Use Node 24 and Bun 1.4.0. Install from the monorepo root:
 
 ```sh
-# recreate this project
-bun x sv@0.15.3 create --template minimal --types ts --add prettier eslint tailwindcss="plugins:none" sveltekit-adapter="adapter:vercel" --install bun sapo
+bun install --frozen-lockfile
+cp apps/web/.env.example apps/web/.env.local
+bun run dev:web
 ```
 
-## Developing
+Open `http://127.0.0.1:3000/` or `/app/`. There is one Vite server and one router.
+Set private `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` for the database and public
+`VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL` to the same deployment as mobile.
+Local settings from the former translator workspace belong in this workspace now.
 
-Use Node.js 24.21.0 (pinned in `.nvmrc`) with Bun as the package manager.
-The `package.json` engine selects Node.js 24.x for Vercel builds.
+Add the website's exact origin to the existing Convex deployment's `CLIENT_ORIGIN`,
+preserving its other origins. Google/Apple continue to use Better Auth accounts,
+backend callbacks, and the `/app/` return URL with the cross-domain token exchange.
+No backend environment is changed by a build.
 
-```sh
-nvm install
-nvm use
-bun install
-```
+## Structure
 
-Copy `.env.example` to `.env.local` and set these private runtime variables, locally
-and in the Vercel environments where you deploy:
+- `src/routes`: thin file routes, the root document, public `_site` layout, and `/app` layout.
+- `src/components`: website UI in `site/` and translator feature screens beside it.
+- `src/stores`, `src/providers`: per-instance Solid state and translator lifecycle.
+- `src/lib`: integrations, Markdown rendering, and private database code in `server/`.
+- `src/lib/content`: unchanged legal Markdown and database notices.
+- `public`: website assets; translator/PWA assets live under `public/app/`.
 
-```dotenv
-TURSO_DATABASE_URL=libsql://your-database-your-organization.turso.io
-TURSO_AUTH_TOKEN=your-read-only-database-token
-```
+The shared site header uses the same component in the website and desktop
+translator. Translator providers mount only within `/app/`. Styles are scoped to
+website and translator containers. State is never shared between SSR requests.
+
+## Database
 
 Use the same **libSQL database** populated by `~/development/js/sapo-mpr`.
 Its `database/schema.sql` defines the tables and indexes used by this website.
@@ -71,72 +72,54 @@ instance admits at most 20 concurrent reads; excess requests receive an uncached
 503 with `Retry-After: 1` rather than waiting in an unbounded SDK queue. Browser
 requests have a 15-second deadline and cancel when their filters change.
 
-Once you've installed dependencies, start a development server:
+## Build and verification
 
 ```sh
-bun run dev:web # from the monorepo root
-
-# or start the server and open the app in a new browser tab
-bun run dev --open
-```
-
-## Database documentation and attribution
-
-The browser links to `/multilingual-phonetic-representations/about/`, which explains
-the database, generation process, limitations, and CC BY-SA 4.0 data license.
-Full upstream credits are published at
-`/multilingual-phonetic-representations/about/attribution/`. These pages are
-prerendered using the existing Markdown document component. Their sources are
-`src/lib/content/database-about.md` and `src/lib/content/database-attribution.md`.
-
-The attribution source is adapted from `ATTRIBUTION.md` in `sapo-mpr`. Keep its
-upstream notices and provenance details synchronized when the database attribution
-changes. Website links replace repository-relative links, and list items stay on
-one source line because the Markdown renderer does not support list continuations.
-
-Successful responses from both database API endpoints include a `Link` header
-with `rel="license"` pointing to CC BY-SA 4.0 and `rel="describedby"` pointing to
-the public attribution page. JSON response shapes are unchanged. When distributing
-database exports, retain the attribution, include the license or a link to it, and
-identify any changes to the data.
-
-## Building
-
-To create a production version of your app:
-
-```sh
-bun run build
-```
-
-You can preview the production build with `bun run preview`.
-
-Deploy with the configured Vercel adapter (Node.js 24). The output is
-`.vercel/output`, containing static pages and backend functions; a static-only
-host cannot run the database endpoints. Builds do not require Turso credentials
-or database connectivity. Set the two variables in Vercel's runtime environment.
-
-## Verification
-
-```sh
-bun run check
+bun run typecheck
 bun run lint
 bun run test
-bun run build
+bun run prompts:check
+bun run build:web
+bun run --filter @sapo/web verify:build
 ```
 
-Database tests run against an in-memory database and do not need credentials.
+Deploy the existing Vercel project with Root Directory `apps/web`, Framework Preset
+**Other**, build command `bun run build`, install command `bun install --frozen-lockfile`,
+and access to workspace inputs outside the root directory. Nitro emits one
+`.vercel/output` artifact targeting Node 24. No custom merge script is required.
+The production build verifies preserved copy, assets, deployment routing, and
+server response behavior before succeeding. A small Nitro module compensates
+for the pinned preset’s terminal `/app/` header rule so dynamic routes reach SSR.
+Set public Convex URLs at build time and private Turso/Stripe variables at runtime.
+The build does not need a database connection. `bun run --filter @sapo/web preview`
+previews the production build on port 4173. `bun run build:app` creates a Node
+build under `apps/web/.output`; `bun run --filter @sapo/web start` serves it.
 
-## Translator application
+Start/Router and Solid are pinned to `2.0.0-rc.8` with the matching compiler
+versions and Solid Vite plugin `3.0.0-next.43`. Upgrade this group together and
+verify hydration; compiler overrides live in the root manifest.
 
-The website links to `/app/`, implemented in the sibling `apps/translator`
-workspace with TanStack Start + Solid 2. From the monorepo root, `bun run dev:web`
-starts both Vite servers and proxies `/app/` through the website on port 3000.
-Start the website alone with `bun run --filter @sapo/web dev` only when the app
-is already running or not needed.
+## Translator and PWA
 
-The website build also builds the translator using Nitro’s Vercel preset and
-merges its static files and server function into `.vercel/output`. Keep the Vercel
-Root Directory at `apps/web` and enable access to files outside the root directory
-(the workspace dependencies and sibling app are build inputs). Public app variables
-`VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL` must be set in the same Vercel project
-at build time. The site’s private Turso variables keep their current behavior.
+The translator shares mobile accounts, subscription access, quotas, and streaming
+through Convex and `@sapo/client-core`. Preferences persist; input/output and paid
+access claims do not. Auth/account changes cancel streaming and clear text.
+
+Assets synchronize from `apps/mobile/assets` before dev/build. The service worker,
+manifest, start URL, and assets remain under `/app/`. Navigation between `/app/` and public pages loads a separate document so the PWA
+cannot claim a document containing public-page history. It caches only an offline
+notice and a small static asset allowlist, never user pages or API/auth responses.
+Updates wait for “Update now.” AI operations require internet access.
+
+`/app/delete-account?token=…` provides explicit deletion confirmation. Preserve the
+backend's `DELETE_ACCOUNT_CALLBACK_URL` and mobile/universal-link behavior.
+Account deletion does not cancel store subscriptions.
+
+Optional `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are server-only.
+`POST /app/api/stripe/webhook` returns 503 while billing is disabled. Do not register
+a live destination or enable checkout before implementing customer mapping,
+durable deduplication, and shared entitlement reconciliation.
+
+Tests cover OAuth exchange, preferences, worker scope, Stripe signatures, database
+behavior, and content preservation. Live sign-in and paid/free translation require
+allowed origins and corresponding accounts for acceptance testing.
