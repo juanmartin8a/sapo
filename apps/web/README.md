@@ -74,7 +74,7 @@ requests have a 15-second deadline and cancel when their filters change.
 Once you've installed dependencies, start a development server:
 
 ```sh
-bun run dev
+bun run dev:web # from the monorepo root
 
 # or start the server and open the app in a new browser tab
 bun run dev --open
@@ -125,3 +125,18 @@ bun run build
 ```
 
 Database tests run against an in-memory database and do not need credentials.
+
+## Translator application
+
+The website links to `/app/`, implemented in the sibling `apps/translator`
+workspace with TanStack Start + Solid 2. From the monorepo root, `bun run dev:web`
+starts both Vite servers and proxies `/app/` through the website on port 3000.
+Start the website alone with `bun run --filter @sapo/web dev` only when the app
+is already running or not needed.
+
+The website build also builds the translator using Nitro’s Vercel preset and
+merges its static files and server function into `.vercel/output`. Keep the Vercel
+Root Directory at `apps/web` and enable access to files outside the root directory
+(the workspace dependencies and sibling app are build inputs). Public app variables
+`VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL` must be set in the same Vercel project
+at build time. The site’s private Turso variables keep their current behavior.

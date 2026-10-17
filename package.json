@@ -12,11 +12,11 @@
   "scripts": {
     "start": "bun run --filter @sapo/mobile start",
     "dev:mobile": "bun run --filter @sapo/mobile start",
-    "dev:web": "bun run --filter @sapo/web dev",
+    "dev:web": "bun run --parallel --filter @sapo/web --filter @sapo/translator dev",
     "dev:backend": "bun run --filter @sapo/backend dev",
     "ios": "bun run --filter @sapo/mobile ios",
     "android": "bun run --filter @sapo/mobile android",
-    "web": "bun run --filter @sapo/web dev",
+    "web": "bun run --parallel --filter @sapo/web --filter @sapo/translator dev",
     "convex:dev": "bun run --filter @sapo/backend dev",
     "convex:deploy": "bun run --filter @sapo/backend deploy",
     "convex:codegen": "bun run --filter @sapo/backend codegen",
@@ -24,10 +24,17 @@
     "prompts:check": "bun run --filter @sapo/backend prompts:check",
     "typecheck": "bun run --filter \"*\" typecheck",
     "lint": "bun run --filter \"*\" lint",
-    "test": "bun run --filter \"*\" test",
-    "build:web": "bun run --filter @sapo/web build"
+    "test": "bun run --filter \"*\" test && node --test scripts/*.test.mjs",
+    "build:web": "bun run --filter @sapo/web build",
+    "dev:app": "bun run --filter @sapo/translator dev",
+    "build:app": "bun run --filter @sapo/translator build"
   },
   "trustedDependencies": [
     "react-native-litert-lm"
-  ]
+  ],
+  "overrides": {
+    "@solidjs/compiler": "2.0.0-rc.8",
+    "@solidjs/babel-plugin": "2.0.0-rc.8",
+    "@solidjs/signals": "2.0.0-rc.8"
+  }
 }

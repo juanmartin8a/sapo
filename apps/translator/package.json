@@ -1,0 +1,38 @@
+{
+    "name": "@sapo/translator",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "vite --host 127.0.0.1 --port 3001 --strictPort",
+        "build": "vite build",
+        "start": "node .output/server/index.mjs",
+        "typecheck": "tsc --noEmit",
+        "test": "tsx --test tests/*.test.ts",
+        "predev": "node scripts/sync-assets.mjs",
+        "prebuild": "node scripts/sync-assets.mjs",
+        "build:vercel": "NITRO_PRESET=vercel vite build"
+    },
+    "dependencies": {
+        "@tanstack/solid-router": "2.0.0-rc.8",
+        "@tanstack/solid-start": "2.0.0-rc.8",
+        "@solidjs/web": "2.0.0-rc.8",
+        "solid-js": "2.0.0-rc.8",
+        "better-auth": "1.6.26",
+        "@convex-dev/better-auth": "0.12.5",
+        "convex": "1.41.0",
+        "stripe": "^22.0.0",
+        "@sapo/backend": "workspace:*",
+        "@sapo/client-core": "workspace:*"
+    },
+    "devDependencies": {
+        "@types/node": "^24.0.0",
+        "vite": "8.3.4",
+        "nitro": "3.0.260903-beta",
+        "typescript": "6.0.3",
+        "tsx": "^4.20.0",
+        "@solidjs/vite-plugin": "3.0.0-next.43"
+    },
+    "engines": {
+        "node": "24.x"
+    }
+}

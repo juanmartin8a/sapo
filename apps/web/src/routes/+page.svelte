@@ -80,7 +80,7 @@
 	<title>SAPO — Phonetic respelling</title>
 	<meta
 		name="description"
-		content="SAPO offers a multilingual phonetic representations database and an iOS app for translation and cross-lingual pronunciation respelling."
+		content="SAPO offers a multilingual phonetic representations database and mobile and web apps for translation and cross-lingual pronunciation respelling."
 	/>
 </svelte:head>
 
@@ -147,12 +147,15 @@
 	<article class="destination app-destination">
 		<h2>Tools</h2>
 		<p>
-			Currently, we only offer an iOS app for translation and cross-lingual pronunciation
-			respelling, with optional local models for offline use.
+			Translate and respell in your browser or with the iOS app. The mobile app also offers optional
+			local models for offline use.
 			<br />
 			<br />
-			An Android version, a web app, and more are coming soon.
+			An Android version and more tools are coming soon.
 		</p>
+		<a class="resource-link" href="/app/" data-sveltekit-reload
+			>Open web app <span aria-hidden="true">→</span></a
+		>
 		<a
 			class="resource-link"
 			href="https://apps.apple.com/us/app/s-a-p-o-transl-ate-iterate/id6752793342"

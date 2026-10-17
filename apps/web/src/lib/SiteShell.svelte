@@ -12,6 +12,7 @@
 	<header class="site-header">
 		<a class="wordmark" href={resolve('/')} aria-label="SAPO home">S A P O</a>
 		<nav aria-label="Main navigation">
+			<a href="/app/" data-sveltekit-reload>Open app</a>
 			<a
 				href={resolve('multilingual-phonetic-representations/')}
 				aria-current={pathname === '/multilingual-phonetic-representations'

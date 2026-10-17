@@ -8,9 +8,12 @@ SAPO's mobile app, website, and Convex backend live in one Git repository.
 | --- | --- | --- |
 | `@sapo/mobile` | `apps/mobile` | Expo + React Native app, native projects, and EAS configuration |
 | `@sapo/web` | `apps/web` | SvelteKit website and server-side Turso reader |
+| `@sapo/translator` | `apps/translator` | TanStack Start + Solid 2 app, served by the website at `/app/` |
+| `@sapo/client-core` | `packages/client-core` | Pure shared streaming transport and client constants |
 | `@sapo/backend` | `packages/backend` | Convex functions, components, generated bindings, and prompt generation |
 
-The website continues to use Turso independently of Convex. Each workspace owns
+The SvelteKit website continues to use Turso. The translator shares mobile accounts,
+subscription access, quotas, and the existing Convex deployment. Each workspace owns
 its dependencies, environment files, checks, and deployment configuration.
 
 ## Development
@@ -27,7 +30,10 @@ bun run dev:web
 bun run dev:backend
 ```
 
-Run those development commands in separate terminals. `bun run start`,
+Run those development commands in separate terminals. `dev:web` starts both web
+workspaces: the website at `http://127.0.0.1:3000/` and the app at
+`http://127.0.0.1:3000/app/` (proxied to port 3001). Use `dev:app` for the app alone.
+`bun run start`,
 `bun run ios`, and `bun run android` target the mobile app. `bun run web` targets
 the SvelteKit website; use `bun run --filter @sapo/mobile web` for Expo's web target.
 
@@ -38,6 +44,8 @@ Private environment files belong in their workspace, never in Git:
   deployment (or the appropriate Convex CLI credentials in CI). Server secrets
   remain in the Convex dashboard, separately for each deployment.
 - `apps/web/.env.local`: private Turso settings; see `apps/web/.env.example`.
+- `apps/translator/.env.local`: public Convex deployment URLs matching mobile;
+  see [translator setup](apps/translator/README.md). Stripe secrets remain server-only.
 
 Keep the existing Convex deployment identity when starting the backend. Moving
 source directories does not require creating a new Convex project or database.
@@ -105,3 +113,12 @@ The `-m` option compares merges with each parent so Git can follow backend and
 website files across their import into the monorepo.
 Convex is now ordinary tracked source, with its original license retained in
 `packages/backend/convex/LICENSE`; no submodule initialization is needed.
+
+## Web application
+
+`bun run build:web` builds both the existing website and `/app/`, then combines
+their Vercel Build Output artifacts in `apps/web/.vercel/output`. Keep the Vercel
+Root Directory at `apps/web`. No second web deployment is required. The app PWA
+is scoped to `/app/` and does not cache website pages or account data.
+See [the translator README](apps/translator/README.md) for origins, callbacks,
+shared access rules, and the disabled Stripe foundation.
