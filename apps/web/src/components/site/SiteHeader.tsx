@@ -14,7 +14,7 @@ export default function SiteHeader(props: { desktopOnly?: boolean }) {
                     reloadDocument={!inApp()}
                     aria-current={inApp() ? "page" : undefined}
                 >
-                    Open app
+                    Web app
                 </Link>
                 <Link
                     to="/multilingual-phonetic-representations/"

@@ -449,6 +449,15 @@
         align-items: flex-start;
         padding-right: 48px;
     }
+    .app-links {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        column-gap: 24px;
+    }
+    .app-links .resource-link {
+        white-space: nowrap;
+    }
     .app-destination {
         padding-right: 0;
         padding-left: 48px;

@@ -16,9 +16,14 @@ export const Route = createFileRoute(
         ],
     }),
     component: () => (
-        <MarkdownDocument markdown={markdown}>
+        <MarkdownDocument markdown={markdown} linksInNewTab>
             <nav class="resource-section" aria-label="Database resources">
-                <Link class="resource-link" to="/multilingual-phonetic-representations/about/">
+                <Link
+                    class="resource-link"
+                    to="/multilingual-phonetic-representations/about/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
                     {"About the database "}
                     <span aria-hidden="true">{"→"}</span>
                 </Link>

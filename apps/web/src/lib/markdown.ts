@@ -8,14 +8,15 @@ const escapeHtml = (value: string) =>
 
 const escapeAttribute = (value: string) => escapeHtml(value).replaceAll("`", "&#96;");
 
-const renderInline = (value: string) => {
+const renderInline = (value: string, linksInNewTab = false) => {
     let html = escapeHtml(value);
 
     html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
     html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
     html = html.replace(/\*([^*]+)\*/g, "<em>$1</em>");
     html = html.replace(/\[([^\]]+)]\(([^)]+)\)/g, (_match, text: string, href: string) => {
-        return `<a href="${escapeAttribute(href)}">${text}</a>`;
+        const attributes = linksInNewTab ? ' target="_blank" rel="noopener noreferrer"' : "";
+        return `<a href="${escapeAttribute(href)}"${attributes}>${text}</a>`;
     });
 
     return html;
@@ -31,7 +32,7 @@ const parseTableRow = (line: string) => {
 
 const isDividerRow = (cells: string[]) => cells.every((cell) => /^:?-{3,}:?$/.test(cell));
 
-const renderTable = (rows: string[][]) => {
+const renderTable = (rows: string[][], linksInNewTab = false) => {
     const visibleRows = rows.filter((row) => !isDividerRow(row));
 
     if (visibleRows.length === 0) {
@@ -39,15 +40,20 @@ const renderTable = (rows: string[][]) => {
     }
 
     const [header, ...body] = visibleRows;
-    const headerHtml = header.map((cell) => `<th>${renderInline(cell)}</th>`).join("");
+    const headerHtml = header
+        .map((cell) => `<th>${renderInline(cell, linksInNewTab)}</th>`)
+        .join("");
     const bodyHtml = body
-        .map((row) => `<tr>${row.map((cell) => `<td>${renderInline(cell)}</td>`).join("")}</tr>`)
+        .map(
+            (row) =>
+                `<tr>${row.map((cell) => `<td>${renderInline(cell, linksInNewTab)}</td>`).join("")}</tr>`,
+        )
         .join("");
 
     return `<table><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`;
 };
 
-export const markdownToHtml = (markdown: string) => {
+export const markdownToHtml = (markdown: string, options: { linksInNewTab?: boolean } = {}) => {
     const html: string[] = [];
     const paragraph: string[] = [];
     const tableRows: string[][] = [];
@@ -56,7 +62,7 @@ export const markdownToHtml = (markdown: string) => {
     const flushParagraph = () => {
         if (paragraph.length === 0) return;
 
-        html.push(`<p>${renderInline(paragraph.join(" "))}</p>`);
+        html.push(`<p>${renderInline(paragraph.join(" "), options.linksInNewTab)}</p>`);
         paragraph.length = 0;
     };
 
@@ -70,7 +76,7 @@ export const markdownToHtml = (markdown: string) => {
     const flushTable = () => {
         if (tableRows.length === 0) return;
 
-        const table = renderTable(tableRows);
+        const table = renderTable(tableRows, options.linksInNewTab);
 
         if (table) {
             html.push(table);
@@ -117,7 +123,7 @@ export const markdownToHtml = (markdown: string) => {
             flushList();
 
             const level = heading[1].length;
-            html.push(`<h${level}>${renderInline(heading[2])}</h${level}>`);
+            html.push(`<h${level}>${renderInline(heading[2], options.linksInNewTab)}</h${level}>`);
             continue;
         }
 
@@ -126,7 +132,9 @@ export const markdownToHtml = (markdown: string) => {
         if (quote) {
             flushParagraph();
             flushList();
-            html.push(`<blockquote><p>${renderInline(quote[1])}</p></blockquote>`);
+            html.push(
+                `<blockquote><p>${renderInline(quote[1], options.linksInNewTab)}</p></blockquote>`,
+            );
             continue;
         }
 
@@ -141,7 +149,7 @@ export const markdownToHtml = (markdown: string) => {
                 listType = "ul";
             }
 
-            html.push(`<li>${renderInline(unordered[1])}</li>`);
+            html.push(`<li>${renderInline(unordered[1], options.linksInNewTab)}</li>`);
             continue;
         }
 
@@ -156,7 +164,7 @@ export const markdownToHtml = (markdown: string) => {
                 listType = "ol";
             }
 
-            html.push(`<li>${renderInline(ordered[1])}</li>`);
+            html.push(`<li>${renderInline(ordered[1], options.linksInNewTab)}</li>`);
             continue;
         }
 

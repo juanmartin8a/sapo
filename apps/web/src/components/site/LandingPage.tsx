@@ -91,19 +91,21 @@ export default function LandingPage() {
                         <br />
                         {" An Android version and more tools are coming soon. "}
                     </p>
-                    <Link class="resource-link" to="/app/" reloadDocument>
-                        {"Open web app "}
-                        <span aria-hidden="true">{"→"}</span>
-                    </Link>
-                    <a
-                        class="resource-link"
-                        href="https://apps.apple.com/us/app/s-a-p-o-transl-ate-iterate/id6752793342"
-                        target="_blank"
-                        rel="noreferrer"
-                    >
-                        {" View on the App Store "}
-                        <span aria-hidden="true">{"↗"}</span>
-                    </a>
+                    <div class="app-links">
+                        <Link class="resource-link" to="/app/" reloadDocument>
+                            {"Try the web app "}
+                            <span aria-hidden="true">{"↗"}</span>
+                        </Link>
+                        <a
+                            class="resource-link"
+                            href="https://apps.apple.com/us/app/s-a-p-o-transl-ate-iterate/id6752793342"
+                            target="_blank"
+                            rel="noreferrer"
+                        >
+                            {" View on the App Store "}
+                            <span aria-hidden="true">{"↗"}</span>
+                        </a>
+                    </div>
                 </article>
             </section>
         </div>

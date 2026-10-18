@@ -14,16 +14,23 @@ export const Route = createFileRoute("/_site/multilingual-phonetic-representatio
         ],
     }),
     component: () => (
-        <MarkdownDocument markdown={markdown}>
+        <MarkdownDocument markdown={markdown} linksInNewTab>
             <nav class="resource-section database-resources" aria-label="Database resources">
                 <Link
                     class="resource-link"
                     to="/multilingual-phonetic-representations/about/attribution/"
+                    target="_blank"
+                    rel="noopener noreferrer"
                 >
                     {"Data sources & attribution "}
                     <span aria-hidden="true">{"→"}</span>
                 </Link>
-                <Link class="resource-link" to="/multilingual-phonetic-representations/">
+                <Link
+                    class="resource-link"
+                    to="/multilingual-phonetic-representations/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
                     {"Browse the database "}
                     <span aria-hidden="true">{"→"}</span>
                 </Link>
