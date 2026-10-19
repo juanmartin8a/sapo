@@ -1,47 +1,58 @@
 import { Link } from "@tanstack/solid-router";
-import { Show } from "solid-js";
+import { createSignal, Show } from "solid-js";
 import { useAppState } from "@/providers/AppProvider";
 import { languages, languagesPlusAutoDetect } from "@/constants/translation";
 import LanguageSelector from "@/components/ui/LanguageSelector";
 import Icon from "@/components/ui/Icon";
 import Toggle from "@/components/ui/Toggle";
+import AccountControl from "@/components/auth/AccountControl";
 
 export default function Sidebar(props: { onNavigate?: () => void; layout?: "panel" }) {
-    const { translation } = useAppState();
+    const { translation, preferencesReady } = useAppState();
+    const [animateOptions, setAnimateOptions] = createSignal(false);
     const busy = () =>
         translation.state.status === "loading" || translation.state.status === "streaming";
     return (
         <div class={`sidebar-inner ${props.layout === "panel" ? "options-panel" : ""}`}>
-            <div class="sidebar-options">
+            <div
+                class={`sidebar-options ${animateOptions() ? "animate-options" : ""}`}
+                aria-busy={preferencesReady() ? "false" : "true"}
+            >
                 <div class="mode-switch" role="group" aria-label="Operation">
                     <button
                         aria-pressed={
                             translation.state.operation === "translate" ? "true" : "false"
                         }
-                        onClick={() =>
+                        onClick={() => {
+                            setAnimateOptions(true);
                             translation.setPreferences({
                                 operation: "translate",
-                            })
-                        }
+                            });
+                        }}
                     >
                         Translate
                     </button>
                     <button
                         aria-pressed={translation.state.operation === "respell" ? "true" : "false"}
-                        onClick={() => translation.setPreferences({ operation: "respell" })}
+                        onClick={() => {
+                            setAnimateOptions(true);
+                            translation.setPreferences({ operation: "respell" });
+                        }}
                     >
                         Respell
                     </button>
                 </div>
                 <Show when={translation.state.operation === "respell"}>
                     <Toggle
-                        label="Translate & Respell"
+                        class="respell-option"
+                        label="Translate first"
                         checked={translation.state.translateThenRespell}
-                        onChange={(value) =>
+                        onChange={(value) => {
+                            setAnimateOptions(true);
                             translation.setPreferences({
                                 translateThenRespell: value,
-                            })
-                        }
+                            });
+                        }}
                     />
                 </Show>
                 <div class="sidebar-field pane-language-option">
@@ -77,9 +88,9 @@ export default function Sidebar(props: { onNavigate?: () => void; layout?: "pane
                 </Show>
                 <Show when={translation.state.operation === "respell"}>
                     <div
-                        class={`sidebar-field ${translation.state.translateThenRespell ? "" : "pane-language-option"}`}
+                        class={`sidebar-field respell-option ${translation.state.translateThenRespell ? "" : "pane-language-option"}`}
                     >
-                        <label>Respell using</label>
+                        <label>Respell:</label>
                         <LanguageSelector
                             label="Respell language"
                             options={["Source", ...Object.values(languages)]}
@@ -96,7 +107,10 @@ export default function Sidebar(props: { onNavigate?: () => void; layout?: "pane
                         label="Single screen"
                         description="Keep input and output together"
                         checked={translation.state.singleScreen}
-                        onChange={(singleScreen) => translation.setPreferences({ singleScreen })}
+                        onChange={(singleScreen) => {
+                            setAnimateOptions(true);
+                            translation.setPreferences({ singleScreen });
+                        }}
                     />
                 </div>
             </div>
@@ -108,7 +122,7 @@ export default function Sidebar(props: { onNavigate?: () => void; layout?: "pane
 }
 
 export function SidebarAccountActions(props: { onNavigate?: () => void }) {
-    const { auth, pwa } = useAppState();
+    const { pwa } = useAppState();
     return (
         <footer class="sidebar-footer">
             <Show when={pwa.state.installable && !pwa.state.installed}>
@@ -130,35 +144,7 @@ export function SidebarAccountActions(props: { onNavigate?: () => void }) {
                 Settings
                 <Icon name="chevron-right" size={15} />
             </Link>
-            <Show
-                when={auth.state.status === "authenticated"}
-                fallback={
-                    <Link
-                        class="sidebar-account sidebar-signin"
-                        to="/app/auth/"
-                        onClick={() => props.onNavigate?.()}
-                    >
-                        <Icon name="log-in" size={20} />
-                        <span>Sign in</span>
-                    </Link>
-                }
-            >
-                <Link
-                    class="sidebar-account"
-                    to="/app/settings/"
-                    onClick={() => props.onNavigate?.()}
-                >
-                    <span class="account-avatar">
-                        {auth.state.name?.slice(0, 1).toUpperCase() ?? ":)"}
-                    </span>
-                    <span class="account-details">
-                        {auth.state.name || "Your account"}
-                        <span class="account-subtitle">
-                            {auth.state.hasActiveSubscription ? "Polyglot" : "Free"}
-                        </span>
-                    </span>
-                </Link>
-            </Show>
+            <AccountControl class="sidebar-account" onNavigate={props.onNavigate} />
         </footer>
     );
 }

@@ -8,6 +8,9 @@
         --muted: #858585;
         --line: #dededb;
         --serif: "Times New Roman", Times, serif;
+        display: flex;
+        flex-direction: column;
+        min-height: 100dvh;
     }
     * {
         box-sizing: border-box;
@@ -72,6 +75,9 @@
     .icon-button:hover:not(:disabled) {
         background: #f3f3f1;
     }
+    .close-button:hover:not(:disabled) {
+        background: transparent;
+    }
     .muted {
         color: var(--muted);
     }
@@ -114,6 +120,7 @@
         display: none;
     }
     .app-shell {
+        flex: 1;
         height: 100dvh;
         min-height: 540px;
         display: flex;
@@ -188,6 +195,13 @@
         display: block;
         margin-bottom: 18px;
     }
+    .sidebar-options[aria-busy="true"] {
+        visibility: hidden;
+    }
+    .sidebar-options:not(.animate-options) .toggle-input,
+    .sidebar-options:not(.animate-options) .toggle-input::before {
+        transition: none;
+    }
     .mode-switch {
         display: flex;
         padding: 0;
@@ -245,6 +259,9 @@
     }
     .toggle-label {
         display: block;
+    }
+    .animate-options .respell-option {
+        animation: respell-option-fade-in 180ms ease-out;
     }
     .toggle-description {
         display: block;
@@ -315,31 +332,6 @@
         border-top: 1px solid var(--line);
         text-decoration: none;
         font-size: 13px;
-    }
-    .account-avatar {
-        width: 40px;
-        height: 40px;
-        display: grid;
-        place-items: center;
-        background: #000;
-        border-radius: 50%;
-        font:
-            600 16px -apple-system,
-            BlinkMacSystemFont,
-            sans-serif;
-        flex: 0 0 auto;
-        color: #fff;
-    }
-    .account-details {
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .account-subtitle {
-        display: block;
-        color: var(--muted);
-        font-size: 10px;
-        margin-top: 4px;
     }
     .sidebar-signature {
         font: italic 11px var(--serif);
@@ -428,8 +420,6 @@
         color: #757575;
     }
     .chevron-down {
-        font-size: 16px;
-        line-height: 12px;
         color: #777;
     }
     .pane-label {
@@ -443,9 +433,6 @@
         color: #777;
         height: 32px;
         width: 30px;
-    }
-    .copy-button span {
-        font-size: 24px;
     }
     .translation-input {
         flex: 1;
@@ -545,6 +532,8 @@
         font-size: 9px;
     }
     .swap-button {
+        display: grid;
+        place-items: center;
         position: absolute;
         top: 16px;
         left: 50%;
@@ -890,7 +879,7 @@
         }
         .app-shell {
             height: auto;
-            min-height: 100dvh;
+            min-height: 0;
             overflow: visible;
         }
         .desktop-options,
@@ -912,10 +901,6 @@
         }
         .desktop-toolbar > nav {
             flex: 1 0 auto;
-        }
-        .desktop-toolbar > .header-account {
-            flex: 0 0 auto;
-            margin-left: auto;
         }
         .options-panel {
             height: auto;
@@ -963,36 +948,6 @@
         .options-panel .sidebar-field > label,
         .options-panel .sidebar-field .language-button {
             font-size: 13px;
-        }
-        .header-account .sidebar-footer {
-            flex-direction: row;
-            align-items: center;
-            gap: 20px;
-        }
-        .header-account .sidebar-link,
-        .header-account .sidebar-account {
-            width: auto;
-            margin: 0;
-            padding: 8px 0;
-            border: 0;
-            font-size: 12px;
-            white-space: nowrap;
-            gap: 8px;
-        }
-        .header-account .sidebar-link > .icon:last-child {
-            display: none;
-        }
-        .header-account .sidebar-signin {
-            padding: 9px 13px;
-            border-radius: 10px;
-        }
-        .header-account .account-avatar {
-            width: 30px;
-            height: 30px;
-            font-size: 12px;
-        }
-        .header-account .account-details {
-            max-width: 130px;
         }
         .workspace {
             flex: none;
@@ -1051,6 +1006,7 @@
             display: block;
         }
         .app-shell {
+            flex: 0 0 auto;
             min-height: 360px;
             height: 100dvh;
         }
@@ -1351,7 +1307,7 @@
         background: #000;
         color: #fff;
     }
-    .sidebar-signin {
+    .sidebar-account.account-signin {
         background: #f2f2f2;
         border: 0;
         border-radius: 12px;
@@ -1360,12 +1316,14 @@
         font-weight: 500;
     }
 
-    /* Native language sheets use a black surface and white option rows. */
+    /* Language pickers retain the native black surface and white option rows. */
     .language-dialog {
         background: #000;
         color: #fff;
         border-radius: 15px;
         height: min(660px, 85dvh);
+        margin: auto;
+        width: min(420px, calc(100vw - 40px));
     }
     .language-dialog .dialog-content {
         height: 100%;
@@ -1396,11 +1354,45 @@
     .language-dialog .language-option .icon {
         filter: invert(1);
     }
-    @media (max-width: 899px) {
-        .language-dialog {
-            border-radius: 15px 15px 0 0;
-            height: 84dvh;
-        }
+    .language-dialog.dialog-popover {
+        position: fixed;
+        inset: auto;
+        margin: 0;
+        height: min(480px, 70dvh);
+        box-shadow: 0 12px 32px #0003;
+    }
+    .language-dialog.dialog-popover .dialog-header {
+        padding: 12px 14px;
+    }
+    .language-dialog.dialog-popover .dialog-header h2 {
+        font-size: 14px;
+    }
+    .language-dialog.dialog-popover .close-button {
+        width: 28px;
+        height: 28px;
+        font-size: 22px;
+    }
+    .language-dialog.dialog-popover .search-input {
+        margin: 0 14px 10px;
+        width: calc(100% - 28px);
+        padding: 9px 10px;
+        border-radius: 8px;
+        font-size: 12px;
+    }
+    .language-dialog.dialog-popover .language-list {
+        padding: 0 14px 14px;
+    }
+    .language-dialog.dialog-popover .language-option {
+        padding: 10px;
+        margin-bottom: 8px;
+        font-size: 13px;
+    }
+    .language-dialog.dialog-popover .language-option .icon {
+        width: 14px;
+        height: 14px;
+    }
+    .dialog-popover::backdrop {
+        background: transparent;
     }
 
     .sidebar-field .language-button > span:first-child {
@@ -1417,9 +1409,35 @@
     padding-inline: 56px;
     flex: 0 0 auto;
 }
+.translator .site-footer {
+    width: 100%;
+    max-width: 1120px;
+    margin-inline: auto;
+    padding-inline: 56px;
+    flex: 0 0 auto;
+}
+@media (max-width: 900px) {
+    .translator .site-footer {
+        padding-inline: 36px;
+    }
+}
+@media (max-width: 640px) {
+    .translator .site-footer {
+        padding-inline: 24px;
+        padding-bottom: max(24px, env(safe-area-inset-bottom));
+    }
+}
 @keyframes blink {
     to {
         visibility: hidden;
+    }
+}
+@keyframes respell-option-fade-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
     }
 }
 @keyframes breathe {

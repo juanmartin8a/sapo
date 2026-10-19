@@ -39,6 +39,7 @@ body {
     text-decoration: none;
 }
 .site-header nav {
+    margin-left: auto;
     display: flex;
     align-items: center;
     gap: 28px;
@@ -47,6 +48,9 @@ body {
 }
 .site-header nav a {
     padding: 12px 0;
+}
+.site-header nav > a:not(.site-account) {
+    flex-shrink: 0;
 }
 .site-header a {
     color: inherit;
@@ -59,15 +63,124 @@ body {
 .site-header a[aria-current] {
     color: #202320;
 }
+.account-control {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    min-width: 0;
+    text-decoration: none;
+    font-size: 13px;
+}
+.account-control > .icon {
+    display: block;
+    flex: 0 0 auto;
+}
+.account-control .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+.account-control .text-button {
+    cursor: pointer;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    padding: 4px 0;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+}
+.account-avatar {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    background: #000;
+    border-radius: 50%;
+    font:
+        600 16px -apple-system,
+        BlinkMacSystemFont,
+        sans-serif;
+    flex: 0 0 auto;
+    color: #fff;
+}
+.account-details {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.account-avatar-pending {
+    background: var(--line);
+}
+.account-placeholder {
+    display: inline-block;
+    width: 6em;
+    height: 0.75em;
+    border-radius: 2px;
+    background: var(--line);
+}
+.account-subtitle {
+    display: block;
+    color: var(--muted);
+    font-size: 10px;
+    margin-top: 4px;
+}
+.site-account {
+    flex: 0 1 auto;
+    gap: 8px;
+    margin-inline-start: 8px;
+    font: inherit;
+    font-style: italic;
+    white-space: nowrap;
+}
+.site-account.account-signin > .icon {
+    display: none;
+}
+.site-account .account-avatar {
+    display: none;
+}
+.site-account .account-details {
+    max-width: 130px;
+}
+.site-account .account-placeholder {
+    width: 3.5em;
+}
+@media (display-mode: standalone) {
+    .site-account.account-signin {
+        padding: 9px 13px;
+        border-radius: 10px;
+        background: #f3f3f1;
+        font-style: normal;
+    }
+    .site-account.account-signin > .icon {
+        display: block;
+    }
+}
+.site-header a:focus-visible,
+.site-header button:focus-visible {
+    outline: 2px solid #161616;
+    outline-offset: 5px;
+}
 @media (max-width: 640px) {
     .site-header {
         min-height: 84px;
-        gap: 16px;
+        flex-wrap: wrap;
+        padding-block: 16px;
+        gap: 8px 16px;
     }
     .site-wordmark {
         font-size: 17px;
     }
     .site-header nav {
+        order: 3;
+        width: 100%;
+        justify-content: flex-end;
         gap: 18px;
         font-size: 12px;
     }

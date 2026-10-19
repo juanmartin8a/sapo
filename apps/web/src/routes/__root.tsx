@@ -7,6 +7,7 @@ import {
     useLocation,
 } from "@tanstack/solid-router";
 import type { JSX } from "@solidjs/web";
+import AuthProvider from "@/providers/AuthProvider";
 import type { FrogTransitions } from "@/lib/frogTransition";
 import baseCss from "@/styles/base.css?url";
 import siteCss from "@/styles/site.css?url";
@@ -23,7 +24,11 @@ export const Route = createRootRouteWithContext<{ frogTransitions: FrogTransitio
         ],
         links: [baseCss, siteCss, translatorCss].map((href) => ({ rel: "stylesheet", href })),
     }),
-    component: Outlet,
+    component: () => (
+        <AuthProvider>
+            <Outlet />
+        </AuthProvider>
+    ),
     shellComponent: RootDocument,
     notFoundComponent: NotFoundPage,
     errorComponent: () => (

@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet } from "@tanstack/solid-router";
 import AppProvider from "@/providers/AppProvider";
+import SiteFooter from "@/components/site/SiteFooter";
 export const Route = createFileRoute("/app")({
     head: () => ({
         meta: [
@@ -20,6 +21,7 @@ export const Route = createFileRoute("/app")({
             <AppProvider>
                 <Outlet />
             </AppProvider>
+            <SiteFooter />
         </div>
     ),
 });

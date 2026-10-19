@@ -11,6 +11,7 @@ export default function LanguageSelector(props: {
 }) {
     const [open, setOpen] = createSignal(false);
     const [search, setSearch] = createSignal("");
+    let trigger!: HTMLButtonElement;
     const filtered = createMemo(() =>
         props.options.filter((language) =>
             language.toLowerCase().includes(search().toLowerCase().trim()),
@@ -19,22 +20,29 @@ export default function LanguageSelector(props: {
     return (
         <>
             <button
+                ref={(element) => {
+                    trigger = element;
+                }}
                 class="language-button"
                 aria-label={`${props.label}: ${props.value}`}
                 aria-haspopup="dialog"
+                aria-expanded={open() ? "true" : "false"}
                 disabled={props.disabled}
                 onClick={() => {
                     setSearch("");
-                    setOpen(true);
+                    setOpen(!open());
                 }}
             >
                 <span>{props.value}</span>
-                <span class="chevron-down" aria-hidden="true">
-                    ⌄
-                </span>
+                <Icon name="chevron-down" size={16} />
             </button>
             <Show when={open()}>
-                <Dialog title={props.label} onClose={() => setOpen(false)} class="language-dialog">
+                <Dialog
+                    title={props.label}
+                    onClose={() => setOpen(false)}
+                    class="language-dialog"
+                    anchor={trigger}
+                >
                     <input
                         class="search-input"
                         aria-label="Search languages"
@@ -50,6 +58,7 @@ export default function LanguageSelector(props: {
                                     aria-pressed={props.value === language ? "true" : "false"}
                                     onClick={() => {
                                         props.onChange(language);
+                                        setOpen(false);
                                     }}
                                 >
                                     <span>{language}</span>

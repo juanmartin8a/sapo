@@ -71,10 +71,56 @@ export default function SettingsScreen() {
                     <Show
                         when={auth.state.status === "authenticated"}
                         fallback={
-                            <Link class="settings-row" to="/app/auth/">
-                                <span>Sign in</span>
-                                <Icon name="chevron-right" />
-                            </Link>
+                            <Show
+                                when={auth.state.status === "signed_out"}
+                                fallback={
+                                    <div class="settings-row" role="status">
+                                        <span>
+                                            <Show
+                                                when={auth.state.accountPreview || auth.state.error}
+                                                fallback={
+                                                    <span
+                                                        class="account-placeholder"
+                                                        aria-hidden="true"
+                                                    />
+                                                }
+                                            >
+                                                {auth.state.accountPreview
+                                                    ? auth.state.accountPreview.name ||
+                                                      "Your account"
+                                                    : "Account unavailable"}
+                                            </Show>
+                                            <Show
+                                                when={auth.state.accountPreview && auth.state.error}
+                                            >
+                                                <small>Account unavailable</small>
+                                            </Show>
+                                        </span>
+                                        <Show when={!auth.state.error}>
+                                            <span class="plan-badge">
+                                                <span
+                                                    class="account-placeholder"
+                                                    aria-hidden="true"
+                                                />
+                                                <span class="sr-only">Loading account</span>
+                                            </span>
+                                        </Show>
+                                        <Show when={auth.state.error}>
+                                            <button
+                                                class="text-button"
+                                                onClick={() => void auth.refreshSession()}
+                                            >
+                                                Try again
+                                            </button>
+                                        </Show>
+                                    </div>
+                                }
+                            >
+                                <Link class="settings-row" to="/app/auth/">
+                                    <span>Sign in</span>
+                                    <Icon name="chevron-right" />
+                                </Link>
+                            </Show>
                         }
                     >
                         <div class="settings-row">
@@ -83,11 +129,17 @@ export default function SettingsScreen() {
                                 <small>{auth.state.email}</small>
                             </span>
                             <span class="plan-badge">
-                                {auth.state.hasActiveSubscription === null
-                                    ? "Checking…"
-                                    : auth.state.hasActiveSubscription
-                                      ? "Polyglot"
-                                      : "Free"}
+                                <Show
+                                    when={auth.state.hasActiveSubscription !== null}
+                                    fallback={
+                                        <>
+                                            <span class="account-placeholder" aria-hidden="true" />
+                                            <span class="sr-only">Loading plan</span>
+                                        </>
+                                    }
+                                >
+                                    {auth.state.hasActiveSubscription ? "Polyglot" : "Free"}
+                                </Show>
                             </span>
                         </div>
                         <div class="plan-details">

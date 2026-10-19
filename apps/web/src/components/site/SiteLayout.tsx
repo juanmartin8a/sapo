@@ -1,5 +1,6 @@
-import { Link, Outlet, useLocation } from "@tanstack/solid-router";
+import { Outlet, useLocation } from "@tanstack/solid-router";
 import SiteHeader from "./SiteHeader";
+import SiteFooter from "./SiteFooter";
 export default function SiteLayout() {
     const location = useLocation();
     return (
@@ -15,31 +16,7 @@ export default function SiteLayout() {
                 >
                     <Outlet />
                 </main>
-                <footer class="site-footer">
-                    <span>© 2026 Happ Technologies Inc.</span>
-                    <nav aria-label="Footer navigation">
-                        <Link
-                            to="/terms-of-use/"
-                            aria-current={
-                                location().pathname.replace(/\/$/, "") === "/terms-of-use"
-                                    ? "page"
-                                    : undefined
-                            }
-                        >
-                            Terms
-                        </Link>
-                        <Link
-                            to="/privacy-policy/"
-                            aria-current={
-                                location().pathname.replace(/\/$/, "") === "/privacy-policy"
-                                    ? "page"
-                                    : undefined
-                            }
-                        >
-                            Privacy
-                        </Link>
-                    </nav>
-                </footer>
+                <SiteFooter />
             </div>
         </div>
     );

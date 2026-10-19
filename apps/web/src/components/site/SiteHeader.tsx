@@ -1,4 +1,5 @@
 import { Link, useLocation } from "@tanstack/solid-router";
+import AccountControl from "@/components/auth/AccountControl";
 export default function SiteHeader(props: { desktopOnly?: boolean }) {
     const location = useLocation();
     const pathname = () => location().pathname.replace(/\/$/, "") || "/";
@@ -38,6 +39,7 @@ export default function SiteHeader(props: { desktopOnly?: boolean }) {
                 >
                     Support
                 </Link>
+                <AccountControl class="site-account" showSubscription={false} />
             </nav>
         </header>
     );

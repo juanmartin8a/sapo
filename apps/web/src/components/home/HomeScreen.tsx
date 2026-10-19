@@ -6,7 +6,7 @@ import {
     languages,
     languagesPlusAutoDetect,
 } from "@/constants/translation";
-import Sidebar, { SidebarAccountActions } from "@/components/sidebar/Sidebar";
+import Sidebar from "@/components/sidebar/Sidebar";
 import Dialog from "@/components/ui/Dialog";
 import Icon from "@/components/ui/Icon";
 import LanguageSelector from "@/components/ui/LanguageSelector";
@@ -109,7 +109,7 @@ export default function HomeScreen() {
             if (
                 (event.metaKey || event.ctrlKey) &&
                 event.key === "Enter" &&
-                !document.querySelector("dialog[open]")
+                !document.querySelector("dialog[open], dialog:popover-open")
             ) {
                 event.preventDefault();
                 submit();
@@ -207,9 +207,6 @@ export default function HomeScreen() {
                         <nav aria-label="Translation options">
                             <Sidebar layout="panel" />
                         </nav>
-                        <div class="header-account">
-                            <SidebarAccountActions />
-                        </div>
                     </div>
                 </div>
                 <main
@@ -299,7 +296,7 @@ export default function HomeScreen() {
                             }
                             onClick={() => translation.swapLanguages()}
                         >
-                            ⇄
+                            <Icon name="arrow-right-left" size={20} />
                         </button>
                         <section
                             class="output-pane"
@@ -350,7 +347,7 @@ export default function HomeScreen() {
                                     disabled={!translation.state.displayText}
                                     onClick={() => void copyOutput()}
                                 >
-                                    <span aria-hidden="true">⧉</span>
+                                    <Icon name="copy" size={20} />
                                 </button>
                             </div>
                             <TranslationOutput />
