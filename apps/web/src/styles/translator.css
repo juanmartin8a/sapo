@@ -619,6 +619,14 @@
     .dialog::backdrop {
         background: #0003;
     }
+    .dialog.delete-account-dialog {
+        inset: 0;
+        margin: auto;
+        width: min(420px, calc(100vw - 40px));
+        max-height: min(660px, 85dvh);
+        border-radius: 14px;
+        padding: 0;
+    }
     .dialog-content {
         display: flex;
         flex-direction: column;

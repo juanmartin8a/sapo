@@ -256,6 +256,7 @@ export default function SettingsScreen() {
                 <Show when={deleting()}>
                     <Dialog
                         title="Delete your account?"
+                        class="delete-account-dialog"
                         onClose={() => {
                             if (!pending()) setDeleting(false);
                         }}
