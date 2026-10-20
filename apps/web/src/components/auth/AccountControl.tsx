@@ -1,4 +1,4 @@
-import { Link, useLocation } from "@tanstack/solid-router";
+import { Link } from "@tanstack/solid-router";
 import { Show } from "solid-js";
 import { useAuthState } from "@/providers/AuthProvider";
 import Icon from "@/components/ui/Icon";
@@ -9,8 +9,6 @@ export default function AccountControl(props: {
     showSubscription?: boolean;
 }) {
     const auth = useAuthState();
-    const location = useLocation();
-    const inApp = () => /^\/app(?:\/|$)/.test(location().pathname);
     return (
         <Show
             when={auth.state.status === "authenticated"}
@@ -74,7 +72,6 @@ export default function AccountControl(props: {
                     <Link
                         class={`account-control account-signin ${props.class ?? ""}`}
                         to="/app/auth/"
-                        reloadDocument={!inApp()}
                         onClick={() => props.onNavigate?.()}
                     >
                         <Icon name="log-in" size={20} />
@@ -86,7 +83,6 @@ export default function AccountControl(props: {
             <Link
                 class={`account-control ${props.class ?? ""}`}
                 to="/app/settings/"
-                reloadDocument={!inApp()}
                 onClick={() => props.onNavigate?.()}
             >
                 <span class="account-avatar">

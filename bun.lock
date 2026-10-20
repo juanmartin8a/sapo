@@ -79,6 +79,7 @@
         "@tanstack/solid-start": "2.0.0-rc.8",
         "better-auth": "1.6.26",
         "convex": "1.41.0",
+        "jose": "^6.1.0",
         "solid-js": "2.0.0-rc.8",
         "stripe": "^22.0.0",
         "tailwindcss": "^4.3.3",

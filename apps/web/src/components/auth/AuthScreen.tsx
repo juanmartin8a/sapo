@@ -19,7 +19,7 @@ export default function AuthScreen() {
         try {
             const result = await getAuthClient().signIn.social({
                 provider,
-                callbackURL: `${window.location.origin}/app/`,
+                callbackURL: `${window.location.origin}/app/auth-callback/`,
                 errorCallbackURL: `${window.location.origin}/app/auth/`,
             });
             if (result.error)

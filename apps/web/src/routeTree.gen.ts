@@ -21,11 +21,13 @@ import { Route as ApiLanguagesRouteImport } from './routes/api/languages'
 import { Route as ApiPronunciationsRouteImport } from './routes/api/pronunciations'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppAuthRouteImport } from './routes/app/auth'
+import { Route as AppAuthCallbackRouteImport } from './routes/app/auth-callback'
 import { Route as AppDeleteAccountRouteImport } from './routes/app/delete-account'
 import { Route as AppSettingsRouteImport } from './routes/app/settings'
 import { Route as SiteMultilingualPhoneticRepresentationsIndexRouteImport } from './routes/_site/multilingual-phonetic-representations/index'
 import { Route as SiteMultilingualPhoneticRepresentationsAboutIndexRouteImport } from './routes/_site/multilingual-phonetic-representations/about/index'
 import { Route as SiteMultilingualPhoneticRepresentationsAboutAttributionRouteImport } from './routes/_site/multilingual-phonetic-representations/about/attribution'
+import { Route as AppApiAuthSplatRouteImport } from './routes/app/api/auth/$'
 import { Route as AppApiStripeWebhookRouteImport } from './routes/app/api/stripe/webhook'
 
 const SiteRoute = SiteRouteImport.update({
@@ -87,6 +89,11 @@ const AppAuthRoute = AppAuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAuthCallbackRoute = AppAuthCallbackRouteImport.update({
+  id: '/auth-callback',
+  path: '/auth-callback',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppDeleteAccountRoute = AppDeleteAccountRouteImport.update({
   id: '/delete-account',
   path: '/delete-account',
@@ -115,6 +122,11 @@ const SiteMultilingualPhoneticRepresentationsAboutAttributionRoute =
     path: '/multilingual-phonetic-representations/about/attribution',
     getParentRoute: () => SiteRoute,
   } as any)
+const AppApiAuthSplatRoute = AppApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppApiStripeWebhookRoute = AppApiStripeWebhookRouteImport.update({
   id: '/api/stripe/webhook',
   path: '/api/stripe/webhook',
@@ -132,11 +144,13 @@ export interface FileRoutesByFullPath {
   '/api/languages': typeof ApiLanguagesRoute
   '/api/pronunciations': typeof ApiPronunciationsRoute
   '/app/auth': typeof AppAuthRoute
+  '/app/auth-callback': typeof AppAuthCallbackRoute
   '/app/delete-account': typeof AppDeleteAccountRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/': typeof AppIndexRoute
   '/multilingual-phonetic-representations/': typeof SiteMultilingualPhoneticRepresentationsIndexRoute
   '/multilingual-phonetic-representations/about/attribution': typeof SiteMultilingualPhoneticRepresentationsAboutAttributionRoute
+  '/app/api/auth/$': typeof AppApiAuthSplatRoute
   '/app/api/stripe/webhook': typeof AppApiStripeWebhookRoute
   '/multilingual-phonetic-representations/about/': typeof SiteMultilingualPhoneticRepresentationsAboutIndexRoute
 }
@@ -149,12 +163,14 @@ export interface FileRoutesByTo {
   '/api/languages': typeof ApiLanguagesRoute
   '/api/pronunciations': typeof ApiPronunciationsRoute
   '/app/auth': typeof AppAuthRoute
+  '/app/auth-callback': typeof AppAuthCallbackRoute
   '/app/delete-account': typeof AppDeleteAccountRoute
   '/app/settings': typeof AppSettingsRoute
   '/': typeof SiteIndexRoute
   '/app': typeof AppIndexRoute
   '/multilingual-phonetic-representations': typeof SiteMultilingualPhoneticRepresentationsIndexRoute
   '/multilingual-phonetic-representations/about/attribution': typeof SiteMultilingualPhoneticRepresentationsAboutAttributionRoute
+  '/app/api/auth/$': typeof AppApiAuthSplatRoute
   '/app/api/stripe/webhook': typeof AppApiStripeWebhookRoute
   '/multilingual-phonetic-representations/about': typeof SiteMultilingualPhoneticRepresentationsAboutIndexRoute
 }
@@ -170,12 +186,14 @@ export interface FileRoutesById {
   '/api/languages': typeof ApiLanguagesRoute
   '/api/pronunciations': typeof ApiPronunciationsRoute
   '/app/auth': typeof AppAuthRoute
+  '/app/auth-callback': typeof AppAuthCallbackRoute
   '/app/delete-account': typeof AppDeleteAccountRoute
   '/app/settings': typeof AppSettingsRoute
   '/_site/': typeof SiteIndexRoute
   '/app/': typeof AppIndexRoute
   '/_site/multilingual-phonetic-representations/': typeof SiteMultilingualPhoneticRepresentationsIndexRoute
   '/_site/multilingual-phonetic-representations/about/attribution': typeof SiteMultilingualPhoneticRepresentationsAboutAttributionRoute
+  '/app/api/auth/$': typeof AppApiAuthSplatRoute
   '/app/api/stripe/webhook': typeof AppApiStripeWebhookRoute
   '/_site/multilingual-phonetic-representations/about/': typeof SiteMultilingualPhoneticRepresentationsAboutIndexRoute
 }
@@ -192,11 +210,13 @@ export interface FileRouteTypes {
     | '/api/languages'
     | '/api/pronunciations'
     | '/app/auth'
+    | '/app/auth-callback'
     | '/app/delete-account'
     | '/app/settings'
     | '/app/'
     | '/multilingual-phonetic-representations/'
     | '/multilingual-phonetic-representations/about/attribution'
+    | '/app/api/auth/$'
     | '/app/api/stripe/webhook'
     | '/multilingual-phonetic-representations/about/'
   fileRoutesByTo: FileRoutesByTo
@@ -209,12 +229,14 @@ export interface FileRouteTypes {
     | '/api/languages'
     | '/api/pronunciations'
     | '/app/auth'
+    | '/app/auth-callback'
     | '/app/delete-account'
     | '/app/settings'
     | '/'
     | '/app'
     | '/multilingual-phonetic-representations'
     | '/multilingual-phonetic-representations/about/attribution'
+    | '/app/api/auth/$'
     | '/app/api/stripe/webhook'
     | '/multilingual-phonetic-representations/about'
   id:
@@ -229,12 +251,14 @@ export interface FileRouteTypes {
     | '/api/languages'
     | '/api/pronunciations'
     | '/app/auth'
+    | '/app/auth-callback'
     | '/app/delete-account'
     | '/app/settings'
     | '/_site/'
     | '/app/'
     | '/_site/multilingual-phonetic-representations/'
     | '/_site/multilingual-phonetic-representations/about/attribution'
+    | '/app/api/auth/$'
     | '/app/api/stripe/webhook'
     | '/_site/multilingual-phonetic-representations/about/'
   fileRoutesById: FileRoutesById
@@ -332,6 +356,13 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof AppAuthRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/auth-callback': {
+      id: '/app/auth-callback'
+      path: '/auth-callback'
+      fullPath: '/app/auth-callback'
+      preLoaderRoute: typeof AppAuthCallbackRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/delete-account': {
       id: '/app/delete-account'
       path: '/delete-account'
@@ -366,6 +397,13 @@ declare module '@tanstack/solid-router' {
       fullPath: '/multilingual-phonetic-representations/about/attribution'
       preLoaderRoute: typeof SiteMultilingualPhoneticRepresentationsAboutAttributionRouteImport
       parentRoute: typeof SiteRoute
+    }
+    '/app/api/auth/$': {
+      id: '/app/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/app/api/auth/$'
+      preLoaderRoute: typeof AppApiAuthSplatRouteImport
+      parentRoute: typeof AppRoute
     }
     '/app/api/stripe/webhook': {
       id: '/app/api/stripe/webhook'
@@ -408,17 +446,21 @@ const SiteRouteWithChildren = SiteRoute._addFileChildren(SiteRouteChildren)
 
 interface AppRouteChildren {
   AppAuthRoute: typeof AppAuthRoute
+  AppAuthCallbackRoute: typeof AppAuthCallbackRoute
   AppDeleteAccountRoute: typeof AppDeleteAccountRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppApiAuthSplatRoute: typeof AppApiAuthSplatRoute
   AppApiStripeWebhookRoute: typeof AppApiStripeWebhookRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppAuthRoute: AppAuthRoute,
+  AppAuthCallbackRoute: AppAuthCallbackRoute,
   AppDeleteAccountRoute: AppDeleteAccountRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppIndexRoute: AppIndexRoute,
+  AppApiAuthSplatRoute: AppApiAuthSplatRoute,
   AppApiStripeWebhookRoute: AppApiStripeWebhookRoute,
 }
 

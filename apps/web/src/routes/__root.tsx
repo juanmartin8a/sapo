@@ -8,12 +8,14 @@ import {
 } from "@tanstack/solid-router";
 import type { JSX } from "@solidjs/web";
 import AuthProvider from "@/providers/AuthProvider";
+import { loadInitialAuth } from "@/lib/auth-initial";
 import type { FrogTransitions } from "@/lib/frogTransition";
 import baseCss from "@/styles/base.css?url";
 import siteCss from "@/styles/site.css?url";
 import translatorCss from "@/styles/translator.css?url";
 
 export const Route = createRootRouteWithContext<{ frogTransitions: FrogTransitions }>()({
+    beforeLoad: async () => ({ initialAuth: await loadInitialAuth() }),
     head: () => ({
         meta: [
             {
@@ -24,11 +26,7 @@ export const Route = createRootRouteWithContext<{ frogTransitions: FrogTransitio
         ],
         links: [baseCss, siteCss, translatorCss].map((href) => ({ rel: "stylesheet", href })),
     }),
-    component: () => (
-        <AuthProvider>
-            <Outlet />
-        </AuthProvider>
-    ),
+    component: RootContent,
     shellComponent: RootDocument,
     notFoundComponent: NotFoundPage,
     errorComponent: () => (
@@ -39,6 +37,15 @@ export const Route = createRootRouteWithContext<{ frogTransitions: FrogTransitio
         </main>
     ),
 });
+
+function RootContent() {
+    const context = Route.useRouteContext();
+    return (
+        <AuthProvider initialAuth={context().initialAuth}>
+            <Outlet />
+        </AuthProvider>
+    );
+}
 
 function NotFoundPage() {
     const location = useLocation();

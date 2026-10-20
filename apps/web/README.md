@@ -20,7 +20,24 @@ Local settings from the former translator workspace belong in this workspace now
 
 Add the website's exact origin to the existing Convex deployment's `CLIENT_ORIGIN`,
 preserving its other origins. Google/Apple continue to use Better Auth accounts,
-backend callbacks, and the `/app/` return URL with the cross-domain token exchange.
+backend callbacks, and the `/app/auth-callback/` return URL with the cross-domain token exchange.
+
+Web authentication uses the same Convex deployment through `/app/api/auth/*`.
+The proxy stores app-scoped, HttpOnly cookies; the backend's existing OAuth
+callbacks and mobile authentication remain unchanged. An HttpOnly browser nonce
+binds each web OAuth callback to the browser that initiated it.
+
+On `/app/` requests, the server verifies the cached Convex profile JWT against
+Convex's public keys and includes only profile fields in the initial HTML. Public
+keys are cached; profile data is isolated to each request. Missing or expired JWTs
+are refreshed once through Better Auth when a session cookie exists. No server
+secrets are copied from Convex, and personalized pages/auth responses use
+`private, no-store`. Internal links use client navigation so the root auth provider
+retains its account when moving between the translator and public pages. The client
+coalesces background session checks and revalidates on focus only after five minutes.
+Convex subscriptions and backend checks remain authoritative for plan access.
+Existing cross-domain browser sessions migrate once after server validation;
+their old localStorage credentials are removed after migration or sign-out.
 No backend environment is changed by a build.
 
 ## Structure

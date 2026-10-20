@@ -93,6 +93,10 @@ async function deploymentTarget(path) {
 for (const path of [
     "/app/",
     "/app/auth/",
+    "/app/auth-callback/",
+    "/app/api/auth/get-session",
+    "/app/api/auth/convex/token",
+    "/app/api/auth/sign-out",
     "/app/settings/",
     "/app/delete-account",
     "/app/api/stripe/webhook",

@@ -3,6 +3,8 @@ import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { createRoot, createStore, flush } from "solid-js";
 import { createServer } from "vite";
+import { readAccountPreview } from "../../src/lib/auth-preview.ts";
+import type { AuthBootstrap } from "../../src/lib/auth-bootstrap.ts";
 
 type User = { id: string; name: string; email: string };
 type SessionResult = { data: { user: User } | null; error?: unknown };
@@ -24,6 +26,17 @@ let cacheReads = 0;
 let tokenCalls = 0;
 const runtime = {
     createStore,
+    clearConvexAccessToken() {},
+    clearLegacyAuth() {},
+    migrateLegacySession: async () => false,
+    readLegacyAccountPreview: () =>
+        readAccountPreview({
+            getSessionData: () => {
+                cacheReads++;
+                return cachedSession;
+            },
+            getCookie: () => cookie,
+        }),
     getAuthClient: () => ({
         getSession: () => readSession(),
         getSessionData: () => {
@@ -72,7 +85,7 @@ Object.assign(globalThis, { __sapoAuthTest: runtime });
 const server = await createServer({
     configFile: false,
     root: fileURLToPath(new URL("../..", import.meta.url)),
-    server: { middlewareMode: true, watch: null },
+    server: { middlewareMode: true, watch: null, hmr: false, ws: false },
     define: { "import.meta.env.VITE_CONVEX_URL": JSON.stringify("https://test.convex.cloud") },
     ssr: { noExternal: ["convex", "solid-js"] },
     plugins: [
@@ -86,7 +99,7 @@ const server = await createServer({
                     [
                         "solid-js",
                         "@/lib/auth-client",
-                        "@/lib/auth-callback",
+                        "@/lib/auth-legacy",
                         "convex/browser",
                         "@sapo/backend/api",
                     ].includes(id)
@@ -97,11 +110,11 @@ const server = await createServer({
                 if (id === "\0solid-js")
                     return "export const { createStore } = globalThis.__sapoAuthTest;";
                 if (id === "\0@/lib/auth-client")
-                    return "export const { getAuthClient, getConvexAccessToken, isAuthConfigured } = globalThis.__sapoAuthTest;";
+                    return "export const { clearConvexAccessToken, getAuthClient, getConvexAccessToken, isAuthConfigured } = globalThis.__sapoAuthTest;";
                 if (id === "\0convex/browser")
                     return "export const { ConvexClient, ConvexHttpClient } = globalThis.__sapoAuthTest;";
-                if (id === "\0@/lib/auth-callback")
-                    return "export const exchangeSignInCallback = async () => {};";
+                if (id === "\0@/lib/auth-legacy")
+                    return "export const { clearLegacyAuth, readLegacyAccountPreview } = globalThis.__sapoAuthTest; export const migrateLegacySession = () => globalThis.__sapoAuthTest.migrateLegacySession();";
                 if (id === "\0@sapo/backend/api")
                     return "export const api = { auth: { getCurrentUser: 'user' }, subscription: { getCurrentSubscriptionStatus: 'plan' } };";
             },
@@ -113,7 +126,9 @@ const { createAuthStore } = (await server.ssrLoadModule(
     "/src/stores/authStore.ts",
 )) as typeof import("../../src/stores/authStore.ts");
 
-function setup(options: { cache?: unknown; cookie?: string; href?: string } = {}) {
+function setup(
+    options: { cache?: unknown; cookie?: string; href?: string; initialAuth?: AuthBootstrap } = {},
+) {
     session = { data: { user } };
     readSession = async () => session;
     readUser = async () =>
@@ -124,13 +139,14 @@ function setup(options: { cache?: unknown; cookie?: string; href?: string } = {}
     cookie = options.cookie ?? "";
     cacheReads = 0;
     tokenCalls = 0;
+    runtime.migrateLegacySession = async () => false;
     Object.assign(globalThis, {
         window: { location: { href: options.href ?? "https://sapo.example/app/" } },
     });
     let dispose!: () => void;
     const auth = createRoot((cleanup) => {
         dispose = cleanup;
-        return createAuthStore();
+        return createAuthStore(options.initialAuth);
     });
     return {
         auth,
@@ -178,6 +194,144 @@ test("focus revalidation preserves the account, plan, and live subscription", as
         listener.update({ has_active_subscription: false });
         flush();
         assert.equal(auth.state.hasActiveSubscription, false);
+    } finally {
+        dispose();
+    }
+});
+
+test("SSR identity is available before mounting and never implies paid access", async () => {
+    const { auth, dispose } = setup({
+        initialAuth: {
+            status: "authenticated",
+            account: {
+                userId: user.id,
+                name: user.name,
+                email: user.email,
+                expiresAtMs: Date.now() + 60_000,
+            },
+        },
+    });
+    try {
+        assert.equal(auth.state.status, "authenticated");
+        assert.equal(auth.state.name, user.name);
+        assert.equal(auth.state.hasActiveSubscription, null);
+        assert.equal(cacheReads, 0);
+        readUser = async () => {
+            throw new Error("offline");
+        };
+        await auth.initialize();
+        flush();
+        assert.equal(auth.state.name, user.name);
+        assert.equal(auth.state.status, "authenticated");
+        assert.equal(auth.state.hasActiveSubscription, null);
+        assert.ok(auth.state.error);
+    } finally {
+        dispose();
+    }
+});
+
+test("a fresh SSR account connects once without repeating session reads", async () => {
+    const { auth, dispose } = setup({
+        initialAuth: {
+            status: "authenticated",
+            account: {
+                userId: user.id,
+                name: user.name,
+                email: user.email,
+                expiresAtMs: Date.now() + 60_000,
+            },
+        },
+    });
+    try {
+        readSession = async () => {
+            throw new Error("Unexpected session fetch");
+        };
+        await auth.initialize();
+        flush();
+        assert.equal(auth.state.status, "authenticated");
+        assert.equal(auth.state.name, user.name);
+        assert.equal(tokenCalls, 1);
+        assert.equal(listeners.length, 1);
+        assert.equal(auth.state.hasActiveSubscription, null);
+        assert.equal(auth.state.error, null);
+    } finally {
+        dispose();
+    }
+});
+
+test("known guests render signed out and do not make an initial session request", async () => {
+    const { auth, dispose } = setup({ initialAuth: { status: "signed_out", account: null } });
+    try {
+        let reads = 0;
+        readSession = async () => {
+            ++reads;
+            return { data: null };
+        };
+        assert.equal(auth.state.status, "signed_out");
+        await auth.initialize();
+        await auth.refreshIfStale();
+        assert.equal(reads, 0);
+        assert.equal(cacheReads, 0);
+    } finally {
+        dispose();
+    }
+});
+
+test("focus events reuse a fresh account and coalesce stale revalidation", async (context) => {
+    context.mock.timers.enable({ apis: ["Date"] });
+    const { auth, dispose } = setup();
+    try {
+        await authenticate(auth);
+        let reads = 0;
+        readSession = async () => {
+            ++reads;
+            return session;
+        };
+        await Promise.all([auth.refreshIfStale(), auth.refreshIfStale()]);
+        assert.equal(reads, 0);
+        context.mock.timers.tick(5 * 60 * 1000);
+        await Promise.all([auth.refreshIfStale(), auth.refreshIfStale()]);
+        assert.equal(reads, 2); // Initial and confirming session checks, shared by both events.
+        assert.equal(listeners.length, 1);
+    } finally {
+        dispose();
+    }
+});
+
+test("a migrated session is checked even when SSR had no first-party cookie", async () => {
+    const { auth, dispose } = setup({ initialAuth: { status: "signed_out", account: null } });
+    runtime.migrateLegacySession = async () => true;
+    try {
+        await auth.initialize();
+        flush();
+        assert.equal(auth.state.status, "authenticated");
+        assert.equal(auth.state.userId, user.id);
+    } finally {
+        dispose();
+    }
+});
+
+test("focus cannot race an in-progress legacy migration", async () => {
+    const { auth, dispose } = setup({ initialAuth: { status: "signed_out", account: null } });
+    let finish!: (migrated: boolean) => void;
+    runtime.migrateLegacySession = () =>
+        new Promise((resolve) => {
+            finish = resolve;
+        });
+    try {
+        let reads = 0;
+        readSession = async () => {
+            ++reads;
+            return session;
+        };
+        const initialized = auth.initialize();
+        const focus = auth.refreshIfStale();
+        assert.equal(reads, 0);
+        finish(true);
+        await Promise.all([initialized, focus]);
+        flush();
+        assert.equal(auth.state.status, "authenticated");
+        assert.equal(reads, 2);
     } finally {
         dispose();
     }
@@ -269,11 +423,14 @@ test("an in-flight refresh cannot restore identity after sign-out", async () => 
             });
         const refresh = auth.refreshSession();
         await new Promise<void>((resolve) => setImmediate(resolve));
-        await auth.signOut();
-        finish({ _id: user.id, ...user });
-        await refresh;
+        const signedOut = auth.signOut();
         flush();
         assert.equal(auth.state.status, "signed_out");
+        finish({ _id: user.id, ...user });
+        await Promise.all([refresh, signedOut]);
+        flush();
+        assert.equal(auth.state.status, "signed_out");
+        assert.equal(auth.state.sessionRevision, 1);
         assert.equal(auth.state.userId, null);
     } finally {
         dispose();
@@ -517,9 +674,11 @@ test("sign-out clears the preview and a pending response cannot restore it", asy
         await new Promise<void>((resolve) => setImmediate(resolve));
         flush();
         assert.equal(auth.state.accountPreview?.name, "Cached Alice");
-        await auth.signOut();
+        const signedOut = auth.signOut();
+        flush();
+        assert.equal(auth.state.accountPreview, null);
         finish({ data: { user } });
-        await refresh;
+        await Promise.all([refresh, signedOut]);
         flush();
         assert.equal(auth.state.status, "signed_out");
         assert.equal(auth.state.accountPreview, null);

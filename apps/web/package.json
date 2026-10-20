@@ -27,6 +27,7 @@
         "better-auth": "1.6.26",
         "@convex-dev/better-auth": "0.12.5",
         "convex": "1.41.0",
+        "jose": "^6.1.0",
         "stripe": "^22.0.0",
         "@sapo/backend": "workspace:*",
         "@sapo/client-core": "workspace:*",
