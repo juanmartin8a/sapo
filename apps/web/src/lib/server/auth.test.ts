@@ -72,6 +72,148 @@ test("a verified cookie supplies the initial profile with no session request or 
     assert.ok(!("hasActiveSubscription" in result.auth.account!));
 });
 
+test("signing in again uses the app session even when an obsolete root cookie remains", async () => {
+    for (const secure of [false, true]) {
+        const prefix = secure ? "__Secure-better-auth." : "better-auth.";
+        const current = `${prefix}session_token=session-a.signature`;
+        const obsolete = `${prefix}session_token=revoked-session.signature`;
+        const jwt = await token();
+        // The browser orders /app cookies before cookies at the root path.
+        const cookie = `${current}; ${prefix}convex_jwt=${jwt}; ${obsolete}`;
+        const service = server(async (_url, init) => {
+            assert.equal(
+                new Headers(init?.headers).get("cookie"),
+                `${sessionCookie}; __Secure-better-auth.convex_jwt=${jwt}`,
+            );
+            return Response.json({ user: account });
+        }, secure);
+        const initial = await service.bootstrap(incoming("/app/", cookie));
+        assert.equal(initial.auth.status, "authenticated");
+        assert.equal(initial.auth.account?.userId, account.id);
+        const session = await service.proxy(incoming("/app/api/auth/get-session", cookie));
+        assert.deepEqual(await session.json(), { user: account });
+    }
+});
+
+test("setting and clearing sessions removes obsolete cookie paths in development and production", async () => {
+    for (const secure of [false, true]) {
+        for (const value of ["new-session.signature; Max-Age=604800", "; Max-Age=0"]) {
+            const response = await server(
+                async () =>
+                    Response.json(
+                        {},
+                        {
+                            headers: {
+                                "set-cookie": `__Secure-better-auth.session_token=${value}; Path=/; Secure; HttpOnly`,
+                            },
+                        },
+                    ),
+                secure,
+            ).proxy(
+                value.startsWith(";")
+                    ? post("/app/api/auth/sign-out", {})
+                    : incoming("/app/api/auth/get-session"),
+            );
+            const cookies = response.headers.getSetCookie();
+            const prefix = secure ? "__Secure-better-auth." : "better-auth.";
+            assert.equal(cookies.length, 3);
+            assert.ok(cookies[0].startsWith(`${prefix}session_token=${value};`));
+            assert.ok(cookies[0].includes("Path=/app;"));
+            for (const [index, path] of ["/", "/app/"].entries()) {
+                assert.equal(
+                    cookies[index + 1],
+                    `${prefix}session_token=; Path=${path}; Max-Age=0; HttpOnly; SameSite=Lax${secure ? "; Secure" : ""}`,
+                );
+            }
+        }
+    }
+});
+
+test("a browser with old cookies can sign out, complete OAuth again, and restore its account", async () => {
+    const jwt = await token();
+    const cookies = new Map<string, { name: string; value: string; path: string }>();
+    function apply(response: Response) {
+        for (const cookie of response.headers.getSetCookie()) {
+            const [pair, ...attributes] = cookie.split("; ");
+            const separator = pair.indexOf("=");
+            const name = pair.slice(0, separator);
+            const value = pair.slice(separator + 1);
+            const path =
+                attributes.find((attribute) => attribute.startsWith("Path="))?.slice(5) ?? "/";
+            const key = `${name}:${path}`;
+            if (attributes.includes("Max-Age=0")) cookies.delete(key);
+            else cookies.set(key, { name, value, path });
+        }
+    }
+    function browserCookies(path: string) {
+        return [...cookies.values()]
+            .filter(
+                (cookie) =>
+                    path === cookie.path || path.startsWith(`${cookie.path.replace(/\/$/, "")}/`),
+            )
+            .sort((a, b) => b.path.length - a.path.length)
+            .map((cookie) => `${cookie.name}=${cookie.value}`)
+            .join("; ");
+    }
+    // A previous app version left root and trailing-slash variants behind.
+    for (const path of ["/", "/app/", "/app"])
+        apply(new Response(null, { headers: { "set-cookie": `${sessionCookie}; Path=${path}` } }));
+    const service = server(async (url, init) => {
+        if (String(url).endsWith("/sign-out"))
+            return Response.json(
+                {},
+                {
+                    headers: {
+                        "set-cookie": "__Secure-better-auth.session_token=; Path=/; Max-Age=0",
+                    },
+                },
+            );
+        if (String(url).endsWith("/verify"))
+            return Response.json(
+                { session: { token: "new-session" }, user: account },
+                {
+                    headers: {
+                        "set-cookie":
+                            "__Secure-better-auth.session_token=new-session.signature; Path=/; Secure; HttpOnly",
+                    },
+                },
+            );
+        assert.equal(
+            new Headers(init?.headers).get("cookie"),
+            "__Secure-better-auth.session_token=new-session.signature",
+        );
+        return Response.json(
+            { user: account },
+            {
+                headers: {
+                    "set-cookie": `__Secure-better-auth.convex_jwt=${jwt}; Path=/; Secure; HttpOnly`,
+                },
+            },
+        );
+    });
+    apply(
+        await service.proxy(
+            post("/app/api/auth/sign-out", {}, browserCookies("/app/api/auth/sign-out")),
+        ),
+    );
+    assert.equal(browserCookies("/app/"), "");
+    apply(
+        await service.callback(
+            incoming(
+                "/app/auth-callback/?ott=new-ott&flow=browser-nonce",
+                "__Host-sapo-auth-flow=browser-nonce",
+            ),
+        ),
+    );
+    const restored = await service.bootstrap(incoming("/app/", browserCookies("/app/")));
+    assert.equal(restored.auth.status, "authenticated");
+    assert.equal(restored.auth.account?.userId, account.id);
+    assert.equal(
+        [...cookies.values()].filter((cookie) => cookie.name.endsWith("session_token")).length,
+        1,
+    );
+});
+
 test("invalid signatures, issuers, audiences, expiry and claims never become initial identity", async () => {
     const invalid = [
         "corrupt",
@@ -205,10 +347,7 @@ test("the proxy preserves query parameters and scopes refreshed cookies to the a
         );
     }).proxy(incoming("/app/api/auth/get-session?disableCookieCache=true", sessionCookie));
     assert.equal(response.status, 200);
-    assert.match(
-        response.headers.get("set-cookie")!,
-        /Path=\/app; HttpOnly; SameSite=Lax; Secure$/,
-    );
+    assert.match(response.headers.getSetCookie()[0], /Path=\/app; HttpOnly; SameSite=Lax; Secure$/);
     assert.ok(!response.headers.get("set-cookie")!.includes("Domain="));
 });
 
@@ -311,7 +450,7 @@ test("OAuth callbacks exchange once, confirm the new account and redirect withou
     assert.equal(calls.length, 2);
     assert.equal(response.status, 303);
     assert.equal(response.headers.get("location"), "/app/");
-    assert.equal(response.headers.getSetCookie().length, 3);
+    assert.equal(response.headers.getSetCookie().length, 7);
     assert.equal(await response.text(), "");
 });
 
@@ -362,10 +501,10 @@ test("legacy credentials are validated against the session record before migrati
         );
     }).proxy(post("/app/api/auth/migrate", { cookies: sessionCookie }));
     assert.deepEqual(await response.json(), { migrated: true });
-    assert.equal(response.headers.getSetCookie().length, 2);
+    assert.equal(response.headers.getSetCookie().length, 6);
     assert.match(
         response.headers.getSetCookie()[0],
-        /session_token=session-a.signature; Path=\/app; HttpOnly/,
+        /session_token=session-a.signature; Expires=[^;]+; Path=\/app; HttpOnly/,
     );
 });
 

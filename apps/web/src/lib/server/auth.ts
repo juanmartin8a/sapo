@@ -41,12 +41,19 @@ export function createWebAuthServer(options: {
         });
 
     function authCookies(value: string | null) {
-        return (value ?? "")
+        const cookies = (value ?? "")
             .split(";")
             .map((cookie) => cookie.trim())
             .filter((cookie) => /^(?:__Secure-)?better-auth\.[\w.-]+=/.test(cookie))
-            .map((cookie) => (cookie.startsWith("better-auth.") ? `__Secure-${cookie}` : cookie))
-            .join("; ");
+            .map((cookie) => (cookie.startsWith("better-auth.") ? `__Secure-${cookie}` : cookie));
+        // Browsers send more specific paths first. An obsolete root cookie must
+        // not shadow the current /app session or make SSR disagree with Better Auth.
+        const unique = new Map<string, string>();
+        for (const cookie of cookies) {
+            const name = cookie.slice(0, cookie.indexOf("="));
+            if (!unique.has(name)) unique.set(name, cookie);
+        }
+        return [...unique.values()].join("; ");
     }
 
     function cookieValue(cookies: string, name: string) {
@@ -64,21 +71,30 @@ export function createWebAuthServer(options: {
     function setCookies(response: Response) {
         const value = response.headers.get("set-cookie");
         if (!value) return [];
-        return splitSetCookieHeader(value).flatMap((cookie) => {
-            const [name] = cookie.split("=");
-            if (!/^(?:__Secure-)?better-auth\.[\w.-]+$/.test(name)) return [];
-            // Scope credentials to the app, and never inherit an upstream domain.
-            let scoped = cookie
-                .replace(/;\s*Domain=[^;]*/gi, "")
-                .replace(/;\s*Path=[^;]*/gi, "")
-                .replace(/;\s*SameSite=[^;]*/gi, "")
-                .replace(/;\s*Secure\b/gi, "")
-                .replace(/;\s*HttpOnly\b/gi, "");
-            if (!options.secureCookies) scoped = scoped.replace(/^__Secure-/, "");
-            return [
-                `${scoped}; Path=/app; HttpOnly; SameSite=Lax${options.secureCookies ? "; Secure" : ""}`,
-            ];
-        });
+        return splitSetCookieHeader(value).flatMap(scopeCookie);
+    }
+
+    function scopeCookie(cookie: string) {
+        const [name] = cookie.split("=");
+        if (!/^(?:__Secure-)?better-auth\.[\w.-]+$/.test(name)) return [];
+        // Scope credentials to the app, and never inherit an upstream domain.
+        let scoped = cookie
+            .replace(/;\s*Domain=[^;]*/gi, "")
+            .replace(/;\s*Path=[^;]*/gi, "")
+            .replace(/;\s*SameSite=[^;]*/gi, "")
+            .replace(/;\s*Secure\b/gi, "")
+            .replace(/;\s*HttpOnly\b/gi, "");
+        if (!options.secureCookies) scoped = scoped.replace(/^__Secure-/, "");
+        const scopedName = scoped.slice(0, scoped.indexOf("="));
+        return [
+            `${scoped}; Path=/app; HttpOnly; SameSite=Lax${options.secureCookies ? "; Secure" : ""}`,
+            // Remove earlier path variants when setting or clearing a cookie.
+            // Otherwise signing out can expose an older session cookie again.
+            ...["/", "/app/"].map(
+                (path) =>
+                    `${scopedName}=; Path=${path}; Max-Age=0; HttpOnly; SameSite=Lax${options.secureCookies ? "; Secure" : ""}`,
+            ),
+        ];
     }
 
     async function upstream(
@@ -154,10 +170,8 @@ export function createWebAuthServer(options: {
             for (const cookie of setCookies(response)) headers.append("set-cookie", cookie);
             if (response.status === 401 || response.status === 403) {
                 for (const name of ["session_token", "convex_jwt"])
-                    headers.append(
-                        "set-cookie",
-                        `${options.secureCookies ? COOKIE_PREFIX : "better-auth."}${name}=; Path=/app; Max-Age=0; HttpOnly; SameSite=Lax${options.secureCookies ? "; Secure" : ""}`,
-                    );
+                    for (const cookie of scopeCookie(`${COOKIE_PREFIX}${name}=; Max-Age=0`))
+                        headers.append("set-cookie", cookie);
                 return { auth: signedOut, headers };
             }
             if (!response.ok) return { auth: checking, headers };
@@ -254,10 +268,10 @@ export function createWebAuthServer(options: {
             expiry <= Date.now()
         )
             return Response.json({ migrated: false }, { headers });
-        headers.append(
-            "set-cookie",
-            `${options.secureCookies ? COOKIE_PREFIX : "better-auth."}session_token=${encodeURIComponent(token)}; Path=/app; HttpOnly; SameSite=Lax; Expires=${new Date(expiry).toUTCString()}${options.secureCookies ? "; Secure" : ""}`,
-        );
+        for (const cookie of scopeCookie(
+            `${COOKIE_PREFIX}session_token=${encodeURIComponent(token)}; Expires=${new Date(expiry).toUTCString()}`,
+        ))
+            headers.append("set-cookie", cookie);
         for (const cookie of setCookies(response)) headers.append("set-cookie", cookie);
         return Response.json({ migrated: true }, { headers });
     }
