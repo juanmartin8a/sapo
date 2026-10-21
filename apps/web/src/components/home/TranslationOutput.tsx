@@ -1,6 +1,7 @@
 import { createEffect, createSignal, createUniqueId, onSettled, Show } from "solid-js";
 import { useAppState } from "@/providers/AppProvider";
 import Icon from "@/components/ui/Icon";
+import TranslationPreview from "./TranslationPreview";
 
 export default function TranslationOutput(props: {
     split: boolean;
@@ -31,7 +32,6 @@ export default function TranslationOutput(props: {
         },
     );
     onSettled(() => {
-        previewStickToBottom = true;
         stickToBottom = true;
     });
     const OutputText = () => (
@@ -77,16 +77,23 @@ export default function TranslationOutput(props: {
         stickToBottom = output.scrollHeight - output.scrollTop - output.clientHeight < 64;
     };
     const OriginalOutput = () => (
-        <div class="output-content" ref={followOutput} onScroll={scrollOutput}>
+        <div
+            class="output-content"
+            ref={followOutput}
+            onScroll={scrollOutput}
+            tabindex={
+                translation.state.displayText || translation.state.translationPreview
+                    ? 0
+                    : undefined
+            }
+        >
             <Show when={translation.state.translationPreview}>
-                <div class="translation-preview">
-                    <span class="eyebrow">Translation</span>
-                    <p dir="auto">{translation.state.translationPreview}</p>
-                    <span class="eyebrow">Respelling</span>
-                </div>
+                <TranslationPreview text={translation.state.translationPreview} />
             </Show>
-            <OutputText />
-            <Frog />
+            <div class="respelling-output">
+                <OutputText />
+                <Frog />
+            </div>
         </div>
     );
     return (
@@ -133,7 +140,7 @@ export default function TranslationOutput(props: {
                 </div>
                 <div class="translation-output-divider">
                     <button
-                        class="translation-collapse-button"
+                        class="desktop-translation-collapse-button"
                         aria-expanded={translationCollapsed() ? "false" : "true"}
                         aria-controls={previewId}
                         onClick={() => setTranslationCollapsed(!translationCollapsed())}

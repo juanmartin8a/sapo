@@ -96,11 +96,15 @@ export default function Sidebar(props: {
                             <Show
                                 when={
                                     translation.state.operation === "respell" &&
-                                    translation.state.translateThenRespell
+                                    (translation.state.translateThenRespell || captionedSelector())
                                 }
                             >
                                 <div
-                                    class={`sidebar-field respell-option ${captionedSelector() ? "sidebar-field-captioned" : ""}`}
+                                    class={`sidebar-field respell-option respell-language-field ${captionedSelector() ? "sidebar-field-captioned" : ""}`}
+                                    aria-hidden={
+                                        translation.state.translateThenRespell ? undefined : "true"
+                                    }
+                                    inert={!translation.state.translateThenRespell}
                                 >
                                     <Show when={!captionedSelector()}>
                                         <label>Respell:</label>

@@ -136,6 +136,7 @@ body {
     gap: 8px;
     margin-inline-start: 8px;
     font: inherit;
+    font-size: 13px;
     font-style: italic;
     white-space: nowrap;
 }
