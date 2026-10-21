@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "@tanstack/solid-router";
+import { Link } from "@tanstack/solid-router";
 import { createMemo, createSignal, onSettled, Show } from "solid-js";
 import { useAppState } from "@/providers/AppProvider";
 import {
@@ -12,10 +12,10 @@ import Icon from "@/components/ui/Icon";
 import LanguageSelector from "@/components/ui/LanguageSelector";
 import TranslationOutput from "./TranslationOutput";
 import HomePager from "./HomePager";
+import TranslateButton from "./TranslateButton";
 
 export default function HomeScreen() {
     const { translation, auth, pwa, isPwa, basePath } = useAppState();
-    const navigate = useNavigate();
     const [drawerOpen, setDrawerOpen] = createSignal(false);
     const [wideScreen, setWideScreen] = createSignal(false);
     const [notice, setNotice] = createSignal<string | null>(null);
@@ -41,65 +41,10 @@ export default function HomeScreen() {
             : translation.state.translateThenRespell
               ? "Translate & Respell"
               : "Respell";
-    const actionLabel = () =>
-        busy()
-            ? "Stop"
-            : translation.isRepeat()
-              ? "Repeat"
-              : translation.state.operation === "translate"
-                ? "Translate"
-                : translation.state.translateThenRespell
-                  ? "Translate & Respell"
-                  : "Respell";
-    const actionIcon = () =>
-        busy()
-            ? ("square" as const)
-            : translation.isRepeat()
-              ? ("repeat" as const)
-              : ("arrow-right" as const);
     const footerMessage = () =>
         translation.state.error ||
         auth.state.error ||
         (locked() ? "Respelling is a Polyglot feature." : "");
-
-    function submit() {
-        if (busy()) {
-            translation.stopStream();
-            return;
-        }
-        translation.setError(null);
-        if (!pwa.state.online) {
-            translation.setError("You’re offline. Connect to the internet to continue.");
-            return;
-        }
-        if (auth.state.status === "checking") {
-            translation.setError(
-                "Your account is still being checked. Please try again in a moment.",
-            );
-            return;
-        }
-        if (auth.state.status !== "authenticated") {
-            void navigate({ to: `${basePath}/auth/` });
-            return;
-        }
-        if (auth.state.hasActiveSubscription === null) {
-            translation.setError("Your plan is still being checked. Please try again in a moment.");
-            return;
-        }
-        if (locked()) {
-            translation.setError(
-                "Respelling is included with Polyglot. You can manage your plan in the SAPO mobile app.",
-            );
-            return;
-        }
-        if (characterCount() > inputLimit()) {
-            translation.setError(
-                `Please keep your text within ${inputLimit().toLocaleString()} characters.`,
-            );
-            return;
-        }
-        void translation.sendMessage(auth.state.userId!);
-    }
 
     onSettled(() => {
         const media = window.matchMedia("(min-width: 900px)");
@@ -108,19 +53,7 @@ export default function HomeScreen() {
         };
         resize();
         media.addEventListener("change", resize);
-        const shortcut = (event: KeyboardEvent) => {
-            if (
-                (event.metaKey || event.ctrlKey) &&
-                event.key === "Enter" &&
-                !document.querySelector("dialog[open], dialog:popover-open")
-            ) {
-                event.preventDefault();
-                submit();
-            }
-        };
-        window.addEventListener("keydown", shortcut);
         return () => {
-            window.removeEventListener("keydown", shortcut);
             media.removeEventListener("change", resize);
         };
     });
@@ -134,38 +67,6 @@ export default function HomeScreen() {
         }
         setTimeout(() => setNotice(null), 3000);
     }
-
-    const TranslationAction = () => (
-        <button
-            class="translate-button"
-            onClick={submit}
-            disabled={
-                !busy() &&
-                (!translation.state.input.trim() ||
-                    auth.state.status === "checking" ||
-                    !pwa.state.online)
-            }
-            aria-label={
-                busy()
-                    ? "Stop translation"
-                    : translation.isRepeat()
-                      ? "Repeat translation"
-                      : translation.state.operation === "translate"
-                        ? "Translate"
-                        : "Respell"
-            }
-        >
-            <span class="sr-only">{actionLabel()}</span>
-            <img
-                class="icon"
-                src={`/app/icons/${actionIcon()}.svg`}
-                alt=""
-                aria-hidden="true"
-                width="32"
-                height="32"
-            />
-        </button>
-    );
 
     return (
         <div class="app-shell">
@@ -188,7 +89,7 @@ export default function HomeScreen() {
                         S A P O
                     </Link>
                     <div class="header-right">
-                        <TranslationAction />
+                        <TranslateButton />
                     </div>
                 </header>
             </Show>
@@ -210,7 +111,7 @@ export default function HomeScreen() {
                     <div class="desktop-options">
                         <div class="desktop-toolbar">
                             <nav aria-label="Translation options">
-                                <Sidebar layout="panel" action={TranslationAction} />
+                                <Sidebar layout="panel" />
                             </nav>
                         </div>
                     </div>

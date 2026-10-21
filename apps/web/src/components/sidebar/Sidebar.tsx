@@ -1,18 +1,14 @@
 import { Link } from "@tanstack/solid-router";
 import { createSignal, Show } from "solid-js";
-import type { JSX } from "@solidjs/web";
 import { useAppState } from "@/providers/AppProvider";
 import { languages, languagesPlusAutoDetect } from "@/constants/translation";
 import LanguageSelector from "@/components/ui/LanguageSelector";
 import Icon from "@/components/ui/Icon";
 import Toggle from "@/components/ui/Toggle";
 import AccountControl from "@/components/auth/AccountControl";
+import TranslateButton from "@/components/home/TranslateButton";
 
-export default function Sidebar(props: {
-    onNavigate?: () => void;
-    layout?: "panel";
-    action?: () => JSX.Element;
-}) {
+export default function Sidebar(props: { onNavigate?: () => void; layout?: "panel" }) {
     const { translation, preferencesReady, isPwa } = useAppState();
     const captionedSelector = () => props.layout === "panel" && !isPwa;
     const [animateOptions, setAnimateOptions] = createSignal(false);
@@ -51,7 +47,10 @@ export default function Sidebar(props: {
                             Respell
                         </button>
                     </div>
-                    {props.action?.()}
+                    {/* Keep the button under this owner for matching SSR and hydration keys. */}
+                    <Show when={props.layout === "panel"}>
+                        <TranslateButton />
+                    </Show>
                 </div>
                 <Show when={props.layout !== "panel" || translation.state.operation === "respell"}>
                     <div class="operation-options">
