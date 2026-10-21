@@ -23,9 +23,15 @@ export default function HomeScreen() {
         translation.state.status === "loading" || translation.state.status === "streaming";
     const combinedMode = () =>
         translation.state.operation === "respell" && translation.state.translateThenRespell;
+    const hasTranslationPreview = () =>
+        combinedMode() || Boolean(translation.state.translationPreview);
     const desktopOutput = () => wideScreen() && !isPwa;
-    const splitOutput = () =>
-        desktopOutput() && (combinedMode() || Boolean(translation.state.translationPreview));
+    const splitOutput = () => desktopOutput() && hasTranslationPreview();
+    const copyText = () =>
+        hasTranslationPreview()
+            ? translation.state.translationPreview
+            : translation.state.displayText;
+    const canCopy = () => translation.state.status === "completed" && copyText().trim().length > 0;
     const characterCount = createMemo(() => Array.from(translation.state.input).length);
     const plan = () =>
         DEFAULT_SUBSCRIPTION_PLAN_LIMITS[auth.state.hasActiveSubscription ? "polyglot" : "free"];
@@ -233,27 +239,23 @@ export default function HomeScreen() {
                                     }
                                     disabled={busy()}
                                 />
-                                <button
-                                    class="icon-button copy-button"
-                                    aria-label={splitOutput() ? "Copy translation" : "Copy output"}
-                                    disabled={
-                                        splitOutput()
-                                            ? !translation.state.translationPreview
-                                            : !translation.state.displayText
-                                    }
-                                    onClick={() =>
-                                        void copyOutput(
-                                            splitOutput()
-                                                ? translation.state.translationPreview
-                                                : translation.state.displayText,
-                                        )
-                                    }
-                                >
-                                    <Icon name="copy" size={20} />
-                                </button>
+                                <Show when={canCopy()}>
+                                    <button
+                                        class="icon-button copy-button"
+                                        aria-label={
+                                            hasTranslationPreview()
+                                                ? "Copy translation"
+                                                : "Copy output"
+                                        }
+                                        onClick={() => void copyOutput(copyText())}
+                                    >
+                                        <Icon name="copy" size={20} />
+                                    </button>
+                                </Show>
                             </div>
                             <TranslationOutput
                                 split={splitOutput()}
+                                combined={hasTranslationPreview()}
                                 onCopy={(text) => void copyOutput(text)}
                             />
                             <div class="pane-bottom">

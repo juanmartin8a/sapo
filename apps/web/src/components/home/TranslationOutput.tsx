@@ -5,12 +5,15 @@ import TranslationPreview from "./TranslationPreview";
 
 export default function TranslationOutput(props: {
     split: boolean;
+    combined: boolean;
     onCopy: (text: string) => void;
 }) {
     const { translation } = useAppState();
     const [mouthOpen, setMouthOpen] = createSignal(false);
     const [translationCollapsed, setTranslationCollapsed] = createSignal(false);
     const previewId = createUniqueId();
+    const canCopyRespelling = () =>
+        translation.state.status === "completed" && translation.state.displayText.trim().length > 0;
     let preview: HTMLDivElement | undefined;
     let output!: HTMLDivElement;
     let previewStickToBottom = true;
@@ -90,7 +93,17 @@ export default function TranslationOutput(props: {
             <Show when={translation.state.translationPreview}>
                 <TranslationPreview text={translation.state.translationPreview} />
             </Show>
-            <div class="respelling-output">
+            <div class={`respelling-output ${props.combined ? "respelling-output-with-copy" : ""}`}>
+                <Show when={props.combined && canCopyRespelling()}>
+                    <button
+                        class="icon-button respelling-copy-button"
+                        aria-label="Copy respelling"
+                        title="Copy respelling"
+                        onClick={() => props.onCopy(translation.state.displayText)}
+                    >
+                        <Icon name="copy" size={20} />
+                    </button>
+                </Show>
                 <OutputText />
                 <Frog />
             </div>
@@ -157,15 +170,16 @@ export default function TranslationOutput(props: {
                     ref={followOutput}
                     onScroll={scrollOutput}
                 >
-                    <button
-                        class="icon-button respelling-copy-button"
-                        aria-label="Copy respelling"
-                        title="Copy respelling"
-                        disabled={!translation.state.displayText}
-                        onClick={() => props.onCopy(translation.state.displayText)}
-                    >
-                        <Icon name="copy" size={20} />
-                    </button>
+                    <Show when={canCopyRespelling()}>
+                        <button
+                            class="icon-button respelling-copy-button"
+                            aria-label="Copy respelling"
+                            title="Copy respelling"
+                            onClick={() => props.onCopy(translation.state.displayText)}
+                        >
+                            <Icon name="copy" size={20} />
+                        </button>
+                    </Show>
                     <OutputText />
                     <Frog />
                 </div>

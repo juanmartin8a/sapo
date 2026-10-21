@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/solid-router";
-import { onSettled } from "solid-js";
+import { onSettled, Show } from "solid-js";
 import { useAppState } from "@/providers/AppProvider";
 import { DEFAULT_SUBSCRIPTION_PLAN_LIMITS } from "@/constants/translation";
 
@@ -31,11 +31,7 @@ export default function TranslateButton() {
                   ? "Translate & Respell"
                   : "Respell";
     const actionIcon = () =>
-        busy()
-            ? ("square" as const)
-            : translation.isRepeat()
-              ? ("repeat" as const)
-              : ("arrow-right" as const);
+        translation.isRepeat() ? ("repeat" as const) : ("arrow-right" as const);
 
     function submit() {
         if (busy()) {
@@ -112,14 +108,32 @@ export default function TranslateButton() {
             }
         >
             <span class="sr-only">{actionLabel()}</span>
-            <img
-                class="icon"
-                src={`/app/icons/${actionIcon()}.svg`}
-                alt=""
-                aria-hidden="true"
-                width="32"
-                height="32"
-            />
+            <Show
+                when={busy()}
+                fallback={
+                    <img
+                        class="icon"
+                        src={`/app/icons/${actionIcon()}.svg`}
+                        alt=""
+                        aria-hidden="true"
+                        width="32"
+                        height="32"
+                    />
+                }
+            >
+                <svg
+                    class="icon"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    aria-hidden="true"
+                >
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                </svg>
+            </Show>
         </button>
     );
 }

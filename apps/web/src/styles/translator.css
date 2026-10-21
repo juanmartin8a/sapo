@@ -531,6 +531,10 @@
     .respelling-output {
         position: relative;
     }
+    .respelling-output-with-copy {
+        display: flex;
+        flex-direction: column;
+    }
     .output-layout-split {
         flex: 1;
         min-height: 0;
@@ -603,7 +607,9 @@
         z-index: 1;
     }
     .output-layout-split > .output-content > .translation-text,
-    .output-layout-split > .output-content > .output-placeholder {
+    .output-layout-split > .output-content > .output-placeholder,
+    .respelling-output-with-copy > .translation-text,
+    .respelling-output-with-copy > .output-placeholder {
         padding-right: 44px;
     }
     .output-content {
@@ -1519,10 +1525,12 @@
                 padding-inline: 24px;
             }
             .pane-toolbar,
-            .translation-input,
             .output-content,
             .pane-bottom {
                 padding-inline: 0;
+            }
+            .translation-input {
+                padding-inline: 12px;
             }
         }
     }
