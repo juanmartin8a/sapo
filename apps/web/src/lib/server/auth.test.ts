@@ -116,12 +116,14 @@ test("setting and clearing sessions removes obsolete cookie paths in development
             );
             const cookies = response.headers.getSetCookie();
             const prefix = secure ? "__Secure-better-auth." : "better-auth.";
-            assert.equal(cookies.length, 3);
+            assert.equal(cookies.length, 5);
             assert.ok(cookies[0].startsWith(`${prefix}session_token=${value};`));
             assert.ok(cookies[0].includes("Path=/app;"));
-            for (const [index, path] of ["/", "/app/"].entries()) {
+            assert.ok(cookies[1].includes("Path=/pwa;"));
+            assert.ok(cookies[1].startsWith(`${prefix}session_token=${value};`));
+            for (const [index, path] of ["/", "/app/", "/pwa/"].entries()) {
                 assert.equal(
-                    cookies[index + 1],
+                    cookies[index + 2],
                     `${prefix}session_token=; Path=${path}; Max-Age=0; HttpOnly; SameSite=Lax${secure ? "; Secure" : ""}`,
                 );
             }
@@ -197,6 +199,7 @@ test("a browser with old cookies can sign out, complete OAuth again, and restore
         ),
     );
     assert.equal(browserCookies("/app/"), "");
+    assert.equal(browserCookies("/pwa/"), "");
     apply(
         await service.callback(
             incoming(
@@ -208,9 +211,11 @@ test("a browser with old cookies can sign out, complete OAuth again, and restore
     const restored = await service.bootstrap(incoming("/app/", browserCookies("/app/")));
     assert.equal(restored.auth.status, "authenticated");
     assert.equal(restored.auth.account?.userId, account.id);
+    const restoredPwa = await service.bootstrap(incoming("/pwa/", browserCookies("/pwa/")));
+    assert.equal(restoredPwa.auth.account?.userId, account.id);
     assert.equal(
         [...cookies.values()].filter((cookie) => cookie.name.endsWith("session_token")).length,
-        1,
+        2,
     );
 });
 
@@ -414,44 +419,46 @@ test("OAuth initiation binds the fixed callback to a fresh HttpOnly browser nonc
 });
 
 test("OAuth callbacks exchange once, confirm the new account and redirect without credentials", async () => {
-    const calls: string[] = [];
-    const response = await server(async (url, init) => {
-        calls.push(String(url));
-        const cookies = new Headers(init?.headers).get("cookie");
-        if (String(url).endsWith("/verify")) {
-            assert.equal(cookies, "");
-            assert.deepEqual(JSON.parse(init?.body as string), { token: "one-use-token" });
+    for (const basePath of ["/app", "/pwa"]) {
+        const calls: string[] = [];
+        const response = await server(async (url, init) => {
+            calls.push(String(url));
+            const cookies = new Headers(init?.headers).get("cookie");
+            if (String(url).endsWith("/verify")) {
+                assert.equal(cookies, "");
+                assert.deepEqual(JSON.parse(init?.body as string), { token: "one-use-token" });
+                return Response.json(
+                    { session: { token: "session-a" }, user: account },
+                    {
+                        headers: {
+                            "set-cookie":
+                                "__Secure-better-auth.session_token=session-a.signature; Path=/; Secure; HttpOnly",
+                        },
+                    },
+                );
+            }
+            assert.equal(cookies, sessionCookie);
             return Response.json(
-                { session: { token: "session-a" }, user: account },
+                { user: account },
                 {
                     headers: {
                         "set-cookie":
-                            "__Secure-better-auth.session_token=session-a.signature; Path=/; Secure; HttpOnly",
+                            "__Secure-better-auth.convex_jwt=signed-profile; Path=/; Secure; HttpOnly",
                     },
                 },
             );
-        }
-        assert.equal(cookies, sessionCookie);
-        return Response.json(
-            { user: account },
-            {
-                headers: {
-                    "set-cookie":
-                        "__Secure-better-auth.convex_jwt=signed-profile; Path=/; Secure; HttpOnly",
-                },
-            },
+        }).callback(
+            incoming(
+                `${basePath}/auth-callback/?ott=one-use-token&flow=browser-nonce`,
+                "__Host-sapo-auth-flow=browser-nonce; __Secure-better-auth.session_token=old-account.signature",
+            ),
         );
-    }).callback(
-        incoming(
-            "/app/auth-callback/?ott=one-use-token&flow=browser-nonce",
-            "__Host-sapo-auth-flow=browser-nonce; __Secure-better-auth.session_token=old-account.signature",
-        ),
-    );
-    assert.equal(calls.length, 2);
-    assert.equal(response.status, 303);
-    assert.equal(response.headers.get("location"), "/app/");
-    assert.equal(response.headers.getSetCookie().length, 7);
-    assert.equal(await response.text(), "");
+        assert.equal(calls.length, 2);
+        assert.equal(response.status, 303);
+        assert.equal(response.headers.get("location"), `${basePath}/`);
+        assert.equal(response.headers.getSetCookie().length, 11);
+        assert.equal(await response.text(), "");
+    }
 });
 
 test("OAuth callbacks reject missing or mismatched browser state before exchanging a token", async () => {
@@ -501,7 +508,7 @@ test("legacy credentials are validated against the session record before migrati
         );
     }).proxy(post("/app/api/auth/migrate", { cookies: sessionCookie }));
     assert.deepEqual(await response.json(), { migrated: true });
-    assert.equal(response.headers.getSetCookie().length, 6);
+    assert.equal(response.headers.getSetCookie().length, 10);
     assert.match(
         response.headers.getSetCookie()[0],
         /session_token=session-a.signature; Expires=[^;]+; Path=\/app; HttpOnly/,
@@ -522,4 +529,34 @@ test("migration never replaces first-party credentials or accepts expired legacy
     );
     assert.deepEqual(await expired.json(), { migrated: false });
     assert.equal(expired.headers.getSetCookie().length, 0);
+});
+
+test("PWA sign-in returns to its own namespace and rejects external callback destinations", async () => {
+    for (const callbackURL of [
+        `${origin}/pwa/auth-callback/`,
+        "https://attacker.example/pwa/auth-callback/",
+        `${origin}/pwa-other/auth-callback/`,
+    ]) {
+        const basePath = callbackURL === `${origin}/pwa/auth-callback/` ? "/pwa" : "/app";
+        const response = await server(async (_url, init) => {
+            const body = JSON.parse(init?.body as string);
+            const callback = new URL(body.callbackURL);
+            assert.equal(callback.origin, origin);
+            assert.equal(callback.pathname, `${basePath}/auth-callback/`);
+            assert.ok(callback.searchParams.get("flow"));
+            assert.equal(body.errorCallbackURL, `${origin}${basePath}/auth/`);
+            return Response.json({ url: "https://accounts.google.com/oauth" });
+        }).proxy(post("/app/api/auth/sign-in/social", { provider: "google", callbackURL }));
+        assert.equal(response.status, 200);
+    }
+});
+
+test("PWA SSR verifies the shared signed session", async () => {
+    const jwt = await token();
+    const result = await server().bootstrap(
+        incoming("/pwa/", `${sessionCookie}; __Secure-better-auth.convex_jwt=${jwt}`),
+    );
+    assert.equal(result.auth.status, "authenticated");
+    assert.equal(result.auth.account?.userId, account.id);
+    assert.equal(result.headers.get("cache-control"), "private, no-store");
 });

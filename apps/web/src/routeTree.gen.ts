@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SiteRouteImport } from './routes/_site'
 import { Route as AppRouteImport } from './routes/app'
+import { Route as PwaRouteImport } from './routes/pwa'
 import { Route as SiteIndexRouteImport } from './routes/_site/index'
 import { Route as SiteContactUsRouteImport } from './routes/_site/contact-us'
 import { Route as SiteDeleteAccountRouteImport } from './routes/_site/delete-account'
@@ -24,6 +25,11 @@ import { Route as AppAuthRouteImport } from './routes/app/auth'
 import { Route as AppAuthCallbackRouteImport } from './routes/app/auth-callback'
 import { Route as AppDeleteAccountRouteImport } from './routes/app/delete-account'
 import { Route as AppSettingsRouteImport } from './routes/app/settings'
+import { Route as PwaIndexRouteImport } from './routes/pwa/index'
+import { Route as PwaAuthRouteImport } from './routes/pwa/auth'
+import { Route as PwaAuthCallbackRouteImport } from './routes/pwa/auth-callback'
+import { Route as PwaDeleteAccountRouteImport } from './routes/pwa/delete-account'
+import { Route as PwaSettingsRouteImport } from './routes/pwa/settings'
 import { Route as SiteMultilingualPhoneticRepresentationsIndexRouteImport } from './routes/_site/multilingual-phonetic-representations/index'
 import { Route as SiteMultilingualPhoneticRepresentationsAboutIndexRouteImport } from './routes/_site/multilingual-phonetic-representations/about/index'
 import { Route as SiteMultilingualPhoneticRepresentationsAboutAttributionRouteImport } from './routes/_site/multilingual-phonetic-representations/about/attribution'
@@ -37,6 +43,11 @@ const SiteRoute = SiteRouteImport.update({
 const AppRoute = AppRouteImport.update({
   id: '/app',
   path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PwaRoute = PwaRouteImport.update({
+  id: '/pwa',
+  path: '/pwa',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SiteIndexRoute = SiteIndexRouteImport.update({
@@ -104,6 +115,31 @@ const AppSettingsRoute = AppSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
+const PwaIndexRoute = PwaIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PwaRoute,
+} as any)
+const PwaAuthRoute = PwaAuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => PwaRoute,
+} as any)
+const PwaAuthCallbackRoute = PwaAuthCallbackRouteImport.update({
+  id: '/auth-callback',
+  path: '/auth-callback',
+  getParentRoute: () => PwaRoute,
+} as any)
+const PwaDeleteAccountRoute = PwaDeleteAccountRouteImport.update({
+  id: '/delete-account',
+  path: '/delete-account',
+  getParentRoute: () => PwaRoute,
+} as any)
+const PwaSettingsRoute = PwaSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => PwaRoute,
+} as any)
 const SiteMultilingualPhoneticRepresentationsIndexRoute =
   SiteMultilingualPhoneticRepresentationsIndexRouteImport.update({
     id: '/multilingual-phonetic-representations/',
@@ -136,6 +172,7 @@ const AppApiStripeWebhookRoute = AppApiStripeWebhookRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof SiteIndexRoute
   '/app': typeof AppRouteWithChildren
+  '/pwa': typeof PwaRouteWithChildren
   '/contact-us': typeof SiteContactUsRoute
   '/delete-account': typeof SiteDeleteAccountRoute
   '/privacy-policy': typeof SitePrivacyPolicyRoute
@@ -147,7 +184,12 @@ export interface FileRoutesByFullPath {
   '/app/auth-callback': typeof AppAuthCallbackRoute
   '/app/delete-account': typeof AppDeleteAccountRoute
   '/app/settings': typeof AppSettingsRoute
+  '/pwa/auth': typeof PwaAuthRoute
+  '/pwa/auth-callback': typeof PwaAuthCallbackRoute
+  '/pwa/delete-account': typeof PwaDeleteAccountRoute
+  '/pwa/settings': typeof PwaSettingsRoute
   '/app/': typeof AppIndexRoute
+  '/pwa/': typeof PwaIndexRoute
   '/multilingual-phonetic-representations/': typeof SiteMultilingualPhoneticRepresentationsIndexRoute
   '/multilingual-phonetic-representations/about/attribution': typeof SiteMultilingualPhoneticRepresentationsAboutAttributionRoute
   '/app/api/auth/$': typeof AppApiAuthSplatRoute
@@ -166,8 +208,13 @@ export interface FileRoutesByTo {
   '/app/auth-callback': typeof AppAuthCallbackRoute
   '/app/delete-account': typeof AppDeleteAccountRoute
   '/app/settings': typeof AppSettingsRoute
+  '/pwa/auth': typeof PwaAuthRoute
+  '/pwa/auth-callback': typeof PwaAuthCallbackRoute
+  '/pwa/delete-account': typeof PwaDeleteAccountRoute
+  '/pwa/settings': typeof PwaSettingsRoute
   '/': typeof SiteIndexRoute
   '/app': typeof AppIndexRoute
+  '/pwa': typeof PwaIndexRoute
   '/multilingual-phonetic-representations': typeof SiteMultilingualPhoneticRepresentationsIndexRoute
   '/multilingual-phonetic-representations/about/attribution': typeof SiteMultilingualPhoneticRepresentationsAboutAttributionRoute
   '/app/api/auth/$': typeof AppApiAuthSplatRoute
@@ -178,6 +225,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_site': typeof SiteRouteWithChildren
   '/app': typeof AppRouteWithChildren
+  '/pwa': typeof PwaRouteWithChildren
   '/_site/contact-us': typeof SiteContactUsRoute
   '/_site/delete-account': typeof SiteDeleteAccountRoute
   '/_site/privacy-policy': typeof SitePrivacyPolicyRoute
@@ -189,8 +237,13 @@ export interface FileRoutesById {
   '/app/auth-callback': typeof AppAuthCallbackRoute
   '/app/delete-account': typeof AppDeleteAccountRoute
   '/app/settings': typeof AppSettingsRoute
+  '/pwa/auth': typeof PwaAuthRoute
+  '/pwa/auth-callback': typeof PwaAuthCallbackRoute
+  '/pwa/delete-account': typeof PwaDeleteAccountRoute
+  '/pwa/settings': typeof PwaSettingsRoute
   '/_site/': typeof SiteIndexRoute
   '/app/': typeof AppIndexRoute
+  '/pwa/': typeof PwaIndexRoute
   '/_site/multilingual-phonetic-representations/': typeof SiteMultilingualPhoneticRepresentationsIndexRoute
   '/_site/multilingual-phonetic-representations/about/attribution': typeof SiteMultilingualPhoneticRepresentationsAboutAttributionRoute
   '/app/api/auth/$': typeof AppApiAuthSplatRoute
@@ -202,6 +255,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/app'
+    | '/pwa'
     | '/contact-us'
     | '/delete-account'
     | '/privacy-policy'
@@ -213,7 +267,12 @@ export interface FileRouteTypes {
     | '/app/auth-callback'
     | '/app/delete-account'
     | '/app/settings'
+    | '/pwa/auth'
+    | '/pwa/auth-callback'
+    | '/pwa/delete-account'
+    | '/pwa/settings'
     | '/app/'
+    | '/pwa/'
     | '/multilingual-phonetic-representations/'
     | '/multilingual-phonetic-representations/about/attribution'
     | '/app/api/auth/$'
@@ -232,8 +291,13 @@ export interface FileRouteTypes {
     | '/app/auth-callback'
     | '/app/delete-account'
     | '/app/settings'
+    | '/pwa/auth'
+    | '/pwa/auth-callback'
+    | '/pwa/delete-account'
+    | '/pwa/settings'
     | '/'
     | '/app'
+    | '/pwa'
     | '/multilingual-phonetic-representations'
     | '/multilingual-phonetic-representations/about/attribution'
     | '/app/api/auth/$'
@@ -243,6 +307,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_site'
     | '/app'
+    | '/pwa'
     | '/_site/contact-us'
     | '/_site/delete-account'
     | '/_site/privacy-policy'
@@ -254,8 +319,13 @@ export interface FileRouteTypes {
     | '/app/auth-callback'
     | '/app/delete-account'
     | '/app/settings'
+    | '/pwa/auth'
+    | '/pwa/auth-callback'
+    | '/pwa/delete-account'
+    | '/pwa/settings'
     | '/_site/'
     | '/app/'
+    | '/pwa/'
     | '/_site/multilingual-phonetic-representations/'
     | '/_site/multilingual-phonetic-representations/about/attribution'
     | '/app/api/auth/$'
@@ -266,6 +336,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   SiteRoute: typeof SiteRouteWithChildren
   AppRoute: typeof AppRouteWithChildren
+  PwaRoute: typeof PwaRouteWithChildren
   ApiLanguagesRoute: typeof ApiLanguagesRoute
   ApiPronunciationsRoute: typeof ApiPronunciationsRoute
 }
@@ -284,6 +355,13 @@ declare module '@tanstack/solid-router' {
       path: '/app'
       fullPath: '/app'
       preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pwa': {
+      id: '/pwa'
+      path: '/pwa'
+      fullPath: '/pwa'
+      preLoaderRoute: typeof PwaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_site/': {
@@ -377,6 +455,41 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/pwa/': {
+      id: '/pwa/'
+      path: '/'
+      fullPath: '/pwa/'
+      preLoaderRoute: typeof PwaIndexRouteImport
+      parentRoute: typeof PwaRoute
+    }
+    '/pwa/auth': {
+      id: '/pwa/auth'
+      path: '/auth'
+      fullPath: '/pwa/auth'
+      preLoaderRoute: typeof PwaAuthRouteImport
+      parentRoute: typeof PwaRoute
+    }
+    '/pwa/auth-callback': {
+      id: '/pwa/auth-callback'
+      path: '/auth-callback'
+      fullPath: '/pwa/auth-callback'
+      preLoaderRoute: typeof PwaAuthCallbackRouteImport
+      parentRoute: typeof PwaRoute
+    }
+    '/pwa/delete-account': {
+      id: '/pwa/delete-account'
+      path: '/delete-account'
+      fullPath: '/pwa/delete-account'
+      preLoaderRoute: typeof PwaDeleteAccountRouteImport
+      parentRoute: typeof PwaRoute
+    }
+    '/pwa/settings': {
+      id: '/pwa/settings'
+      path: '/settings'
+      fullPath: '/pwa/settings'
+      preLoaderRoute: typeof PwaSettingsRouteImport
+      parentRoute: typeof PwaRoute
+    }
     '/_site/multilingual-phonetic-representations/': {
       id: '/_site/multilingual-phonetic-representations/'
       path: '/multilingual-phonetic-representations'
@@ -466,9 +579,28 @@ const AppRouteChildren: AppRouteChildren = {
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
+interface PwaRouteChildren {
+  PwaAuthRoute: typeof PwaAuthRoute
+  PwaAuthCallbackRoute: typeof PwaAuthCallbackRoute
+  PwaDeleteAccountRoute: typeof PwaDeleteAccountRoute
+  PwaSettingsRoute: typeof PwaSettingsRoute
+  PwaIndexRoute: typeof PwaIndexRoute
+}
+
+const PwaRouteChildren: PwaRouteChildren = {
+  PwaAuthRoute: PwaAuthRoute,
+  PwaAuthCallbackRoute: PwaAuthCallbackRoute,
+  PwaDeleteAccountRoute: PwaDeleteAccountRoute,
+  PwaSettingsRoute: PwaSettingsRoute,
+  PwaIndexRoute: PwaIndexRoute,
+}
+
+const PwaRouteWithChildren = PwaRoute._addFileChildren(PwaRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   SiteRoute: SiteRouteWithChildren,
   AppRoute: AppRouteWithChildren,
+  PwaRoute: PwaRouteWithChildren,
   ApiLanguagesRoute: ApiLanguagesRoute,
   ApiPronunciationsRoute: ApiPronunciationsRoute,
 }

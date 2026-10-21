@@ -3,13 +3,14 @@ import type { JSX } from "@solidjs/web";
 import { useAppState } from "@/providers/AppProvider";
 
 export default function HomePager(props: { children: JSX.Element }) {
-    const { translation } = useAppState();
+    const { translation, isPwa } = useAppState();
     const [width, setWidth] = createSignal(0);
     let pager!: HTMLDivElement;
     let updatedByScroll = false;
     let programmaticTarget: number | null = null;
 
     onSettled(() => {
+        if (!isPwa) return;
         const observer = new ResizeObserver(() => setWidth(pager.clientWidth));
         observer.observe(pager);
         setWidth(pager.clientWidth);
@@ -23,12 +24,12 @@ export default function HomePager(props: { children: JSX.Element }) {
             width: width(),
         }),
         (current, previous) => {
-            if (!current.width) return;
+            if (!isPwa || !current.width) return;
             if (updatedByScroll) {
                 updatedByScroll = false;
                 return;
             }
-            const paged = window.matchMedia("(max-width: 899px)").matches && !current.singleScreen;
+            const paged = !current.singleScreen;
             const left = paged && current.pane === "output" ? current.width : 0;
             const animate =
                 previous?.width === current.width &&
@@ -39,8 +40,7 @@ export default function HomePager(props: { children: JSX.Element }) {
     );
 
     function handleScroll() {
-        if (translation.state.singleScreen || window.matchMedia("(min-width: 900px)").matches)
-            return;
+        if (!isPwa || translation.state.singleScreen) return;
         if (programmaticTarget !== null) {
             if (Math.abs(pager.scrollLeft - programmaticTarget) < 1) programmaticTarget = null;
             return;

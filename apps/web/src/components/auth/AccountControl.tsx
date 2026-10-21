@@ -1,4 +1,5 @@
-import { Link } from "@tanstack/solid-router";
+import { Link, useLocation } from "@tanstack/solid-router";
+import { translatorBase } from "@/lib/translator-paths";
 import { Show } from "solid-js";
 import { useAuthState } from "@/providers/AuthProvider";
 import Icon from "@/components/ui/Icon";
@@ -9,6 +10,8 @@ export default function AccountControl(props: {
     showSubscription?: boolean;
 }) {
     const auth = useAuthState();
+    const location = useLocation();
+    const basePath = () => translatorBase(location().pathname);
     return (
         <Show
             when={auth.state.status === "authenticated"}
@@ -71,7 +74,7 @@ export default function AccountControl(props: {
                 >
                     <Link
                         class={`account-control account-signin ${props.class ?? ""}`}
-                        to="/app/auth/"
+                        to={`${basePath()}/auth/`}
                         onClick={() => props.onNavigate?.()}
                     >
                         <Icon name="log-in" size={20} />
@@ -82,7 +85,7 @@ export default function AccountControl(props: {
         >
             <Link
                 class={`account-control ${props.class ?? ""}`}
-                to="/app/settings/"
+                to={`${basePath()}/settings/`}
                 onClick={() => props.onNavigate?.()}
             >
                 <span class="account-avatar">

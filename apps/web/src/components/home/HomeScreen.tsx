@@ -12,16 +12,20 @@ import Icon from "@/components/ui/Icon";
 import LanguageSelector from "@/components/ui/LanguageSelector";
 import TranslationOutput from "./TranslationOutput";
 import HomePager from "./HomePager";
-import SiteHeader from "@/components/site/SiteHeader";
 
 export default function HomeScreen() {
-    const { translation, auth, pwa } = useAppState();
+    const { translation, auth, pwa, isPwa, basePath } = useAppState();
     const navigate = useNavigate();
     const [drawerOpen, setDrawerOpen] = createSignal(false);
     const [wideScreen, setWideScreen] = createSignal(false);
     const [notice, setNotice] = createSignal<string | null>(null);
     const busy = () =>
         translation.state.status === "loading" || translation.state.status === "streaming";
+    const combinedMode = () =>
+        translation.state.operation === "respell" && translation.state.translateThenRespell;
+    const desktopOutput = () => wideScreen() && !isPwa;
+    const splitOutput = () =>
+        desktopOutput() && (combinedMode() || Boolean(translation.state.translationPreview));
     const characterCount = createMemo(() => Array.from(translation.state.input).length);
     const plan = () =>
         DEFAULT_SUBSCRIPTION_PLAN_LIMITS[auth.state.hasActiveSubscription ? "polyglot" : "free"];
@@ -75,7 +79,7 @@ export default function HomeScreen() {
             return;
         }
         if (auth.state.status !== "authenticated") {
-            void navigate({ to: "/app/auth/" });
+            void navigate({ to: `${basePath}/auth/` });
             return;
         }
         if (auth.state.hasActiveSubscription === null) {
@@ -101,7 +105,6 @@ export default function HomeScreen() {
         const media = window.matchMedia("(min-width: 900px)");
         const resize = () => {
             setWideScreen(media.matches);
-            if (media.matches) setDrawerOpen(false);
         };
         resize();
         media.addEventListener("change", resize);
@@ -122,9 +125,9 @@ export default function HomeScreen() {
         };
     });
 
-    async function copyOutput() {
+    async function copyOutput(text = translation.state.displayText) {
         try {
-            await navigator.clipboard.writeText(translation.state.displayText);
+            await navigator.clipboard.writeText(text);
             setNotice("Copied to clipboard.");
         } catch {
             setNotice("Couldn’t copy. You can select the text and copy it manually.");
@@ -169,25 +172,26 @@ export default function HomeScreen() {
             <a class="skip-link" href="#translation-input">
                 Skip to input
             </a>
-            <SiteHeader desktopOnly />
-            <header class="app-header mobile-only">
-                <div class="header-left">
-                    <button
-                        class="icon-button mobile-only"
-                        aria-label="Toggle sidebar"
-                        aria-expanded={drawerOpen() ? "true" : "false"}
-                        onClick={() => setDrawerOpen(true)}
-                    >
-                        <Icon name="sidebar" size={40} />
-                    </button>
-                </div>
-                <Link class="wordmark" to="/app/" aria-label="SAPO home">
-                    S A P O
-                </Link>
-                <div class="header-right">
-                    <TranslationAction />
-                </div>
-            </header>
+            <Show when={isPwa}>
+                <header class="app-header">
+                    <div class="header-left">
+                        <button
+                            class="icon-button"
+                            aria-label="Toggle sidebar"
+                            aria-expanded={drawerOpen() ? "true" : "false"}
+                            onClick={() => setDrawerOpen(true)}
+                        >
+                            <Icon name="sidebar" size={40} />
+                        </button>
+                    </div>
+                    <Link class="wordmark" to={`${basePath}/`} aria-label="SAPO home">
+                        S A P O
+                    </Link>
+                    <div class="header-right">
+                        <TranslationAction />
+                    </div>
+                </header>
+            </Show>
             <Show when={!pwa.state.online}>
                 <div class="connection-banner" role="status">
                     You’re offline. Translation needs an internet connection.
@@ -202,46 +206,50 @@ export default function HomeScreen() {
                 </div>
             </Show>
             <div class="app-body">
-                <div class="desktop-options">
-                    <div class="desktop-toolbar">
-                        <nav aria-label="Translation options">
-                            <Sidebar layout="panel" />
-                        </nav>
+                <Show when={!isPwa}>
+                    <div class="desktop-options">
+                        <div class="desktop-toolbar">
+                            <nav aria-label="Translation options">
+                                <Sidebar layout="panel" action={TranslationAction} />
+                            </nav>
+                        </div>
                     </div>
-                </div>
+                </Show>
                 <main
-                    class={`workspace ${translation.state.singleScreen ? "mobile-single-screen" : ""} ${translation.state.mobilePane === "output" ? "show-output" : "show-input"}`}
+                    class={`workspace ${isPwa && translation.state.singleScreen ? "mobile-single-screen" : ""} ${translation.state.mobilePane === "output" ? "show-output" : "show-input"}`}
                 >
                     <header class="workspace-header">
                         <h1>{operationLabel()}</h1>
                     </header>
-                    <div class="mobile-tabs" role="group" aria-label="Workspace view">
-                        <button
-                            aria-pressed={
-                                translation.state.mobilePane === "input" ? "true" : "false"
-                            }
-                            onClick={() => translation.setMobilePane("input")}
-                        >
-                            Input
-                        </button>
-                        <button
-                            aria-pressed={
-                                translation.state.mobilePane === "output" ? "true" : "false"
-                            }
-                            onClick={() => translation.setMobilePane("output")}
-                        >
-                            Output
-                            <Show when={busy()}>
-                                <span class="status-dot" />
-                            </Show>
-                        </button>
-                    </div>
+                    <Show when={isPwa}>
+                        <div class="mobile-tabs" role="group" aria-label="Workspace view">
+                            <button
+                                aria-pressed={
+                                    translation.state.mobilePane === "input" ? "true" : "false"
+                                }
+                                onClick={() => translation.setMobilePane("input")}
+                            >
+                                Input
+                            </button>
+                            <button
+                                aria-pressed={
+                                    translation.state.mobilePane === "output" ? "true" : "false"
+                                }
+                                onClick={() => translation.setMobilePane("output")}
+                            >
+                                Output
+                                <Show when={busy()}>
+                                    <span class="status-dot" />
+                                </Show>
+                            </button>
+                        </div>
+                    </Show>
                     <HomePager>
                         <section
                             class="input-pane"
                             aria-label="Input"
                             inert={
-                                !wideScreen() &&
+                                isPwa &&
                                 !translation.state.singleScreen &&
                                 translation.state.mobilePane !== "input"
                             }
@@ -249,6 +257,7 @@ export default function HomeScreen() {
                             <div class="pane-toolbar">
                                 <LanguageSelector
                                     label="Source language"
+                                    caption={desktopOutput() ? "Source" : undefined}
                                     options={Object.values(languagesPlusAutoDetect)}
                                     value={translation.state.sourceLanguage}
                                     onChange={(sourceLanguage) =>
@@ -258,7 +267,6 @@ export default function HomeScreen() {
                                     }
                                     disabled={busy()}
                                 />
-                                <span class="pane-label desktop-only">INPUT</span>
                             </div>
                             <label class="sr-only" for="translation-input">
                                 Text to {translation.state.operation}
@@ -286,71 +294,67 @@ export default function HomeScreen() {
                                 <span class="keyboard-hint desktop-only">⌘ / Ctrl + Enter</span>
                             </div>
                         </section>
-                        <button
-                            class="swap-button"
-                            aria-label="Swap source and target languages"
-                            disabled={
-                                busy() ||
-                                (translation.state.operation === "respell" &&
-                                    !translation.state.translateThenRespell)
-                            }
-                            onClick={() => translation.swapLanguages()}
-                        >
-                            <Icon name="arrow-right-left" size={20} />
-                        </button>
+                        <Show when={!desktopOutput() || !combinedMode()}>
+                            <button
+                                class="swap-button"
+                                aria-label="Swap source and target languages"
+                                disabled={
+                                    busy() ||
+                                    (!desktopOutput() &&
+                                        translation.state.operation === "respell" &&
+                                        !translation.state.translateThenRespell)
+                                }
+                                onClick={() => translation.swapLanguages()}
+                            >
+                                <Icon name="arrow-right-left" size={20} />
+                            </button>
+                        </Show>
                         <section
-                            class="output-pane"
+                            class={`output-pane ${splitOutput() ? "output-pane-split" : ""}`}
                             aria-label="Output"
                             inert={
-                                !wideScreen() &&
+                                isPwa &&
                                 !translation.state.singleScreen &&
                                 translation.state.mobilePane !== "output"
                             }
                             aria-busy={busy() ? "true" : "false"}
                         >
                             <div class="pane-toolbar">
-                                <Show
-                                    when={
-                                        translation.state.operation === "translate" ||
-                                        translation.state.translateThenRespell
+                                <LanguageSelector
+                                    label="Target language"
+                                    caption={desktopOutput() ? "Target" : undefined}
+                                    options={Object.values(languages)}
+                                    value={translation.state.targetLanguage}
+                                    onChange={(targetLanguage) =>
+                                        translation.setPreferences({
+                                            targetLanguage,
+                                        })
                                     }
-                                    fallback={
-                                        <LanguageSelector
-                                            label="Respell language"
-                                            options={["Source", ...Object.values(languages)]}
-                                            value={translation.state.respellLanguage}
-                                            onChange={(respellLanguage) =>
-                                                translation.setPreferences({
-                                                    respellLanguage,
-                                                })
-                                            }
-                                            disabled={busy()}
-                                        />
-                                    }
-                                >
-                                    <LanguageSelector
-                                        label="Target language"
-                                        options={Object.values(languages)}
-                                        value={translation.state.targetLanguage}
-                                        onChange={(targetLanguage) =>
-                                            translation.setPreferences({
-                                                targetLanguage,
-                                            })
-                                        }
-                                        disabled={busy()}
-                                    />
-                                </Show>
-                                <span class="pane-label desktop-only">OUTPUT</span>
+                                    disabled={busy()}
+                                />
                                 <button
                                     class="icon-button copy-button"
-                                    aria-label="Copy output"
-                                    disabled={!translation.state.displayText}
-                                    onClick={() => void copyOutput()}
+                                    aria-label={splitOutput() ? "Copy translation" : "Copy output"}
+                                    disabled={
+                                        splitOutput()
+                                            ? !translation.state.translationPreview
+                                            : !translation.state.displayText
+                                    }
+                                    onClick={() =>
+                                        void copyOutput(
+                                            splitOutput()
+                                                ? translation.state.translationPreview
+                                                : translation.state.displayText,
+                                        )
+                                    }
                                 >
                                     <Icon name="copy" size={20} />
                                 </button>
                             </div>
-                            <TranslationOutput />
+                            <TranslationOutput
+                                split={splitOutput()}
+                                onCopy={(text) => void copyOutput(text)}
+                            />
                             <div class="pane-bottom">
                                 <span class="output-state" role="status">
                                     {busy()
@@ -383,19 +387,16 @@ export default function HomeScreen() {
                                 {footerMessage()}
                             </p>
                             <Show when={locked()}>
-                                <Link to="/app/settings/">View your plan</Link>
+                                <Link to={`${basePath}/settings/`}>View your plan</Link>
                             </Show>
                             <Show when={notice()}>
                                 <span role="status">{notice()}</span>
                             </Show>
                         </div>
-                        <div class="output-actions desktop-only">
-                            <TranslationAction />
-                        </div>
                     </div>
                 </main>
             </div>
-            <Show when={drawerOpen()}>
+            <Show when={isPwa && drawerOpen()}>
                 <Dialog title="S A P O" onClose={() => setDrawerOpen(false)} class="sidebar-dialog">
                     <Sidebar onNavigate={() => setDrawerOpen(false)} />
                 </Dialog>

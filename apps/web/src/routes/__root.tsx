@@ -7,6 +7,7 @@ import {
     useLocation,
 } from "@tanstack/solid-router";
 import type { JSX } from "@solidjs/web";
+import { isTranslatorPath, translatorBase } from "@/lib/translator-paths";
 import AuthProvider from "@/providers/AuthProvider";
 import { loadInitialAuth } from "@/lib/auth-initial";
 import type { FrogTransitions } from "@/lib/frogTransition";
@@ -29,13 +30,7 @@ export const Route = createRootRouteWithContext<{ frogTransitions: FrogTransitio
     component: RootContent,
     shellComponent: RootDocument,
     notFoundComponent: NotFoundPage,
-    errorComponent: () => (
-        <main class="message-screen">
-            <h1>Something went wrong.</h1>
-            <p>Please refresh and try again.</p>
-            <a href="/app/">Back to SAPO</a>
-        </main>
-    ),
+    errorComponent: ErrorPage,
 });
 
 function RootContent() {
@@ -47,9 +42,21 @@ function RootContent() {
     );
 }
 
+function ErrorPage() {
+    const location = useLocation();
+    return (
+        <main class="message-screen">
+            <h1>Something went wrong.</h1>
+            <p>Please refresh and try again.</p>
+            <a href={`${translatorBase(location().pathname)}/`}>Back to SAPO</a>
+        </main>
+    );
+}
+
 function NotFoundPage() {
     const location = useLocation();
-    const home = () => (/^\/app(?:\/|$)/.test(location().pathname) ? "/app/" : "/");
+    const home = () =>
+        isTranslatorPath(location().pathname) ? `${translatorBase(location().pathname)}/` : "/";
     return (
         <main class="message-screen">
             <h1>Page not found.</h1>

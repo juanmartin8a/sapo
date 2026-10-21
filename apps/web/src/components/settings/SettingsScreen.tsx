@@ -12,7 +12,7 @@ import Dialog from "@/components/ui/Dialog";
 import Toggle from "@/components/ui/Toggle";
 
 export default function SettingsScreen() {
-    const { auth, translation, pwa } = useAppState();
+    const { auth, translation, pwa, isPwa, basePath } = useAppState();
     const navigate = useNavigate();
     const [deleting, setDeleting] = createSignal(false);
     const [pending, setPending] = createSignal(false);
@@ -26,7 +26,7 @@ export default function SettingsScreen() {
         try {
             translation.clear();
             await auth.signOut();
-            await navigate({ to: "/app/" });
+            await navigate({ to: `${basePath}/` });
         } catch {
             setError("Couldn’t sign out. Please try again.");
         } finally {
@@ -44,7 +44,7 @@ export default function SettingsScreen() {
             if (!expectedId || session.data?.user.id !== expectedId)
                 throw new Error("Your account changed. Please reload and try again.");
             const result = await client.deleteUser({
-                callbackURL: `${window.location.origin}/app/delete-account`,
+                callbackURL: `${window.location.origin}${basePath}/delete-account`,
             });
             if (result.error)
                 throw new Error("Couldn’t request account deletion. Please try again.");
@@ -59,7 +59,7 @@ export default function SettingsScreen() {
     return (
         <main class="account-screen">
             <div class="account-card settings-card">
-                <Link class="back-link" to="/app/">
+                <Link class="back-link" to={`${basePath}/`}>
                     <Icon name="arrow-left" size={24} />
                     <span>Back to SAPO</span>
                 </Link>
@@ -116,7 +116,7 @@ export default function SettingsScreen() {
                                     </div>
                                 }
                             >
-                                <Link class="settings-row" to="/app/auth/">
+                                <Link class="settings-row" to={`${basePath}/auth/`}>
                                     <span>Sign in</span>
                                     <Icon name="chevron-right" />
                                 </Link>
@@ -168,7 +168,7 @@ export default function SettingsScreen() {
                         </div>
                     </Show>
                 </section>
-                <section class="settings-section mobile-only">
+                <section class="settings-section mobile-only pwa-only">
                     <h2>Appearance</h2>
                     <Toggle
                         label="Single screen"
@@ -177,27 +177,29 @@ export default function SettingsScreen() {
                         onChange={(singleScreen) => translation.setPreferences({ singleScreen })}
                     />
                 </section>
-                <section class="settings-section">
-                    <h2>On your device</h2>
-                    <Show
-                        when={pwa.state.installable}
-                        fallback={
-                            <p class="settings-note muted">
-                                {pwa.state.installed
-                                    ? "SAPO is installed on this device."
-                                    : "Add SAPO to your home screen from your browser’s Share or menu options."}
-                            </p>
-                        }
-                    >
-                        <button class="settings-row" onClick={() => void pwa.install()}>
-                            <span>Install SAPO</span>
-                            <span aria-hidden="true">↗</span>
-                        </button>
-                    </Show>
-                    <p class="settings-note muted">
-                        Translation and respelling require an internet connection.
-                    </p>
-                </section>
+                <Show when={isPwa}>
+                    <section class="settings-section">
+                        <h2>On your device</h2>
+                        <Show
+                            when={pwa.state.installable}
+                            fallback={
+                                <p class="settings-note muted">
+                                    {pwa.state.installed
+                                        ? "SAPO is installed on this device."
+                                        : "Add SAPO to your home screen from your browser’s Share or menu options."}
+                                </p>
+                            }
+                        >
+                            <button class="settings-row" onClick={() => void pwa.install()}>
+                                <span>Install SAPO</span>
+                                <span aria-hidden="true">↗</span>
+                            </button>
+                        </Show>
+                        <p class="settings-note muted">
+                            Translation and respelling require an internet connection.
+                        </p>
+                    </section>
+                </Show>
                 <section class="settings-section">
                     <h2>Privacy & data</h2>
                     <p class="settings-note muted">

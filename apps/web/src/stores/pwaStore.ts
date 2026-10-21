@@ -5,7 +5,7 @@ interface InstallPrompt extends Event {
     userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
-export function createPwaStore() {
+export function createPwaStore(enabled: boolean) {
     const [state, setState] = createStore({
         online: true,
         installable: false,
@@ -45,16 +45,28 @@ export function createPwaStore() {
             const standalone = window.matchMedia("(display-mode: standalone)");
             network();
             setState((draft) => {
-                draft.installed = standalone.matches;
+                draft.installed = enabled && standalone.matches;
             });
             window.addEventListener("online", network);
             window.addEventListener("offline", network);
-            window.addEventListener("beforeinstallprompt", install);
-            window.addEventListener("appinstalled", installed);
+            if (enabled) {
+                window.addEventListener("beforeinstallprompt", install);
+                window.addEventListener("appinstalled", installed);
+            }
             let disposed = false;
-            if (import.meta.env.PROD && "serviceWorker" in navigator) {
+            // Retire the previous /app worker without touching other registrations.
+            if ("serviceWorker" in navigator) {
                 void navigator.serviceWorker
-                    .register("/app/sw.js", { scope: "/app/" })
+                    .getRegistration("/app/")
+                    .then((legacy) => {
+                        if (legacy?.scope === `${window.location.origin}/app/`)
+                            return legacy.unregister();
+                    })
+                    .catch(() => {});
+            }
+            if (enabled && import.meta.env.PROD && "serviceWorker" in navigator) {
+                void navigator.serviceWorker
+                    .register("/pwa/sw.js", { scope: "/pwa/" })
                     .then((result) => {
                         if (disposed) return;
                         registration = result;

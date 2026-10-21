@@ -21,7 +21,8 @@ export default defineConfig(({ mode }) => {
                     autoSubfolderIndex: true,
                     crawlLinks: false,
                     filter: ({ path }) =>
-                        path === "/" || (!path.startsWith("/app") && !path.startsWith("/api/")),
+                        path === "/" ||
+                        (!/^\/(?:app|pwa)(?:\/|$)/.test(path) && !path.startsWith("/api/")),
                     failOnError: true,
                 },
             }),
@@ -34,12 +35,13 @@ export default defineConfig(({ mode }) => {
                         nitro.hooks.hook("compiled", async () => {
                             const path = join(nitro.options.output.dir, "config.json");
                             const config = JSON.parse(await readFile(path, "utf8"));
-                            const appHeaders = config.routes.find(
-                                (route: { src?: string }) => route.src === "/app/(.*)",
+                            const translatorHeaders = config.routes.filter(
+                                (route: { src?: string }) =>
+                                    route.src === "/app/(.*)" || route.src === "/pwa/(.*)",
                             );
                             // Nitro 3 emits a terminal header rule. Dynamic app paths
                             // must continue through the filesystem to the server fallback.
-                            if (appHeaders) appHeaders.continue = true;
+                            for (const route of translatorHeaders) route.continue = true;
                             await writeFile(path, JSON.stringify(config, null, 2) + "\n");
                         });
                     },
@@ -50,8 +52,11 @@ export default defineConfig(({ mode }) => {
                     },
                     "/app": { redirect: { to: "/app/", status: 308 } },
                     "/app/**": { headers: { "cache-control": "no-store" } },
+                    "/pwa": { redirect: { to: "/pwa/", status: 308 } },
+                    "/pwa/**": { headers: { "cache-control": "no-store" } },
                     "/app/sw.js": { headers: { "cache-control": "no-cache" } },
-                    "/app/manifest.webmanifest": { headers: { "cache-control": "no-cache" } },
+                    "/pwa/sw.js": { headers: { "cache-control": "no-cache" } },
+                    "/pwa/manifest.webmanifest": { headers: { "cache-control": "no-cache" } },
                 },
             }),
         ],

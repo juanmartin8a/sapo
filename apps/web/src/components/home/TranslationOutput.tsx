@@ -1,10 +1,18 @@
-import { createEffect, createSignal, onSettled, Show } from "solid-js";
+import { createEffect, createSignal, createUniqueId, onSettled, Show } from "solid-js";
 import { useAppState } from "@/providers/AppProvider";
+import Icon from "@/components/ui/Icon";
 
-export default function TranslationOutput() {
+export default function TranslationOutput(props: {
+    split: boolean;
+    onCopy: (text: string) => void;
+}) {
     const { translation } = useAppState();
     const [mouthOpen, setMouthOpen] = createSignal(false);
+    const [translationCollapsed, setTranslationCollapsed] = createSignal(false);
+    const previewId = createUniqueId();
+    let preview: HTMLDivElement | undefined;
     let output!: HTMLDivElement;
+    let previewStickToBottom = true;
     let stickToBottom = true;
     createEffect(
         () => translation.state.mouthTriggerVersion,
@@ -18,22 +26,58 @@ export default function TranslationOutput() {
     createEffect(
         () => `${translation.state.translationPreview}${translation.state.displayText}`,
         () => {
+            if (preview && previewStickToBottom) preview.scrollTop = preview.scrollHeight;
             if (output && stickToBottom) output.scrollTop = output.scrollHeight;
         },
     );
     onSettled(() => {
+        previewStickToBottom = true;
         stickToBottom = true;
     });
-    return (
-        <div
-            class="output-content"
-            ref={(element) => {
-                output = element;
-            }}
-            onScroll={() => {
-                stickToBottom = output.scrollHeight - output.scrollTop - output.clientHeight < 64;
-            }}
+    const OutputText = () => (
+        <Show
+            when={translation.state.displayText}
+            fallback={
+                <p
+                    class={`output-placeholder ${translation.state.status === "loading" ? "breathing" : ""}`}
+                >
+                    {translation.state.status === "loading"
+                        ? "Loading…"
+                        : translation.state.operation === "respell"
+                          ? "Respelling"
+                          : "Translation"}
+                </p>
+            }
         >
+            <p class="translation-text" dir="auto">
+                {translation.state.displayText}
+                <Show when={translation.state.status === "streaming"}>
+                    <span class="stream-cursor" aria-hidden="true" />
+                </Show>
+            </p>
+        </Show>
+    );
+    const Frog = () => (
+        <div class={`frog ${mouthOpen() ? "frog-speaking" : ""}`} aria-hidden="true">
+            <img class="frog-closed" src="/app/images/sapo.png" alt="" width="600" height="516" />
+            <img
+                class="frog-open"
+                src="/app/images/sapo-mouth-open.png"
+                alt=""
+                width="600"
+                height="590"
+            />
+        </div>
+    );
+    const followOutput = (element: HTMLDivElement) => {
+        output = element;
+        stickToBottom = true;
+    };
+    const scrollOutput = () => {
+        stickToBottom = output.scrollHeight - output.scrollTop - output.clientHeight < 64;
+    };
+    const OriginalOutput = () => (
+        <div class="output-content" ref={followOutput} onScroll={scrollOutput}>
             <Show when={translation.state.translationPreview}>
                 <div class="translation-preview">
                     <span class="eyebrow">Translation</span>
@@ -41,43 +85,84 @@ export default function TranslationOutput() {
                     <span class="eyebrow">Respelling</span>
                 </div>
             </Show>
-            <Show
-                when={translation.state.displayText}
-                fallback={
-                    <p
-                        class={`output-placeholder ${translation.state.status === "loading" ? "breathing" : ""}`}
-                    >
-                        {translation.state.status === "loading"
-                            ? "Loading…"
-                            : translation.state.operation === "respell"
-                              ? "Respelling"
-                              : "Translation"}
-                    </p>
-                }
-            >
-                <p class="translation-text" dir="auto">
-                    {translation.state.displayText}
-                    <Show when={translation.state.status === "streaming"}>
-                        <span class="stream-cursor" aria-hidden="true" />
-                    </Show>
-                </p>
-            </Show>
-            <div class={`frog ${mouthOpen() ? "frog-speaking" : ""}`} aria-hidden="true">
-                <img
-                    class="frog-closed"
-                    src="/app/images/sapo.png"
-                    alt=""
-                    width="600"
-                    height="516"
-                />
-                <img
-                    class="frog-open"
-                    src="/app/images/sapo-mouth-open.png"
-                    alt=""
-                    width="600"
-                    height="590"
-                />
-            </div>
+            <OutputText />
+            <Frog />
         </div>
+    );
+    return (
+        <Show when={props.split} fallback={<OriginalOutput />}>
+            <div
+                class={`output-layout-split ${translationCollapsed() ? "translation-collapsed" : ""}`}
+            >
+                <div class="translation-output-row">
+                    <div
+                        id={previewId}
+                        class="output-content"
+                        hidden={translationCollapsed()}
+                        role="region"
+                        aria-label="Translation"
+                        tabindex={0}
+                        ref={(element) => {
+                            preview = element;
+                            previewStickToBottom = true;
+                        }}
+                        onScroll={(event) => {
+                            const element = event.currentTarget;
+                            previewStickToBottom =
+                                element.scrollHeight - element.scrollTop - element.clientHeight <
+                                64;
+                        }}
+                    >
+                        <Show
+                            when={translation.state.translationPreview}
+                            fallback={
+                                <p
+                                    class={`output-placeholder ${translation.state.status === "loading" ? "breathing" : ""}`}
+                                >
+                                    {translation.state.status === "loading"
+                                        ? "Loading…"
+                                        : "Translation"}
+                                </p>
+                            }
+                        >
+                            <p class="translation-text" dir="auto">
+                                {translation.state.translationPreview}
+                            </p>
+                        </Show>
+                    </div>
+                </div>
+                <div class="translation-output-divider">
+                    <button
+                        class="translation-collapse-button"
+                        aria-expanded={translationCollapsed() ? "false" : "true"}
+                        aria-controls={previewId}
+                        onClick={() => setTranslationCollapsed(!translationCollapsed())}
+                    >
+                        {translationCollapsed() ? "Show translation" : "Hide translation"}
+                        <Icon name="chevron-down" size={14} />
+                    </button>
+                </div>
+                <div
+                    class="output-content"
+                    role="region"
+                    aria-label="Respelling"
+                    tabindex={0}
+                    ref={followOutput}
+                    onScroll={scrollOutput}
+                >
+                    <button
+                        class="icon-button respelling-copy-button"
+                        aria-label="Copy respelling"
+                        title="Copy respelling"
+                        disabled={!translation.state.displayText}
+                        onClick={() => props.onCopy(translation.state.displayText)}
+                    >
+                        <Icon name="copy" size={20} />
+                    </button>
+                    <OutputText />
+                    <Frog />
+                </div>
+            </div>
+        </Show>
     );
 }

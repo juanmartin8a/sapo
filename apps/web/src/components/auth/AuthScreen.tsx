@@ -2,9 +2,11 @@ import { Link } from "@tanstack/solid-router";
 import { createSignal, onSettled, Show } from "solid-js";
 import { getAuthClient, isAuthConfigured } from "@/lib/auth-client";
 import { TERMS_OF_USE_URL, PRIVACY_POLICY_URL } from "@/constants/translation";
+import { useAppState } from "@/providers/AppProvider";
 import Icon from "@/components/ui/Icon";
 
 export default function AuthScreen() {
+    const { basePath } = useAppState();
     const [pending, setPending] = createSignal<"google" | "apple" | null>(null);
     const [error, setError] = createSignal<string | null>(null);
     onSettled(() => {
@@ -19,8 +21,8 @@ export default function AuthScreen() {
         try {
             const result = await getAuthClient().signIn.social({
                 provider,
-                callbackURL: `${window.location.origin}/app/auth-callback/`,
-                errorCallbackURL: `${window.location.origin}/app/auth/`,
+                callbackURL: `${window.location.origin}${basePath}/auth-callback/`,
+                errorCallbackURL: `${window.location.origin}${basePath}/auth/`,
             });
             if (result.error)
                 throw new Error(result.error.message || "Couldn’t sign in. Please try again.");
@@ -33,7 +35,7 @@ export default function AuthScreen() {
     return (
         <main class="account-screen auth-screen">
             <div class="account-card">
-                <Link class="back-link" to="/app/">
+                <Link class="back-link" to={`${basePath}/`}>
                     <Icon name="arrow-left" size={24} />
                     <span>Back to SAPO</span>
                 </Link>

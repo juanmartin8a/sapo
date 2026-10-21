@@ -1,6 +1,7 @@
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from "jose";
 import { parseSetCookieHeader, splitSetCookieHeader } from "better-auth/cookies";
 import { AUTH_BASE_PATH, type AuthBootstrap } from "../auth-bootstrap.ts";
+import { translatorBase } from "../translator-paths.ts";
 import { isIP } from "node:net";
 
 const COOKIE_PREFIX = "__Secure-better-auth.";
@@ -77,7 +78,7 @@ export function createWebAuthServer(options: {
     function scopeCookie(cookie: string) {
         const [name] = cookie.split("=");
         if (!/^(?:__Secure-)?better-auth\.[\w.-]+$/.test(name)) return [];
-        // Scope credentials to the app, and never inherit an upstream domain.
+        // Share credentials between the two translator surfaces, and never inherit an upstream domain.
         let scoped = cookie
             .replace(/;\s*Domain=[^;]*/gi, "")
             .replace(/;\s*Path=[^;]*/gi, "")
@@ -87,10 +88,13 @@ export function createWebAuthServer(options: {
         if (!options.secureCookies) scoped = scoped.replace(/^__Secure-/, "");
         const scopedName = scoped.slice(0, scoped.indexOf("="));
         return [
-            `${scoped}; Path=/app; HttpOnly; SameSite=Lax${options.secureCookies ? "; Secure" : ""}`,
+            ...["/app", "/pwa"].map(
+                (path) =>
+                    `${scoped}; Path=${path}; HttpOnly; SameSite=Lax${options.secureCookies ? "; Secure" : ""}`,
+            ),
             // Remove earlier path variants when setting or clearing a cookie.
             // Otherwise signing out can expose an older session cookie again.
-            ...["/", "/app/"].map(
+            ...["/", "/app/", "/pwa/"].map(
                 (path) =>
                     `${scopedName}=; Path=${path}; Max-Age=0; HttpOnly; SameSite=Lax${options.secureCookies ? "; Secure" : ""}`,
             ),
@@ -210,8 +214,14 @@ export function createWebAuthServer(options: {
                 if (!["google", "apple"].includes(data.provider))
                     return new Response(null, { status: 400, headers: PRIVATE_HEADERS });
                 flow = crypto.randomUUID();
-                data.callbackURL = `${url.origin}/app/auth-callback/?flow=${flow}`;
-                data.errorCallbackURL = `${url.origin}/app/auth/`;
+                // Only allow the two same-origin translator destinations.
+                const callback = new URL(data.callbackURL ?? "/app/auth-callback/", url.origin);
+                const basePath =
+                    callback.origin === url.origin && callback.pathname === "/pwa/auth-callback/"
+                        ? "/pwa"
+                        : "/app";
+                data.callbackURL = `${url.origin}${basePath}/auth-callback/?flow=${flow}`;
+                data.errorCallbackURL = `${url.origin}${basePath}/auth/`;
                 body = JSON.stringify(data);
             }
             const response = await upstream(incoming, `${path}${url.search}`, {
@@ -286,7 +296,7 @@ export function createWebAuthServer(options: {
             .find((cookie) => cookie.startsWith(`${flowCookieName}=`))
             ?.slice(flowCookieName.length + 1);
         const headers = new Headers(PRIVATE_HEADERS);
-        headers.set("location", "/app/auth/?error=sign_in_failed");
+        headers.set("location", `${translatorBase(url.pathname)}/auth/?error=sign_in_failed`);
         // Bind the callback to the browser that started sign-in, including OTT flows.
         if (!token || token.length > 2048 || !flow || flow !== expectedFlow)
             return new Response(null, { status: 303, headers });
@@ -317,7 +327,7 @@ export function createWebAuthServer(options: {
                 return new Response(null, { status: 303, headers });
             for (const cookie of cookies) headers.append("set-cookie", cookie);
             for (const cookie of setCookies(session)) headers.append("set-cookie", cookie);
-            headers.set("location", "/app/");
+            headers.set("location", `${translatorBase(url.pathname)}/`);
             return new Response(null, { status: 303, headers });
         } catch {
             return new Response(null, { status: 303, headers });

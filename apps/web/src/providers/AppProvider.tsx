@@ -5,20 +5,22 @@ import { useAuthState } from "./AuthProvider";
 import { loadPreferences, savePreferences } from "@/lib/preferences";
 import { createPwaStore } from "@/stores/pwaStore";
 
-function createAppState() {
+function createAppState(pwa: boolean) {
     return {
         translation: createTranslationStore(),
         auth: useAuthState(),
-        pwa: createPwaStore(),
+        isPwa: pwa,
+        basePath: pwa ? ("/pwa" as const) : ("/app" as const),
+        pwa: createPwaStore(pwa),
     };
 }
 const AppContext = createContext<
     ReturnType<typeof createAppState> & { preferencesReady: () => boolean }
 >();
 
-export default function AppProvider(props: { children: JSX.Element }) {
+export default function AppProvider(props: { children: JSX.Element; pwa?: boolean }) {
     const [preferencesReady, setPreferencesReady] = createSignal(false);
-    const app = { ...createAppState(), preferencesReady };
+    const app = { ...createAppState(Boolean(props.pwa)), preferencesReady };
 
     onSettled(() => {
         app.translation.setPreferences(loadPreferences());

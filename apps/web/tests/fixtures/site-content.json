@@ -34,13 +34,14 @@
         "sapo-favicon.svg": "96ffb96811ad33e3c9a53654869ad8cf713b260d0311fad40f3362230234405e",
         "robots.txt": "b033243267bcbdab84cb01e940811d6d77a894d78f0470faaf0eb43f8e4efcc9",
         ".well-known/apple-app-site-association": "606c121e12f9d2ae29d49ad48017d5a88da508b0fff71aa456189569591f03cc",
-        "app/manifest.webmanifest": "e7c61a462b5dc68fa38f0bd128be54e83d0e49a0c66645a7ff0b8503893f4996",
-        "app/sw.js": "fcf5e44ed3af1f750929cd34a38775f81d1ff37731ea6035e426f516e07dcfdc",
-        "app/offline.html": "31a586b0197f45dcd6aee7ca2e9a14ad615788aef0ad6a82137faceaa6457327"
+        "pwa/manifest.webmanifest": "78b38444fd8b61c960f92f565f4f5007fc97f4bec4cab1c606136cdb27bb1be3",
+        "pwa/offline.html": "0167c2f61b3f738e394b4511a9a21775a5c4f034cfc212d53606b8ac7cb42fe0",
+        "pwa/sw.js": "e30c6bb43e67895c5e7beebb8d2de45aa4088477edd1a3cc57220d6fd4990e50",
+        "app/sw.js": "6525406a56ec7e830b807b0fdd897f8cd8f5bcd833b5aa6019f186dba463c80e"
     },
     "metadata": {
         "index.html": {
-            "title": "SAPO — Phonetic respelling",
+            "title": "SAPO \u2014 Phonetic respelling",
             "description": "SAPO offers a multilingual phonetic representations database and mobile and web apps for translation and cross-lingual pronunciation respelling."
         },
         "terms-of-use/index.html": {

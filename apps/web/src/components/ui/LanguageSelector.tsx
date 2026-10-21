@@ -4,6 +4,7 @@ import Icon from "./Icon";
 
 export default function LanguageSelector(props: {
     label: string;
+    caption?: string;
     value: string;
     options: readonly string[];
     onChange: (value: string) => void;
@@ -23,7 +24,7 @@ export default function LanguageSelector(props: {
                 ref={(element) => {
                     trigger = element;
                 }}
-                class="language-button"
+                class={`language-button ${props.caption ? "language-button-captioned" : ""}`}
                 aria-label={`${props.label}: ${props.value}`}
                 aria-haspopup="dialog"
                 aria-expanded={open() ? "true" : "false"}
@@ -33,7 +34,12 @@ export default function LanguageSelector(props: {
                     setOpen(!open());
                 }}
             >
-                <span>{props.value}</span>
+                <Show when={props.caption}>
+                    <span class="language-caption" aria-hidden="true">
+                        {props.caption}
+                    </span>
+                </Show>
+                <span class="language-value">{props.value}</span>
                 <Icon name="chevron-down" size={16} />
             </button>
             <Show when={open()}>

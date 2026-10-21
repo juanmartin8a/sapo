@@ -55,10 +55,11 @@ for (const [path, expected] of Object.entries(fixture.assets)) {
     assert.equal(hash(content), expected, `Public asset changed: ${path}`);
 }
 const manifest = JSON.parse(
-    await readFile(new URL(".vercel/output/static/app/manifest.webmanifest", root), "utf8"),
+    await readFile(new URL(".vercel/output/static/pwa/manifest.webmanifest", root), "utf8"),
 );
-assert.equal(manifest.scope, "/app/");
-assert.equal(manifest.start_url, "/app/");
+assert.equal(manifest.id, "/pwa/");
+assert.equal(manifest.scope, "/pwa/");
+assert.equal(manifest.start_url, "/pwa/");
 const config = JSON.parse(await readFile(new URL(".vercel/output/config.json", root), "utf8"));
 const rules = JSON.stringify(config.routes);
 assert.ok(rules.includes("application/json"), "Missing Apple association response header");
@@ -91,6 +92,11 @@ async function deploymentTarget(path) {
     return target;
 }
 for (const path of [
+    "/pwa/",
+    "/pwa/auth/",
+    "/pwa/auth-callback/",
+    "/pwa/settings/",
+    "/pwa/delete-account/",
     "/app/",
     "/app/auth/",
     "/app/auth-callback/",
@@ -110,9 +116,13 @@ for (const path of [
     );
 }
 assert.equal(await deploymentTarget("/app"), "/app/");
+assert.equal(await deploymentTarget("/pwa"), "/pwa/");
 for (const path of [
     "/app/sw.js",
-    "/app/manifest.webmanifest",
+    "/pwa/sw.js",
+    "/pwa/manifest.webmanifest",
+    "/pwa/offline.html",
+    "/pwa/icons/app-192.png",
     "/app/images/sapo.png",
     "/.well-known/apple-app-site-association",
 ]) {
@@ -129,6 +139,7 @@ const { default: handler } = await import(
 );
 for (const [path, home] of [
     ["/app/review-missing-page/", "/app/"],
+    ["/pwa/review-missing-page/", "/pwa/"],
     ["/review-missing-page/", "/"],
 ]) {
     const response = await handler.fetch(new Request(`https://sapo.example${path}`));
@@ -146,8 +157,40 @@ const invalid = await handler.fetch(
 assert.equal(invalid.status, 400);
 assert.equal(invalid.headers.get("cache-control"), "no-store");
 await invalid.arrayBuffer();
-const app = await handler.fetch(new Request("https://sapo.example/app/"));
-assert.equal(app.status, 200);
-assert.equal(app.headers.get("cache-control"), "no-store");
-assert.ok((await app.text()).includes('id="translation-input"'));
+for (const basePath of ["/app", "/pwa"]) {
+    for (const path of ["/", "/auth/", "/settings/", "/delete-account/"]) {
+        const response = await handler.fetch(new Request(`https://sapo.example${basePath}${path}`));
+        assert.equal(response.status, 200, `${basePath}${path}`);
+        assert.match(response.headers.get("cache-control"), /no-store/);
+        const html = await response.text();
+        assert.equal(html.includes('rel="manifest"'), basePath === "/pwa", `${basePath}${path}`);
+        assert.equal(html.includes('name="apple-mobile-web-app-capable"'), basePath === "/pwa");
+        assert.ok(html.includes(basePath === "/pwa" ? "translator-pwa" : "translator-web"));
+        assert.equal(
+            /<header\b[^>]*class="[^"]*\bsite-header\b/.test(html),
+            basePath === "/app",
+            `Wrong website header on ${basePath}${path}`,
+        );
+        assert.equal(
+            /<footer\b[^>]*class="[^"]*\bsite-footer\b/.test(html),
+            basePath === "/app",
+            `Wrong website footer on ${basePath}${path}`,
+        );
+        if (path === "/") {
+            assert.ok(html.includes('id="translation-input"'));
+            assert.equal(
+                /<header\b[^>]*class="[^"]*\bapp-header\b/.test(html),
+                basePath === "/pwa",
+            );
+            assert.equal(html.includes('aria-label="Workspace view"'), basePath === "/pwa");
+        }
+        if (basePath === "/pwa") {
+            assert.ok(html.includes("/pwa/manifest.webmanifest"));
+            assert.ok(
+                !/href="\/app\/(?:auth|settings)\//.test(html),
+                "PWA account links escape their namespace",
+            );
+        }
+    }
+}
 console.log("Verified static assets, PWA scope, deployment headers, and Node 24 runtime.");

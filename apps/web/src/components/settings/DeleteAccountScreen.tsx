@@ -4,7 +4,7 @@ import { getAuthClient } from "@/lib/auth-client";
 import { useAppState } from "@/providers/AppProvider";
 
 export default function DeleteAccountScreen() {
-    const { auth, translation } = useAppState();
+    const { auth, translation, basePath } = useAppState();
     const [status, setStatus] = createSignal("Check your email link to confirm account deletion.");
     const [pending, setPending] = createSignal(false);
     const [confirmed, setConfirmed] = createSignal(false);
@@ -24,7 +24,7 @@ export default function DeleteAccountScreen() {
             await auth.refreshSession();
             setConfirmed(true);
             setStatus("Your SAPO account has been deleted.");
-            window.history.replaceState(window.history.state, "", "/app/delete-account");
+            window.history.replaceState(window.history.state, "", `${basePath}/delete-account`);
         } catch (error) {
             setStatus(error instanceof Error ? error.message : "Couldn’t delete the account.");
         } finally {
@@ -49,7 +49,7 @@ export default function DeleteAccountScreen() {
                         {pending() ? "Deleting…" : "Confirm account deletion"}
                     </button>
                 </Show>
-                <Link class="back-link" to="/app/">
+                <Link class="back-link" to={`${basePath}/`}>
                     Back to SAPO
                 </Link>
             </div>
