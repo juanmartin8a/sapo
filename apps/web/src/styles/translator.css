@@ -532,8 +532,10 @@
         position: relative;
     }
     .respelling-output-with-copy {
-        display: flex;
-        flex-direction: column;
+        display: flow-root;
+    }
+    .respelling-output-with-copy > .frog {
+        clear: both;
     }
     .output-layout-split {
         flex: 1;
@@ -595,22 +597,12 @@
         margin-top: auto;
     }
     .respelling-copy-button {
-        position: sticky;
-        top: 0;
-        align-self: flex-end;
-        flex: 0 0 32px;
-        width: 30px;
-        height: 32px;
-        margin-bottom: -32px;
+        float: right;
+        width: 40px;
+        height: 40px;
+        margin: 0 0 8px 12px;
         color: #777;
         background: #fff;
-        z-index: 1;
-    }
-    .output-layout-split > .output-content > .translation-text,
-    .output-layout-split > .output-content > .output-placeholder,
-    .respelling-output-with-copy > .translation-text,
-    .respelling-output-with-copy > .output-placeholder {
-        padding-right: 44px;
     }
     .output-content {
         flex: 1;
@@ -1168,6 +1160,10 @@
     }
     &.translator-pwa {
         --pwa-frog-width: min(28vw, 144px);
+        --pwa-content-inset: 24px;
+        --pwa-control-padding: 6px;
+        --pwa-left-gutter: max(var(--pwa-content-inset), env(safe-area-inset-left));
+        --pwa-right-gutter: max(var(--pwa-content-inset), env(safe-area-inset-right));
 
         .desktop-only,
         .desktop-options {
@@ -1184,8 +1180,23 @@
         .app-header {
             display: flex;
             height: calc(60px + env(safe-area-inset-top));
-            padding: env(safe-area-inset-top) 18px 0;
+            padding: env(safe-area-inset-top)
+                calc(var(--pwa-right-gutter) - var(--pwa-control-padding)) 0
+                calc(var(--pwa-left-gutter) - var(--pwa-control-padding));
             border-bottom: 0;
+        }
+        .app-header .sidebar-button {
+            width: 52px;
+            height: 44px;
+            padding: var(--pwa-control-padding);
+        }
+        .app-header .sidebar-button > .icon {
+            width: 40px;
+            height: 32px;
+        }
+        .app-header .translate-button {
+            padding: var(--pwa-control-padding);
+            justify-content: flex-end;
         }
         .app-header .wordmark {
             font-size: 20px;
@@ -1213,7 +1224,7 @@
         .workspace-header {
             display: flex;
             margin: 0;
-            padding: 0 24px 3px;
+            padding: 0 var(--pwa-right-gutter) 3px var(--pwa-left-gutter);
         }
         .workspace-header .eyebrow,
         .connection-status {
@@ -1227,28 +1238,29 @@
             font-weight: 500;
             margin: 0;
         }
-        /* Small page controls keep swipe navigation usable with a mouse or keyboard. */
+        /* Label both pages explicitly and keep the selected page visible. */
         .mobile-tabs {
             display: flex;
             justify-content: center;
+            align-self: center;
             flex: 0 0 auto;
+            gap: 4px;
+            padding: 4px;
+            margin: 4px var(--pwa-right-gutter) 8px var(--pwa-left-gutter);
+            border-radius: 12px;
+            background: #f2f2f2;
         }
         .mobile-tabs button {
-            display: grid;
-            place-items: center;
-            width: 44px;
+            min-width: 80px;
             height: 32px;
+            padding: 6px 16px;
             border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
         }
-        .mobile-tabs button::after {
-            content: "";
-            width: 5px;
-            height: 5px;
-            border-radius: 50%;
-            background: #888;
-        }
-        .mobile-tabs button[aria-pressed="true"]::after {
+        .mobile-tabs button[aria-pressed="true"] {
             background: #000;
+            color: #fff;
         }
         .translation-workspace {
             border: 0;
@@ -1273,7 +1285,7 @@
         .pane-toolbar {
             position: absolute;
             top: 4px;
-            right: 18px;
+            right: calc(var(--pwa-right-gutter) - var(--pwa-control-padding));
             z-index: 1;
             padding: 0;
             min-height: 0;
@@ -1286,6 +1298,12 @@
         }
         .copy-button {
             margin-left: auto;
+            width: 32px;
+            height: 32px;
+            padding: var(--pwa-control-padding);
+        }
+        .respelling-copy-button {
+            margin-right: -10px;
         }
         .translation-input,
         .translation-text,
@@ -1302,7 +1320,7 @@
         }
         .translation-input,
         .output-content {
-            padding: 10px 24px 24px;
+            padding: 10px var(--pwa-right-gutter) 24px var(--pwa-left-gutter);
         }
         .translation-input {
             padding-bottom: calc(34px + var(--pwa-frog-width) * 914 / 929);
@@ -1316,14 +1334,15 @@
             margin-top: 10px;
         }
         .pane-bottom {
-            padding: 10px 24px;
+            padding: 10px var(--pwa-right-gutter) 10px var(--pwa-left-gutter);
             min-height: 36px;
         }
         .workspace-footer {
             flex-direction: column;
             align-items: stretch;
             gap: 11px;
-            padding: 0 24px max(16px, env(safe-area-inset-bottom));
+            padding: 0 var(--pwa-right-gutter) max(16px, env(safe-area-inset-bottom))
+                var(--pwa-left-gutter);
         }
         .footer-message {
             font-size: 11px;
@@ -1755,7 +1774,7 @@
             .output-pane {
                 min-height: max(
                     280px,
-                    calc(100dvh - 124px - env(safe-area-inset-top) - env(safe-area-inset-bottom))
+                    calc(100dvh - 144px - env(safe-area-inset-top) - env(safe-area-inset-bottom))
                 );
             }
             .translation-input {

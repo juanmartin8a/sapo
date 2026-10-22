@@ -84,7 +84,7 @@ export default function HomeScreen() {
                 <header class="app-header">
                     <div class="header-left">
                         <button
-                            class="icon-button"
+                            class="icon-button sidebar-button"
                             aria-label="Toggle sidebar"
                             aria-expanded={drawerOpen() ? "true" : "false"}
                             onClick={() => setDrawerOpen(true)}
@@ -138,7 +138,7 @@ export default function HomeScreen() {
                                 }
                                 onClick={() => translation.setMobilePane("input")}
                             >
-                                <span class="sr-only">Input</span>
+                                Input
                             </button>
                             <button
                                 title="Output"
@@ -147,7 +147,7 @@ export default function HomeScreen() {
                                 }
                                 onClick={() => translation.setMobilePane("output")}
                             >
-                                <span class="sr-only">Output</span>
+                                Output
                             </button>
                         </div>
                     </Show>

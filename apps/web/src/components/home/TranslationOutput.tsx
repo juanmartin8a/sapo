@@ -170,17 +170,19 @@ export default function TranslationOutput(props: {
                     ref={followOutput}
                     onScroll={scrollOutput}
                 >
-                    <Show when={canCopyRespelling()}>
-                        <button
-                            class="icon-button respelling-copy-button"
-                            aria-label="Copy respelling"
-                            title="Copy respelling"
-                            onClick={() => props.onCopy(translation.state.displayText)}
-                        >
-                            <Icon name="copy" size={20} />
-                        </button>
-                    </Show>
-                    <OutputText />
+                    <div class="respelling-output respelling-output-with-copy">
+                        <Show when={canCopyRespelling()}>
+                            <button
+                                class="icon-button respelling-copy-button"
+                                aria-label="Copy respelling"
+                                title="Copy respelling"
+                                onClick={() => props.onCopy(translation.state.displayText)}
+                            >
+                                <Icon name="copy" size={20} />
+                            </button>
+                        </Show>
+                        <OutputText />
+                    </div>
                     <Frog />
                 </div>
             </div>
