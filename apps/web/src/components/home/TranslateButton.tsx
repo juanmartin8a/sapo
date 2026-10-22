@@ -1,35 +1,14 @@
 import { useNavigate } from "@tanstack/solid-router";
 import { onSettled, Show } from "solid-js";
 import { useAppState } from "@/providers/AppProvider";
-import { DEFAULT_SUBSCRIPTION_PLAN_LIMITS } from "@/constants/translation";
+import Icon from "@/components/ui/Icon";
 
 export default function TranslateButton() {
-    const { translation, auth, pwa, basePath } = useAppState();
+    const { translation, auth, pwa, basePath, inputLimit, respellLocked } = useAppState();
+    const { busy, characterCount, operationLabel } = translation;
     const navigate = useNavigate();
-    const busy = () =>
-        translation.state.status === "loading" || translation.state.status === "streaming";
-    const characterCount = () => Array.from(translation.state.input).length;
-    const inputLimit = () => {
-        const plan =
-            DEFAULT_SUBSCRIPTION_PLAN_LIMITS[
-                auth.state.hasActiveSubscription ? "polyglot" : "free"
-            ];
-        return translation.state.operation === "respell"
-            ? plan.respell_input_char_limit
-            : plan.translate_input_char_limit;
-    };
-    const locked = () =>
-        translation.state.operation === "respell" && auth.state.hasActiveSubscription === false;
     const actionLabel = () =>
-        busy()
-            ? "Stop"
-            : translation.isRepeat()
-              ? "Repeat"
-              : translation.state.operation === "translate"
-                ? "Translate"
-                : translation.state.translateThenRespell
-                  ? "Translate & Respell"
-                  : "Respell";
+        busy() ? "Stop" : translation.isRepeat() ? "Repeat" : operationLabel();
     const actionIcon = () =>
         translation.isRepeat() ? ("repeat" as const) : ("arrow-right" as const);
 
@@ -57,7 +36,7 @@ export default function TranslateButton() {
             translation.setError("Your plan is still being checked. Please try again in a moment.");
             return;
         }
-        if (locked()) {
+        if (respellLocked()) {
             translation.setError(
                 "Respelling is included with Polyglot. You can manage your plan in the SAPO mobile app.",
             );
@@ -108,19 +87,7 @@ export default function TranslateButton() {
             }
         >
             <span class="sr-only">{actionLabel()}</span>
-            <Show
-                when={busy()}
-                fallback={
-                    <img
-                        class="icon"
-                        src={`/app/icons/${actionIcon()}.svg`}
-                        alt=""
-                        aria-hidden="true"
-                        width="32"
-                        height="32"
-                    />
-                }
-            >
+            <Show when={busy()} fallback={<Icon name={actionIcon()} size={32} />}>
                 <svg
                     class="icon"
                     width="18"

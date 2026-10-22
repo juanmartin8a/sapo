@@ -1,13 +1,9 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { fileURLToPath } from "node:url";
-import { createServer } from "vite";
+import { createTestServer } from "../helpers/vite.ts";
 
 Object.assign(globalThis, { window: { location: { origin: "https://sapo.example" } } });
-const server = await createServer({
-    configFile: false,
-    root: fileURLToPath(new URL("../..", import.meta.url)),
-    server: { middlewareMode: true, watch: null, hmr: false, ws: false },
+const server = await createTestServer({
     define: {
         "import.meta.env.VITE_CONVEX_URL": JSON.stringify("https://test.convex.cloud"),
         "import.meta.env.VITE_CONVEX_SITE_URL": JSON.stringify("https://test.convex.site"),

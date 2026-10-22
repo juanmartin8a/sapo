@@ -1,9 +1,7 @@
-import { Link } from "@tanstack/solid-router";
 import { createSignal, Show } from "solid-js";
 import { useAppState } from "@/providers/AppProvider";
 import { languages, languagesPlusAutoDetect } from "@/constants/translation";
 import LanguageSelector from "@/components/ui/LanguageSelector";
-import Icon from "@/components/ui/Icon";
 import Toggle from "@/components/ui/Toggle";
 import AccountControl from "@/components/auth/AccountControl";
 import TranslateButton from "@/components/home/TranslateButton";
@@ -12,8 +10,7 @@ export default function Sidebar(props: { onNavigate?: () => void; layout?: "pane
     const { translation, preferencesReady, isPwa } = useAppState();
     const captionedSelector = () => props.layout === "panel" && !isPwa;
     const [animateOptions, setAnimateOptions] = createSignal(false);
-    const busy = () =>
-        translation.state.status === "loading" || translation.state.status === "streaming";
+    const { busy } = translation;
     return (
         <div class={`sidebar-inner ${props.layout === "panel" ? "options-panel" : ""}`}>
             <div
@@ -144,8 +141,8 @@ export default function Sidebar(props: { onNavigate?: () => void; layout?: "pane
     );
 }
 
-export function SidebarAccountActions(props: { onNavigate?: () => void }) {
-    const { pwa, basePath, isPwa } = useAppState();
+function SidebarAccountActions(props: { onNavigate?: () => void }) {
+    const { pwa } = useAppState();
     return (
         <footer class="sidebar-footer">
             <Show when={pwa.state.installable && !pwa.state.installed}>
@@ -161,17 +158,6 @@ export function SidebarAccountActions(props: { onNavigate?: () => void }) {
                     </span>
                     Install SAPO
                 </button>
-            </Show>
-            <Show when={!isPwa}>
-                <Link
-                    class="sidebar-link"
-                    to={`${basePath}/settings/`}
-                    onClick={() => props.onNavigate?.()}
-                >
-                    <Icon name="settings" />
-                    Settings
-                    <Icon name="chevron-right" size={15} />
-                </Link>
             </Show>
             <AccountControl class="sidebar-account" onNavigate={props.onNavigate} />
         </footer>

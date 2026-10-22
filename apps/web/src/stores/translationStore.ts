@@ -1,4 +1,4 @@
-import { createStore } from "solid-js";
+import { createMemo, createStore } from "solid-js";
 import { DEFAULT_PREFERENCES, type Preferences } from "@/lib/preferences";
 import { streamTranslation } from "@/lib/translation-stream";
 import type { MobilePane, TranslationStatus, TranslationRequest } from "@/types/translation";
@@ -16,6 +16,14 @@ export function createTranslationStore() {
     });
     let activeController: AbortController | null = null;
     let lastRequest: TranslationRequest | null = null;
+    const busy = () => state.status === "loading" || state.status === "streaming";
+    const characterCount = createMemo(() => Array.from(state.input).length);
+    const operationLabel = () =>
+        state.operation === "translate"
+            ? "Translate"
+            : state.translateThenRespell
+              ? "Translate & Respell"
+              : "Respell";
 
     function stopStream() {
         activeController?.abort();
@@ -86,6 +94,9 @@ export function createTranslationStore() {
 
     return {
         state,
+        busy,
+        characterCount,
+        operationLabel,
         setInput: (input: string) =>
             setState((draft) => {
                 draft.input = input;

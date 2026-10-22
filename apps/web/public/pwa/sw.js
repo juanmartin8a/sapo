@@ -5,9 +5,18 @@ self.addEventListener("install", (event) => {
     event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));
 });
 self.addEventListener("activate", (event) => {
-    event.waitUntil(caches.keys().then((keys) => Promise.all(
-        keys.filter((key) => key.startsWith("sapo-pwa-shell-") && key !== CACHE).map((key) => caches.delete(key))
-    )).then(() => self.clients.claim()));
+    event.waitUntil(
+        caches
+            .keys()
+            .then((keys) =>
+                Promise.all(
+                    keys
+                        .filter((key) => key.startsWith("sapo-pwa-shell-") && key !== CACHE)
+                        .map((key) => caches.delete(key)),
+                ),
+            )
+            .then(() => self.clients.claim()),
+    );
 });
 self.addEventListener("message", (event) => {
     if (event.data === "SKIP_WAITING") self.skipWaiting();
@@ -15,7 +24,13 @@ self.addEventListener("message", (event) => {
 self.addEventListener("fetch", (event) => {
     const { request } = event;
     const url = new URL(request.url);
-    if (request.method !== "GET" || url.origin !== self.location.origin || !url.pathname.startsWith("/pwa/") || url.pathname.startsWith("/pwa/api/")) return;
+    if (
+        request.method !== "GET" ||
+        url.origin !== self.location.origin ||
+        !url.pathname.startsWith("/pwa/") ||
+        url.pathname.startsWith("/pwa/api/")
+    )
+        return;
     if (request.mode === "navigate") {
         event.respondWith(fetch(request).catch(() => caches.match("/pwa/offline.html")));
     } else if (SHELL.includes(url.pathname)) {

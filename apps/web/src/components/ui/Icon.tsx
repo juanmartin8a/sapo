@@ -1,21 +1,6 @@
-export type IconName =
-    | "sidebar"
-    | "settings"
-    | "arrow-right"
-    | "arrow-left"
-    | "arrow-right-left"
-    | "repeat"
-    | "square"
-    | "check"
-    | "copy"
-    | "trash"
-    | "log-out"
-    | "log-in"
-    | "google-g"
-    | "apple-logo"
-    | "chevron-right"
-    | "chevron-down"
-    | "earth";
+import type { iconAssetNames } from "@/constants/icons";
+
+type IconName = (typeof iconAssetNames)[number] | "arrow-right-left" | "copy" | "chevron-down";
 
 export default function Icon(props: { name: IconName; size?: number }) {
     if (

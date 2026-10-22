@@ -5,6 +5,9 @@ import {
 } from "@/constants/translation";
 import type { TransformationOperation } from "@/types/translation";
 
+const languageNames = new Set<string>(Object.values(languages));
+const sourceLanguageNames = new Set<string>(Object.values(languagesPlusAutoDetect));
+
 export interface Preferences {
     operation: TransformationOperation;
     sourceLanguage: string;
@@ -29,15 +32,18 @@ export function parsePreferences(value: unknown): Preferences {
     const candidate = value as Record<string, unknown>;
     if (candidate.operation === "translate" || candidate.operation === "respell")
         result.operation = candidate.operation;
-    if (Object.values(languagesPlusAutoDetect).includes(candidate.sourceLanguage as never))
-        result.sourceLanguage = candidate.sourceLanguage as string;
-    if (Object.values(languages).includes(candidate.targetLanguage as never))
-        result.targetLanguage = candidate.targetLanguage as string;
     if (
-        candidate.respellLanguage === "Source" ||
-        Object.values(languages).includes(candidate.respellLanguage as never)
+        typeof candidate.sourceLanguage === "string" &&
+        sourceLanguageNames.has(candidate.sourceLanguage)
     )
-        result.respellLanguage = candidate.respellLanguage as string;
+        result.sourceLanguage = candidate.sourceLanguage;
+    if (typeof candidate.targetLanguage === "string" && languageNames.has(candidate.targetLanguage))
+        result.targetLanguage = candidate.targetLanguage;
+    if (
+        typeof candidate.respellLanguage === "string" &&
+        (candidate.respellLanguage === "Source" || languageNames.has(candidate.respellLanguage))
+    )
+        result.respellLanguage = candidate.respellLanguage;
     if (typeof candidate.translateThenRespell === "boolean")
         result.translateThenRespell = candidate.translateThenRespell;
     if (typeof candidate.singleScreen === "boolean") result.singleScreen = candidate.singleScreen;

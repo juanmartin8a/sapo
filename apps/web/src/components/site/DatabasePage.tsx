@@ -1,6 +1,5 @@
-import { Link } from "@tanstack/solid-router";
+import { Link, useNavigate, useSearch } from "@tanstack/solid-router";
 import { For, Match, Show, Switch } from "solid-js";
-import { useNavigate, useSearch } from "@tanstack/solid-router";
 import { createPronunciationStore } from "@/stores/pronunciationStore";
 import PageHeading from "./PageHeading";
 
@@ -35,7 +34,7 @@ export default function DatabasePage() {
     return (
         <div class="database-page">
             <section aria-label="Multilingual phonetic representations">
-                <PageHeading title="Multilingual phonetic representations" frog>
+                <PageHeading title="Multilingual phonetic representations">
                     <Link class="resource-link" to="/multilingual-phonetic-representations/about/">
                         About this database <span aria-hidden="true">→</span>
                     </Link>

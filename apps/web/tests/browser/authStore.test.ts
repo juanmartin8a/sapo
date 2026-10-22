@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { createRoot, createStore, flush } from "solid-js";
-import { createServer } from "vite";
+import { createTestServer } from "../helpers/vite.ts";
 import { readAccountPreview } from "../../src/lib/auth-preview.ts";
 import type { AuthBootstrap } from "../../src/lib/auth-bootstrap.ts";
 
@@ -82,10 +82,7 @@ const runtime = {
     },
 };
 Object.assign(globalThis, { __sapoAuthTest: runtime });
-const server = await createServer({
-    configFile: false,
-    root: fileURLToPath(new URL("../..", import.meta.url)),
-    server: { middlewareMode: true, watch: null, hmr: false, ws: false },
+const server = await createTestServer({
     define: { "import.meta.env.VITE_CONVEX_URL": JSON.stringify("https://test.convex.cloud") },
     ssr: { noExternal: ["convex", "solid-js"] },
     plugins: [

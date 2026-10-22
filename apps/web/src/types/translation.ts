@@ -1,4 +1,7 @@
-export type TransformationOperation = "translate" | "respell";
+export type { TranslationStreamToken } from "@sapo/client-core/translation-stream";
+import type { TranslationStreamArguments } from "@sapo/client-core/translation-stream";
+
+export type TransformationOperation = TranslationStreamArguments["operation"];
 export type MobilePane = "input" | "output";
 export type TranslationStatus =
     "idle" | "loading" | "streaming" | "completed" | "stopped" | "error";
@@ -10,11 +13,4 @@ export interface TranslationRequest {
     input: string;
     translateThenRespell: boolean;
     respellLanguage: string;
-}
-
-export interface TranslationStreamToken {
-    type: string;
-    value?: string;
-    input?: string;
-    output?: string;
 }

@@ -2,7 +2,7 @@ import { createSignal, onSettled } from "solid-js";
 import { useRouter } from "@tanstack/solid-router";
 import { waitForFrogImages } from "./frogTransition";
 
-export function createFrogAnimation(durations: () => readonly number[], enabled = true) {
+export function createFrogAnimation(durations: () => readonly number[]) {
     const transitions = useRouter().options.context!.frogTransitions;
     const [revealed, setRevealed] = createSignal(Infinity);
     const [speaking, setSpeaking] = createSignal(false);
@@ -20,7 +20,6 @@ export function createFrogAnimation(durations: () => readonly number[], enabled 
         timers.push(setTimeout(() => setSpeaking(false), 200));
     }
     onSettled(() => {
-        if (!enabled) return;
         let disposed = false;
         const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
         const updateMotion = () => {

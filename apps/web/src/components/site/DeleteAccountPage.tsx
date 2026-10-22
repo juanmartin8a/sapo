@@ -4,7 +4,7 @@ export default function DeleteAccountPage() {
     return (
         <div class="delete-account-page">
             <section aria-label="Account deletion">
-                <PageHeading title="Delete your SAPO account" frog />
+                <PageHeading title="Delete your SAPO account" />
                 <div class="page-prose">
                     <p>
                         {" To delete your SAPO account, open the SAPO app and go to "}

@@ -107,7 +107,7 @@ and access to workspace inputs outside the root directory. Nitro emits one
 The production build verifies preserved copy, assets, deployment routing, and
 server response behavior before succeeding. A small Nitro module compensates
 for the pinned preset’s terminal `/app/` and `/pwa/` header rules so dynamic routes reach SSR.
-Set public Convex URLs at build time and private Turso/Stripe variables at runtime.
+Set public Convex URLs at build time and private Turso variables at runtime. Stripe billing remains disabled; its webhook rejects events until billing is implemented.
 The build does not need a database connection. `bun run --filter @sapo/web preview`
 previews the production build on port 4173. `bun run build:app` creates a Node
 build under `apps/web/.output`; `bun run --filter @sapo/web start` serves it.

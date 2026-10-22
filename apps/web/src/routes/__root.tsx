@@ -13,7 +13,6 @@ import { loadInitialAuth } from "@/lib/auth-initial";
 import type { FrogTransitions } from "@/lib/frogTransition";
 import baseCss from "@/styles/base.css?url";
 import siteCss from "@/styles/site.css?url";
-import translatorCss from "@/styles/translator.css?url";
 
 export const Route = createRootRouteWithContext<{ frogTransitions: FrogTransitions }>()({
     beforeLoad: async () => ({ initialAuth: await loadInitialAuth() }),
@@ -25,7 +24,7 @@ export const Route = createRootRouteWithContext<{ frogTransitions: FrogTransitio
             },
             { name: "referrer", content: "same-origin" },
         ],
-        links: [baseCss, siteCss, translatorCss].map((href) => ({ rel: "stylesheet", href })),
+        links: [baseCss, siteCss].map((href) => ({ rel: "stylesheet", href })),
     }),
     component: RootContent,
     shellComponent: RootDocument,

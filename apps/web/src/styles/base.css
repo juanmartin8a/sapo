@@ -75,7 +75,7 @@ body {
     display: block;
     flex: 0 0 auto;
 }
-.account-control .sr-only {
+.sr-only {
     position: absolute;
     width: 1px;
     height: 1px;

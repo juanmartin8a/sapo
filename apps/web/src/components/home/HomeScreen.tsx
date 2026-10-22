@@ -1,11 +1,7 @@
 import { Link } from "@tanstack/solid-router";
-import { createMemo, createSignal, onSettled, Show } from "solid-js";
+import { createSignal, onSettled, Show } from "solid-js";
 import { useAppState } from "@/providers/AppProvider";
-import {
-    DEFAULT_SUBSCRIPTION_PLAN_LIMITS,
-    languages,
-    languagesPlusAutoDetect,
-} from "@/constants/translation";
+import { languages, languagesPlusAutoDetect } from "@/constants/translation";
 import Sidebar from "@/components/sidebar/Sidebar";
 import Dialog from "@/components/ui/Dialog";
 import Icon from "@/components/ui/Icon";
@@ -16,12 +12,11 @@ import TranslateButton from "./TranslateButton";
 import TranslationInput from "./TranslationInput";
 
 export default function HomeScreen() {
-    const { translation, auth, pwa, isPwa, basePath } = useAppState();
+    const { translation, auth, pwa, isPwa, basePath, inputLimit, respellLocked } = useAppState();
+    const { busy, characterCount, operationLabel } = translation;
     const [drawerOpen, setDrawerOpen] = createSignal(false);
     const [wideScreen, setWideScreen] = createSignal(false);
     const [notice, setNotice] = createSignal<string | null>(null);
-    const busy = () =>
-        translation.state.status === "loading" || translation.state.status === "streaming";
     const combinedMode = () =>
         translation.state.operation === "respell" && translation.state.translateThenRespell;
     const hasTranslationPreview = () =>
@@ -33,25 +28,13 @@ export default function HomeScreen() {
             ? translation.state.translationPreview
             : translation.state.displayText;
     const canCopy = () => translation.state.status === "completed" && copyText().trim().length > 0;
-    const characterCount = createMemo(() => Array.from(translation.state.input).length);
-    const plan = () =>
-        DEFAULT_SUBSCRIPTION_PLAN_LIMITS[auth.state.hasActiveSubscription ? "polyglot" : "free"];
-    const inputLimit = () =>
-        translation.state.operation === "respell"
-            ? plan().respell_input_char_limit
-            : plan().translate_input_char_limit;
-    const locked = () =>
-        translation.state.operation === "respell" && auth.state.hasActiveSubscription === false;
-    const operationLabel = () =>
-        translation.state.operation === "translate"
-            ? "Translate"
-            : translation.state.translateThenRespell
-              ? "Translate & Respell"
-              : "Respell";
     const footerMessage = () =>
         translation.state.error ||
         auth.state.error ||
-        (locked() ? "Respelling is a Polyglot feature." : "");
+        (respellLocked() ? "Respelling is a Polyglot feature." : "");
+
+    let noticeTimer: ReturnType<typeof setTimeout> | undefined;
+    let disposed = false;
 
     onSettled(() => {
         const media = window.matchMedia("(min-width: 900px)");
@@ -61,18 +44,24 @@ export default function HomeScreen() {
         resize();
         media.addEventListener("change", resize);
         return () => {
+            disposed = true;
             media.removeEventListener("change", resize);
+            clearTimeout(noticeTimer);
         };
     });
 
-    async function copyOutput(text = translation.state.displayText) {
+    async function copyOutput(text: string) {
+        let message: string;
         try {
             await navigator.clipboard.writeText(text);
-            setNotice("Copied to clipboard.");
+            message = "Copied to clipboard.";
         } catch {
-            setNotice("Couldn’t copy. You can select the text and copy it manually.");
+            message = "Couldn’t copy. You can select the text and copy it manually.";
         }
-        setTimeout(() => setNotice(null), 3000);
+        if (disposed) return;
+        setNotice(message);
+        clearTimeout(noticeTimer);
+        noticeTimer = setTimeout(() => setNotice(null), 3000);
     }
 
     return (
@@ -285,7 +274,7 @@ export default function HomeScreen() {
                             >
                                 {footerMessage()}
                             </p>
-                            <Show when={locked()}>
+                            <Show when={respellLocked()}>
                                 <Link to={`${basePath}/settings/`}>View your plan</Link>
                             </Show>
                             <Show when={notice()}>

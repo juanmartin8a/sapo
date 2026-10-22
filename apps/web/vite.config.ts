@@ -8,9 +8,7 @@ import { nitro } from "nitro/vite";
 
 export default defineConfig(({ mode }) => {
     // Vite exposes only VITE_* to the client; private local settings are for SSR.
-    for (const [key, value] of Object.entries(
-        loadEnv(mode, process.cwd(), ["TURSO_", "STRIPE_"]),
-    )) {
+    for (const [key, value] of Object.entries(loadEnv(mode, process.cwd(), ["TURSO_"]))) {
         process.env[key] ??= value;
     }
     return {

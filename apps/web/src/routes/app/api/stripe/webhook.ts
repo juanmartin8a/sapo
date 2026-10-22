@@ -1,6 +1,14 @@
 import { createFileRoute } from "@tanstack/solid-router";
-import { handleStripeWebhook } from "@/lib/stripe.server";
 
 export const Route = createFileRoute("/app/api/stripe/webhook")({
-    server: { handlers: { POST: () => handleStripeWebhook() } },
+    server: {
+        handlers: {
+            // Reject events until durable billing and shared entitlements are implemented.
+            POST: () =>
+                Response.json(
+                    { error: "Billing is not enabled." },
+                    { status: 503, headers: { "Cache-Control": "no-store" } },
+                ),
+        },
+    },
 });

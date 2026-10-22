@@ -3,6 +3,7 @@ node_modules/
 .output/
 .tanstack/
 .nitro/
-public/
+public/**/*.svg
+public/**/*.png
 src/routeTree.gen.ts
 src/lib/content/

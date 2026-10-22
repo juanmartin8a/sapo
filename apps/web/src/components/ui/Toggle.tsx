@@ -3,7 +3,6 @@ export default function Toggle(props: {
     description?: string;
     checked: boolean;
     onChange: (value: boolean) => void;
-    disabled?: boolean;
     class?: string;
 }) {
     return (
@@ -17,7 +16,6 @@ export default function Toggle(props: {
                 role="switch"
                 class="toggle-input"
                 checked={props.checked}
-                disabled={props.disabled}
                 onChange={(event) => props.onChange(event.currentTarget.checked)}
             />
         </label>

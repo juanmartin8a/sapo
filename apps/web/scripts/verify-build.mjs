@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
+import { iconAssetNames } from "../src/constants/icons.ts";
 
 const root = new URL("../", import.meta.url);
 const fixture = JSON.parse(
@@ -8,7 +9,14 @@ const fixture = JSON.parse(
 );
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 
-export function pageText(html) {
+function hasTranslatorStyles(html) {
+    return [...html.matchAll(/<link\b[^>]*>/g)].some(
+        ([tag]) =>
+            tag.includes('rel="stylesheet"') && /href="[^"]*\/translator-[^"]+\.css"/.test(tag),
+    );
+}
+
+function pageText(html) {
     const main = html.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1] ?? html;
     const entities = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
     return main
@@ -48,11 +56,16 @@ for (const [path, expected] of Object.entries(fixture.pages)) {
         );
     }
     assert.ok(!html.includes('rel="manifest"'), `Public page includes the app manifest: ${path}`);
+    assert.equal(hasTranslatorStyles(html), false, `Public page loads translator CSS: ${path}`);
     console.log(`Preserved page wording: ${path}`);
 }
 for (const [path, expected] of Object.entries(fixture.assets)) {
     const content = await readFile(new URL(`.vercel/output/static/${path}`, root));
     assert.equal(hash(content), expected, `Public asset changed: ${path}`);
+}
+for (const name of iconAssetNames) {
+    const icon = await stat(new URL(`.vercel/output/static/app/icons/${name}.svg`, root));
+    assert.ok(icon.isFile() && icon.size > 0, `Missing deployed icon: ${name}`);
 }
 const manifest = JSON.parse(
     await readFile(new URL(".vercel/output/static/pwa/manifest.webmanifest", root), "utf8"),
@@ -157,12 +170,19 @@ const invalid = await handler.fetch(
 assert.equal(invalid.status, 400);
 assert.equal(invalid.headers.get("cache-control"), "no-store");
 await invalid.arrayBuffer();
+const billing = await handler.fetch(
+    new Request("https://sapo.example/app/api/stripe/webhook", { method: "POST" }),
+);
+assert.equal(billing.status, 503);
+assert.equal(billing.headers.get("cache-control"), "no-store");
+assert.deepEqual(await billing.json(), { error: "Billing is not enabled." });
 for (const basePath of ["/app", "/pwa"]) {
     for (const path of ["/", "/auth/", "/settings/", "/delete-account/"]) {
         const response = await handler.fetch(new Request(`https://sapo.example${basePath}${path}`));
         assert.equal(response.status, 200, `${basePath}${path}`);
         assert.match(response.headers.get("cache-control"), /no-store/);
         const html = await response.text();
+        assert.equal(hasTranslatorStyles(html), true, `Missing translator CSS: ${basePath}${path}`);
         assert.equal(html.includes('rel="manifest"'), basePath === "/pwa", `${basePath}${path}`);
         assert.equal(html.includes('name="apple-mobile-web-app-capable"'), basePath === "/pwa");
         assert.ok(html.includes(basePath === "/pwa" ? "translator-pwa" : "translator-web"));

@@ -1,14 +1,10 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { fileURLToPath } from "node:url";
 import { createRoot, createStore, flush } from "solid-js";
-import { createServer } from "vite";
+import { createTestServer } from "../helpers/vite.ts";
 
 Object.assign(globalThis, { __sapoPwaTest: { createStore } });
-const server = await createServer({
-    configFile: false,
-    root: fileURLToPath(new URL("../..", import.meta.url)),
-    server: { middlewareMode: true, watch: null, hmr: false, ws: false },
+const server = await createTestServer({
     define: { "import.meta.env.PROD": "true" },
     ssr: { noExternal: ["solid-js"] },
     plugins: [

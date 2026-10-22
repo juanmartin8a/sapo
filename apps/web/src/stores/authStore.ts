@@ -28,8 +28,6 @@ export function createAuthStore(initialAuth?: AuthBootstrap) {
         name: initialAuth?.account?.name ?? (null as string | null),
         accountPreview: null as AccountPreview | null,
         hasActiveSubscription: null as boolean | null,
-        isActivating: false,
-        accessExpiresAtMs: null as number | null,
         error: null as string | null,
         sessionRevision: 0,
     });
@@ -83,8 +81,6 @@ export function createAuthStore(initialAuth?: AuthBootstrap) {
             draft.email = null;
             draft.name = null;
             draft.hasActiveSubscription = null;
-            draft.isActivating = false;
-            draft.accessExpiresAtMs = null;
             draft.error = null;
         });
     }
@@ -105,8 +101,6 @@ export function createAuthStore(initialAuth?: AuthBootstrap) {
                 const active = subscription?.has_active_subscription ?? null;
                 setState((draft) => {
                     draft.hasActiveSubscription = active;
-                    draft.isActivating = subscription?.status === "activating";
-                    draft.accessExpiresAtMs = subscription?.access_expires_at_ms ?? null;
                 });
                 if (
                     subscription?.access_expires_at_ms &&

@@ -10,12 +10,16 @@ export default ts.config(
             ".output/**",
             ".tanstack/**",
             ".nitro/**",
-            "public/**",
             "src/routeTree.gen.ts",
         ],
     },
     js.configs.recommended,
     ...ts.configs.recommended,
     prettier,
-    { languageOptions: { globals: { ...globals.browser, ...globals.node } } },
+    {
+        languageOptions: {
+            globals: { ...globals.browser, ...globals.node, ...globals.serviceworker },
+        },
+        rules: { "no-duplicate-imports": ["error", { allowSeparateTypeImports: true }] },
+    },
 );

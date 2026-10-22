@@ -1,5 +1,4 @@
-import { Link } from "@tanstack/solid-router";
-import { createFileRoute } from "@tanstack/solid-router";
+import { Link, createFileRoute } from "@tanstack/solid-router";
 import MarkdownDocument from "@/components/site/MarkdownDocument";
 import markdown from "@/lib/content/database-about.md?raw";
 export const Route = createFileRoute("/_site/multilingual-phonetic-representations/about/")({

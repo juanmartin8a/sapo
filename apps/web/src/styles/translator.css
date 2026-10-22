@@ -1,22 +1,17 @@
 .translator {
     line-height: normal;
-    & {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        color: #171717;
-        background: #fff;
-        font-synthesis: none;
-        --muted: #858585;
-        --line: #dededb;
-        --serif: "Times New Roman", Times, serif;
-        display: flex;
-        flex-direction: column;
-        min-height: 100dvh;
-    }
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #171717;
+    background: #fff;
+    font-synthesis: none;
+    --muted: #858585;
+    --line: #dededb;
+    --serif: "Times New Roman", Times, serif;
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
     * {
         box-sizing: border-box;
-    }
-    body {
-        margin: 0;
     }
     button,
     input,
@@ -81,29 +76,12 @@
     .muted {
         color: var(--muted);
     }
-    .eyebrow {
-        font-size: 10px;
-        letter-spacing: 0.14em;
-        color: #858585;
-        font-weight: 500;
-    }
     .wordmark {
         font-weight: 700;
         font-size: 20px;
         letter-spacing: 0;
         text-decoration: none;
         white-space: nowrap;
-    }
-    .sr-only {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-        border: 0;
     }
     .skip-link {
         position: fixed;
@@ -115,9 +93,6 @@
     }
     .skip-link:focus {
         top: 12px;
-    }
-    .mobile-only {
-        display: none;
     }
     .app-shell {
         flex: 1;
@@ -147,22 +122,6 @@
         align-items: center;
         gap: 18px;
     }
-    .header-caption {
-        color: #858585;
-        font-size: 12px;
-    }
-    .header-signin {
-        display: flex;
-        gap: 16px;
-        align-items: center;
-        font-size: 13px;
-        font-weight: 500;
-        text-decoration: none;
-        padding: 12px 0 12px 12px;
-    }
-    .header-signin:hover {
-        text-decoration: underline;
-    }
     .connection-banner {
         display: flex;
         justify-content: center;
@@ -187,13 +146,6 @@
         padding: 32px 24px 22px;
         gap: 36px;
         overflow-y: auto;
-    }
-    .sidebar-options > .eyebrow {
-        font-size: 11px;
-        text-transform: none;
-        letter-spacing: 0;
-        display: block;
-        margin-bottom: 18px;
     }
     .sidebar-options[aria-busy="true"] {
         visibility: hidden;
@@ -333,11 +285,6 @@
         text-decoration: none;
         font-size: 13px;
     }
-    .sidebar-signature {
-        font: italic 11px var(--serif);
-        color: #a1a19c;
-        padding-top: 25px;
-    }
     .workspace {
         display: flex;
         flex-direction: column;
@@ -363,24 +310,6 @@
         margin-top: 0;
         letter-spacing: 0;
         color: #aaa;
-    }
-    .connection-status {
-        font-size: 11px;
-        color: #858585;
-        display: flex;
-        gap: 7px;
-        align-items: center;
-    }
-    .status-dot {
-        display: inline-block;
-        width: 5px;
-        height: 5px;
-        border-radius: 50%;
-        background: #62785d;
-        flex: 0 0 auto;
-    }
-    .status-dot.is-offline {
-        background: #aaa;
     }
     .translation-workspace {
         position: relative;
@@ -441,12 +370,6 @@
     }
     .chevron-down {
         color: #777;
-    }
-    .pane-label {
-        color: #aaa;
-        font-size: 9px;
-        letter-spacing: 0.1em;
-        margin-left: auto;
     }
     .pane-toolbar .icon-button {
         font-size: 26px;
@@ -718,8 +641,6 @@
         width: 44px;
         height: 44px;
     }
-    .translate-button > .icon {
-    }
     .translate-button:hover:not(:disabled) {
         background: transparent;
         opacity: 0.65;
@@ -851,9 +772,6 @@
         font-size: 24px;
         font-weight: 700;
     }
-    .auth-hero p {
-        font: 17px var(--serif);
-    }
     .auth-actions {
         margin: 52px auto 0;
         max-width: 340px;
@@ -899,7 +817,6 @@
     .legal-notice a {
         color: #777;
     }
-    .button-primary,
     .button-secondary,
     .button-danger {
         display: inline-flex;
@@ -909,10 +826,6 @@
         padding: 13px 17px;
         font-size: 12px;
         min-height: 44px;
-    }
-    .button-primary {
-        color: #fff;
-        background: #171717;
     }
     .button-secondary {
         border: 0;
@@ -1168,9 +1081,6 @@
         .desktop-options {
             display: none !important;
         }
-        .mobile-only {
-            display: block;
-        }
         .app-shell {
             flex: 0 0 auto;
             min-height: 360px;
@@ -1201,10 +1111,6 @@
             font-size: 20px;
             letter-spacing: 0;
         }
-        .header-signin {
-            font-size: 12px;
-            gap: 7px;
-        }
         .header-left,
         .header-right {
             gap: 0;
@@ -1224,10 +1130,6 @@
             display: flex;
             margin: 0;
             padding: 0 var(--pwa-right-gutter) 3px var(--pwa-left-gutter);
-        }
-        .workspace-header .eyebrow,
-        .connection-status {
-            display: none;
         }
         .workspace-header h1 {
             font-size: 13px;
@@ -1467,9 +1369,6 @@
         .sidebar-account.account-signin {
             gap: 12px;
         }
-        .sidebar-dialog .sidebar-options > .eyebrow {
-            display: none;
-        }
         .sidebar-dialog .sidebar-layout {
             margin: 0;
             padding: 0;
@@ -1532,9 +1431,6 @@
             width: 100%;
             max-width: 400px;
         }
-        .auth-hero p {
-            font-size: 16px;
-        }
         .legal-notice {
             margin-bottom: 10px;
         }
@@ -1577,8 +1473,7 @@
         }
         .settings-screen .settings-note,
         .settings-screen .plan-details .muted,
-        .settings-screen .settings-row small,
-        .settings-screen .toggle-description {
+        .settings-screen .settings-row small {
             font-size: 13px;
             line-height: 1.5;
         }
@@ -1603,7 +1498,6 @@
     }
 
     &.translator-web {
-        .pwa-only,
         .mobile-tabs {
             display: none;
         }

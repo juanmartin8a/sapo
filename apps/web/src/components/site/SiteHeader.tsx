@@ -2,7 +2,7 @@ import { Link, useLocation } from "@tanstack/solid-router";
 import { createEffect, createSignal, createUniqueId, onSettled } from "solid-js";
 import AccountControl from "@/components/auth/AccountControl";
 
-export default function SiteHeader(props: { desktopOnly?: boolean; reloadDocument?: boolean }) {
+export default function SiteHeader() {
     const location = useLocation();
     const pathname = () => location().pathname.replace(/\/$/, "") || "/";
     const inApp = () => pathname() === "/app" || pathname().startsWith("/app/");
@@ -47,16 +47,10 @@ export default function SiteHeader(props: { desktopOnly?: boolean; reloadDocumen
 
     const NavigationLinks = () => (
         <>
-            <Link
-                reloadDocument={props.reloadDocument}
-                to="/app/"
-                aria-current={inApp() ? "page" : undefined}
-                onClick={closeMenu}
-            >
+            <Link to="/app/" aria-current={inApp() ? "page" : undefined} onClick={closeMenu}>
                 Web app
             </Link>
             <Link
-                reloadDocument={props.reloadDocument}
                 to="/multilingual-phonetic-representations/"
                 aria-current={
                     pathname() === "/multilingual-phonetic-representations"
@@ -70,7 +64,6 @@ export default function SiteHeader(props: { desktopOnly?: boolean; reloadDocumen
                 Database
             </Link>
             <Link
-                reloadDocument={props.reloadDocument}
                 to="/support/"
                 aria-current={["/support", "/contact-us"].includes(pathname()) ? "page" : undefined}
                 onClick={closeMenu}
@@ -81,7 +74,7 @@ export default function SiteHeader(props: { desktopOnly?: boolean; reloadDocumen
     );
 
     return (
-        <header class={`site-header ${props.desktopOnly ? "desktop-only" : ""}`}>
+        <header class="site-header">
             <button
                 ref={(element) => {
                     trigger = element;
@@ -110,13 +103,7 @@ export default function SiteHeader(props: { desktopOnly?: boolean; reloadDocumen
                     <path d="M4 19h16" />
                 </svg>
             </button>
-            <Link
-                reloadDocument={props.reloadDocument}
-                class="site-wordmark"
-                to="/"
-                aria-label="SAPO home"
-                onClick={closeMenu}
-            >
+            <Link class="site-wordmark" to="/" aria-label="SAPO home" onClick={closeMenu}>
                 S A P O
             </Link>
             <nav class="site-main-navigation" aria-label="Main navigation">

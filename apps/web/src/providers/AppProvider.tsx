@@ -4,11 +4,23 @@ import { createTranslationStore } from "@/stores/translationStore";
 import { useAuthState } from "./AuthProvider";
 import { loadPreferences, savePreferences } from "@/lib/preferences";
 import { createPwaStore } from "@/stores/pwaStore";
+import { DEFAULT_SUBSCRIPTION_PLAN_LIMITS } from "@/constants/translation";
 
 function createAppState(pwa: boolean) {
+    const translation = createTranslationStore();
+    const auth = useAuthState();
+    const plan = () =>
+        DEFAULT_SUBSCRIPTION_PLAN_LIMITS[auth.state.hasActiveSubscription ? "polyglot" : "free"];
     return {
-        translation: createTranslationStore(),
-        auth: useAuthState(),
+        translation,
+        auth,
+        plan,
+        inputLimit: () =>
+            translation.state.operation === "respell"
+                ? plan().respell_input_char_limit
+                : plan().translate_input_char_limit,
+        respellLocked: () =>
+            translation.state.operation === "respell" && auth.state.hasActiveSubscription === false,
         isPwa: pwa,
         basePath: pwa ? ("/pwa" as const) : ("/app" as const),
         pwa: createPwaStore(pwa),

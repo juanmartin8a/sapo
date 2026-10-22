@@ -1,24 +1,18 @@
 import { Link, useNavigate } from "@tanstack/solid-router";
 import { createSignal, Show } from "solid-js";
 import { useAppState } from "@/providers/AppProvider";
-import {
-    DEFAULT_SUBSCRIPTION_PLAN_LIMITS,
-    TERMS_OF_USE_URL,
-    PRIVACY_POLICY_URL,
-} from "@/constants/translation";
+import { TERMS_OF_USE_URL, PRIVACY_POLICY_URL } from "@/constants/translation";
 import { getAuthClient } from "@/lib/auth-client";
 import Icon from "@/components/ui/Icon";
 import Dialog from "@/components/ui/Dialog";
 
 export default function SettingsScreen() {
-    const { auth, translation, pwa, isPwa, basePath } = useAppState();
+    const { auth, translation, pwa, isPwa, basePath, plan } = useAppState();
     const navigate = useNavigate();
     const [deleting, setDeleting] = createSignal(false);
     const [pending, setPending] = createSignal(false);
     const [message, setMessage] = createSignal<string | null>(null);
     const [error, setError] = createSignal<string | null>(null);
-    const plan = () =>
-        DEFAULT_SUBSCRIPTION_PLAN_LIMITS[auth.state.hasActiveSubscription ? "polyglot" : "free"];
     async function signOut() {
         setPending(true);
         setError(null);
