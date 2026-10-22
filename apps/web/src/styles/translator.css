@@ -473,9 +473,8 @@
         color: #aaa;
     }
     .translation-input:focus-visible {
-        outline-offset: -6px;
-        outline-color: #e5e5e1;
-        outline-width: 1px;
+        outline: none;
+        background: #fafafa;
     }
     .translation-preview {
         position: relative;
@@ -1325,10 +1324,6 @@
         .translation-input {
             padding-bottom: calc(34px + var(--pwa-frog-width) * 914 / 929);
         }
-        .translation-input:focus-visible {
-            outline-color: #000;
-            outline-width: 2px;
-        }
         .frog {
             width: var(--pwa-frog-width);
             margin-top: 10px;
@@ -1614,9 +1609,6 @@
         }
         .translation-input {
             padding-inline: 0;
-        }
-        .translation-input:focus-visible {
-            outline-offset: 2px;
         }
         @media (max-width: 899px) {
             .desktop-options,
