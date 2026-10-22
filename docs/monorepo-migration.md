@@ -1,6 +1,6 @@
 # Monorepo migration
 
-The monorepo uses Bun workspaces with mobile at `apps/mobile`, the SvelteKit
+The monorepo uses Bun workspaces with mobile at `apps/mobile`, the TanStack Start + Solid 2
 website at `apps/web`, and the Convex project at `packages/backend`.
 
 ## History and source preservation

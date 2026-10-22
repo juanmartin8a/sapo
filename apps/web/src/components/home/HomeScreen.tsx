@@ -1,0 +1,294 @@
+import { Link } from "@tanstack/solid-router";
+import { createSignal, onSettled, Show } from "solid-js";
+import { useAppState } from "@/providers/AppProvider";
+import { languages, languagesPlusAutoDetect } from "@/constants/translation";
+import Sidebar from "@/components/sidebar/Sidebar";
+import Dialog from "@/components/ui/Dialog";
+import Icon from "@/components/ui/Icon";
+import LanguageSelector from "@/components/ui/LanguageSelector";
+import TranslationOutput from "./TranslationOutput";
+import HomePager from "./HomePager";
+import TranslateButton from "./TranslateButton";
+import TranslationInput from "./TranslationInput";
+
+export default function HomeScreen() {
+    const { translation, auth, pwa, isPwa, basePath, inputLimit, respellLocked } = useAppState();
+    const { busy, characterCount, operationLabel } = translation;
+    const [drawerOpen, setDrawerOpen] = createSignal(false);
+    const [wideScreen, setWideScreen] = createSignal(false);
+    const [notice, setNotice] = createSignal<string | null>(null);
+    const combinedMode = () =>
+        translation.state.operation === "respell" && translation.state.translateThenRespell;
+    const hasTranslationPreview = () =>
+        combinedMode() || Boolean(translation.state.translationPreview);
+    const desktopOutput = () => wideScreen() && !isPwa;
+    const splitOutput = () => desktopOutput() && hasTranslationPreview();
+    const copyText = () =>
+        hasTranslationPreview()
+            ? translation.state.translationPreview
+            : translation.state.displayText;
+    const canCopy = () => translation.state.status === "completed" && copyText().trim().length > 0;
+    const footerMessage = () =>
+        translation.state.error ||
+        auth.state.error ||
+        (respellLocked() ? "Respelling is a Polyglot feature." : "");
+
+    let noticeTimer: ReturnType<typeof setTimeout> | undefined;
+    let disposed = false;
+
+    onSettled(() => {
+        const media = window.matchMedia("(min-width: 900px)");
+        const resize = () => {
+            setWideScreen(media.matches);
+        };
+        resize();
+        media.addEventListener("change", resize);
+        return () => {
+            disposed = true;
+            media.removeEventListener("change", resize);
+            clearTimeout(noticeTimer);
+        };
+    });
+
+    async function copyOutput(text: string) {
+        let message: string;
+        try {
+            await navigator.clipboard.writeText(text);
+            message = "Copied to clipboard.";
+        } catch {
+            message = "Couldn’t copy. You can select the text and copy it manually.";
+        }
+        if (disposed) return;
+        setNotice(message);
+        clearTimeout(noticeTimer);
+        noticeTimer = setTimeout(() => setNotice(null), 3000);
+    }
+
+    return (
+        <div class="app-shell">
+            <a class="skip-link" href="#translation-input">
+                Skip to input
+            </a>
+            <Show when={isPwa}>
+                <header class="app-header">
+                    <div class="header-left">
+                        <button
+                            class="icon-button sidebar-button"
+                            aria-label="Toggle sidebar"
+                            aria-expanded={drawerOpen() ? "true" : "false"}
+                            onClick={() => setDrawerOpen(true)}
+                        >
+                            <Icon name="sidebar" size={40} />
+                        </button>
+                    </div>
+                    <Link class="wordmark" to={`${basePath}/`} aria-label="SAPO home">
+                        S A P O
+                    </Link>
+                    <div class="header-right">
+                        <TranslateButton />
+                    </div>
+                </header>
+            </Show>
+            <Show when={!pwa.state.online}>
+                <div class="connection-banner" role="status">
+                    You’re offline. Translation needs an internet connection.
+                </div>
+            </Show>
+            <Show when={pwa.state.updateAvailable}>
+                <div class="connection-banner">
+                    An update is available.
+                    <button class="text-button" onClick={() => pwa.update()}>
+                        Update now
+                    </button>
+                </div>
+            </Show>
+            <div class="app-body">
+                <Show when={!isPwa}>
+                    <div class="desktop-options">
+                        <div class="desktop-toolbar">
+                            <nav aria-label="Translation options">
+                                <Sidebar layout="panel" />
+                            </nav>
+                        </div>
+                    </div>
+                </Show>
+                <main
+                    class={`workspace ${isPwa && translation.state.singleScreen ? "mobile-single-screen" : ""} ${translation.state.mobilePane === "output" ? "show-output" : "show-input"}`}
+                >
+                    <header class="workspace-header">
+                        <h1>{operationLabel()}</h1>
+                    </header>
+                    <Show when={isPwa}>
+                        <div class="mobile-tabs" role="group" aria-label="Workspace view">
+                            <button
+                                title="Input"
+                                aria-pressed={
+                                    translation.state.mobilePane === "input" ? "true" : "false"
+                                }
+                                onClick={() => translation.setMobilePane("input")}
+                            >
+                                Input
+                            </button>
+                            <button
+                                title="Output"
+                                aria-pressed={
+                                    translation.state.mobilePane === "output" ? "true" : "false"
+                                }
+                                onClick={() => translation.setMobilePane("output")}
+                            >
+                                Output
+                            </button>
+                        </div>
+                    </Show>
+                    <HomePager>
+                        <section
+                            class="input-pane"
+                            aria-label="Input"
+                            inert={
+                                isPwa &&
+                                !translation.state.singleScreen &&
+                                translation.state.mobilePane !== "input"
+                            }
+                        >
+                            <Show when={!isPwa}>
+                                <div class="pane-toolbar">
+                                    <LanguageSelector
+                                        label="Source language"
+                                        caption={desktopOutput() ? "Source" : undefined}
+                                        options={Object.values(languagesPlusAutoDetect)}
+                                        value={translation.state.sourceLanguage}
+                                        onChange={(sourceLanguage) =>
+                                            translation.setPreferences({
+                                                sourceLanguage,
+                                            })
+                                        }
+                                        disabled={busy()}
+                                    />
+                                </div>
+                            </Show>
+                            <label class="sr-only" for="translation-input">
+                                Text to {translation.state.operation}
+                            </label>
+                            <TranslationInput />
+                            <div class="pane-bottom">
+                                <span
+                                    class={`character-count ${characterCount() > inputLimit() && inputLimit() > 0 ? "over-limit" : ""}`}
+                                >
+                                    {characterCount().toLocaleString()}
+                                    <Show when={inputLimit() > 0}>
+                                        {" "}
+                                        / {inputLimit().toLocaleString()}
+                                    </Show>
+                                    <span class="character-unit"> characters</span>
+                                </span>
+                                <span class="keyboard-hint desktop-only">⌘ / Ctrl + Enter</span>
+                            </div>
+                        </section>
+                        <Show when={!desktopOutput() || !combinedMode()}>
+                            <button
+                                class="swap-button"
+                                aria-label="Swap source and target languages"
+                                disabled={
+                                    busy() ||
+                                    (!desktopOutput() &&
+                                        translation.state.operation === "respell" &&
+                                        !translation.state.translateThenRespell)
+                                }
+                                onClick={() => translation.swapLanguages()}
+                            >
+                                <Icon name="arrow-right-left" size={20} />
+                            </button>
+                        </Show>
+                        <section
+                            class={`output-pane ${splitOutput() ? "output-pane-split" : ""} ${canCopy() ? "has-copy" : ""}`}
+                            aria-label="Output"
+                            inert={
+                                isPwa &&
+                                !translation.state.singleScreen &&
+                                translation.state.mobilePane !== "output"
+                            }
+                            aria-busy={busy() ? "true" : "false"}
+                        >
+                            <Show when={!isPwa || canCopy()}>
+                                <div class="pane-toolbar">
+                                    <Show when={!isPwa}>
+                                        <LanguageSelector
+                                            label="Target language"
+                                            caption={desktopOutput() ? "Target" : undefined}
+                                            options={Object.values(languages)}
+                                            value={translation.state.targetLanguage}
+                                            onChange={(targetLanguage) =>
+                                                translation.setPreferences({
+                                                    targetLanguage,
+                                                })
+                                            }
+                                            disabled={busy()}
+                                        />
+                                    </Show>
+                                    <Show when={canCopy()}>
+                                        <button
+                                            class="icon-button copy-button"
+                                            aria-label={
+                                                hasTranslationPreview()
+                                                    ? "Copy translation"
+                                                    : "Copy output"
+                                            }
+                                            onClick={() => void copyOutput(copyText())}
+                                        >
+                                            <Icon name="copy" size={20} />
+                                        </button>
+                                    </Show>
+                                </div>
+                            </Show>
+                            <TranslationOutput
+                                split={splitOutput()}
+                                combined={hasTranslationPreview()}
+                                onCopy={(text) => void copyOutput(text)}
+                            />
+                            <Show when={busy() || translation.state.status === "stopped"}>
+                                <div class="pane-bottom">
+                                    <span class="output-state" role="status">
+                                        {busy()
+                                            ? translation.state.operation === "respell"
+                                                ? "Respelling…"
+                                                : "Translating…"
+                                            : "Stopped"}
+                                    </span>
+                                </div>
+                            </Show>
+                        </section>
+                    </HomePager>
+                    <div class="workspace-footer">
+                        <div class="footer-message">
+                            <p
+                                class={
+                                    translation.state.error || auth.state.error
+                                        ? "error-message"
+                                        : "muted"
+                                }
+                                role={
+                                    translation.state.error || auth.state.error
+                                        ? "alert"
+                                        : undefined
+                                }
+                            >
+                                {footerMessage()}
+                            </p>
+                            <Show when={respellLocked()}>
+                                <Link to={`${basePath}/settings/`}>View your plan</Link>
+                            </Show>
+                            <Show when={notice()}>
+                                <span role="status">{notice()}</span>
+                            </Show>
+                        </div>
+                    </div>
+                </main>
+            </div>
+            <Show when={isPwa && drawerOpen()}>
+                <Dialog title="S A P O" onClose={() => setDrawerOpen(false)} class="sidebar-dialog">
+                    <Sidebar onNavigate={() => setDrawerOpen(false)} />
+                </Dialog>
+            </Show>
+        </div>
+    );
+}

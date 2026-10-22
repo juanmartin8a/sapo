@@ -16,7 +16,8 @@
     "preset": "jest-expo",
     "moduleNameMapper": {
       "^@sapo/backend/api$": "<rootDir>/../../packages/backend/convex/_generated/api.js",
-      "^@sapo/backend/constants/(.*)$": "<rootDir>/../../packages/backend/convex/constants/$1"
+      "^@sapo/backend/constants/(.*)$": "<rootDir>/../../packages/backend/convex/constants/$1",
+      "^@sapo/client-core/(.*)$": "<rootDir>/../../packages/client-core/src/$1"
     },
     "transformIgnorePatterns": [
       "/node_modules/(?!(\\.bun|\\.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry/react-native|native-base|standard-navigation))",
@@ -64,7 +65,8 @@
     "zod": "4.3.6",
     "zustand": "^5.0.3",
     "@sapo/backend": "workspace:*",
-    "@babel/runtime": "7.28.6"
+    "@babel/runtime": "7.28.6",
+    "@sapo/client-core": "workspace:*"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

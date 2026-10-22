@@ -1,0 +1,31 @@
+{
+    "id": "/pwa/",
+    "name": "SAPO \u2014 Translate & Respell",
+    "short_name": "SAPO",
+    "description": "Translate and respell text with SAPO.",
+    "start_url": "/pwa/",
+    "scope": "/pwa/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#ffffff",
+    "icons": [
+        {
+            "src": "/pwa/icons/app-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/pwa/icons/app-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/pwa/icons/app-maskable.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}

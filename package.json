@@ -25,9 +25,16 @@
     "typecheck": "bun run --filter \"*\" typecheck",
     "lint": "bun run --filter \"*\" lint",
     "test": "bun run --filter \"*\" test",
-    "build:web": "bun run --filter @sapo/web build"
+    "build:web": "bun run --filter @sapo/web build",
+    "dev:app": "bun run --filter @sapo/web dev",
+    "build:app": "bun run --filter @sapo/web build:node"
   },
   "trustedDependencies": [
     "react-native-litert-lm"
-  ]
+  ],
+  "overrides": {
+    "@solidjs/compiler": "2.0.0-rc.8",
+    "@solidjs/babel-plugin": "2.0.0-rc.8",
+    "@solidjs/signals": "2.0.0-rc.8"
+  }
 }

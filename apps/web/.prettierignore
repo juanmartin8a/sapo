@@ -1,9 +1,9 @@
-# Package Managers
-package-lock.json
-pnpm-lock.yaml
-yarn.lock
-bun.lock
-bun.lockb
-
-# Miscellaneous
-/static/
+node_modules/
+.vercel/
+.output/
+.tanstack/
+.nitro/
+public/**/*.svg
+public/**/*.png
+src/routeTree.gen.ts
+src/lib/content/

@@ -1,41 +1,59 @@
-# sv
+# SAPO web
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+One TanStack Start + Solid 2 application serves the website and translator at
+`/app/` and its installable PWA at `/pwa/`. Public pages are prerendered; API routes and translator pages use SSR.
 
-## Creating a project
+## Development
 
-If you're seeing this, you've probably already done this step. Congrats!
-
-```sh
-# create a new project
-npx sv create my-app
-```
-
-To recreate this project with the same configuration:
+Use Node 24 and Bun 1.4.0. Install from the monorepo root:
 
 ```sh
-# recreate this project
-bun x sv@0.15.3 create --template minimal --types ts --add prettier eslint tailwindcss="plugins:none" sveltekit-adapter="adapter:vercel" --install bun sapo
+bun install --frozen-lockfile
+cp apps/web/.env.example apps/web/.env.local
+bun run dev:web
 ```
 
-## Developing
+Open `http://127.0.0.1:3000/` or `/app/` (responsive web) and `/pwa/` (PWA). There is one Vite server and one router.
+Set private `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` for the database and public
+`VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL` to the same deployment as mobile.
+Local settings from the former translator workspace belong in this workspace now.
 
-Use Node.js 24.21.0 (pinned in `.nvmrc`) with Bun as the package manager.
-The `package.json` engine selects Node.js 24.x for Vercel builds.
+Add the website's exact origin to the existing Convex deployment's `CLIENT_ORIGIN`,
+preserving its other origins. Google/Apple continue to use Better Auth accounts,
+backend callbacks, and the `/app/auth-callback/` or `/pwa/auth-callback/` return URL with the cross-domain token exchange.
 
-```sh
-nvm install
-nvm use
-bun install
-```
+Web authentication uses the same Convex deployment through `/app/api/auth/*`.
+The proxy stores HttpOnly cookies scoped to `/app` and `/pwa`; the backend's existing OAuth
+callbacks and mobile authentication remain unchanged. An HttpOnly browser nonce
+binds each web OAuth callback to the browser that initiated it.
 
-Copy `.env.example` to `.env.local` and set these private runtime variables, locally
-and in the Vercel environments where you deploy:
+On `/app/` and `/pwa/` requests, the server verifies the cached Convex profile JWT against
+Convex's public keys and includes only profile fields in the initial HTML. Public
+keys are cached; profile data is isolated to each request. Missing or expired JWTs
+are refreshed once through Better Auth when a session cookie exists. No server
+secrets are copied from Convex, and personalized pages/auth responses use
+`private, no-store`. Internal links use client navigation so the root auth provider
+retains its account when moving between the translator and public pages. The client
+coalesces background session checks and revalidates on focus only after five minutes.
+Convex subscriptions and backend checks remain authoritative for plan access.
+Existing cross-domain browser sessions migrate once after server validation;
+their old localStorage credentials are removed after migration or sign-out.
+No backend environment is changed by a build.
 
-```dotenv
-TURSO_DATABASE_URL=libsql://your-database-your-organization.turso.io
-TURSO_AUTH_TOKEN=your-read-only-database-token
-```
+## Structure
+
+- `src/routes`: thin file routes, the root document, public `_site` layout, and `/app`/`/pwa` layouts.
+- `src/components`: website UI in `site/` and translator feature screens beside it.
+- `src/stores`, `src/providers`: per-instance Solid state and translator lifecycle.
+- `src/lib`: integrations, Markdown rendering, and private database code in `server/`.
+- `src/lib/content`: unchanged legal Markdown and database notices.
+- `public`: website assets; shared translator assets live under `public/app/`; PWA install assets live under `public/pwa/`.
+
+The shared site header uses the same component in the website and desktop
+translator. Translator providers mount only within `/app/` and `/pwa/`. Styles are scoped to
+website and translator containers. State is never shared between SSR requests.
+
+## Database
 
 Use the same **libSQL database** populated by `~/development/js/sapo-mpr`.
 Its `database/schema.sql` defines the tables and indexes used by this website.
@@ -71,57 +89,63 @@ instance admits at most 20 concurrent reads; excess requests receive an uncached
 503 with `Retry-After: 1` rather than waiting in an unbounded SDK queue. Browser
 requests have a 15-second deadline and cancel when their filters change.
 
-Once you've installed dependencies, start a development server:
+## Build and verification
 
 ```sh
-bun run dev
-
-# or start the server and open the app in a new browser tab
-bun run dev --open
-```
-
-## Database documentation and attribution
-
-The browser links to `/multilingual-phonetic-representations/about/`, which explains
-the database, generation process, limitations, and CC BY-SA 4.0 data license.
-Full upstream credits are published at
-`/multilingual-phonetic-representations/about/attribution/`. These pages are
-prerendered using the existing Markdown document component. Their sources are
-`src/lib/content/database-about.md` and `src/lib/content/database-attribution.md`.
-
-The attribution source is adapted from `ATTRIBUTION.md` in `sapo-mpr`. Keep its
-upstream notices and provenance details synchronized when the database attribution
-changes. Website links replace repository-relative links, and list items stay on
-one source line because the Markdown renderer does not support list continuations.
-
-Successful responses from both database API endpoints include a `Link` header
-with `rel="license"` pointing to CC BY-SA 4.0 and `rel="describedby"` pointing to
-the public attribution page. JSON response shapes are unchanged. When distributing
-database exports, retain the attribution, include the license or a link to it, and
-identify any changes to the data.
-
-## Building
-
-To create a production version of your app:
-
-```sh
-bun run build
-```
-
-You can preview the production build with `bun run preview`.
-
-Deploy with the configured Vercel adapter (Node.js 24). The output is
-`.vercel/output`, containing static pages and backend functions; a static-only
-host cannot run the database endpoints. Builds do not require Turso credentials
-or database connectivity. Set the two variables in Vercel's runtime environment.
-
-## Verification
-
-```sh
-bun run check
+bun run typecheck
 bun run lint
 bun run test
-bun run build
+bun run prompts:check
+bun run build:web
+bun run --filter @sapo/web verify:build
 ```
 
-Database tests run against an in-memory database and do not need credentials.
+Deploy the existing Vercel project with Root Directory `apps/web`, Framework Preset
+**Other**, build command `bun run build`, install command `bun install --frozen-lockfile`,
+and access to workspace inputs outside the root directory. Nitro emits one
+`.vercel/output` artifact targeting Node 24. No custom merge script is required.
+The production build verifies preserved copy, assets, deployment routing, and
+server response behavior before succeeding. A small Nitro module compensates
+for the pinned preset’s terminal `/app/` and `/pwa/` header rules so dynamic routes reach SSR.
+Set public Convex URLs at build time and private Turso variables at runtime. Stripe billing remains disabled; its webhook rejects events until billing is implemented.
+The build does not need a database connection. `bun run --filter @sapo/web preview`
+previews the production build on port 4173. `bun run build:app` creates a Node
+build under `apps/web/.output`; `bun run --filter @sapo/web start` serves it.
+
+Start/Router and Solid are pinned to `2.0.0-rc.8` with the matching compiler
+versions and Solid Vite plugin `3.0.0-next.43`. Upgrade this group together and
+verify hydration; compiler overrides live in the root manifest.
+
+## Translator and PWA
+
+The translator shares mobile accounts, subscription access, quotas, and streaming
+through Convex and `@sapo/client-core`. Preferences persist; input/output and paid
+access claims do not. Auth/account changes cancel streaming and clear text.
+
+Shared translator images and SVGs synchronize from `apps/mobile/assets` before
+dev/build. `/app/` is a responsive web page: input and output sit side by side on
+wide screens and stack on small screens. It has no manifest, installation UI,
+or service worker registration. `/app/sw.js` only retires the previous worker.
+
+The PWA manifest, icons, offline notice, start URL, and service worker live under
+`/pwa/`. It uses a dedicated app shell on every device, with paged input/output,
+a sidebar, and the single-screen option. Website navigation and the public footer
+are exclusive to `/app/` and public pages.
+Account links and OAuth returns remain within `/pwa/`; authentication uses the
+shared `/app/api/auth/*` proxy and session. Links from the PWA to public pages
+load a separate document. The worker caches only an offline notice and a small
+static asset allowlist, never user pages or API/auth responses. Updates wait for
+“Update now.” AI operations require internet access.
+
+`/app/delete-account?token=…` provides explicit deletion confirmation. Preserve the
+backend's `DELETE_ACCOUNT_CALLBACK_URL` and mobile/universal-link behavior.
+Account deletion does not cancel store subscriptions.
+
+Optional `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are server-only.
+`POST /app/api/stripe/webhook` returns 503 while billing is disabled. Do not register
+a live destination or enable checkout before implementing customer mapping,
+durable deduplication, and shared entitlement reconciliation.
+
+Tests cover OAuth exchange, preferences, worker scope, Stripe signatures, database
+behavior, and content preservation. Live sign-in and paid/free translation require
+allowed origins and corresponding accounts for acceptance testing.

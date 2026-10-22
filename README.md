@@ -7,10 +7,12 @@ SAPO's mobile app, website, and Convex backend live in one Git repository.
 | Workspace | Directory | Purpose |
 | --- | --- | --- |
 | `@sapo/mobile` | `apps/mobile` | Expo + React Native app, native projects, and EAS configuration |
-| `@sapo/web` | `apps/web` | SvelteKit website and server-side Turso reader |
+| `@sapo/web` | `apps/web` | TanStack Start + Solid 2 website, translator at `/app/`, and server-side Turso reader |
+| `@sapo/client-core` | `packages/client-core` | Pure shared streaming transport and client constants |
 | `@sapo/backend` | `packages/backend` | Convex functions, components, generated bindings, and prompt generation |
 
-The website continues to use Turso independently of Convex. Each workspace owns
+The website uses Turso for the pronunciation database. The translator shares mobile accounts,
+subscription access, quotas, and the existing Convex deployment. Each workspace owns
 its dependencies, environment files, checks, and deployment configuration.
 
 ## Development
@@ -27,9 +29,10 @@ bun run dev:web
 bun run dev:backend
 ```
 
-Run those development commands in separate terminals. `bun run start`,
-`bun run ios`, and `bun run android` target the mobile app. `bun run web` targets
-the SvelteKit website; use `bun run --filter @sapo/mobile web` for Expo's web target.
+Run those development commands in separate terminals. `dev:web` starts the unified
+website at `http://127.0.0.1:3000/`, including the translator at `/app/`.
+`dev:app` and `web` are aliases for the same web server. `start`, `ios`, and
+`android` target mobile; use `bun run --filter @sapo/mobile web` for Expo's web target.
 
 Private environment files belong in their workspace, never in Git:
 
@@ -37,7 +40,8 @@ Private environment files belong in their workspace, never in Git:
 - `packages/backend/.env.local`: `CONVEX_DEPLOYMENT` for the existing development
   deployment (or the appropriate Convex CLI credentials in CI). Server secrets
   remain in the Convex dashboard, separately for each deployment.
-- `apps/web/.env.local`: private Turso settings; see `apps/web/.env.example`.
+- `apps/web/.env.local`: private Turso settings, public Convex deployment URLs
+  matching mobile, and optional server-only Stripe settings; see `apps/web/.env.example`.
 
 Keep the existing Convex deployment identity when starting the backend. Moving
 source directories does not require creating a new Convex project or database.
@@ -105,3 +109,13 @@ The `-m` option compares merges with each parent so Git can follow backend and
 website files across their import into the monorepo.
 Convex is now ordinary tracked source, with its original license retained in
 `packages/backend/convex/LICENSE`; no submodule initialization is needed.
+
+## Web application
+
+`bun run build:web` builds the unified TanStack Start + Solid 2 website into
+`apps/web/.vercel/output`. Keep the Vercel Root Directory at `apps/web` and use
+Framework Preset **Other**. Public pages are prerendered; database endpoints and
+`/app/` run on the server. The PWA stays scoped to `/app/`.
+See [web setup](apps/web/README.md) for origins, callbacks, shared access rules,
+and the disabled Stripe foundation. `bun run --filter @sapo/web verify:build`
+checks the deployment artifact and preserved page copy after building.

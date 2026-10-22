@@ -1,0 +1,87 @@
+import { createMemo, createSignal, For, Show } from "solid-js";
+import Dialog from "./Dialog";
+import Icon from "./Icon";
+import { useAppState } from "@/providers/AppProvider";
+
+export default function LanguageSelector(props: {
+    label: string;
+    caption?: string;
+    value: string;
+    options: readonly string[];
+    onChange: (value: string) => void;
+    disabled?: boolean;
+}) {
+    const { isPwa } = useAppState();
+    const [open, setOpen] = createSignal(false);
+    const [search, setSearch] = createSignal("");
+    let trigger!: HTMLButtonElement;
+    const filtered = createMemo(() =>
+        props.options.filter((language) =>
+            language.toLowerCase().includes(search().toLowerCase().trim()),
+        ),
+    );
+    return (
+        <>
+            <button
+                ref={(element) => {
+                    trigger = element;
+                }}
+                class={`language-button ${props.caption ? "language-button-captioned" : ""}`}
+                aria-label={`${props.label}: ${props.value}`}
+                aria-haspopup="dialog"
+                aria-expanded={open() ? "true" : "false"}
+                disabled={props.disabled}
+                onClick={() => {
+                    setSearch("");
+                    setOpen(!open());
+                }}
+            >
+                <Show when={props.caption}>
+                    <span class="language-caption" aria-hidden="true">
+                        {props.caption}
+                    </span>
+                </Show>
+                <span class="language-value">{props.value}</span>
+                <Icon name={isPwa ? "chevron-right" : "chevron-down"} size={isPwa ? 22 : 16} />
+            </button>
+            <Show when={open()}>
+                <Dialog
+                    title={props.label}
+                    onClose={() => setOpen(false)}
+                    class="language-dialog"
+                    anchor={isPwa ? undefined : trigger}
+                >
+                    <input
+                        class="search-input"
+                        aria-label="Search languages"
+                        placeholder="Search languages…"
+                        value={search()}
+                        onInput={(event) => setSearch(event.currentTarget.value)}
+                    />
+                    <div class="language-list" role="group" aria-label={props.label}>
+                        <For each={filtered()}>
+                            {(language) => (
+                                <button
+                                    class="language-option"
+                                    aria-pressed={props.value === language ? "true" : "false"}
+                                    onClick={() => {
+                                        props.onChange(language);
+                                        setOpen(false);
+                                    }}
+                                >
+                                    <span>{language}</span>
+                                    <Show when={props.value === language}>
+                                        <Icon name="check" size={18} />
+                                    </Show>
+                                </button>
+                            )}
+                        </For>
+                        <Show when={filtered().length === 0}>
+                            <p class="muted empty-search">No languages found.</p>
+                        </Show>
+                    </div>
+                </Dialog>
+            </Show>
+        </>
+    );
+}
