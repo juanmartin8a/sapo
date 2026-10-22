@@ -146,18 +146,16 @@ export default function SettingsScreen() {
                             <Show when={auth.state.hasActiveSubscription !== null}>
                                 <p class="muted">
                                     {plan().translate_monthly_char_limit.toLocaleString()}{" "}
-                                    translation characters per month.
+                                    translation characters per month
                                     <Show when={auth.state.hasActiveSubscription}>
-                                        {" "}
+                                        {" and "}
                                         {plan().respell_monthly_char_limit.toLocaleString()}{" "}
-                                        respelling characters per month.
+                                        respelling characters per month
                                     </Show>
+                                    .
                                 </p>
                             </Show>
-                            <p class="muted">
-                                Your plan and usage are shared with the mobile app. Manage purchases
-                                in the SAPO mobile app.
-                            </p>
+                            <p class="muted">Manage purchases in the SAPO mobile app.</p>
                             <button
                                 class="text-button"
                                 disabled={pending() || auth.state.status === "checking"}

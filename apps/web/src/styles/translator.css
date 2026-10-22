@@ -1439,6 +1439,12 @@
         .mobile-tabs {
             display: none;
         }
+        .translation-input {
+            padding-inline: 0;
+        }
+        .translation-input:focus-visible {
+            outline-offset: 2px;
+        }
         @media (max-width: 899px) {
             .desktop-options,
             .workspace {
@@ -1496,13 +1502,20 @@
             .input-pane {
                 min-height: 280px;
             }
+            .translation-input {
+                flex: none;
+                min-height: 186px;
+                overflow: hidden;
+            }
             .output-pane {
                 min-height: 280px;
                 border-left: 0;
                 border-top: 1px solid #171717;
             }
             .output-content {
-                max-height: 60dvh;
+                flex: none;
+                max-height: none;
+                overflow: visible;
             }
             .translation-preview-text,
             .translation-text {
@@ -1528,9 +1541,6 @@
             .output-content,
             .pane-bottom {
                 padding-inline: 0;
-            }
-            .translation-input {
-                padding-inline: 12px;
             }
         }
     }

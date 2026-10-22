@@ -13,6 +13,7 @@ import LanguageSelector from "@/components/ui/LanguageSelector";
 import TranslationOutput from "./TranslationOutput";
 import HomePager from "./HomePager";
 import TranslateButton from "./TranslateButton";
+import TranslationInput from "./TranslationInput";
 
 export default function HomeScreen() {
     const { translation, auth, pwa, isPwa, basePath } = useAppState();
@@ -178,15 +179,7 @@ export default function HomeScreen() {
                             <label class="sr-only" for="translation-input">
                                 Text to {translation.state.operation}
                             </label>
-                            <textarea
-                                id="translation-input"
-                                class="translation-input"
-                                placeholder="Enter text…"
-                                value={translation.state.input}
-                                dir="auto"
-                                spellcheck={false}
-                                onInput={(event) => translation.setInput(event.currentTarget.value)}
-                            />
+                            <TranslationInput />
                             <div class="pane-bottom">
                                 <span
                                     class={`character-count ${characterCount() > inputLimit() && inputLimit() > 0 ? "over-limit" : ""}`}
