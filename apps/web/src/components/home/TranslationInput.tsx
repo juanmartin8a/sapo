@@ -2,17 +2,20 @@ import { createEffect, onSettled } from "solid-js";
 import { useAppState } from "@/providers/AppProvider";
 
 export default function TranslationInput() {
-    const { translation, isPwa } = useAppState();
+    const { translation } = useAppState();
     let input!: HTMLTextAreaElement;
     let resizeInput = () => {};
 
     createEffect(
-        () => translation.state.input,
+        () => ({
+            input: translation.state.input,
+            pane: translation.state.mobilePane,
+            singleScreen: translation.state.singleScreen,
+        }),
         () => resizeInput(),
     );
 
     onSettled(() => {
-        if (isPwa) return;
         const stacked = window.matchMedia("(max-width: 899px)");
         let width = input.clientWidth;
         const resize = () => {

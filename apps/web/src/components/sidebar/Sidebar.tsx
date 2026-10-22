@@ -55,6 +55,19 @@ export default function Sidebar(props: { onNavigate?: () => void; layout?: "pane
                 <Show when={props.layout !== "panel" || translation.state.operation === "respell"}>
                     <div class="operation-options">
                         <div class="operation-option-fields">
+                            <Show when={isPwa}>
+                                <div class="sidebar-layout">
+                                    <Toggle
+                                        label="Single screen"
+                                        description="Keep input and output together"
+                                        checked={translation.state.singleScreen}
+                                        onChange={(singleScreen) => {
+                                            setAnimateOptions(true);
+                                            translation.setPreferences({ singleScreen });
+                                        }}
+                                    />
+                                </div>
+                            </Show>
                             <Show when={translation.state.operation === "respell"}>
                                 <Toggle
                                     class="respell-option"
@@ -68,10 +81,10 @@ export default function Sidebar(props: { onNavigate?: () => void; layout?: "pane
                                     }}
                                 />
                             </Show>
-                            <div class="sidebar-field pane-language-option">
-                                <label>Source language</label>
+                            <div class="sidebar-field pane-language-option source-language-field">
+                                <label>{isPwa ? "Source:" : "Source language"}</label>
                                 <LanguageSelector
-                                    label="Source language"
+                                    label={isPwa ? "Source" : "Source language"}
                                     options={Object.values(languagesPlusAutoDetect)}
                                     value={translation.state.sourceLanguage}
                                     onChange={(sourceLanguage) =>
@@ -81,9 +94,9 @@ export default function Sidebar(props: { onNavigate?: () => void; layout?: "pane
                                 />
                             </div>
                             <div class="sidebar-field pane-language-option">
-                                <label>Target language</label>
+                                <label>{isPwa ? "Target:" : "Target language"}</label>
                                 <LanguageSelector
-                                    label="Target language"
+                                    label={isPwa ? "Target" : "Target language"}
                                     options={Object.values(languages)}
                                     value={translation.state.targetLanguage}
                                     onChange={(targetLanguage) =>
@@ -109,7 +122,7 @@ export default function Sidebar(props: { onNavigate?: () => void; layout?: "pane
                                         <label>Respell:</label>
                                     </Show>
                                     <LanguageSelector
-                                        label="Respell language"
+                                        label={isPwa ? "Respell" : "Respell language"}
                                         caption={captionedSelector() ? "Respell" : undefined}
                                         options={["Source", ...Object.values(languages)]}
                                         value={translation.state.respellLanguage}
@@ -120,17 +133,6 @@ export default function Sidebar(props: { onNavigate?: () => void; layout?: "pane
                                     />
                                 </div>
                             </Show>
-                            <div class="mobile-only sidebar-layout pwa-only">
-                                <Toggle
-                                    label="Single screen"
-                                    description="Keep input and output together"
-                                    checked={translation.state.singleScreen}
-                                    onChange={(singleScreen) => {
-                                        setAnimateOptions(true);
-                                        translation.setPreferences({ singleScreen });
-                                    }}
-                                />
-                            </div>
                         </div>
                     </div>
                 </Show>
@@ -143,7 +145,7 @@ export default function Sidebar(props: { onNavigate?: () => void; layout?: "pane
 }
 
 export function SidebarAccountActions(props: { onNavigate?: () => void }) {
-    const { pwa, basePath } = useAppState();
+    const { pwa, basePath, isPwa } = useAppState();
     return (
         <footer class="sidebar-footer">
             <Show when={pwa.state.installable && !pwa.state.installed}>
@@ -160,15 +162,17 @@ export function SidebarAccountActions(props: { onNavigate?: () => void }) {
                     Install SAPO
                 </button>
             </Show>
-            <Link
-                class="sidebar-link"
-                to={`${basePath}/settings/`}
-                onClick={() => props.onNavigate?.()}
-            >
-                <Icon name="settings" />
-                Settings
-                <Icon name="chevron-right" size={15} />
-            </Link>
+            <Show when={!isPwa}>
+                <Link
+                    class="sidebar-link"
+                    to={`${basePath}/settings/`}
+                    onClick={() => props.onNavigate?.()}
+                >
+                    <Icon name="settings" />
+                    Settings
+                    <Icon name="chevron-right" size={15} />
+                </Link>
+            </Show>
             <AccountControl class="sidebar-account" onNavigate={props.onNavigate} />
         </footer>
     );

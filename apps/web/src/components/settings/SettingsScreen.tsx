@@ -9,7 +9,6 @@ import {
 import { getAuthClient } from "@/lib/auth-client";
 import Icon from "@/components/ui/Icon";
 import Dialog from "@/components/ui/Dialog";
-import Toggle from "@/components/ui/Toggle";
 
 export default function SettingsScreen() {
     const { auth, translation, pwa, isPwa, basePath } = useAppState();
@@ -57,7 +56,7 @@ export default function SettingsScreen() {
         }
     }
     return (
-        <main class="account-screen">
+        <main class="account-screen settings-screen">
             <div class="account-card settings-card">
                 <Link class="back-link" to={`${basePath}/`}>
                     <Icon name="arrow-left" size={24} />
@@ -166,15 +165,6 @@ export default function SettingsScreen() {
                         </div>
                     </Show>
                 </section>
-                <section class="settings-section mobile-only pwa-only">
-                    <h2>Appearance</h2>
-                    <Toggle
-                        label="Single screen"
-                        description="Keep input and output together on your phone"
-                        checked={translation.state.singleScreen}
-                        onChange={(singleScreen) => translation.setPreferences({ singleScreen })}
-                    />
-                </section>
                 <Show when={isPwa}>
                     <section class="settings-section">
                         <h2>On your device</h2>
@@ -198,7 +188,7 @@ export default function SettingsScreen() {
                         </p>
                     </section>
                 </Show>
-                <section class="settings-section">
+                <section class="settings-section settings-privacy-section">
                     <h2>Privacy & data</h2>
                     <p class="settings-note muted">
                         Only your language and layout preferences are saved on this device. Input

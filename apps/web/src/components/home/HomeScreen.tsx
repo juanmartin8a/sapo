@@ -132,23 +132,22 @@ export default function HomeScreen() {
                     <Show when={isPwa}>
                         <div class="mobile-tabs" role="group" aria-label="Workspace view">
                             <button
+                                title="Input"
                                 aria-pressed={
                                     translation.state.mobilePane === "input" ? "true" : "false"
                                 }
                                 onClick={() => translation.setMobilePane("input")}
                             >
-                                Input
+                                <span class="sr-only">Input</span>
                             </button>
                             <button
+                                title="Output"
                                 aria-pressed={
                                     translation.state.mobilePane === "output" ? "true" : "false"
                                 }
                                 onClick={() => translation.setMobilePane("output")}
                             >
-                                Output
-                                <Show when={busy()}>
-                                    <span class="status-dot" />
-                                </Show>
+                                <span class="sr-only">Output</span>
                             </button>
                         </div>
                     </Show>
@@ -162,20 +161,22 @@ export default function HomeScreen() {
                                 translation.state.mobilePane !== "input"
                             }
                         >
-                            <div class="pane-toolbar">
-                                <LanguageSelector
-                                    label="Source language"
-                                    caption={desktopOutput() ? "Source" : undefined}
-                                    options={Object.values(languagesPlusAutoDetect)}
-                                    value={translation.state.sourceLanguage}
-                                    onChange={(sourceLanguage) =>
-                                        translation.setPreferences({
-                                            sourceLanguage,
-                                        })
-                                    }
-                                    disabled={busy()}
-                                />
-                            </div>
+                            <Show when={!isPwa}>
+                                <div class="pane-toolbar">
+                                    <LanguageSelector
+                                        label="Source language"
+                                        caption={desktopOutput() ? "Source" : undefined}
+                                        options={Object.values(languagesPlusAutoDetect)}
+                                        value={translation.state.sourceLanguage}
+                                        onChange={(sourceLanguage) =>
+                                            translation.setPreferences({
+                                                sourceLanguage,
+                                            })
+                                        }
+                                        disabled={busy()}
+                                    />
+                                </div>
+                            </Show>
                             <label class="sr-only" for="translation-input">
                                 Text to {translation.state.operation}
                             </label>
@@ -210,7 +211,7 @@ export default function HomeScreen() {
                             </button>
                         </Show>
                         <section
-                            class={`output-pane ${splitOutput() ? "output-pane-split" : ""}`}
+                            class={`output-pane ${splitOutput() ? "output-pane-split" : ""} ${canCopy() ? "has-copy" : ""}`}
                             aria-label="Output"
                             inert={
                                 isPwa &&
@@ -219,51 +220,53 @@ export default function HomeScreen() {
                             }
                             aria-busy={busy() ? "true" : "false"}
                         >
-                            <div class="pane-toolbar">
-                                <LanguageSelector
-                                    label="Target language"
-                                    caption={desktopOutput() ? "Target" : undefined}
-                                    options={Object.values(languages)}
-                                    value={translation.state.targetLanguage}
-                                    onChange={(targetLanguage) =>
-                                        translation.setPreferences({
-                                            targetLanguage,
-                                        })
-                                    }
-                                    disabled={busy()}
-                                />
-                                <Show when={canCopy()}>
-                                    <button
-                                        class="icon-button copy-button"
-                                        aria-label={
-                                            hasTranslationPreview()
-                                                ? "Copy translation"
-                                                : "Copy output"
-                                        }
-                                        onClick={() => void copyOutput(copyText())}
-                                    >
-                                        <Icon name="copy" size={20} />
-                                    </button>
-                                </Show>
-                            </div>
+                            <Show when={!isPwa || canCopy()}>
+                                <div class="pane-toolbar">
+                                    <Show when={!isPwa}>
+                                        <LanguageSelector
+                                            label="Target language"
+                                            caption={desktopOutput() ? "Target" : undefined}
+                                            options={Object.values(languages)}
+                                            value={translation.state.targetLanguage}
+                                            onChange={(targetLanguage) =>
+                                                translation.setPreferences({
+                                                    targetLanguage,
+                                                })
+                                            }
+                                            disabled={busy()}
+                                        />
+                                    </Show>
+                                    <Show when={canCopy()}>
+                                        <button
+                                            class="icon-button copy-button"
+                                            aria-label={
+                                                hasTranslationPreview()
+                                                    ? "Copy translation"
+                                                    : "Copy output"
+                                            }
+                                            onClick={() => void copyOutput(copyText())}
+                                        >
+                                            <Icon name="copy" size={20} />
+                                        </button>
+                                    </Show>
+                                </div>
+                            </Show>
                             <TranslationOutput
                                 split={splitOutput()}
                                 combined={hasTranslationPreview()}
                                 onCopy={(text) => void copyOutput(text)}
                             />
-                            <div class="pane-bottom">
-                                <span class="output-state" role="status">
-                                    {busy()
-                                        ? translation.state.operation === "respell"
-                                            ? "Respelling…"
-                                            : "Translating…"
-                                        : translation.state.status === "stopped"
-                                          ? "Stopped"
-                                          : translation.state.status === "completed"
-                                            ? "Completed"
-                                            : ""}
-                                </span>
-                            </div>
+                            <Show when={busy() || translation.state.status === "stopped"}>
+                                <div class="pane-bottom">
+                                    <span class="output-state" role="status">
+                                        {busy()
+                                            ? translation.state.operation === "respell"
+                                                ? "Respelling…"
+                                                : "Translating…"
+                                            : "Stopped"}
+                                    </span>
+                                </div>
+                            </Show>
                         </section>
                     </HomePager>
                     <div class="workspace-footer">

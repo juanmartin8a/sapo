@@ -1,6 +1,7 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
 import Dialog from "./Dialog";
 import Icon from "./Icon";
+import { useAppState } from "@/providers/AppProvider";
 
 export default function LanguageSelector(props: {
     label: string;
@@ -10,6 +11,7 @@ export default function LanguageSelector(props: {
     onChange: (value: string) => void;
     disabled?: boolean;
 }) {
+    const { isPwa } = useAppState();
     const [open, setOpen] = createSignal(false);
     const [search, setSearch] = createSignal("");
     let trigger!: HTMLButtonElement;
@@ -40,14 +42,14 @@ export default function LanguageSelector(props: {
                     </span>
                 </Show>
                 <span class="language-value">{props.value}</span>
-                <Icon name="chevron-down" size={16} />
+                <Icon name={isPwa ? "chevron-right" : "chevron-down"} size={isPwa ? 22 : 16} />
             </button>
             <Show when={open()}>
                 <Dialog
                     title={props.label}
                     onClose={() => setOpen(false)}
                     class="language-dialog"
-                    anchor={trigger}
+                    anchor={isPwa ? undefined : trigger}
                 >
                     <input
                         class="search-input"
