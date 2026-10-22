@@ -6,9 +6,11 @@ export default function HomePager(props: { children: JSX.Element }) {
     const { translation, isPwa } = useAppState();
     const [width, setWidth] = createSignal(0);
     const [dragging, setDragging] = createSignal(false);
+    const [paging, setPaging] = createSignal(false);
     let pager!: HTMLDivElement;
     let updatedByScroll = false;
     let programmaticTarget: number | null = null;
+    let pendingScrollFrame: number | undefined;
     let gesture: {
         pointerId: number;
         x: number;
@@ -21,8 +23,37 @@ export default function HomePager(props: { children: JSX.Element }) {
         const observer = new ResizeObserver(() => setWidth(pager.clientWidth));
         observer.observe(pager);
         setWidth(pager.clientWidth);
-        return () => observer.disconnect();
+        return () => {
+            observer.disconnect();
+            if (pendingScrollFrame !== undefined) cancelAnimationFrame(pendingScrollFrame);
+        };
     });
+
+    function finishPaging() {
+        if (pendingScrollFrame !== undefined) cancelAnimationFrame(pendingScrollFrame);
+        pendingScrollFrame = undefined;
+        programmaticTarget = null;
+        setPaging(false);
+        pager.style.removeProperty("--pager-height");
+    }
+
+    function scrollToPane(left: number, animate: boolean) {
+        finishPaging();
+        programmaticTarget = left;
+        if (!animate || Math.abs(pager.scrollLeft - left) < 1) {
+            pager.scrollTo({ left, behavior: "instant" });
+            programmaticTarget = null;
+            return;
+        }
+        // Keep both panes laid out and disable snap while the scroll animates.
+        // Wait for pane visibility and textarea resizing to settle before starting.
+        pager.style.setProperty("--pager-height", `${pager.clientHeight}px`);
+        setPaging(true);
+        pendingScrollFrame = requestAnimationFrame(() => {
+            pendingScrollFrame = undefined;
+            pager.scrollTo({ left, behavior: "smooth" });
+        });
+    }
 
     createEffect(
         () => ({
@@ -50,15 +81,18 @@ export default function HomePager(props: { children: JSX.Element }) {
             const animate =
                 previous?.width === current.width &&
                 !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-            programmaticTarget = left;
-            pager.scrollTo({ left, behavior: animate ? "smooth" : "instant" });
+            scrollToPane(left, paged && animate);
         },
     );
 
     function handleScroll() {
         if (!isPwa || translation.state.singleScreen || dragging()) return;
         if (programmaticTarget !== null) {
-            if (Math.abs(pager.scrollLeft - programmaticTarget) < 1) programmaticTarget = null;
+            if (
+                pendingScrollFrame === undefined &&
+                Math.abs(pager.scrollLeft - programmaticTarget) < 1
+            )
+                finishPaging();
             return;
         }
         const pane = pager.scrollLeft >= pager.clientWidth / 2 ? "output" : "input";
@@ -71,7 +105,7 @@ export default function HomePager(props: { children: JSX.Element }) {
     function startSwipe(event: PointerEvent) {
         if (!isPwa || translation.state.singleScreen || !event.isPrimary || event.button !== 0)
             return;
-        programmaticTarget = null;
+        finishPaging();
         const target = event.target as HTMLElement;
         if (target.closest("button, a, input, select, [contenteditable]")) return;
         // Keep mouse text selection and existing touch selections available.
@@ -101,7 +135,7 @@ export default function HomePager(props: { children: JSX.Element }) {
                 return;
             }
             if (Math.abs(dx) < 12 || Math.abs(dx) <= Math.abs(dy) * 1.2) return;
-            pager.style.setProperty("--swipe-height", `${pager.clientHeight}px`);
+            pager.style.setProperty("--pager-height", `${pager.clientHeight}px`);
             setDragging(true);
             pager.setPointerCapture(event.pointerId);
         }
@@ -115,7 +149,7 @@ export default function HomePager(props: { children: JSX.Element }) {
         gesture = null;
         const swiped = dragging();
         setDragging(false);
-        pager.style.removeProperty("--swipe-height");
+        pager.style.removeProperty("--pager-height");
         if (pager.hasPointerCapture(event.pointerId)) pager.releasePointerCapture(event.pointerId);
         if (!swiped) return;
         const pane =
@@ -126,19 +160,16 @@ export default function HomePager(props: { children: JSX.Element }) {
                 : translation.state.mobilePane;
         if (pane !== translation.state.mobilePane) translation.setMobilePane(pane);
         else {
-            programmaticTarget = pane === "output" ? pager.clientWidth : 0;
-            pager.scrollTo({
-                left: programmaticTarget,
-                behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-                    ? "instant"
-                    : "smooth",
-            });
+            scrollToPane(
+                pane === "output" ? pager.clientWidth : 0,
+                !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+            );
         }
     }
 
     return (
         <div
-            class={`translation-workspace ${dragging() ? "is-dragging" : ""}`}
+            class={`translation-workspace ${dragging() ? "is-dragging" : ""} ${paging() ? "is-paging" : ""}`}
             ref={(element) => {
                 pager = element;
             }}
@@ -152,7 +183,7 @@ export default function HomePager(props: { children: JSX.Element }) {
                 if (!dragging()) gesture = null;
             }}
             onWheel={() => {
-                programmaticTarget = null;
+                finishPaging();
             }}
         >
             {props.children}

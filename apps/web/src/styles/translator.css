@@ -1245,7 +1245,7 @@
             flex: 0 0 auto;
             gap: 4px;
             padding: 4px;
-            margin: 4px var(--pwa-right-gutter) 8px var(--pwa-left-gutter);
+            margin: 20px var(--pwa-right-gutter) 8px var(--pwa-left-gutter);
             border-radius: 12px;
             background: #f2f2f2;
         }
@@ -1734,8 +1734,11 @@
             overscroll-behavior-x: contain;
             touch-action: pan-y pinch-zoom;
         }
-        .translation-workspace.is-dragging {
+        .translation-workspace.is-dragging,
+        .translation-workspace.is-paging {
             scroll-snap-type: none;
+        }
+        .translation-workspace.is-dragging {
             user-select: none;
             cursor: grabbing;
         }
@@ -1766,7 +1769,7 @@
             .output-pane {
                 min-height: max(
                     280px,
-                    calc(100dvh - 144px - env(safe-area-inset-top) - env(safe-area-inset-bottom))
+                    calc(100dvh - 160px - env(safe-area-inset-top) - env(safe-area-inset-bottom))
                 );
             }
             .translation-input {
@@ -1792,8 +1795,10 @@
                 overflow: hidden;
             }
             .workspace .translation-workspace.is-dragging > .input-pane,
-            .workspace .translation-workspace.is-dragging > .output-pane {
-                height: var(--swipe-height);
+            .workspace .translation-workspace.is-dragging > .output-pane,
+            .workspace .translation-workspace.is-paging > .input-pane,
+            .workspace .translation-workspace.is-paging > .output-pane {
+                height: var(--pager-height);
                 min-height: 0;
                 overflow: hidden;
             }
