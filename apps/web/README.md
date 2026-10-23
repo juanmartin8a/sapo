@@ -112,9 +112,24 @@ The build does not need a database connection. `bun run --filter @sapo/web previ
 previews the production build on port 4173. `bun run build:app` creates a Node
 build under `apps/web/.output`; `bun run --filter @sapo/web start` serves it.
 
-Start/Router and Solid are pinned to `2.0.0-rc.8` with the matching compiler
-versions and Solid Vite plugin `3.0.0-next.43`. Upgrade this group together and
-verify hydration; compiler overrides live in the root manifest.
+Start/Router are pinned to `2.0.0-rc.9`, Solid and its compiler packages to
+`2.0.0-rc.18`, and Solid Vite plugin to `3.0.0-next.51`. Upgrade this group
+together and verify hydration; compiler overrides live in the root manifest.
+
+Solid Start RC 9 still pins the vulnerable `@tanstack/start-server-core@1.169.26`.
+Root overrides select the patched `1.169.40` and align its client, storage,
+router, and history dependencies so SSR uses one runtime. Core `1.169.41+`
+removes request/response APIs that this Solid Start release still imports.
+The tracked Bun patch for Solid Router removes obsolete utility re-exports,
+uses the server serializer entry point, and renders the new hydration script
+tags and boundary. String rendering uses the core's HTML transform as well.
+`bun install --frozen-lockfile` applies it automatically.
+Keep the overrides and patch together until a Solid Start release supports the
+patched cores directly. Never bypass Vercel's vulnerable-Start deployment check.
+
+Better Auth stays on `1.6.33` because the Convex adapter requires `<1.7.0`;
+TypeScript stays on `6.0.3` because typescript-eslint requires `<6.1.0`.
+Node types track the deployed Node 24 runtime.
 
 ## Translator and PWA
 
