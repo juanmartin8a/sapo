@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/solid-router";
-import HomeScreen from "@/components/home/HomeScreen";
+import { legacyTranslatorRedirect } from "@/lib/legacy-translator-redirect";
 
-export const Route = createFileRoute("/app/")({ component: HomeScreen });
+export const Route = createFileRoute("/app/")({
+    beforeLoad: legacyTranslatorRedirect("/"),
+});

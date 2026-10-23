@@ -1,3 +1,6 @@
 import { createFileRoute } from "@tanstack/solid-router";
-import DeleteAccountScreen from "@/components/settings/DeleteAccountScreen";
-export const Route = createFileRoute("/app/delete-account")({ component: DeleteAccountScreen });
+import { legacyTranslatorRedirect } from "@/lib/legacy-translator-redirect";
+
+export const Route = createFileRoute("/app/delete-account")({
+    beforeLoad: legacyTranslatorRedirect("/account/delete-account/"),
+});

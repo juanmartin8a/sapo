@@ -24,7 +24,7 @@ async function token(claims: JWTPayload = {}) {
         .setExpirationTime(expiry)
         .sign(privateKey);
 }
-function incoming(path = "/app/", cookie = "", init: RequestInit = {}) {
+function incoming(path = "/", cookie = "", init: RequestInit = {}) {
     const headers = new Headers(init.headers);
     if (cookie) headers.set("cookie", cookie);
     return new Request(`${origin}${path}`, { ...init, headers });
@@ -48,7 +48,7 @@ const sessionCookie = "__Secure-better-auth.session_token=session-a.signature";
 
 test("guests require no network and leftover JWTs cannot restore a signed-out account", async () => {
     for (const cookie of ["", `__Secure-better-auth.convex_jwt=${await token()}`]) {
-        const result = await server().bootstrap(incoming("/app/", cookie));
+        const result = await server().bootstrap(incoming("/", cookie));
         assert.deepEqual(result.auth, { status: "signed_out", account: null });
         assert.equal(result.headers.get("cache-control"), "private, no-store");
     }
@@ -57,7 +57,7 @@ test("guests require no network and leftover JWTs cannot restore a signed-out ac
 test("a verified cookie supplies the initial profile with no session request or exposed credentials", async () => {
     const jwt = await token();
     const result = await server().bootstrap(
-        incoming("/app/", `${sessionCookie}; __Secure-better-auth.convex_jwt=${jwt}`),
+        incoming("/", `${sessionCookie}; __Secure-better-auth.convex_jwt=${jwt}`),
     );
     assert.deepEqual(result.auth, {
         status: "authenticated",
@@ -87,7 +87,7 @@ test("signing in again uses the app session even when an obsolete root cookie re
             );
             return Response.json({ user: account });
         }, secure);
-        const initial = await service.bootstrap(incoming("/app/", cookie));
+        const initial = await service.bootstrap(incoming("/", cookie));
         assert.equal(initial.auth.status, "authenticated");
         assert.equal(initial.auth.account?.userId, account.id);
         const session = await service.proxy(incoming("/app/api/auth/get-session", cookie));
@@ -118,12 +118,10 @@ test("setting and clearing sessions removes obsolete cookie paths in development
             const prefix = secure ? "__Secure-better-auth." : "better-auth.";
             assert.equal(cookies.length, 5);
             assert.ok(cookies[0].startsWith(`${prefix}session_token=${value};`));
-            assert.ok(cookies[0].includes("Path=/app;"));
-            assert.ok(cookies[1].includes("Path=/pwa;"));
-            assert.ok(cookies[1].startsWith(`${prefix}session_token=${value};`));
-            for (const [index, path] of ["/", "/app/", "/pwa/"].entries()) {
+            assert.ok(cookies[0].includes("Path=/;"));
+            for (const [index, path] of ["/app", "/pwa", "/app/", "/pwa/"].entries()) {
                 assert.equal(
-                    cookies[index + 2],
+                    cookies[index + 1],
                     `${prefix}session_token=; Path=${path}; Max-Age=0; HttpOnly; SameSite=Lax${secure ? "; Secure" : ""}`,
                 );
             }
@@ -198,25 +196,69 @@ test("a browser with old cookies can sign out, complete OAuth again, and restore
             post("/app/api/auth/sign-out", {}, browserCookies("/app/api/auth/sign-out")),
         ),
     );
+    assert.equal(browserCookies("/"), "");
     assert.equal(browserCookies("/app/"), "");
     assert.equal(browserCookies("/pwa/"), "");
     apply(
         await service.callback(
             incoming(
-                "/app/auth-callback/?ott=new-ott&flow=browser-nonce",
+                "/auth-callback/?ott=new-ott&flow=browser-nonce",
                 "__Host-sapo-auth-flow=browser-nonce",
             ),
         ),
     );
-    const restored = await service.bootstrap(incoming("/app/", browserCookies("/app/")));
+    const restored = await service.bootstrap(incoming("/", browserCookies("/")));
     assert.equal(restored.auth.status, "authenticated");
     assert.equal(restored.auth.account?.userId, account.id);
     const restoredPwa = await service.bootstrap(incoming("/pwa/", browserCookies("/pwa/")));
     assert.equal(restoredPwa.auth.account?.userId, account.id);
     assert.equal(
         [...cookies.values()].filter((cookie) => cookie.name.endsWith("session_token")).length,
-        2,
+        1,
     );
+});
+
+test("existing scoped sessions move to the root only after confirmation by Better Auth", async () => {
+    for (const secure of [false, true]) {
+        const prefix = secure ? "__Secure-better-auth." : "better-auth.";
+        const data = {
+            user: account,
+            session: { token: "session-a", expiresAt: "2099-01-01T00:00:00.000Z" },
+        };
+        const response = await server(async (_url, init) => {
+            assert.equal(new Headers(init?.headers).get("cookie"), sessionCookie);
+            return Response.json(data);
+        }, secure).proxy(
+            incoming(
+                "/app/api/auth/get-session",
+                `${prefix}session_token=session-a.signature; ${prefix}session_token=obsolete.signature`,
+            ),
+        );
+        assert.deepEqual(await response.json(), data);
+        const cookies = response.headers.getSetCookie();
+        assert.match(
+            cookies[0],
+            /session_token=session-a.signature; Expires=[^;]+; Path=\/; HttpOnly; SameSite=Lax/,
+        );
+        assert.equal(cookies[0].startsWith(prefix), true);
+        assert.equal(cookies[0].endsWith("; Secure"), secure);
+        for (const [index, path] of ["/app", "/pwa", "/app/", "/pwa/"].entries())
+            assert.ok(cookies[index + 1].includes(`Path=${path}; Max-Age=0;`));
+    }
+});
+
+test("missing, expired, and mismatched sessions cannot be promoted to root cookies", async () => {
+    for (const data of [
+        null,
+        { user: account },
+        { user: account, session: { token: "different", expiresAt: "2099-01-01" } },
+        { user: account, session: { token: "session-a", expiresAt: "2000-01-01" } },
+    ]) {
+        const response = await server(async () => Response.json(data)).proxy(
+            incoming("/app/api/auth/get-session", sessionCookie),
+        );
+        assert.equal(response.headers.getSetCookie().length, 0);
+    }
 });
 
 test("invalid signatures, issuers, audiences, expiry and claims never become initial identity", async () => {
@@ -255,7 +297,7 @@ test("invalid signatures, issuers, audiences, expiry and claims never become ini
         const result = await server(async () => {
             ++requests;
             return new Response(null, { status: 401 });
-        }).bootstrap(incoming("/app/", `${sessionCookie}; __Secure-better-auth.convex_jwt=${jwt}`));
+        }).bootstrap(incoming("/", `${sessionCookie}; __Secure-better-auth.convex_jwt=${jwt}`));
         assert.equal(requests, 1);
         assert.deepEqual(result.auth, { status: "signed_out", account: null });
     }
@@ -279,16 +321,16 @@ test("an expired cache refreshes once and forwards only authentication cookies",
                 },
             },
         );
-    }).bootstrap(incoming("/app/", `${sessionCookie}; unrelated=private`));
+    }).bootstrap(incoming("/", `${sessionCookie}; unrelated=private`));
     assert.equal(result.auth.account?.name, "Alice");
-    assert.match(result.headers.getSetCookie()[0], /Path=\/app; HttpOnly; SameSite=Lax; Secure$/);
+    assert.match(result.headers.getSetCookie()[0], /Path=\/; HttpOnly; SameSite=Lax; Secure$/);
     assert.ok(!result.headers.getSetCookie()[0].includes("Domain="));
 });
 
 test("network failures remain unresolved rather than signing the user out", async () => {
     const result = await server(async () => {
         throw new Error("private upstream details");
-    }).bootstrap(incoming("/app/", sessionCookie));
+    }).bootstrap(incoming("/", sessionCookie));
     assert.deepEqual(result.auth, { status: "checking", account: null });
     assert.ok(!JSON.stringify(result).includes("private upstream details"));
 });
@@ -306,11 +348,9 @@ test("concurrent requests cannot share account identity", async () => {
         .sign(privateKey);
     const [a, b, guest] = await Promise.all([
         shared.bootstrap(
-            incoming("/app/", `${sessionCookie}; __Secure-better-auth.convex_jwt=${alice}`),
+            incoming("/", `${sessionCookie}; __Secure-better-auth.convex_jwt=${alice}`),
         ),
-        shared.bootstrap(
-            incoming("/app/", `${sessionCookie}; __Secure-better-auth.convex_jwt=${bob}`),
-        ),
+        shared.bootstrap(incoming("/", `${sessionCookie}; __Secure-better-auth.convex_jwt=${bob}`)),
         shared.bootstrap(incoming()),
     ]);
     assert.equal(a.auth.account?.name, "Alice");
@@ -352,7 +392,7 @@ test("the proxy preserves query parameters and scopes refreshed cookies to the a
         );
     }).proxy(incoming("/app/api/auth/get-session?disableCookieCache=true", sessionCookie));
     assert.equal(response.status, 200);
-    assert.match(response.headers.getSetCookie()[0], /Path=\/app; HttpOnly; SameSite=Lax; Secure$/);
+    assert.match(response.headers.getSetCookie()[0], /Path=\/; HttpOnly; SameSite=Lax; Secure$/);
     assert.ok(!response.headers.get("set-cookie")!.includes("Domain="));
 });
 
@@ -402,10 +442,10 @@ test("OAuth initiation binds the fixed callback to a fresh HttpOnly browser nonc
         const body = JSON.parse(init?.body as string);
         const callback = new URL(body.callbackURL);
         assert.equal(callback.origin, origin);
-        assert.equal(callback.pathname, "/app/auth-callback/");
+        assert.equal(callback.pathname, "/auth-callback/");
         flow = callback.searchParams.get("flow")!;
         assert.ok(flow.length > 30);
-        assert.equal(body.errorCallbackURL, `${origin}/app/auth/`);
+        assert.equal(body.errorCallbackURL, `${origin}/auth/`);
         return Response.json({ url: "https://accounts.google.com/oauth" });
     }).proxy(
         post("/app/api/auth/sign-in/social", {
@@ -419,7 +459,7 @@ test("OAuth initiation binds the fixed callback to a fresh HttpOnly browser nonc
 });
 
 test("OAuth callbacks exchange once, confirm the new account and redirect without credentials", async () => {
-    for (const basePath of ["/app", "/pwa"]) {
+    for (const basePath of ["", "/pwa"]) {
         const calls: string[] = [];
         const response = await server(async (url, init) => {
             calls.push(String(url));
@@ -464,9 +504,9 @@ test("OAuth callbacks exchange once, confirm the new account and redirect withou
 test("OAuth callbacks reject missing or mismatched browser state before exchanging a token", async () => {
     for (const cookie of ["", "__Host-sapo-auth-flow=another-browser"]) {
         const response = await server().callback(
-            incoming("/app/auth-callback/?ott=token&flow=browser-nonce", cookie),
+            incoming("/auth-callback/?ott=token&flow=browser-nonce", cookie),
         );
-        assert.equal(response.headers.get("location"), "/app/auth/?error=sign_in_failed");
+        assert.equal(response.headers.get("location"), "/auth/?error=sign_in_failed");
         assert.ok(
             !response.headers.getSetCookie().some((cookie) => cookie.includes("session_token=")),
         );
@@ -483,11 +523,11 @@ test("failed callback confirmation cannot install another account", async () => 
             : Response.json({ user: { ...account, id: "different" } }),
     ).callback(
         incoming(
-            "/app/auth-callback/?ott=token&flow=browser-nonce",
+            "/auth-callback/?ott=token&flow=browser-nonce",
             "__Host-sapo-auth-flow=browser-nonce",
         ),
     );
-    assert.equal(response.headers.get("location"), "/app/auth/?error=sign_in_failed");
+    assert.equal(response.headers.get("location"), "/auth/?error=sign_in_failed");
     assert.ok(!response.headers.getSetCookie().some((cookie) => cookie.includes("session_token=")));
 });
 
@@ -511,7 +551,7 @@ test("legacy credentials are validated against the session record before migrati
     assert.equal(response.headers.getSetCookie().length, 10);
     assert.match(
         response.headers.getSetCookie()[0],
-        /session_token=session-a.signature; Expires=[^;]+; Path=\/app; HttpOnly/,
+        /session_token=session-a.signature; Expires=[^;]+; Path=\/; HttpOnly/,
     );
 });
 
@@ -537,7 +577,7 @@ test("PWA sign-in returns to its own namespace and rejects external callback des
         "https://attacker.example/pwa/auth-callback/",
         `${origin}/pwa-other/auth-callback/`,
     ]) {
-        const basePath = callbackURL === `${origin}/pwa/auth-callback/` ? "/pwa" : "/app";
+        const basePath = callbackURL === `${origin}/pwa/auth-callback/` ? "/pwa" : "";
         const response = await server(async (_url, init) => {
             const body = JSON.parse(init?.body as string);
             const callback = new URL(body.callbackURL);

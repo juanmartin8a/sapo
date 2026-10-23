@@ -92,7 +92,7 @@ export default function LandingPage() {
                         {" An Android version and more tools are coming soon. "}
                     </p>
                     <div class="app-links">
-                        <Link class="resource-link" to="/app/">
+                        <Link class="resource-link" to="/">
                             {"Try the web app "}
                             <span aria-hidden="true">{"↗"}</span>
                         </Link>

@@ -3,7 +3,7 @@
 ## Project shape
 
 - Bun workspace monorepo: `apps/mobile` (Expo + React Native), `apps/web`
-  (TanStack Start + Solid 2, Turso, and the translator at `/app`),
+  (TanStack Start + Solid 2, Turso, and the translator at `/`),
   `packages/client-core` (pure shared client code), and `packages/backend` (Convex).
 - Keep mobile `app/` limited to routes and layouts; screens and UI belong in
   `components/`. Stores, hooks, providers, and integrations retain their own dirs.

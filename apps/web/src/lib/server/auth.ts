@@ -47,8 +47,8 @@ export function createWebAuthServer(options: {
             .map((cookie) => cookie.trim())
             .filter((cookie) => /^(?:__Secure-)?better-auth\.[\w.-]+=/.test(cookie))
             .map((cookie) => (cookie.startsWith("better-auth.") ? `__Secure-${cookie}` : cookie));
-        // Browsers send more specific paths first. An obsolete root cookie must
-        // not shadow the current /app session or make SSR disagree with Better Auth.
+        // Browsers send more specific paths first. During migration, prefer the
+        // existing scoped session until it is validated and moved to the root.
         const unique = new Map<string, string>();
         for (const cookie of cookies) {
             const name = cookie.slice(0, cookie.indexOf("="));
@@ -88,17 +88,36 @@ export function createWebAuthServer(options: {
         if (!options.secureCookies) scoped = scoped.replace(/^__Secure-/, "");
         const scopedName = scoped.slice(0, scoped.indexOf("="));
         return [
-            ...["/app", "/pwa"].map(
-                (path) =>
-                    `${scoped}; Path=${path}; HttpOnly; SameSite=Lax${options.secureCookies ? "; Secure" : ""}`,
-            ),
+            `${scoped}; Path=/; HttpOnly; SameSite=Lax${options.secureCookies ? "; Secure" : ""}`,
             // Remove earlier path variants when setting or clearing a cookie.
             // Otherwise signing out can expose an older session cookie again.
-            ...["/", "/app/", "/pwa/"].map(
+            ...["/app", "/pwa", "/app/", "/pwa/"].map(
                 (path) =>
                     `${scopedName}=; Path=${path}; Max-Age=0; HttpOnly; SameSite=Lax${options.secureCookies ? "; Secure" : ""}`,
             ),
         ];
+    }
+
+    function verifiedSessionCookies(data: unknown, cookies: string) {
+        const session = data as {
+            session?: { token?: unknown; expiresAt?: string };
+            user?: { id?: unknown };
+        } | null;
+        const token = cookieValue(cookies, "session_token");
+        const rawToken = session?.session?.token;
+        const expiry = Date.parse(session?.session?.expiresAt ?? "");
+        if (
+            !token ||
+            typeof rawToken !== "string" ||
+            !session?.user?.id ||
+            !token.startsWith(`${rawToken}.`) ||
+            !Number.isFinite(expiry) ||
+            expiry <= Date.now()
+        )
+            return [];
+        return scopeCookie(
+            `${COOKIE_PREFIX}session_token=${encodeURIComponent(token)}; Expires=${new Date(expiry).toUTCString()}`,
+        );
     }
 
     async function upstream(
@@ -215,11 +234,11 @@ export function createWebAuthServer(options: {
                     return new Response(null, { status: 400, headers: PRIVATE_HEADERS });
                 flow = crypto.randomUUID();
                 // Only allow the two same-origin translator destinations.
-                const callback = new URL(data.callbackURL ?? "/app/auth-callback/", url.origin);
+                const callback = new URL(data.callbackURL ?? "/auth-callback/", url.origin);
                 const basePath =
                     callback.origin === url.origin && callback.pathname === "/pwa/auth-callback/"
                         ? "/pwa"
-                        : "/app";
+                        : "";
                 data.callbackURL = `${url.origin}${basePath}/auth-callback/?flow=${flow}`;
                 data.errorCallbackURL = `${url.origin}${basePath}/auth/`;
                 body = JSON.stringify(data);
@@ -232,6 +251,14 @@ export function createWebAuthServer(options: {
             headers.set("content-type", response.headers.get("content-type") ?? "application/json");
             const retryAfter = response.headers.get("retry-after");
             if (retryAfter) headers.set("retry-after", retryAfter);
+            // Older browsers send their scoped session to this unchanged API.
+            // Promote only the session confirmed by Better Auth, preserving expiry.
+            if (path === "/get-session" && response.ok) {
+                const cookies = authCookies(incoming.headers.get("cookie"));
+                const data: unknown = await response.clone().json();
+                for (const cookie of verifiedSessionCookies(data, cookies))
+                    headers.append("set-cookie", cookie);
+            }
             for (const cookie of setCookies(response)) headers.append("set-cookie", cookie);
             if (flow && response.ok) headers.append("set-cookie", flowCookie(flow, 600));
             const location = response.headers.get("location");
@@ -264,24 +291,9 @@ export function createWebAuthServer(options: {
         if (response.status === 401 || response.status === 403)
             return Response.json({ migrated: false }, { headers });
         if (!response.ok) throw new Error("Session migration unavailable.");
-        const data = (await response.json()) as {
-            session?: { token?: unknown; expiresAt?: string };
-            user?: { id?: unknown };
-        } | null;
-        const rawToken = data?.session?.token;
-        const expiry = Date.parse(data?.session?.expiresAt ?? "");
-        if (
-            typeof rawToken !== "string" ||
-            !data?.user?.id ||
-            !token.startsWith(`${rawToken}.`) ||
-            !Number.isFinite(expiry) ||
-            expiry <= Date.now()
-        )
-            return Response.json({ migrated: false }, { headers });
-        for (const cookie of scopeCookie(
-            `${COOKIE_PREFIX}session_token=${encodeURIComponent(token)}; Expires=${new Date(expiry).toUTCString()}`,
-        ))
-            headers.append("set-cookie", cookie);
+        const verified = verifiedSessionCookies(await response.json(), cookies);
+        if (!verified.length) return Response.json({ migrated: false }, { headers });
+        for (const cookie of verified) headers.append("set-cookie", cookie);
         for (const cookie of setCookies(response)) headers.append("set-cookie", cookie);
         return Response.json({ migrated: true }, { headers });
     }

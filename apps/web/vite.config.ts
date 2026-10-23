@@ -5,6 +5,7 @@ import { defineConfig, loadEnv } from "vite";
 import { tanstackStart } from "@tanstack/solid-start/plugin/vite";
 import solid from "@solidjs/vite-plugin";
 import { nitro } from "nitro/vite";
+import { isTranslatorPath } from "./src/lib/translator-paths.ts";
 
 export default defineConfig(({ mode }) => {
     // Vite exposes only VITE_* to the client; private local settings are for SSR.
@@ -18,9 +19,7 @@ export default defineConfig(({ mode }) => {
                     enabled: true,
                     autoSubfolderIndex: true,
                     crawlLinks: false,
-                    filter: ({ path }) =>
-                        path === "/" ||
-                        (!/^\/(?:app|pwa)(?:\/|$)/.test(path) && !path.startsWith("/api/")),
+                    filter: ({ path }) => !isTranslatorPath(path) && !path.startsWith("/api/"),
                     failOnError: true,
                 },
             }),
@@ -34,8 +33,8 @@ export default defineConfig(({ mode }) => {
                             const path = join(nitro.options.output.dir, "config.json");
                             const config = JSON.parse(await readFile(path, "utf8"));
                             const translatorHeaders = config.routes.filter(
-                                (route: { src?: string }) =>
-                                    route.src === "/app/(.*)" || route.src === "/pwa/(.*)",
+                                (route: { headers?: Record<string, string>; status?: number }) =>
+                                    Boolean(route.headers?.["cache-control"]) && !route.status,
                             );
                             // Nitro 3 emits a terminal header rule. Dynamic app paths
                             // must continue through the filesystem to the server fallback.
@@ -48,7 +47,16 @@ export default defineConfig(({ mode }) => {
                     "/.well-known/apple-app-site-association": {
                         headers: { "content-type": "application/json" },
                     },
-                    "/app": { redirect: { to: "/app/", status: 308 } },
+                    "/": { headers: { "cache-control": "no-store" } },
+                    "/auth": { headers: { "cache-control": "no-store" } },
+                    "/auth/**": { headers: { "cache-control": "no-store" } },
+                    "/auth-callback": { headers: { "cache-control": "no-store" } },
+                    "/auth-callback/**": { headers: { "cache-control": "no-store" } },
+                    "/settings": { headers: { "cache-control": "no-store" } },
+                    "/settings/**": { headers: { "cache-control": "no-store" } },
+                    "/account/delete-account": { headers: { "cache-control": "no-store" } },
+                    "/account/delete-account/**": { headers: { "cache-control": "no-store" } },
+                    "/app": { redirect: { to: "/", status: 308 } },
                     "/app/**": { headers: { "cache-control": "no-store" } },
                     "/pwa": { redirect: { to: "/pwa/", status: 308 } },
                     "/pwa/**": { headers: { "cache-control": "no-store" } },

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/solid-router";
-import SettingsScreen from "@/components/settings/SettingsScreen";
+import { legacyTranslatorRedirect } from "@/lib/legacy-translator-redirect";
 
 export const Route = createFileRoute("/app/settings")({
-    component: SettingsScreen,
+    beforeLoad: legacyTranslatorRedirect("/settings/"),
 });

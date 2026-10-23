@@ -4,6 +4,7 @@
     --muted: #666b66;
     --line: #e5e8e3;
     --serif: "Times New Roman", Times, serif;
+    --site-content-padding-block: 72px 88px;
     font-family:
         Inter,
         ui-sans-serif,
@@ -14,6 +15,11 @@
         sans-serif;
     color: var(--ink);
     background: #fff;
+}
+@media (max-width: 640px) {
+    :root {
+        --site-content-padding-block: 32px 48px;
+    }
 }
 html,
 body {
@@ -216,7 +222,7 @@ body {
 .site-menu-navigation a[aria-current] {
     background: #f3f3f1;
 }
-@media (max-width: 640px) {
+@media (max-width: 768px) {
     .site-header {
         min-height: 76px;
         padding-block: 12px;

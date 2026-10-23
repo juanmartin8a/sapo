@@ -5,7 +5,7 @@ import AccountControl from "@/components/auth/AccountControl";
 export default function SiteHeader() {
     const location = useLocation();
     const pathname = () => location().pathname.replace(/\/$/, "") || "/";
-    const inApp = () => pathname() === "/app" || pathname().startsWith("/app/");
+    const inTranslator = () => pathname() === "/";
     const menuId = createUniqueId();
     const [menuOpen, setMenuOpen] = createSignal(false);
     let menu: HTMLDivElement | undefined;
@@ -16,9 +16,8 @@ export default function SiteHeader() {
     onSettled(() => {
         const popup = menu!;
         const button = trigger!;
-        const narrow = window.matchMedia("(max-width: 640px)");
         const position = () => {
-            if (!narrow.matches) {
+            if (window.getComputedStyle(button).display === "none") {
                 closeMenu();
                 return;
             }
@@ -47,8 +46,15 @@ export default function SiteHeader() {
 
     const NavigationLinks = () => (
         <>
-            <Link to="/app/" aria-current={inApp() ? "page" : undefined} onClick={closeMenu}>
-                Web app
+            <Link to="/" aria-current={inTranslator() ? "page" : undefined} onClick={closeMenu}>
+                Translator
+            </Link>
+            <Link
+                to="/about/"
+                aria-current={pathname() === "/about" ? "page" : undefined}
+                onClick={closeMenu}
+            >
+                About
             </Link>
             <Link
                 to="/multilingual-phonetic-representations/"

@@ -285,7 +285,12 @@ export default function HomeScreen() {
                 </main>
             </div>
             <Show when={isPwa && drawerOpen()}>
-                <Dialog title="S A P O" onClose={() => setDrawerOpen(false)} class="sidebar-dialog">
+                <Dialog
+                    title="Translation options"
+                    hideTitle
+                    onClose={() => setDrawerOpen(false)}
+                    class="sidebar-dialog"
+                >
                     <Sidebar onNavigate={() => setDrawerOpen(false)} />
                 </Dialog>
             </Show>
