@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/solid-router";
 import { createSignal, onSettled, Show } from "solid-js";
 import { getAuthClient } from "@/lib/auth-client";
+import { deleteAccountPath } from "@/lib/translator-paths";
 import { useAppState } from "@/providers/AppProvider";
 
 export default function DeleteAccountScreen() {
@@ -24,7 +25,7 @@ export default function DeleteAccountScreen() {
             await auth.refreshSession();
             setConfirmed(true);
             setStatus("Your SAPO account has been deleted.");
-            window.history.replaceState(window.history.state, "", `${basePath}/delete-account`);
+            window.history.replaceState(window.history.state, "", `${deleteAccountPath(basePath)}`);
         } catch (error) {
             setStatus(error instanceof Error ? error.message : "Couldn’t delete the account.");
         } finally {

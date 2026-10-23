@@ -138,7 +138,7 @@ function setup(
     tokenCalls = 0;
     runtime.migrateLegacySession = async () => false;
     Object.assign(globalThis, {
-        window: { location: { href: options.href ?? "https://sapo.example/app/" } },
+        window: { location: { href: options.href ?? "https://sapo.example/" } },
     });
     let dispose!: () => void;
     const auth = createRoot((cleanup) => {
@@ -643,7 +643,7 @@ test("OAuth callbacks and sign-in errors do not show the previous cached account
     for (const search of ["?ott=new-session", "?error=access_denied"]) {
         const { auth, dispose } = setup({
             ...previewOptions(),
-            href: `https://sapo.example/app/${search}`,
+            href: `https://sapo.example/${search}`,
         });
         try {
             readSession = async () => {

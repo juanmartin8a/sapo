@@ -10,14 +10,19 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SiteRouteImport } from './routes/_site'
+import { Route as TranslatorRouteImport } from './routes/_translator'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as PwaRouteImport } from './routes/pwa'
-import { Route as SiteIndexRouteImport } from './routes/_site/index'
+import { Route as SiteAboutRouteImport } from './routes/_site/about'
 import { Route as SiteContactUsRouteImport } from './routes/_site/contact-us'
 import { Route as SiteDeleteAccountRouteImport } from './routes/_site/delete-account'
 import { Route as SitePrivacyPolicyRouteImport } from './routes/_site/privacy-policy'
 import { Route as SiteSupportRouteImport } from './routes/_site/support'
 import { Route as SiteTermsOfUseRouteImport } from './routes/_site/terms-of-use'
+import { Route as TranslatorIndexRouteImport } from './routes/_translator/index'
+import { Route as TranslatorAuthRouteImport } from './routes/_translator/auth'
+import { Route as TranslatorAuthCallbackRouteImport } from './routes/_translator/auth-callback'
+import { Route as TranslatorSettingsRouteImport } from './routes/_translator/settings'
 import { Route as ApiLanguagesRouteImport } from './routes/api/languages'
 import { Route as ApiPronunciationsRouteImport } from './routes/api/pronunciations'
 import { Route as AppIndexRouteImport } from './routes/app/index'
@@ -31,6 +36,7 @@ import { Route as PwaAuthCallbackRouteImport } from './routes/pwa/auth-callback'
 import { Route as PwaDeleteAccountRouteImport } from './routes/pwa/delete-account'
 import { Route as PwaSettingsRouteImport } from './routes/pwa/settings'
 import { Route as SiteMultilingualPhoneticRepresentationsIndexRouteImport } from './routes/_site/multilingual-phonetic-representations/index'
+import { Route as TranslatorAccountDeleteAccountRouteImport } from './routes/_translator/account/delete-account'
 import { Route as SiteMultilingualPhoneticRepresentationsAboutIndexRouteImport } from './routes/_site/multilingual-phonetic-representations/about/index'
 import { Route as SiteMultilingualPhoneticRepresentationsAboutAttributionRouteImport } from './routes/_site/multilingual-phonetic-representations/about/attribution'
 import { Route as AppApiAuthSplatRouteImport } from './routes/app/api/auth/$'
@@ -38,6 +44,10 @@ import { Route as AppApiStripeWebhookRouteImport } from './routes/app/api/stripe
 
 const SiteRoute = SiteRouteImport.update({
   id: '/_site',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TranslatorRoute = TranslatorRouteImport.update({
+  id: '/_translator',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppRoute = AppRouteImport.update({
@@ -50,9 +60,9 @@ const PwaRoute = PwaRouteImport.update({
   path: '/pwa',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SiteIndexRoute = SiteIndexRouteImport.update({
-  id: '/',
-  path: '/',
+const SiteAboutRoute = SiteAboutRouteImport.update({
+  id: '/about',
+  path: '/about',
   getParentRoute: () => SiteRoute,
 } as any)
 const SiteContactUsRoute = SiteContactUsRouteImport.update({
@@ -79,6 +89,26 @@ const SiteTermsOfUseRoute = SiteTermsOfUseRouteImport.update({
   id: '/terms-of-use',
   path: '/terms-of-use',
   getParentRoute: () => SiteRoute,
+} as any)
+const TranslatorIndexRoute = TranslatorIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => TranslatorRoute,
+} as any)
+const TranslatorAuthRoute = TranslatorAuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => TranslatorRoute,
+} as any)
+const TranslatorAuthCallbackRoute = TranslatorAuthCallbackRouteImport.update({
+  id: '/auth-callback',
+  path: '/auth-callback',
+  getParentRoute: () => TranslatorRoute,
+} as any)
+const TranslatorSettingsRoute = TranslatorSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => TranslatorRoute,
 } as any)
 const ApiLanguagesRoute = ApiLanguagesRouteImport.update({
   id: '/api/languages',
@@ -146,6 +176,12 @@ const SiteMultilingualPhoneticRepresentationsIndexRoute =
     path: '/multilingual-phonetic-representations/',
     getParentRoute: () => SiteRoute,
   } as any)
+const TranslatorAccountDeleteAccountRoute =
+  TranslatorAccountDeleteAccountRouteImport.update({
+    id: '/account/delete-account',
+    path: '/account/delete-account',
+    getParentRoute: () => TranslatorRoute,
+  } as any)
 const SiteMultilingualPhoneticRepresentationsAboutIndexRoute =
   SiteMultilingualPhoneticRepresentationsAboutIndexRouteImport.update({
     id: '/multilingual-phonetic-representations/about/',
@@ -170,14 +206,18 @@ const AppApiStripeWebhookRoute = AppApiStripeWebhookRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof SiteIndexRoute
+  '/': typeof TranslatorIndexRoute
   '/app': typeof AppRouteWithChildren
   '/pwa': typeof PwaRouteWithChildren
+  '/about': typeof SiteAboutRoute
   '/contact-us': typeof SiteContactUsRoute
   '/delete-account': typeof SiteDeleteAccountRoute
   '/privacy-policy': typeof SitePrivacyPolicyRoute
   '/support': typeof SiteSupportRoute
   '/terms-of-use': typeof SiteTermsOfUseRoute
+  '/auth': typeof TranslatorAuthRoute
+  '/auth-callback': typeof TranslatorAuthCallbackRoute
+  '/settings': typeof TranslatorSettingsRoute
   '/api/languages': typeof ApiLanguagesRoute
   '/api/pronunciations': typeof ApiPronunciationsRoute
   '/app/auth': typeof AppAuthRoute
@@ -190,6 +230,7 @@ export interface FileRoutesByFullPath {
   '/pwa/settings': typeof PwaSettingsRoute
   '/app/': typeof AppIndexRoute
   '/pwa/': typeof PwaIndexRoute
+  '/account/delete-account': typeof TranslatorAccountDeleteAccountRoute
   '/multilingual-phonetic-representations/': typeof SiteMultilingualPhoneticRepresentationsIndexRoute
   '/multilingual-phonetic-representations/about/attribution': typeof SiteMultilingualPhoneticRepresentationsAboutAttributionRoute
   '/app/api/auth/$': typeof AppApiAuthSplatRoute
@@ -197,11 +238,16 @@ export interface FileRoutesByFullPath {
   '/multilingual-phonetic-representations/about/': typeof SiteMultilingualPhoneticRepresentationsAboutIndexRoute
 }
 export interface FileRoutesByTo {
+  '/': typeof TranslatorIndexRoute
+  '/about': typeof SiteAboutRoute
   '/contact-us': typeof SiteContactUsRoute
   '/delete-account': typeof SiteDeleteAccountRoute
   '/privacy-policy': typeof SitePrivacyPolicyRoute
   '/support': typeof SiteSupportRoute
   '/terms-of-use': typeof SiteTermsOfUseRoute
+  '/auth': typeof TranslatorAuthRoute
+  '/auth-callback': typeof TranslatorAuthCallbackRoute
+  '/settings': typeof TranslatorSettingsRoute
   '/api/languages': typeof ApiLanguagesRoute
   '/api/pronunciations': typeof ApiPronunciationsRoute
   '/app/auth': typeof AppAuthRoute
@@ -212,9 +258,9 @@ export interface FileRoutesByTo {
   '/pwa/auth-callback': typeof PwaAuthCallbackRoute
   '/pwa/delete-account': typeof PwaDeleteAccountRoute
   '/pwa/settings': typeof PwaSettingsRoute
-  '/': typeof SiteIndexRoute
   '/app': typeof AppIndexRoute
   '/pwa': typeof PwaIndexRoute
+  '/account/delete-account': typeof TranslatorAccountDeleteAccountRoute
   '/multilingual-phonetic-representations': typeof SiteMultilingualPhoneticRepresentationsIndexRoute
   '/multilingual-phonetic-representations/about/attribution': typeof SiteMultilingualPhoneticRepresentationsAboutAttributionRoute
   '/app/api/auth/$': typeof AppApiAuthSplatRoute
@@ -224,13 +270,18 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_site': typeof SiteRouteWithChildren
+  '/_translator': typeof TranslatorRouteWithChildren
   '/app': typeof AppRouteWithChildren
   '/pwa': typeof PwaRouteWithChildren
+  '/_site/about': typeof SiteAboutRoute
   '/_site/contact-us': typeof SiteContactUsRoute
   '/_site/delete-account': typeof SiteDeleteAccountRoute
   '/_site/privacy-policy': typeof SitePrivacyPolicyRoute
   '/_site/support': typeof SiteSupportRoute
   '/_site/terms-of-use': typeof SiteTermsOfUseRoute
+  '/_translator/auth': typeof TranslatorAuthRoute
+  '/_translator/auth-callback': typeof TranslatorAuthCallbackRoute
+  '/_translator/settings': typeof TranslatorSettingsRoute
   '/api/languages': typeof ApiLanguagesRoute
   '/api/pronunciations': typeof ApiPronunciationsRoute
   '/app/auth': typeof AppAuthRoute
@@ -241,9 +292,10 @@ export interface FileRoutesById {
   '/pwa/auth-callback': typeof PwaAuthCallbackRoute
   '/pwa/delete-account': typeof PwaDeleteAccountRoute
   '/pwa/settings': typeof PwaSettingsRoute
-  '/_site/': typeof SiteIndexRoute
+  '/_translator/': typeof TranslatorIndexRoute
   '/app/': typeof AppIndexRoute
   '/pwa/': typeof PwaIndexRoute
+  '/_translator/account/delete-account': typeof TranslatorAccountDeleteAccountRoute
   '/_site/multilingual-phonetic-representations/': typeof SiteMultilingualPhoneticRepresentationsIndexRoute
   '/_site/multilingual-phonetic-representations/about/attribution': typeof SiteMultilingualPhoneticRepresentationsAboutAttributionRoute
   '/app/api/auth/$': typeof AppApiAuthSplatRoute
@@ -256,11 +308,15 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/pwa'
+    | '/about'
     | '/contact-us'
     | '/delete-account'
     | '/privacy-policy'
     | '/support'
     | '/terms-of-use'
+    | '/auth'
+    | '/auth-callback'
+    | '/settings'
     | '/api/languages'
     | '/api/pronunciations'
     | '/app/auth'
@@ -273,6 +329,7 @@ export interface FileRouteTypes {
     | '/pwa/settings'
     | '/app/'
     | '/pwa/'
+    | '/account/delete-account'
     | '/multilingual-phonetic-representations/'
     | '/multilingual-phonetic-representations/about/attribution'
     | '/app/api/auth/$'
@@ -280,11 +337,16 @@ export interface FileRouteTypes {
     | '/multilingual-phonetic-representations/about/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/'
+    | '/about'
     | '/contact-us'
     | '/delete-account'
     | '/privacy-policy'
     | '/support'
     | '/terms-of-use'
+    | '/auth'
+    | '/auth-callback'
+    | '/settings'
     | '/api/languages'
     | '/api/pronunciations'
     | '/app/auth'
@@ -295,9 +357,9 @@ export interface FileRouteTypes {
     | '/pwa/auth-callback'
     | '/pwa/delete-account'
     | '/pwa/settings'
-    | '/'
     | '/app'
     | '/pwa'
+    | '/account/delete-account'
     | '/multilingual-phonetic-representations'
     | '/multilingual-phonetic-representations/about/attribution'
     | '/app/api/auth/$'
@@ -306,13 +368,18 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_site'
+    | '/_translator'
     | '/app'
     | '/pwa'
+    | '/_site/about'
     | '/_site/contact-us'
     | '/_site/delete-account'
     | '/_site/privacy-policy'
     | '/_site/support'
     | '/_site/terms-of-use'
+    | '/_translator/auth'
+    | '/_translator/auth-callback'
+    | '/_translator/settings'
     | '/api/languages'
     | '/api/pronunciations'
     | '/app/auth'
@@ -323,9 +390,10 @@ export interface FileRouteTypes {
     | '/pwa/auth-callback'
     | '/pwa/delete-account'
     | '/pwa/settings'
-    | '/_site/'
+    | '/_translator/'
     | '/app/'
     | '/pwa/'
+    | '/_translator/account/delete-account'
     | '/_site/multilingual-phonetic-representations/'
     | '/_site/multilingual-phonetic-representations/about/attribution'
     | '/app/api/auth/$'
@@ -335,6 +403,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   SiteRoute: typeof SiteRouteWithChildren
+  TranslatorRoute: typeof TranslatorRouteWithChildren
   AppRoute: typeof AppRouteWithChildren
   PwaRoute: typeof PwaRouteWithChildren
   ApiLanguagesRoute: typeof ApiLanguagesRoute
@@ -348,6 +417,13 @@ declare module '@tanstack/solid-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof SiteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_translator': {
+      id: '/_translator'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof TranslatorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app': {
@@ -364,11 +440,11 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof PwaRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_site/': {
-      id: '/_site/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof SiteIndexRouteImport
+    '/_site/about': {
+      id: '/_site/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof SiteAboutRouteImport
       parentRoute: typeof SiteRoute
     }
     '/_site/contact-us': {
@@ -405,6 +481,34 @@ declare module '@tanstack/solid-router' {
       fullPath: '/terms-of-use'
       preLoaderRoute: typeof SiteTermsOfUseRouteImport
       parentRoute: typeof SiteRoute
+    }
+    '/_translator/': {
+      id: '/_translator/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof TranslatorIndexRouteImport
+      parentRoute: typeof TranslatorRoute
+    }
+    '/_translator/auth': {
+      id: '/_translator/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof TranslatorAuthRouteImport
+      parentRoute: typeof TranslatorRoute
+    }
+    '/_translator/auth-callback': {
+      id: '/_translator/auth-callback'
+      path: '/auth-callback'
+      fullPath: '/auth-callback'
+      preLoaderRoute: typeof TranslatorAuthCallbackRouteImport
+      parentRoute: typeof TranslatorRoute
+    }
+    '/_translator/settings': {
+      id: '/_translator/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof TranslatorSettingsRouteImport
+      parentRoute: typeof TranslatorRoute
     }
     '/api/languages': {
       id: '/api/languages'
@@ -497,6 +601,13 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof SiteMultilingualPhoneticRepresentationsIndexRouteImport
       parentRoute: typeof SiteRoute
     }
+    '/_translator/account/delete-account': {
+      id: '/_translator/account/delete-account'
+      path: '/account/delete-account'
+      fullPath: '/account/delete-account'
+      preLoaderRoute: typeof TranslatorAccountDeleteAccountRouteImport
+      parentRoute: typeof TranslatorRoute
+    }
     '/_site/multilingual-phonetic-representations/about/': {
       id: '/_site/multilingual-phonetic-representations/about/'
       path: '/multilingual-phonetic-representations/about'
@@ -529,24 +640,24 @@ declare module '@tanstack/solid-router' {
 }
 
 interface SiteRouteChildren {
+  SiteAboutRoute: typeof SiteAboutRoute
   SiteContactUsRoute: typeof SiteContactUsRoute
   SiteDeleteAccountRoute: typeof SiteDeleteAccountRoute
   SitePrivacyPolicyRoute: typeof SitePrivacyPolicyRoute
   SiteSupportRoute: typeof SiteSupportRoute
   SiteTermsOfUseRoute: typeof SiteTermsOfUseRoute
-  SiteIndexRoute: typeof SiteIndexRoute
   SiteMultilingualPhoneticRepresentationsIndexRoute: typeof SiteMultilingualPhoneticRepresentationsIndexRoute
   SiteMultilingualPhoneticRepresentationsAboutAttributionRoute: typeof SiteMultilingualPhoneticRepresentationsAboutAttributionRoute
   SiteMultilingualPhoneticRepresentationsAboutIndexRoute: typeof SiteMultilingualPhoneticRepresentationsAboutIndexRoute
 }
 
 const SiteRouteChildren: SiteRouteChildren = {
+  SiteAboutRoute: SiteAboutRoute,
   SiteContactUsRoute: SiteContactUsRoute,
   SiteDeleteAccountRoute: SiteDeleteAccountRoute,
   SitePrivacyPolicyRoute: SitePrivacyPolicyRoute,
   SiteSupportRoute: SiteSupportRoute,
   SiteTermsOfUseRoute: SiteTermsOfUseRoute,
-  SiteIndexRoute: SiteIndexRoute,
   SiteMultilingualPhoneticRepresentationsIndexRoute:
     SiteMultilingualPhoneticRepresentationsIndexRoute,
   SiteMultilingualPhoneticRepresentationsAboutAttributionRoute:
@@ -556,6 +667,26 @@ const SiteRouteChildren: SiteRouteChildren = {
 }
 
 const SiteRouteWithChildren = SiteRoute._addFileChildren(SiteRouteChildren)
+
+interface TranslatorRouteChildren {
+  TranslatorAuthRoute: typeof TranslatorAuthRoute
+  TranslatorAuthCallbackRoute: typeof TranslatorAuthCallbackRoute
+  TranslatorSettingsRoute: typeof TranslatorSettingsRoute
+  TranslatorIndexRoute: typeof TranslatorIndexRoute
+  TranslatorAccountDeleteAccountRoute: typeof TranslatorAccountDeleteAccountRoute
+}
+
+const TranslatorRouteChildren: TranslatorRouteChildren = {
+  TranslatorAuthRoute: TranslatorAuthRoute,
+  TranslatorAuthCallbackRoute: TranslatorAuthCallbackRoute,
+  TranslatorSettingsRoute: TranslatorSettingsRoute,
+  TranslatorIndexRoute: TranslatorIndexRoute,
+  TranslatorAccountDeleteAccountRoute: TranslatorAccountDeleteAccountRoute,
+}
+
+const TranslatorRouteWithChildren = TranslatorRoute._addFileChildren(
+  TranslatorRouteChildren,
+)
 
 interface AppRouteChildren {
   AppAuthRoute: typeof AppAuthRoute
@@ -599,6 +730,7 @@ const PwaRouteWithChildren = PwaRoute._addFileChildren(PwaRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   SiteRoute: SiteRouteWithChildren,
+  TranslatorRoute: TranslatorRouteWithChildren,
   AppRoute: AppRouteWithChildren,
   PwaRoute: PwaRouteWithChildren,
   ApiLanguagesRoute: ApiLanguagesRoute,

@@ -12,7 +12,7 @@ export default function SiteLayout() {
                 <SiteHeader />
                 <main
                     id="main-content"
-                    class={`site-main ${location().pathname === "/" ? "home" : ""}`}
+                    class={`site-main ${location().pathname.replace(/\/$/, "") === "/about" ? "home" : ""}`}
                 >
                     <Outlet />
                 </main>

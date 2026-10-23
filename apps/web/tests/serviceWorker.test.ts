@@ -16,6 +16,10 @@ test("the worker never intercepts API, cross-origin, or mutation requests", () =
     for (const request of [
         { method: "GET", url: "https://sapo.example/", mode: "navigate" },
         { method: "GET", url: "https://sapo.example/support/", mode: "navigate" },
+        { method: "GET", url: "https://sapo.example/about/", mode: "navigate" },
+        { method: "GET", url: "https://sapo.example/auth/", mode: "navigate" },
+        { method: "GET", url: "https://sapo.example/settings/", mode: "navigate" },
+        { method: "GET", url: "https://sapo.example/account/delete-account/", mode: "navigate" },
         { method: "GET", url: "https://sapo.example/api/languages" },
         { method: "GET", url: "https://sapo.example/app/", mode: "navigate" },
         { method: "GET", url: "https://sapo.example/app/settings/", mode: "navigate" },

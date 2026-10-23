@@ -7,7 +7,7 @@ SAPO's mobile app, website, and Convex backend live in one Git repository.
 | Workspace | Directory | Purpose |
 | --- | --- | --- |
 | `@sapo/mobile` | `apps/mobile` | Expo + React Native app, native projects, and EAS configuration |
-| `@sapo/web` | `apps/web` | TanStack Start + Solid 2 website, translator at `/app/`, and server-side Turso reader |
+| `@sapo/web` | `apps/web` | TanStack Start + Solid 2 website, translator at `/`, and server-side Turso reader |
 | `@sapo/client-core` | `packages/client-core` | Pure shared streaming transport and client constants |
 | `@sapo/backend` | `packages/backend` | Convex functions, components, generated bindings, and prompt generation |
 
@@ -30,7 +30,7 @@ bun run dev:backend
 ```
 
 Run those development commands in separate terminals. `dev:web` starts the unified
-website at `http://127.0.0.1:3000/`, including the translator at `/app/`.
+website at `http://127.0.0.1:3000/`, including the translator at `/`.
 `dev:app` and `web` are aliases for the same web server. `start`, `ios`, and
 `android` target mobile; use `bun run --filter @sapo/mobile web` for Expo's web target.
 
@@ -115,7 +115,7 @@ Convex is now ordinary tracked source, with its original license retained in
 `bun run build:web` builds the unified TanStack Start + Solid 2 website into
 `apps/web/.vercel/output`. Keep the Vercel Root Directory at `apps/web` and use
 Framework Preset **Other**. Public pages are prerendered; database endpoints and
-`/app/` run on the server. The PWA stays scoped to `/app/`.
+`/` run on the server. The PWA stays scoped to `/pwa/`.
 See [web setup](apps/web/README.md) for origins, callbacks, shared access rules,
 and the disabled Stripe foundation. `bun run --filter @sapo/web verify:build`
 checks the deployment artifact and preserved page copy after building.

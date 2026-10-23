@@ -216,7 +216,7 @@ body {
 .site-menu-navigation a[aria-current] {
     background: #f3f3f1;
 }
-@media (max-width: 640px) {
+@media (max-width: 768px) {
     .site-header {
         min-height: 76px;
         padding-block: 12px;

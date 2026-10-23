@@ -16,7 +16,7 @@ export const loadInitialAuth = createIsomorphicFn()
         if (token)
             throw redirect({
                 to: `${translatorBase(url.pathname)}/auth-callback/`,
-                href: `${translatorBase(url.pathname)}/auth-callback/?ott=${encodeURIComponent(token)}`,
+                href: `${translatorBase(url.pathname)}/auth-callback/${url.search}`,
                 statusCode: 303,
             });
         const { getWebAuthServer } = await import("./server/auth");
@@ -25,10 +25,9 @@ export const loadInitialAuth = createIsomorphicFn()
         const result = await server.bootstrap(request);
         const cookies = result.headers.getSetCookie();
         if (cookies.length) setResponseHeader("set-cookie", cookies);
-        // Existing browser sessions may still have only the old /app cookie.
-        // Let the shared auth API check those before declaring a PWA visitor signed out.
-        if (translatorBase(url.pathname) === "/pwa" && result.auth.status === "signed_out")
-            return { status: "checking", account: null };
+        // Existing browser sessions may still have only /app or /pwa cookies.
+        // The shared auth API validates and promotes those to the root path.
+        if (result.auth.status === "signed_out") return { status: "checking", account: null };
         return result.auth;
     })
     .client((): AuthBootstrap | undefined => undefined);

@@ -1,7 +1,7 @@
 # SAPO web
 
 One TanStack Start + Solid 2 application serves the website and translator at
-`/app/` and its installable PWA at `/pwa/`. Public pages are prerendered; API routes and translator pages use SSR.
+`/` with project information at `/about/` and its installable PWA at `/pwa/`. Public pages are prerendered; API routes and translator pages use SSR.
 
 ## Development
 
@@ -13,21 +13,21 @@ cp apps/web/.env.example apps/web/.env.local
 bun run dev:web
 ```
 
-Open `http://127.0.0.1:3000/` or `/app/` (responsive web) and `/pwa/` (PWA). There is one Vite server and one router.
+Open `http://127.0.0.1:3000/` (responsive translator), `/about/` (project information), or `/pwa/` (PWA). There is one Vite server and one router.
 Set private `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` for the database and public
 `VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL` to the same deployment as mobile.
 Local settings from the former translator workspace belong in this workspace now.
 
 Add the website's exact origin to the existing Convex deployment's `CLIENT_ORIGIN`,
 preserving its other origins. Google/Apple continue to use Better Auth accounts,
-backend callbacks, and the `/app/auth-callback/` or `/pwa/auth-callback/` return URL with the cross-domain token exchange.
+backend callbacks, and the `/auth-callback/` or `/pwa/auth-callback/` return URL with the cross-domain token exchange.
 
 Web authentication uses the same Convex deployment through `/app/api/auth/*`.
-The proxy stores HttpOnly cookies scoped to `/app` and `/pwa`; the backend's existing OAuth
+The proxy stores shared HttpOnly cookies at `/` and removes legacy `/app` and `/pwa` variants after validating their session; the backend's existing OAuth
 callbacks and mobile authentication remain unchanged. An HttpOnly browser nonce
 binds each web OAuth callback to the browser that initiated it.
 
-On `/app/` and `/pwa/` requests, the server verifies the cached Convex profile JWT against
+On root translator and `/pwa/` requests, the server verifies the cached Convex profile JWT against
 Convex's public keys and includes only profile fields in the initial HTML. Public
 keys are cached; profile data is isolated to each request. Missing or expired JWTs
 are refreshed once through Better Auth when a session cookie exists. No server
@@ -42,7 +42,7 @@ No backend environment is changed by a build.
 
 ## Structure
 
-- `src/routes`: thin file routes, the root document, public `_site` layout, and `/app`/`/pwa` layouts.
+- `src/routes`: thin file routes, the root document, public `_site` layout, and `_translator`/`pwa` layouts.
 - `src/components`: website UI in `site/` and translator feature screens beside it.
 - `src/stores`, `src/providers`: per-instance Solid state and translator lifecycle.
 - `src/lib`: integrations, Markdown rendering, and private database code in `server/`.
@@ -50,7 +50,7 @@ No backend environment is changed by a build.
 - `public`: website assets; shared translator assets live under `public/app/`; PWA install assets live under `public/pwa/`.
 
 The shared site header uses the same component in the website and desktop
-translator. Translator providers mount only within `/app/` and `/pwa/`. Styles are scoped to
+translator. Translator providers mount only within the pathless `_translator` layout and `/pwa/`. Legacy `/app/` page URLs redirect permanently, preserving query parameters. Styles are scoped to
 website and translator containers. State is never shared between SSR requests.
 
 ## Database
@@ -106,7 +106,7 @@ and access to workspace inputs outside the root directory. Nitro emits one
 `.vercel/output` artifact targeting Node 24. No custom merge script is required.
 The production build verifies preserved copy, assets, deployment routing, and
 server response behavior before succeeding. A small Nitro module compensates
-for the pinned preset’s terminal `/app/` and `/pwa/` header rules so dynamic routes reach SSR.
+for the pinned preset’s terminal cache header rules so dynamic routes reach SSR.
 Set public Convex URLs at build time and private Turso variables at runtime. Stripe billing remains disabled; its webhook rejects events until billing is implemented.
 The build does not need a database connection. `bun run --filter @sapo/web preview`
 previews the production build on port 4173. `bun run build:app` creates a Node
@@ -138,21 +138,21 @@ through Convex and `@sapo/client-core`. Preferences persist; input/output and pa
 access claims do not. Auth/account changes cancel streaming and clear text.
 
 Shared translator images and SVGs synchronize from `apps/mobile/assets` before
-dev/build. `/app/` is a responsive web page: input and output sit side by side on
+dev/build. `/` is a responsive web page: input and output sit side by side on
 wide screens and stack on small screens. It has no manifest, installation UI,
 or service worker registration. `/app/sw.js` only retires the previous worker.
 
 The PWA manifest, icons, offline notice, start URL, and service worker live under
 `/pwa/`. It uses a dedicated app shell on every device, with paged input/output,
 a sidebar, and the single-screen option. Website navigation and the public footer
-are exclusive to `/app/` and public pages.
+are exclusive to the root translator and public pages.
 Account links and OAuth returns remain within `/pwa/`; authentication uses the
 shared `/app/api/auth/*` proxy and session. Links from the PWA to public pages
 load a separate document. The worker caches only an offline notice and a small
 static asset allowlist, never user pages or API/auth responses. Updates wait for
 “Update now.” AI operations require internet access.
 
-`/app/delete-account?token=…` provides explicit deletion confirmation. Preserve the
+`/account/delete-account?token=…` provides explicit deletion confirmation; `/delete-account/` remains public help. Old `/app/delete-account` links redirect with their tokens intact. Preserve the
 backend's `DELETE_ACCOUNT_CALLBACK_URL` and mobile/universal-link behavior.
 Account deletion does not cancel store subscriptions.
 

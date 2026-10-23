@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/solid-router";
 import LandingPage from "@/components/site/LandingPage";
-export const Route = createFileRoute("/_site/")({
+export const Route = createFileRoute("/_site/about")({
     head: () => ({
         meta: [
             { title: "SAPO — Phonetic respelling" },

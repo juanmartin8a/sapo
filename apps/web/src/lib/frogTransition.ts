@@ -1,5 +1,5 @@
 // Each router owns its transition coordinator; SSR requests never share state.
-const frogRoutes = new Set(["/", "/support", "/contact-us", "/delete-account"]);
+const frogRoutes = new Set(["/about", "/support", "/contact-us", "/delete-account"]);
 const normalize = (path: string) => path.replace(/\/$/, "") || "/";
 const transitionClass = "sapo-frog-view-transitioning";
 

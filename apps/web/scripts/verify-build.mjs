@@ -105,6 +105,11 @@ async function deploymentTarget(path) {
     return target;
 }
 for (const path of [
+    "/",
+    "/auth/",
+    "/auth-callback/",
+    "/settings/",
+    "/account/delete-account/",
     "/pwa/",
     "/pwa/auth/",
     "/pwa/auth-callback/",
@@ -128,7 +133,8 @@ for (const path of [
         `Server route is shadowed by deployment headers: ${path}`,
     );
 }
-assert.equal(await deploymentTarget("/app"), "/app/");
+assert.equal(await deploymentTarget("/app"), "/");
+assert.equal(await deploymentTarget("/about/"), "/about/index.html");
 assert.equal(await deploymentTarget("/pwa"), "/pwa/");
 for (const path of [
     "/app/sw.js",
@@ -151,7 +157,7 @@ const { default: handler } = await import(
     new URL(".vercel/output/functions/__server.func/index.mjs", root).href
 );
 for (const [path, home] of [
-    ["/app/review-missing-page/", "/app/"],
+    ["/app/review-missing-page/", "/"],
     ["/pwa/review-missing-page/", "/pwa/"],
     ["/review-missing-page/", "/"],
 ]) {
@@ -176,8 +182,9 @@ const billing = await handler.fetch(
 assert.equal(billing.status, 503);
 assert.equal(billing.headers.get("cache-control"), "no-store");
 assert.deepEqual(await billing.json(), { error: "Billing is not enabled." });
-for (const basePath of ["/app", "/pwa"]) {
-    for (const path of ["/", "/auth/", "/settings/", "/delete-account/"]) {
+for (const basePath of ["", "/pwa"]) {
+    const deletion = basePath ? "/delete-account/" : "/account/delete-account/";
+    for (const path of ["/", "/auth/", "/settings/", deletion]) {
         const response = await handler.fetch(new Request(`https://sapo.example${basePath}${path}`));
         assert.equal(response.status, 200, `${basePath}${path}`);
         assert.match(response.headers.get("cache-control"), /no-store/);
@@ -188,12 +195,12 @@ for (const basePath of ["/app", "/pwa"]) {
         assert.ok(html.includes(basePath === "/pwa" ? "translator-pwa" : "translator-web"));
         assert.equal(
             /<header\b[^>]*class="[^"]*\bsite-header\b/.test(html),
-            basePath === "/app",
+            basePath === "",
             `Wrong website header on ${basePath}${path}`,
         );
         assert.equal(
             /<footer\b[^>]*class="[^"]*\bsite-footer\b/.test(html),
-            basePath === "/app",
+            basePath === "",
             `Wrong website footer on ${basePath}${path}`,
         );
         if (path === "/") {
@@ -207,10 +214,26 @@ for (const basePath of ["/app", "/pwa"]) {
         if (basePath === "/pwa") {
             assert.ok(html.includes("/pwa/manifest.webmanifest"));
             assert.ok(
-                !/href="\/app\/(?:auth|settings)\//.test(html),
+                !/href="\/(?:app\/)?(?:auth|settings)\//.test(html),
                 "PWA account links escape their namespace",
             );
         }
     }
+}
+for (const [path, destination] of [
+    ["/app/", "/"],
+    ["/app/auth/", "/auth/"],
+    ["/app/settings/", "/settings/"],
+    ["/app/auth-callback/", "/auth-callback/"],
+    ["/app/delete-account/", "/account/delete-account/"],
+]) {
+    const response = await handler.fetch(
+        new Request(`https://sapo.example${path}?preserve=one%20two`),
+    );
+    assert.equal(response.status, 308, `Legacy route does not redirect permanently: ${path}`);
+    const location = new URL(response.headers.get("location"), "https://sapo.example");
+    assert.equal(location.pathname, destination, path);
+    assert.equal(location.searchParams.get("preserve"), "one two", path);
+    await response.arrayBuffer();
 }
 console.log("Verified static assets, PWA scope, deployment headers, and Node 24 runtime.");

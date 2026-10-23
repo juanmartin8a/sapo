@@ -22,7 +22,7 @@ function createAppState(pwa: boolean) {
         respellLocked: () =>
             translation.state.operation === "respell" && auth.state.hasActiveSubscription === false,
         isPwa: pwa,
-        basePath: pwa ? ("/pwa" as const) : ("/app" as const),
+        basePath: pwa ? ("/pwa" as const) : ("" as const),
         pwa: createPwaStore(pwa),
     };
 }

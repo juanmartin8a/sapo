@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "@tanstack/solid-router";
 import { createSignal, Show } from "solid-js";
+import { deleteAccountPath } from "@/lib/translator-paths";
 import { useAppState } from "@/providers/AppProvider";
 import { TERMS_OF_USE_URL, PRIVACY_POLICY_URL } from "@/constants/translation";
 import { getAuthClient } from "@/lib/auth-client";
@@ -37,7 +38,7 @@ export default function SettingsScreen() {
             if (!expectedId || session.data?.user.id !== expectedId)
                 throw new Error("Your account changed. Please reload and try again.");
             const result = await client.deleteUser({
-                callbackURL: `${window.location.origin}${basePath}/delete-account`,
+                callbackURL: `${window.location.origin}${deleteAccountPath(basePath)}`,
             });
             if (result.error)
                 throw new Error("Couldn’t request account deletion. Please try again.");
