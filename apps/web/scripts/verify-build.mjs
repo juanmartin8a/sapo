@@ -210,6 +210,12 @@ for (const basePath of ["", "/pwa"]) {
                 basePath === "/pwa",
             );
             assert.equal(html.includes('aria-label="Workspace view"'), basePath === "/pwa");
+        } else {
+            assert.equal(
+                /<a\b[^>]*class="[^"]*\bback-link\b/.test(html),
+                basePath === "/pwa",
+                `Wrong account return navigation on ${basePath}${path}`,
+            );
         }
         if (basePath === "/pwa") {
             assert.ok(html.includes("/pwa/manifest.webmanifest"));

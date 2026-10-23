@@ -5,7 +5,7 @@ import { deleteAccountPath } from "@/lib/translator-paths";
 import { useAppState } from "@/providers/AppProvider";
 
 export default function DeleteAccountScreen() {
-    const { auth, translation, basePath } = useAppState();
+    const { auth, translation, basePath, isPwa } = useAppState();
     const [status, setStatus] = createSignal("Check your email link to confirm account deletion.");
     const [pending, setPending] = createSignal(false);
     const [confirmed, setConfirmed] = createSignal(false);
@@ -50,9 +50,11 @@ export default function DeleteAccountScreen() {
                         {pending() ? "Deleting…" : "Confirm account deletion"}
                     </button>
                 </Show>
-                <Link class="back-link" to={`${basePath}/`}>
-                    Back to SAPO
-                </Link>
+                <Show when={isPwa}>
+                    <Link class="back-link" to={`${basePath}/`}>
+                        Back to SAPO
+                    </Link>
+                </Show>
             </div>
         </main>
     );

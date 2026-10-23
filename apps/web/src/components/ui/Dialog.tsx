@@ -1,8 +1,9 @@
-import { onSettled } from "solid-js";
+import { onSettled, Show } from "solid-js";
 import type { JSX } from "@solidjs/web";
 
 export default function Dialog(props: {
     title: string;
+    hideTitle?: boolean;
     onClose: () => void;
     children: JSX.Element;
     class?: string;
@@ -107,7 +108,9 @@ export default function Dialog(props: {
         >
             <div class="dialog-content">
                 <header class="dialog-header">
-                    <h2>{props.title}</h2>
+                    <Show when={!props.hideTitle}>
+                        <h2>{props.title}</h2>
+                    </Show>
                     <button
                         class="icon-button close-button"
                         aria-label="Close"

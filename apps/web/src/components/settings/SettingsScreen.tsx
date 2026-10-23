@@ -53,10 +53,12 @@ export default function SettingsScreen() {
     return (
         <main class="account-screen settings-screen">
             <div class="account-card settings-card">
-                <Link class="back-link" to={`${basePath}/`}>
-                    <Icon name="arrow-left" size={24} />
-                    <span>Back to SAPO</span>
-                </Link>
+                <Show when={isPwa}>
+                    <Link class="back-link" to={`${basePath}/`}>
+                        <Icon name="arrow-left" size={24} />
+                        <span>Back to SAPO</span>
+                    </Link>
+                </Show>
                 <header class="settings-heading">
                     <h1>Settings</h1>
                 </header>

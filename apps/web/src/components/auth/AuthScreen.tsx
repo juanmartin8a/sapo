@@ -6,7 +6,7 @@ import { useAppState } from "@/providers/AppProvider";
 import Icon from "@/components/ui/Icon";
 
 export default function AuthScreen() {
-    const { basePath } = useAppState();
+    const { basePath, isPwa } = useAppState();
     const [pending, setPending] = createSignal<"google" | "apple" | null>(null);
     const [error, setError] = createSignal<string | null>(null);
     onSettled(() => {
@@ -35,10 +35,12 @@ export default function AuthScreen() {
     return (
         <main class="account-screen auth-screen">
             <div class="account-card">
-                <Link class="back-link" to={`${basePath}/`}>
-                    <Icon name="arrow-left" size={24} />
-                    <span>Back to SAPO</span>
-                </Link>
+                <Show when={isPwa}>
+                    <Link class="back-link" to={`${basePath}/`}>
+                        <Icon name="arrow-left" size={24} />
+                        <span>Back to SAPO</span>
+                    </Link>
+                </Show>
                 <div class="auth-hero">
                     <img src="/app/images/sapo.png" alt="SAPO frog" width="112" height="96" />
                     <h1>{pending() ? "Signing in…" : "Sign in"}</h1>
