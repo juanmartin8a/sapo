@@ -9,6 +9,30 @@ const fixture = JSON.parse(
 );
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 
+// The lazy layout must depend on its CSS so Vite waits for it before mounting.
+// A head stylesheet alone arrives too late on the first client-side navigation.
+const clientManifest = JSON.parse(
+    await readFile(new URL(".vercel/output/static/.vite/manifest.json", root), "utf8"),
+);
+function routeStyles(entry, visited = new Set()) {
+    if (visited.has(entry)) return [];
+    visited.add(entry);
+    const chunk = clientManifest[entry];
+    assert.ok(chunk, `Missing client chunk: ${entry}`);
+    return [
+        ...(chunk.css ?? []),
+        ...(chunk.imports ?? []).flatMap((dependency) => routeStyles(dependency, visited)),
+    ];
+}
+for (const route of ["_translator", "pwa"]) {
+    assert.ok(
+        routeStyles(`src/routes/${route}.tsx?tsr-split=component`).some((href) =>
+            /\/translator-[^/]+\.css$/.test(href),
+        ),
+        `Translator CSS must load before the ${route} route component`,
+    );
+}
+
 function hasTranslatorStyles(html) {
     return [...html.matchAll(/<link\b[^>]*>/g)].some(
         ([tag]) =>
