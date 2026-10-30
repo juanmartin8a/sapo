@@ -13,7 +13,7 @@ export default function SupportPage() {
                 </p>
                 <div class="support-actions">
                     <a class="resource-link" href="mailto:support@sapo.surf?subject=SAPO%20Support">
-                        {"Email support "}
+                        <span class="link-label">{"Email support "}</span>
                         <span aria-hidden="true">{"↗"}</span>
                     </a>
                 </div>

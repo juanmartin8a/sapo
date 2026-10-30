@@ -36,7 +36,8 @@ export default function DatabasePage() {
             <section aria-label="Multilingual phonetic representations">
                 <PageHeading title="Multilingual phonetic representations">
                     <Link class="resource-link" to="/multilingual-phonetic-representations/about/">
-                        About this database <span aria-hidden="true">→</span>
+                        <span class="link-label">About this database</span>{" "}
+                        <span aria-hidden="true">→</span>
                     </Link>
                 </PageHeading>
             </section>
@@ -78,7 +79,7 @@ export default function DatabasePage() {
                             class="text-button"
                             onClick={() => void browser.loadLanguages()}
                         >
-                            Retry <span aria-hidden="true">↗</span>
+                            <span class="link-label">Retry</span> <span aria-hidden="true">↗</span>
                         </button>
                     </div>
                 </Show>
@@ -105,7 +106,8 @@ export default function DatabasePage() {
                                 class="text-button"
                                 onClick={() => void browser.retry()}
                             >
-                                Retry <span aria-hidden="true">↗</span>
+                                <span class="link-label">Retry</span>{" "}
+                                <span aria-hidden="true">↗</span>
                             </button>
                         </div>
                     </Match>
@@ -192,7 +194,8 @@ export default function DatabasePage() {
                             disabled={state.pageIndex === 0 || state.resultsStatus === "loading"}
                             onClick={() => goToPage(state.pageIndex - 1)}
                         >
-                            ← Previous
+                            <span aria-hidden="true">←</span>
+                            <span class="link-label">Previous</span>
                         </button>
                         <span>Page {state.pageIndex + 1}</span>
                         <button
@@ -201,7 +204,8 @@ export default function DatabasePage() {
                             disabled={state.isDone || state.resultsStatus === "loading"}
                             onClick={() => goToPage(state.pageIndex + 1)}
                         >
-                            Next →
+                            <span class="link-label">Next</span>
+                            <span aria-hidden="true">→</span>
                         </button>
                     </nav>
                 </Show>

@@ -23,7 +23,7 @@ export const Route = createFileRoute(
                     target="_blank"
                     rel="noopener noreferrer"
                 >
-                    {"About the database "}
+                    <span class="link-label">{"About the database "}</span>
                     <span aria-hidden="true">{"→"}</span>
                 </Link>
             </nav>

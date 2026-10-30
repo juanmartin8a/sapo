@@ -21,7 +21,7 @@ export const Route = createFileRoute("/_site/multilingual-phonetic-representatio
                     target="_blank"
                     rel="noopener noreferrer"
                 >
-                    {"Data sources & attribution "}
+                    <span class="link-label">{"Data sources & attribution "}</span>
                     <span aria-hidden="true">{"→"}</span>
                 </Link>
                 <Link
@@ -30,7 +30,7 @@ export const Route = createFileRoute("/_site/multilingual-phonetic-representatio
                     target="_blank"
                     rel="noopener noreferrer"
                 >
-                    {"Browse the database "}
+                    <span class="link-label">{"Browse the database "}</span>
                     <span aria-hidden="true">{"→"}</span>
                 </Link>
             </nav>
