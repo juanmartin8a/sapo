@@ -1,10 +1,13 @@
 import { Outlet, useLocation } from "@tanstack/solid-router";
 import SiteHeader from "./SiteHeader";
 import SiteFooter from "./SiteFooter";
+import { isThemePreviewPath } from "@/lib/site-theme";
 export default function SiteLayout() {
     const location = useLocation();
     return (
-        <div class="marketing-site">
+        <div
+            class={`marketing-site ${isThemePreviewPath(location().pathname) ? "theme-preview" : ""}`}
+        >
             <div class="site-shell">
                 <a class="skip-link" href="#main-content">
                     Skip to content

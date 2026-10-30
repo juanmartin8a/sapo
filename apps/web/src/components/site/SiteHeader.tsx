@@ -1,6 +1,8 @@
 import { Link, useLocation } from "@tanstack/solid-router";
-import { createEffect, createSignal, createUniqueId, onSettled } from "solid-js";
+import { createEffect, createSignal, createUniqueId, onSettled, Show } from "solid-js";
 import AccountControl from "@/components/auth/AccountControl";
+import ThemeControl from "./ThemeControl";
+import { isThemePreviewPath } from "@/lib/site-theme";
 
 export default function SiteHeader() {
     const location = useLocation();
@@ -115,7 +117,16 @@ export default function SiteHeader() {
             <nav class="site-main-navigation" aria-label="Main navigation">
                 <NavigationLinks />
             </nav>
-            <AccountControl class="site-account" showSubscription={false} onNavigate={closeMenu} />
+            <div class="site-header-actions">
+                <Show when={isThemePreviewPath(location().pathname)}>
+                    <ThemeControl />
+                </Show>
+                <AccountControl
+                    class="site-account"
+                    showSubscription={false}
+                    onNavigate={closeMenu}
+                />
+            </div>
             <div
                 ref={(element) => {
                     menu = element;

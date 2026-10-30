@@ -13,6 +13,8 @@ import { loadInitialAuth } from "@/lib/auth-initial";
 import type { FrogTransitions } from "@/lib/frogTransition";
 import baseCss from "@/styles/base.css?url";
 import siteCss from "@/styles/site.css?url";
+import themeCss from "@/styles/site-theme.css?url";
+import { SITE_THEME_INIT_SCRIPT } from "@/lib/site-theme";
 
 export const Route = createRootRouteWithContext<{ frogTransitions: FrogTransitions }>()({
     beforeLoad: async () => ({ initialAuth: await loadInitialAuth() }),
@@ -24,7 +26,7 @@ export const Route = createRootRouteWithContext<{ frogTransitions: FrogTransitio
             },
             { name: "referrer", content: "same-origin" },
         ],
-        links: [baseCss, siteCss].map((href) => ({ rel: "stylesheet", href })),
+        links: [baseCss, siteCss, themeCss].map((href) => ({ rel: "stylesheet", href })),
     }),
     component: RootContent,
     shellComponent: RootDocument,
@@ -69,6 +71,7 @@ function RootDocument(props: { children: JSX.Element }) {
         <html lang="en">
             <head>
                 <meta charset="utf-8" />
+                <script innerHTML={SITE_THEME_INIT_SCRIPT} />
                 <HeadContent />
             </head>
             <body>

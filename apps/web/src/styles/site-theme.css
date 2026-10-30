@@ -1,0 +1,216 @@
+/* This preview is deliberately limited to / and /about/. The page marker is
+   rendered on the server so system appearance is available on the first paint. */
+:root:has(.theme-preview) {
+    color-scheme: light dark;
+    --ink: light-dark(#202320, #e8e8e8);
+    --muted: light-dark(#666b66, #adadad);
+    --line: light-dark(#e5e8e3, #333333);
+    --site-surface: light-dark(#fff, #101010);
+    --site-raised: light-dark(#f3f3f1, #222222);
+    --site-focus-surface: light-dark(#fafafa, #191919);
+    --site-focus: light-dark(#66834e, #d4d4d4);
+    --site-link: light-dark(#0645ad, #a6c7ff);
+    --site-underline: light-dark(#b4bcb1, #8f8f8f);
+    --site-separator: light-dark(#171717, #757575);
+    --site-selection: light-dark(#dce8cb, #3d3d3d);
+    --site-selection-ink: light-dark(#181a18, #f5f5f5);
+    --site-error: light-dark(#b22c2c, #ffabab);
+    --site-icon-invert: 0;
+    background: var(--site-surface);
+}
+:root[data-site-theme="light"]:has(.theme-preview) {
+    color-scheme: light;
+}
+:root[data-site-theme="dark"]:has(.theme-preview) {
+    color-scheme: dark;
+    --site-icon-invert: 1;
+}
+@media (prefers-color-scheme: dark) {
+    :root:not([data-site-theme="light"]):has(.theme-preview) {
+        --site-icon-invert: 1;
+    }
+}
+:root:has(.theme-preview) body {
+    background: var(--site-surface);
+}
+.site-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+}
+.site-header .site-header-actions .site-account {
+    margin-inline-start: 0;
+}
+.site-theme-control {
+    display: flex;
+    align-items: center;
+    position: relative;
+    flex: 0 0 auto;
+    color: var(--muted);
+}
+.site-theme-control > svg {
+    position: absolute;
+    left: 10px;
+    pointer-events: none;
+}
+.site-theme-control select {
+    min-height: 44px;
+    padding: 8px 4px 8px 30px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--site-surface);
+    color: var(--ink);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+.site-theme-control select:hover {
+    background: var(--site-raised);
+}
+.theme-preview .site-header nav,
+.theme-preview .site-footer {
+    color: var(--muted);
+}
+.theme-preview .site-header a[aria-current] {
+    color: var(--ink);
+}
+.theme-preview .site-menu-popover {
+    color: var(--ink);
+    background: var(--site-surface);
+}
+.theme-preview .site-menu-toggle:hover,
+.theme-preview .site-menu-navigation a:hover,
+.theme-preview .site-menu-navigation a[aria-current] {
+    background: var(--site-raised);
+}
+.theme-preview :where(a, button, select, input, textarea):focus-visible {
+    outline: 2px solid var(--site-focus);
+    outline-offset: 4px;
+}
+.theme-preview ::selection {
+    background: var(--site-selection);
+    color: var(--site-selection-ink);
+}
+.theme-preview .skip-link {
+    color: var(--ink);
+    background: var(--site-surface);
+}
+.theme-preview .frog img {
+    filter: invert(var(--site-icon-invert));
+}
+.theme-preview .mission a {
+    color: var(--site-link);
+    text-decoration-line: underline;
+}
+.theme-preview .resource-link {
+    text-decoration-color: var(--site-underline);
+}
+/* Higher specificity than the shared translator and its responsive variants. */
+:root .translator.theme-preview {
+    color: light-dark(#171717, #e8e8e8);
+    background: var(--site-surface);
+    --muted: light-dark(#858585, #adadad);
+    --line: light-dark(#dededb, #333333);
+
+    .mode-switch button[aria-pressed="true"] {
+        color: var(--site-surface);
+        background: var(--ink);
+    }
+    .icon-button:hover:not(:disabled),
+    .language-button-captioned:hover:not(:disabled),
+    .connection-banner {
+        background: var(--site-raised);
+    }
+    .translation-input,
+    .translation-collapse-button:hover,
+    .desktop-translation-collapse-button:hover {
+        color: var(--ink);
+    }
+    .translation-input:focus-visible {
+        background: var(--site-focus-surface);
+        outline: 2px solid var(--site-focus);
+        outline-offset: -2px;
+    }
+    .translation-input::placeholder,
+    .output-placeholder,
+    .translation-preview-text,
+    .translation-collapse-button,
+    .sidebar-field > label,
+    .toggle-description,
+    .pane-bottom,
+    .character-unit,
+    .keyboard-hint,
+    .chevron-down,
+    .pane-toolbar .icon-button,
+    .respelling-copy-button,
+    .language-button:hover:not(:disabled) {
+        color: var(--muted);
+    }
+    .swap-button,
+    .desktop-translation-collapse-button,
+    .respelling-copy-button {
+        background: var(--site-surface);
+    }
+    .output-pane {
+        border-color: var(--site-separator);
+    }
+    .translation-output-divider::before,
+    .stream-cursor {
+        background: var(--site-separator);
+    }
+    .toggle-input {
+        background: var(--line);
+        border-color: var(--line);
+    }
+    .toggle-input:checked {
+        background: var(--ink);
+        border-color: var(--ink);
+    }
+    .toggle-input:checked::before {
+        background: var(--site-surface);
+    }
+    .over-limit,
+    .error-message {
+        color: var(--site-error);
+    }
+    img.icon {
+        filter: invert(var(--site-icon-invert));
+    }
+    /* This picker has an intentionally dark surface in both themes. */
+    .language-dialog img.icon {
+        filter: invert(1);
+    }
+    :where(a, button, input, textarea):focus-visible {
+        outline-color: var(--site-focus);
+    }
+    .language-dialog :focus-visible {
+        outline-color: #d4d4d4;
+    }
+}
+@media (max-width: 768px) {
+    .site-header-actions {
+        margin-inline-start: auto;
+        gap: 12px;
+    }
+    .site-header .site-header-actions .site-account {
+        font-size: 12px;
+    }
+}
+@media (max-width: 380px) {
+    .theme-preview .site-header {
+        gap: 8px;
+    }
+    .site-header-actions {
+        gap: 8px;
+    }
+    .site-theme-control > svg {
+        display: none;
+    }
+    .site-theme-control select {
+        padding-inline-start: 6px;
+    }
+    .site-header .site-header-actions .account-details {
+        max-width: 64px;
+    }
+}
