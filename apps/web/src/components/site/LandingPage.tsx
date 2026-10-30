@@ -77,7 +77,7 @@ export default function LandingPage() {
                         }
                     </p>
                     <Link class="resource-link" to="/multilingual-phonetic-representations/">
-                        {" Browse the database "}
+                        <span class="link-label">{" Browse the database "}</span>
                         <span aria-hidden="true">{"↗"}</span>
                     </Link>
                 </article>
@@ -93,7 +93,7 @@ export default function LandingPage() {
                     </p>
                     <div class="app-links">
                         <Link class="resource-link" to="/">
-                            {"Try the web app "}
+                            <span class="link-label">{"Try the web app "}</span>
                             <span aria-hidden="true">{"↗"}</span>
                         </Link>
                         <a
@@ -102,7 +102,7 @@ export default function LandingPage() {
                             target="_blank"
                             rel="noreferrer"
                         >
-                            {" View on the App Store "}
+                            <span class="link-label">{" View on the App Store "}</span>
                             <span aria-hidden="true">{"↗"}</span>
                         </a>
                     </div>

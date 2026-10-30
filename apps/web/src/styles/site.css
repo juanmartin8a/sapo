@@ -242,7 +242,15 @@
         text-underline-offset: 5px;
         transition: opacity 150ms;
     }
-    .resource-link span {
+    .resource-link,
+    .text-button:has(> .link-label) {
+        text-decoration-line: none;
+    }
+    .link-label {
+        text-decoration-line: underline;
+        text-decoration-color: inherit;
+    }
+    .resource-link > [aria-hidden="true"] {
         font-size: 18px;
     }
     .text-button {
