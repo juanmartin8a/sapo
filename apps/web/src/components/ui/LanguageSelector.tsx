@@ -22,28 +22,30 @@ export default function LanguageSelector(props: {
     );
     return (
         <>
-            <button
-                ref={(element) => {
-                    trigger = element;
-                }}
-                class={`language-button ${props.caption ? "language-button-captioned" : ""}`}
-                aria-label={`${props.label}: ${props.value}`}
-                aria-haspopup="dialog"
-                aria-expanded={open() ? "true" : "false"}
-                disabled={props.disabled}
-                onClick={() => {
-                    setSearch("");
-                    setOpen(!open());
-                }}
-            >
+            <div class={props.caption ? "language-selector-captioned" : "language-selector"}>
                 <Show when={props.caption}>
                     <span class="language-caption" aria-hidden="true">
                         {props.caption}
                     </span>
                 </Show>
-                <span class="language-value">{props.value}</span>
-                <Icon name={isPwa ? "chevron-right" : "chevron-down"} size={isPwa ? 22 : 16} />
-            </button>
+                <button
+                    ref={(element) => {
+                        trigger = element;
+                    }}
+                    class={`language-button ${props.caption ? "language-button-captioned" : ""}`}
+                    aria-label={`${props.label}: ${props.value}`}
+                    aria-haspopup="dialog"
+                    aria-expanded={open() ? "true" : "false"}
+                    disabled={props.disabled}
+                    onClick={() => {
+                        setSearch("");
+                        setOpen(!open());
+                    }}
+                >
+                    <span class="language-value">{props.value}</span>
+                    <Icon name={isPwa ? "chevron-right" : "chevron-down"} size={isPwa ? 22 : 16} />
+                </button>
+            </div>
             <Show when={open()}>
                 <Dialog
                     title={props.label}

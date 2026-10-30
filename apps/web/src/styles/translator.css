@@ -336,6 +336,14 @@
         min-height: 72px;
         flex: 0 0 auto;
     }
+    .language-selector {
+        display: contents;
+    }
+    .language-selector-captioned {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
     .language-button {
         display: flex;
         align-items: center;
@@ -350,7 +358,7 @@
     }
     .language-button-captioned {
         gap: 8px;
-        padding: 6px 4px;
+        padding: 6px 12px;
         border-radius: 6px;
     }
     .language-caption {
@@ -1498,6 +1506,9 @@
     }
 
     &.translator-web {
+        .input-pane .pane-toolbar {
+            padding-left: 0;
+        }
         .account-screen {
             flex: 1;
             min-height: 0;
@@ -1572,6 +1583,11 @@
             .translation-workspace {
                 grid-template-columns: minmax(0, 1fr);
             }
+            .pane-toolbar,
+            .output-content,
+            .pane-bottom {
+                padding-inline: 0;
+            }
             .input-pane {
                 min-height: 280px;
             }
@@ -1609,11 +1625,6 @@
             .desktop-options,
             .workspace {
                 padding-inline: 24px;
-            }
-            .pane-toolbar,
-            .output-content,
-            .pane-bottom {
-                padding-inline: 0;
             }
         }
     }
