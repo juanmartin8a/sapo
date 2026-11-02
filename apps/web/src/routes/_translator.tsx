@@ -8,10 +8,7 @@ export const Route = createFileRoute("/_translator")({
             { title: "S A P O — Translate & Respell" },
             { name: "description", content: "Translate and respell text with SAPO." },
         ],
-        links: [
-            { rel: "stylesheet", href: translatorCss },
-            { rel: "icon", type: "image/png", href: "/app/images/sapo.png" },
-        ],
+        links: [{ rel: "stylesheet", href: translatorCss }],
     }),
     component: TranslatorLayout,
 });

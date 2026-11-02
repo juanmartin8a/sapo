@@ -14,7 +14,6 @@ export const Route = createFileRoute("/pwa")({
         links: [
             { rel: "stylesheet", href: translatorCss },
             { rel: "manifest", href: "/pwa/manifest.webmanifest" },
-            { rel: "icon", type: "image/png", href: "/app/images/sapo.png" },
             { rel: "apple-touch-icon", href: "/pwa/icons/app-192.png" },
         ],
     }),
