@@ -181,6 +181,7 @@
         background: var(--ink);
     }
     .icon-button:not(.close-button):hover:not(:disabled),
+    .swap-button:hover:not(:disabled),
     .language-button-captioned:hover:not(:disabled),
     .connection-banner {
         background: var(--site-raised);
