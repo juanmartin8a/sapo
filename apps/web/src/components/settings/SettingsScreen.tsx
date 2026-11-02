@@ -6,6 +6,7 @@ import { TERMS_OF_USE_URL, PRIVACY_POLICY_URL } from "@/constants/translation";
 import { getAuthClient } from "@/lib/auth-client";
 import Icon from "@/components/ui/Icon";
 import Dialog from "@/components/ui/Dialog";
+import ThemeControl from "./ThemeControl";
 
 export default function SettingsScreen() {
     const { auth, translation, pwa, isPwa, basePath, plan } = useAppState();
@@ -62,6 +63,10 @@ export default function SettingsScreen() {
                 <header class="settings-heading">
                     <h1>Settings</h1>
                 </header>
+                <section class="settings-section">
+                    <h2>Appearance</h2>
+                    <ThemeControl />
+                </section>
                 <section class="settings-section">
                     <h2>Account</h2>
                     <Show

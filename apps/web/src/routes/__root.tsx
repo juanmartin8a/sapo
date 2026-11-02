@@ -9,10 +9,13 @@ import {
 import type { JSX } from "@solidjs/web";
 import { isTranslatorPath, translatorBase } from "@/lib/translator-paths";
 import AuthProvider from "@/providers/AuthProvider";
+import SiteThemeProvider from "@/providers/SiteThemeProvider";
 import { loadInitialAuth } from "@/lib/auth-initial";
 import type { FrogTransitions } from "@/lib/frogTransition";
 import baseCss from "@/styles/base.css?url";
 import siteCss from "@/styles/site.css?url";
+import themeCss from "@/styles/site-theme.css?url";
+import { SITE_THEME_INIT_SCRIPT } from "@/lib/site-theme";
 
 export const Route = createRootRouteWithContext<{ frogTransitions: FrogTransitions }>()({
     beforeLoad: async () => ({ initialAuth: await loadInitialAuth() }),
@@ -24,7 +27,7 @@ export const Route = createRootRouteWithContext<{ frogTransitions: FrogTransitio
             },
             { name: "referrer", content: "same-origin" },
         ],
-        links: [baseCss, siteCss].map((href) => ({ rel: "stylesheet", href })),
+        links: [baseCss, siteCss, themeCss].map((href) => ({ rel: "stylesheet", href })),
     }),
     component: RootContent,
     shellComponent: RootDocument,
@@ -35,16 +38,18 @@ export const Route = createRootRouteWithContext<{ frogTransitions: FrogTransitio
 function RootContent() {
     const context = Route.useRouteContext();
     return (
-        <AuthProvider initialAuth={context().initialAuth}>
-            <Outlet />
-        </AuthProvider>
+        <SiteThemeProvider>
+            <AuthProvider initialAuth={context().initialAuth}>
+                <Outlet />
+            </AuthProvider>
+        </SiteThemeProvider>
     );
 }
 
 function ErrorPage() {
     const location = useLocation();
     return (
-        <main class="message-screen">
+        <main class="message-screen site-themed">
             <h1>Something went wrong.</h1>
             <p>Please refresh and try again.</p>
             <a href={`${translatorBase(location().pathname)}/`}>Back to SAPO</a>
@@ -57,7 +62,7 @@ function NotFoundPage() {
     const home = () =>
         isTranslatorPath(location().pathname) ? `${translatorBase(location().pathname)}/` : "/";
     return (
-        <main class="message-screen">
+        <main class="message-screen site-themed">
             <h1>Page not found.</h1>
             <Link to={home()}>Back to SAPO</Link>
         </main>
@@ -69,6 +74,7 @@ function RootDocument(props: { children: JSX.Element }) {
         <html lang="en">
             <head>
                 <meta charset="utf-8" />
+                <script innerHTML={SITE_THEME_INIT_SCRIPT} />
                 <HeadContent />
             </head>
             <body>

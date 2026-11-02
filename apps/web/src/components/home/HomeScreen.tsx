@@ -288,6 +288,7 @@ export default function HomeScreen() {
                 <Dialog
                     title="Translation options"
                     hideTitle
+                    hideClose
                     onClose={() => setDrawerOpen(false)}
                     class="sidebar-dialog"
                 >

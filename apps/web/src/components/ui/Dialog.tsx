@@ -1,9 +1,11 @@
 import { onSettled, Show } from "solid-js";
 import type { JSX } from "@solidjs/web";
+import Icon from "./Icon";
 
 export default function Dialog(props: {
     title: string;
     hideTitle?: boolean;
+    hideClose?: boolean;
     onClose: () => void;
     children: JSX.Element;
     class?: string;
@@ -107,18 +109,23 @@ export default function Dialog(props: {
             }}
         >
             <div class="dialog-content">
-                <header class="dialog-header">
-                    <Show when={!props.hideTitle}>
-                        <h2>{props.title}</h2>
-                    </Show>
-                    <button
-                        class="icon-button close-button"
-                        aria-label="Close"
-                        onClick={() => props.onClose()}
-                    >
-                        ×
-                    </button>
-                </header>
+                <Show when={!props.hideTitle || !props.hideClose}>
+                    <header class="dialog-header">
+                        <Show when={!props.hideTitle}>
+                            <h2>{props.title}</h2>
+                        </Show>
+                        <Show when={!props.hideClose}>
+                            <button
+                                type="button"
+                                class="icon-button close-button"
+                                aria-label="Close"
+                                onClick={() => props.onClose()}
+                            >
+                                <Icon name="x" size={24} />
+                            </button>
+                        </Show>
+                    </header>
+                </Show>
                 {props.children}
             </div>
         </dialog>

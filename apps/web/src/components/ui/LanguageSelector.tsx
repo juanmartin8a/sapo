@@ -66,10 +66,7 @@ export default function LanguageSelector(props: {
                                 <button
                                     class="language-option"
                                     aria-pressed={props.value === language ? "true" : "false"}
-                                    onClick={() => {
-                                        props.onChange(language);
-                                        setOpen(false);
-                                    }}
+                                    onClick={() => props.onChange(language)}
                                 >
                                     <span>{language}</span>
                                     <Show when={props.value === language}>

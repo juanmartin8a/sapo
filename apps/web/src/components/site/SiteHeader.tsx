@@ -76,6 +76,13 @@ export default function SiteHeader() {
             >
                 Support
             </Link>
+            <Link
+                to="/settings/"
+                aria-current={pathname() === "/settings" ? "page" : undefined}
+                onClick={closeMenu}
+            >
+                Settings
+            </Link>
         </>
     );
 

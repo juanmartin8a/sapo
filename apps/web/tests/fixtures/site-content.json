@@ -35,8 +35,8 @@
         "robots.txt": "b033243267bcbdab84cb01e940811d6d77a894d78f0470faaf0eb43f8e4efcc9",
         ".well-known/apple-app-site-association": "606c121e12f9d2ae29d49ad48017d5a88da508b0fff71aa456189569591f03cc",
         "pwa/manifest.webmanifest": "78b38444fd8b61c960f92f565f4f5007fc97f4bec4cab1c606136cdb27bb1be3",
-        "pwa/offline.html": "dc3b99c54e75e307eb2a70026266b4afc3b670182e261d09f976128cd70d7bff",
-        "pwa/sw.js": "a5b59cfa89d4d38248777f6c9bc843895bc5ba8458e9343498be52f7a9643a42",
+        "pwa/offline.html": "06eaf0f81613d21b7dc5d1ebcb1a9a099b9ce46c2d4e0fc650f6883ae987c320",
+        "pwa/sw.js": "3c53b7ad4ab259a5e3e6d7991dc3bcb76d34e03f5429ec2ba232c3a789b7c3e2",
         "app/sw.js": "0f51fac53335649171ece84f9b3ef8559dd85798fbe9500b3fffdb74390d5afc"
     },
     "metadata": {

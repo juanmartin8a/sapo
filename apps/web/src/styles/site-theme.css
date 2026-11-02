@@ -1,0 +1,320 @@
+/* Website and PWA layouts render this marker on the server so system appearance is
+   available on the first paint, including account and error pages. */
+:root:has(.site-themed) {
+    color-scheme: light dark;
+    --ink: light-dark(#202320, #e8e8e8);
+    --muted: light-dark(#666b66, #adadad);
+    --line: light-dark(#e5e8e3, #333333);
+    --site-surface: light-dark(#fff, #101010);
+    --site-raised: light-dark(#f3f3f1, #222222);
+    --site-subtle: light-dark(#f7f8f6, #191919);
+    --site-focus-surface: light-dark(#fafafa, #191919);
+    --site-focus: light-dark(#66834e, #d4d4d4);
+    --site-link: light-dark(#0645ad, #a6c7ff);
+    --site-underline: light-dark(#b4bcb1, #8f8f8f);
+    --site-separator: light-dark(#171717, #757575);
+    --site-selection: light-dark(#dce8cb, #3d3d3d);
+    --site-selection-ink: light-dark(#181a18, #f5f5f5);
+    --site-error: light-dark(#b22c2c, #ffabab);
+    --site-icon-invert: 0;
+    background: var(--site-surface);
+}
+:root[data-site-theme="light"]:has(.site-themed) {
+    color-scheme: light;
+}
+:root[data-site-theme="dark"]:has(.site-themed) {
+    color-scheme: dark;
+    --site-icon-invert: 1;
+}
+@media (prefers-color-scheme: dark) {
+    :root:not([data-site-theme="light"]):has(.site-themed) {
+        --site-icon-invert: 1;
+    }
+}
+:root:has(.site-themed) body {
+    background: var(--site-surface);
+}
+:root .translator .site-theme-control {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+:root .translator .site-theme-control button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 80px;
+    padding: 12px 8px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--site-surface);
+    color: var(--muted);
+    font-size: 12px;
+}
+:root .translator .site-theme-control button:hover {
+    background: var(--site-raised);
+    color: var(--ink);
+}
+:root .translator .site-theme-control button[aria-pressed="true"] {
+    border-color: var(--ink);
+    background: var(--site-raised);
+    color: var(--ink);
+}
+.site-themed .site-header nav,
+.site-themed .site-footer {
+    color: var(--muted);
+}
+.site-themed .site-header a[aria-current] {
+    color: var(--ink);
+}
+.site-themed .site-menu-popover {
+    color: var(--ink);
+    background: var(--site-surface);
+}
+.site-themed .site-menu-toggle:hover,
+.site-themed .site-menu-navigation a:hover,
+.site-themed .site-menu-navigation a[aria-current] {
+    background: var(--site-raised);
+}
+.site-themed :where(a, button, select, input, textarea):focus-visible {
+    outline: 2px solid var(--site-focus);
+    outline-offset: 4px;
+}
+.site-themed ::selection {
+    background: var(--site-selection);
+    color: var(--site-selection-ink);
+}
+.site-themed .skip-link {
+    color: var(--ink);
+    background: var(--site-surface);
+}
+.site-themed :is(.frog, .auth-frog) img {
+    filter: invert(var(--site-icon-invert)) brightness(calc(1 - 0.35 * var(--site-icon-invert)));
+}
+/* Preserve the whole eye's shading, with gray backing for its transparent highlights. */
+:is(.frog, .auth-frog) img.frog-eye {
+    opacity: 0;
+    filter: none;
+    background: #bbb;
+}
+:is(.frog, .auth-frog) img.frog-eye-closed {
+    mask-image: radial-gradient(ellipse 6.5% 8% at 62.3% 13.8%, #000 85%, transparent 100%);
+}
+:is(.frog, .auth-frog) img.frog-eye-open {
+    mask-image: radial-gradient(ellipse 6.2% 6.5% at 52.8% 18.8%, #000 85%, transparent 100%);
+}
+.site-themed :is(.frog, .auth-frog) img.frog-eye {
+    opacity: var(--site-icon-invert);
+}
+.site-themed .mission a {
+    color: var(--site-link);
+    text-decoration-line: underline;
+}
+.site-themed :is(.resource-link, .text-button),
+.site-themed :is(.page-intro, .page-prose) a {
+    text-decoration-color: var(--site-underline);
+}
+.site-themed .site-account img.icon {
+    filter: invert(var(--site-icon-invert));
+}
+@media (display-mode: standalone) {
+    .site-themed .site-account.account-signin {
+        background: var(--site-raised);
+    }
+}
+.marketing-site.site-themed {
+    .legal-document :is(blockquote, code, th),
+    .database-page .loading-row {
+        background: var(--site-subtle);
+    }
+    .database-page select {
+        background: var(--site-surface);
+    }
+}
+/* Higher specificity than the shared translator and its responsive variants. */
+:root .translator.site-themed {
+    color: light-dark(#171717, #e8e8e8);
+    background: var(--site-surface);
+    --muted: light-dark(#858585, #adadad);
+    --line: light-dark(#dededb, #333333);
+
+    .account-screen,
+    .account-card {
+        background: var(--site-surface);
+    }
+    .dialog:not(.language-dialog) {
+        color: var(--ink);
+        background: light-dark(#fff, #282828);
+    }
+    .dialog::backdrop {
+        background: light-dark(#0003, #0009);
+    }
+    .dialog-popover::backdrop {
+        background: transparent;
+    }
+    .google-button,
+    .button-secondary,
+    .plan-badge {
+        color: var(--ink);
+        background: var(--site-raised);
+    }
+    .back-link,
+    .legal-notice,
+    .legal-notice a,
+    .settings-section h2,
+    .settings-row small {
+        color: var(--muted);
+    }
+    .back-link:hover {
+        color: var(--ink);
+    }
+    .settings-row {
+        border-color: var(--line);
+    }
+    .danger {
+        color: var(--site-error);
+    }
+    .mode-switch button[aria-pressed="true"] {
+        color: var(--site-surface);
+        background: var(--ink);
+    }
+    .icon-button:not(.close-button):hover:not(:disabled),
+    .swap-button:hover:not(:disabled),
+    .language-button-captioned:hover:not(:disabled),
+    .connection-banner {
+        background: var(--site-raised);
+    }
+    .translation-input,
+    .translation-collapse-button:hover,
+    .desktop-translation-collapse-button:hover {
+        color: var(--ink);
+    }
+    .translation-input:focus-visible {
+        background: var(--site-focus-surface);
+        outline: 2px solid var(--site-focus);
+        outline-offset: -2px;
+    }
+    .translation-input::placeholder,
+    .output-placeholder,
+    .translation-preview-text,
+    .translation-collapse-button,
+    .sidebar-field > label,
+    .toggle-description,
+    .pane-bottom,
+    .character-unit,
+    .keyboard-hint,
+    .chevron-down,
+    .pane-toolbar .icon-button:not(.close-button),
+    .respelling-copy-button,
+    .language-button:hover:not(:disabled) {
+        color: var(--muted);
+    }
+    .swap-button,
+    .desktop-translation-collapse-button,
+    .respelling-copy-button {
+        background: var(--site-surface);
+    }
+    .output-pane {
+        border-color: var(--site-separator);
+    }
+    .translation-output-divider::before,
+    .stream-cursor {
+        background: var(--site-separator);
+    }
+    .toggle-input {
+        background: var(--line);
+        border-color: var(--line);
+    }
+    .toggle-input:checked {
+        background: var(--ink);
+        border-color: var(--ink);
+    }
+    .toggle-input:checked::before {
+        background: var(--site-surface);
+    }
+    .over-limit,
+    .error-message {
+        color: var(--site-error);
+    }
+    img.icon:not([src$="/google-g.svg"], [src$="/apple-logo.svg"]) {
+        filter: invert(var(--site-icon-invert));
+    }
+    /* Language pickers keep a dark surface in both page themes. */
+    .language-dialog {
+        background: light-dark(#000, #282828);
+        color: light-dark(#fff, #e8e8e8);
+    }
+    .language-dialog .search-input {
+        background: light-dark(#222, #383838);
+        color: inherit;
+    }
+    .language-dialog .language-option {
+        border-color: light-dark(#fff, #555);
+    }
+    .language-dialog .language-option:hover {
+        background: light-dark(#222, #383838);
+    }
+    :where(a, button, input, textarea):focus-visible {
+        outline-color: var(--site-focus);
+    }
+    .language-dialog :focus-visible {
+        outline-color: #d4d4d4;
+    }
+}
+:root .translator.site-themed.translator-pwa {
+    .mobile-tabs,
+    .sidebar-account.account-signin {
+        background: var(--site-raised);
+    }
+    .mobile-tabs button[aria-pressed="true"] {
+        background: var(--ink);
+        color: var(--site-surface);
+    }
+    .pane-toolbar {
+        background: var(--site-surface);
+    }
+    .translation-text {
+        color: var(--ink);
+    }
+    .workspace-header h1,
+    .sidebar-account .account-subtitle {
+        color: var(--muted);
+    }
+    .mobile-single-screen .output-pane,
+    .sidebar-dialog,
+    .sidebar-footer {
+        border-color: var(--line);
+    }
+    .settings-screen {
+        color: var(--ink);
+        background: light-dark(#f3f7f4, #101010);
+    }
+    .settings-card {
+        background: transparent;
+    }
+    .settings-section,
+    .settings-screen .signout-row {
+        background: light-dark(#fcfefc, #191919);
+    }
+    .settings-screen .muted,
+    .settings-screen .settings-row small {
+        color: var(--muted);
+    }
+    .settings-screen .text-button {
+        color: light-dark(#527a64, #b4cfbf);
+    }
+    .settings-screen .danger,
+    .settings-screen .signout-row {
+        color: var(--site-error);
+    }
+}
+@media (max-width: 380px) {
+    .site-themed .site-header {
+        gap: 8px;
+    }
+    .site-header .site-account .account-details {
+        max-width: 64px;
+    }
+}
