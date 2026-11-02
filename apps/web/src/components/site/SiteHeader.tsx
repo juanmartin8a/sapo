@@ -122,13 +122,7 @@ export default function SiteHeader() {
             <nav class="site-main-navigation" aria-label="Main navigation">
                 <NavigationLinks />
             </nav>
-            <div class="site-header-actions">
-                <AccountControl
-                    class="site-account"
-                    showSubscription={false}
-                    onNavigate={closeMenu}
-                />
-            </div>
+            <AccountControl class="site-account" showSubscription={false} onNavigate={closeMenu} />
             <div
                 ref={(element) => {
                     menu = element;

@@ -5,7 +5,23 @@
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#fff" />
         <title>SAPO — Offline</title>
+        <script>
+            try {
+                document.documentElement.dataset.siteTheme =
+                    localStorage.getItem("sapo:site-theme") || "system";
+            } catch {}
+        </script>
         <style>
+            :root {
+                color-scheme: light dark;
+                background: light-dark(#fff, #101010);
+            }
+            :root[data-site-theme="light"] {
+                color-scheme: light;
+            }
+            :root[data-site-theme="dark"] {
+                color-scheme: dark;
+            }
             body {
                 font: 18px system-ui;
                 margin: 0;
@@ -14,8 +30,8 @@
                 place-content: center;
                 text-align: center;
                 padding: 24px;
-                background: white;
-                color: black;
+                background: light-dark(#fff, #101010);
+                color: light-dark(#202320, #e8e8e8);
             }
             img {
                 width: 96px;
@@ -28,13 +44,25 @@
             p {
                 max-width: 320px;
                 line-height: 1.6;
-                color: #666;
+                color: light-dark(#666, #adadad);
             }
             a {
-                color: black;
+                color: inherit;
                 text-underline-offset: 5px;
             }
         </style>
+        <script>
+            const media = matchMedia("(prefers-color-scheme: dark)");
+            const syncThemeColor = () => {
+                const theme = document.documentElement.dataset.siteTheme;
+                const dark = theme === "dark" || (theme !== "light" && media.matches);
+                document
+                    .querySelector('meta[name="theme-color"]')
+                    .setAttribute("content", dark ? "#101010" : "#ffffff");
+            };
+            media.addEventListener("change", syncThemeColor);
+            syncThemeColor();
+        </script>
     </head>
     <body>
         <img src="/pwa/icons/app-192.png" alt="SAPO frog" />

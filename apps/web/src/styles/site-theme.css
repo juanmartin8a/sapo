@@ -1,4 +1,4 @@
-/* Website layouts render this marker on the server so system appearance is
+/* Website and PWA layouts render this marker on the server so system appearance is
    available on the first paint, including account and error pages. */
 :root:has(.site-themed) {
     color-scheme: light dark;
@@ -33,15 +33,6 @@
 }
 :root:has(.site-themed) body {
     background: var(--site-surface);
-}
-.site-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    min-width: 0;
-}
-.site-header .site-header-actions .site-account {
-    margin-inline-start: 0;
 }
 :root .translator .site-theme-control {
     display: grid;
@@ -264,9 +255,6 @@
     .language-dialog .language-option:hover {
         background: light-dark(#222, #383838);
     }
-    .language-dialog img.icon {
-        filter: invert(1);
-    }
     :where(a, button, input, textarea):focus-visible {
         outline-color: var(--site-focus);
     }
@@ -274,23 +262,58 @@
         outline-color: #d4d4d4;
     }
 }
-@media (max-width: 768px) {
-    .site-header-actions {
-        margin-inline-start: auto;
-        gap: 12px;
+:root .translator.site-themed.translator-pwa {
+    .mobile-tabs,
+    .sidebar-account.account-signin {
+        background: var(--site-raised);
     }
-    .site-header .site-header-actions .site-account {
-        font-size: 12px;
+    .mobile-tabs button[aria-pressed="true"] {
+        background: var(--ink);
+        color: var(--site-surface);
+    }
+    .pane-toolbar {
+        background: var(--site-surface);
+    }
+    .translation-text {
+        color: var(--ink);
+    }
+    .workspace-header h1,
+    .sidebar-account .account-subtitle {
+        color: var(--muted);
+    }
+    .mobile-single-screen .output-pane,
+    .sidebar-dialog,
+    .sidebar-footer {
+        border-color: var(--line);
+    }
+    .settings-screen {
+        color: var(--ink);
+        background: light-dark(#f3f7f4, #101010);
+    }
+    .settings-card {
+        background: transparent;
+    }
+    .settings-section,
+    .settings-screen .signout-row {
+        background: light-dark(#fcfefc, #191919);
+    }
+    .settings-screen .muted,
+    .settings-screen .settings-row small {
+        color: var(--muted);
+    }
+    .settings-screen .text-button {
+        color: light-dark(#527a64, #b4cfbf);
+    }
+    .settings-screen .danger,
+    .settings-screen .signout-row {
+        color: var(--site-error);
     }
 }
 @media (max-width: 380px) {
     .site-themed .site-header {
         gap: 8px;
     }
-    .site-header-actions {
-        gap: 8px;
-    }
-    .site-header .site-header-actions .account-details {
+    .site-header .site-account .account-details {
         max-width: 64px;
     }
 }

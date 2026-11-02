@@ -1,4 +1,4 @@
-const CACHE = "sapo-pwa-shell-v2";
+const CACHE = "sapo-pwa-shell-v3";
 const SHELL = ["/pwa/offline.html", "/pwa/icons/app-192.png"];
 
 self.addEventListener("install", (event) => {

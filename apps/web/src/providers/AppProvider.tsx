@@ -3,6 +3,7 @@ import type { JSX } from "@solidjs/web";
 import { createTranslationStore } from "@/stores/translationStore";
 import { useAuthState } from "./AuthProvider";
 import { loadPreferences, savePreferences } from "@/lib/preferences";
+import { watchPwaThemeColor } from "@/lib/site-theme";
 import { createPwaStore } from "@/stores/pwaStore";
 import { DEFAULT_SUBSCRIPTION_PLAN_LIMITS } from "@/constants/translation";
 
@@ -38,9 +39,11 @@ export default function AppProvider(props: { children: JSX.Element; pwa?: boolea
         app.translation.setPreferences(loadPreferences());
         setPreferencesReady(true);
         const disposePwa = app.pwa.initialize();
+        const disposeThemeColor = app.isPwa ? watchPwaThemeColor() : undefined;
         return () => {
             app.translation.stopStream();
             disposePwa();
+            disposeThemeColor?.();
         };
     });
     createEffect(

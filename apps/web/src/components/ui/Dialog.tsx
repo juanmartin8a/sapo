@@ -1,9 +1,11 @@
 import { onSettled, Show } from "solid-js";
 import type { JSX } from "@solidjs/web";
+import Icon from "./Icon";
 
 export default function Dialog(props: {
     title: string;
     hideTitle?: boolean;
+    hideClose?: boolean;
     onClose: () => void;
     children: JSX.Element;
     class?: string;
@@ -107,33 +109,23 @@ export default function Dialog(props: {
             }}
         >
             <div class="dialog-content">
-                <header class="dialog-header">
-                    <Show when={!props.hideTitle}>
-                        <h2>{props.title}</h2>
-                    </Show>
-                    <button
-                        class="icon-button close-button"
-                        aria-label="Close"
-                        onClick={() => props.onClose()}
-                    >
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="24"
-                            height="24"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            class="lucide lucide-x"
-                            aria-hidden="true"
-                        >
-                            <path d="M18 6 6 18" />
-                            <path d="m6 6 12 12" />
-                        </svg>
-                    </button>
-                </header>
+                <Show when={!props.hideTitle || !props.hideClose}>
+                    <header class="dialog-header">
+                        <Show when={!props.hideTitle}>
+                            <h2>{props.title}</h2>
+                        </Show>
+                        <Show when={!props.hideClose}>
+                            <button
+                                type="button"
+                                class="icon-button close-button"
+                                aria-label="Close"
+                                onClick={() => props.onClose()}
+                            >
+                                <Icon name="x" size={24} />
+                            </button>
+                        </Show>
+                    </header>
+                </Show>
                 {props.children}
             </div>
         </dialog>

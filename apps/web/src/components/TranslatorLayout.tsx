@@ -8,7 +8,7 @@ import "@/styles/translator.css";
 
 export default function TranslatorLayout(props: { pwa?: boolean }) {
     return (
-        <div class={`translator ${props.pwa ? "translator-pwa" : "translator-web site-themed"}`}>
+        <div class={`translator site-themed ${props.pwa ? "translator-pwa" : "translator-web"}`}>
             <AppProvider pwa={props.pwa}>
                 <Show when={!props.pwa}>
                     <SiteHeader />

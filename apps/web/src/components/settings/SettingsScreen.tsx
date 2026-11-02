@@ -63,12 +63,10 @@ export default function SettingsScreen() {
                 <header class="settings-heading">
                     <h1>Settings</h1>
                 </header>
-                <Show when={!isPwa}>
-                    <section class="settings-section">
-                        <h2>Appearance</h2>
-                        <ThemeControl />
-                    </section>
-                </Show>
+                <section class="settings-section">
+                    <h2>Appearance</h2>
+                    <ThemeControl />
+                </section>
                 <section class="settings-section">
                     <h2>Account</h2>
                     <Show
