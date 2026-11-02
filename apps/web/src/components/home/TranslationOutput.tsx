@@ -1,6 +1,7 @@
 import { createEffect, createSignal, createUniqueId, Show } from "solid-js";
 import { useAppState } from "@/providers/AppProvider";
 import Icon from "@/components/ui/Icon";
+import FrogImage from "@/components/ui/FrogImage";
 import TranslationPreview from "./TranslationPreview";
 
 export default function TranslationOutput(props: {
@@ -74,13 +75,19 @@ export default function TranslationOutput(props: {
     );
     const Frog = () => (
         <div class={`frog ${mouthOpen() ? "frog-speaking" : ""}`} aria-hidden="true">
-            <img class="frog-closed" src="/app/images/sapo.png" alt="" width="600" height="516" />
-            <img
+            <FrogImage
+                class="frog-closed"
+                pose="closed"
+                src="/app/images/sapo.png"
+                width={600}
+                height={516}
+            />
+            <FrogImage
                 class="frog-open"
+                pose="open"
                 src="/app/images/sapo-mouth-open.png"
-                alt=""
-                width="600"
-                height="590"
+                width={600}
+                height={590}
             />
         </div>
     );

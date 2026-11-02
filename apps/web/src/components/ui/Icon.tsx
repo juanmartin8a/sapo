@@ -6,7 +6,8 @@ export default function Icon(props: { name: IconName; size?: number }) {
     if (
         props.name === "chevron-down" ||
         props.name === "arrow-right-left" ||
-        props.name === "copy"
+        props.name === "copy" ||
+        props.name === "check"
     ) {
         return (
             <svg
@@ -22,7 +23,9 @@ export default function Icon(props: { name: IconName; size?: number }) {
                 stroke-linejoin="round"
                 aria-hidden="true"
             >
-                {props.name === "chevron-down" ? (
+                {props.name === "check" ? (
+                    <polyline points="20 6 9 17 4 12" />
+                ) : props.name === "chevron-down" ? (
                     <path d="m6 9 6 6 6-6" />
                 ) : props.name === "copy" ? (
                     <>

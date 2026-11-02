@@ -7,6 +7,7 @@ import {
     useLocation,
 } from "@tanstack/solid-router";
 import type { JSX } from "@solidjs/web";
+import { onSettled } from "solid-js";
 import { isTranslatorPath, translatorBase } from "@/lib/translator-paths";
 import AuthProvider from "@/providers/AuthProvider";
 import { loadInitialAuth } from "@/lib/auth-initial";
@@ -14,7 +15,7 @@ import type { FrogTransitions } from "@/lib/frogTransition";
 import baseCss from "@/styles/base.css?url";
 import siteCss from "@/styles/site.css?url";
 import themeCss from "@/styles/site-theme.css?url";
-import { SITE_THEME_INIT_SCRIPT } from "@/lib/site-theme";
+import { SITE_THEME_INIT_SCRIPT, watchSiteTheme } from "@/lib/site-theme";
 
 export const Route = createRootRouteWithContext<{ frogTransitions: FrogTransitions }>()({
     beforeLoad: async () => ({ initialAuth: await loadInitialAuth() }),
@@ -36,6 +37,7 @@ export const Route = createRootRouteWithContext<{ frogTransitions: FrogTransitio
 
 function RootContent() {
     const context = Route.useRouteContext();
+    onSettled(() => watchSiteTheme());
     return (
         <AuthProvider initialAuth={context().initialAuth}>
             <Outlet />
@@ -46,7 +48,7 @@ function RootContent() {
 function ErrorPage() {
     const location = useLocation();
     return (
-        <main class="message-screen">
+        <main class="message-screen site-themed">
             <h1>Something went wrong.</h1>
             <p>Please refresh and try again.</p>
             <a href={`${translatorBase(location().pathname)}/`}>Back to SAPO</a>
@@ -59,7 +61,7 @@ function NotFoundPage() {
     const home = () =>
         isTranslatorPath(location().pathname) ? `${translatorBase(location().pathname)}/` : "/";
     return (
-        <main class="message-screen">
+        <main class="message-screen site-themed">
             <h1>Page not found.</h1>
             <Link to={home()}>Back to SAPO</Link>
         </main>

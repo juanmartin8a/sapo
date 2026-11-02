@@ -1,12 +1,13 @@
-/* This preview is deliberately limited to / and /about/. The page marker is
-   rendered on the server so system appearance is available on the first paint. */
-:root:has(.theme-preview) {
+/* Website layouts render this marker on the server so system appearance is
+   available on the first paint, including account and error pages. */
+:root:has(.site-themed) {
     color-scheme: light dark;
     --ink: light-dark(#202320, #e8e8e8);
     --muted: light-dark(#666b66, #adadad);
     --line: light-dark(#e5e8e3, #333333);
     --site-surface: light-dark(#fff, #101010);
     --site-raised: light-dark(#f3f3f1, #222222);
+    --site-subtle: light-dark(#f7f8f6, #191919);
     --site-focus-surface: light-dark(#fafafa, #191919);
     --site-focus: light-dark(#66834e, #d4d4d4);
     --site-link: light-dark(#0645ad, #a6c7ff);
@@ -18,19 +19,19 @@
     --site-icon-invert: 0;
     background: var(--site-surface);
 }
-:root[data-site-theme="light"]:has(.theme-preview) {
+:root[data-site-theme="light"]:has(.site-themed) {
     color-scheme: light;
 }
-:root[data-site-theme="dark"]:has(.theme-preview) {
+:root[data-site-theme="dark"]:has(.site-themed) {
     color-scheme: dark;
     --site-icon-invert: 1;
 }
 @media (prefers-color-scheme: dark) {
-    :root:not([data-site-theme="light"]):has(.theme-preview) {
+    :root:not([data-site-theme="light"]):has(.site-themed) {
         --site-icon-invert: 1;
     }
 }
-:root:has(.theme-preview) body {
+:root:has(.site-themed) body {
     background: var(--site-surface);
 }
 .site-header-actions {
@@ -42,82 +43,153 @@
 .site-header .site-header-actions .site-account {
     margin-inline-start: 0;
 }
-.site-theme-control {
+:root .translator .site-theme-control {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+:root .translator .site-theme-control button {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    position: relative;
-    flex: 0 0 auto;
-    color: var(--muted);
-}
-.site-theme-control > svg {
-    position: absolute;
-    left: 10px;
-    pointer-events: none;
-}
-.site-theme-control select {
-    min-height: 44px;
-    padding: 8px 4px 8px 30px;
+    justify-content: center;
+    gap: 8px;
+    min-height: 80px;
+    padding: 12px 8px;
     border: 1px solid var(--line);
     border-radius: 8px;
     background: var(--site-surface);
-    color: var(--ink);
-    font: inherit;
+    color: var(--muted);
     font-size: 12px;
-    cursor: pointer;
 }
-.site-theme-control select:hover {
+:root .translator .site-theme-control button:hover {
     background: var(--site-raised);
+    color: var(--ink);
 }
-.theme-preview .site-header nav,
-.theme-preview .site-footer {
+:root .translator .site-theme-control button[aria-pressed="true"] {
+    border-color: var(--ink);
+    background: var(--site-raised);
+    color: var(--ink);
+}
+.site-themed .site-header nav,
+.site-themed .site-footer {
     color: var(--muted);
 }
-.theme-preview .site-header a[aria-current] {
+.site-themed .site-header a[aria-current] {
     color: var(--ink);
 }
-.theme-preview .site-menu-popover {
+.site-themed .site-menu-popover {
     color: var(--ink);
     background: var(--site-surface);
 }
-.theme-preview .site-menu-toggle:hover,
-.theme-preview .site-menu-navigation a:hover,
-.theme-preview .site-menu-navigation a[aria-current] {
+.site-themed .site-menu-toggle:hover,
+.site-themed .site-menu-navigation a:hover,
+.site-themed .site-menu-navigation a[aria-current] {
     background: var(--site-raised);
 }
-.theme-preview :where(a, button, select, input, textarea):focus-visible {
+.site-themed :where(a, button, select, input, textarea):focus-visible {
     outline: 2px solid var(--site-focus);
     outline-offset: 4px;
 }
-.theme-preview ::selection {
+.site-themed ::selection {
     background: var(--site-selection);
     color: var(--site-selection-ink);
 }
-.theme-preview .skip-link {
+.site-themed .skip-link {
     color: var(--ink);
     background: var(--site-surface);
 }
-.theme-preview .frog img {
-    filter: invert(var(--site-icon-invert));
+.site-themed :is(.frog, .auth-frog) img {
+    filter: invert(var(--site-icon-invert)) brightness(calc(1 - 0.35 * var(--site-icon-invert)));
 }
-.theme-preview .mission a {
+/* Preserve the whole eye's shading, with gray backing for its transparent highlights. */
+:is(.frog, .auth-frog) img.frog-eye {
+    opacity: 0;
+    filter: none;
+    background: #bbb;
+}
+:is(.frog, .auth-frog) img.frog-eye-closed {
+    mask-image: radial-gradient(ellipse 6.5% 8% at 62.3% 13.8%, #000 85%, transparent 100%);
+}
+:is(.frog, .auth-frog) img.frog-eye-open {
+    mask-image: radial-gradient(ellipse 6.2% 6.5% at 52.8% 18.8%, #000 85%, transparent 100%);
+}
+.site-themed :is(.frog, .auth-frog) img.frog-eye {
+    opacity: var(--site-icon-invert);
+}
+.site-themed .mission a {
     color: var(--site-link);
     text-decoration-line: underline;
 }
-.theme-preview .resource-link {
+.site-themed :is(.resource-link, .text-button),
+.site-themed :is(.page-intro, .page-prose) a {
     text-decoration-color: var(--site-underline);
 }
+.site-themed .site-account img.icon {
+    filter: invert(var(--site-icon-invert));
+}
+@media (display-mode: standalone) {
+    .site-themed .site-account.account-signin {
+        background: var(--site-raised);
+    }
+}
+.marketing-site.site-themed {
+    .legal-document :is(blockquote, code, th),
+    .database-page .loading-row {
+        background: var(--site-subtle);
+    }
+    .database-page select {
+        background: var(--site-surface);
+    }
+}
 /* Higher specificity than the shared translator and its responsive variants. */
-:root .translator.theme-preview {
+:root .translator.site-themed {
     color: light-dark(#171717, #e8e8e8);
     background: var(--site-surface);
     --muted: light-dark(#858585, #adadad);
     --line: light-dark(#dededb, #333333);
 
+    .account-screen,
+    .account-card {
+        background: var(--site-surface);
+    }
+    .dialog:not(.language-dialog) {
+        color: var(--ink);
+        background: light-dark(#fff, #282828);
+    }
+    .dialog::backdrop {
+        background: light-dark(#0003, #0009);
+    }
+    .dialog-popover::backdrop {
+        background: transparent;
+    }
+    .google-button,
+    .button-secondary,
+    .plan-badge {
+        color: var(--ink);
+        background: var(--site-raised);
+    }
+    .back-link,
+    .legal-notice,
+    .legal-notice a,
+    .settings-section h2,
+    .settings-row small {
+        color: var(--muted);
+    }
+    .back-link:hover {
+        color: var(--ink);
+    }
+    .settings-row {
+        border-color: var(--line);
+    }
+    .danger {
+        color: var(--site-error);
+    }
     .mode-switch button[aria-pressed="true"] {
         color: var(--site-surface);
         background: var(--ink);
     }
-    .icon-button:hover:not(:disabled),
+    .icon-button:not(.close-button):hover:not(:disabled),
     .language-button-captioned:hover:not(:disabled),
     .connection-banner {
         background: var(--site-raised);
@@ -142,7 +214,7 @@
     .character-unit,
     .keyboard-hint,
     .chevron-down,
-    .pane-toolbar .icon-button,
+    .pane-toolbar .icon-button:not(.close-button),
     .respelling-copy-button,
     .language-button:hover:not(:disabled) {
         color: var(--muted);
@@ -174,10 +246,24 @@
     .error-message {
         color: var(--site-error);
     }
-    img.icon {
+    img.icon:not([src$="/google-g.svg"], [src$="/apple-logo.svg"]) {
         filter: invert(var(--site-icon-invert));
     }
-    /* This picker has an intentionally dark surface in both themes. */
+    /* Language pickers keep a dark surface in both page themes. */
+    .language-dialog {
+        background: light-dark(#000, #282828);
+        color: light-dark(#fff, #e8e8e8);
+    }
+    .language-dialog .search-input {
+        background: light-dark(#222, #383838);
+        color: inherit;
+    }
+    .language-dialog .language-option {
+        border-color: light-dark(#fff, #555);
+    }
+    .language-dialog .language-option:hover {
+        background: light-dark(#222, #383838);
+    }
     .language-dialog img.icon {
         filter: invert(1);
     }
@@ -198,17 +284,11 @@
     }
 }
 @media (max-width: 380px) {
-    .theme-preview .site-header {
+    .site-themed .site-header {
         gap: 8px;
     }
     .site-header-actions {
         gap: 8px;
-    }
-    .site-theme-control > svg {
-        display: none;
-    }
-    .site-theme-control select {
-        padding-inline-start: 6px;
     }
     .site-header .site-header-actions .account-details {
         max-width: 64px;

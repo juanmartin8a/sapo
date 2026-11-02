@@ -4,6 +4,7 @@ import { getAuthClient, isAuthConfigured } from "@/lib/auth-client";
 import { TERMS_OF_USE_URL, PRIVACY_POLICY_URL } from "@/constants/translation";
 import { useAppState } from "@/providers/AppProvider";
 import Icon from "@/components/ui/Icon";
+import FrogImage from "@/components/ui/FrogImage";
 
 export default function AuthScreen() {
     const { basePath, isPwa } = useAppState();
@@ -42,7 +43,15 @@ export default function AuthScreen() {
                     </Link>
                 </Show>
                 <div class="auth-hero">
-                    <img src="/app/images/sapo.png" alt="SAPO frog" width="112" height="96" />
+                    <span class="auth-frog" role="img" aria-label="SAPO frog">
+                        <FrogImage
+                            src="/app/images/sapo.png"
+                            class="frog-closed"
+                            pose="closed"
+                            width={600}
+                            height={516}
+                        />
+                    </span>
                     <h1>{pending() ? "Signing in…" : "Sign in"}</h1>
                 </div>
                 <div class="auth-actions">

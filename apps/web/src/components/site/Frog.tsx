@@ -1,4 +1,5 @@
 import type { FrogAnimation } from "@/lib/createFrogAnimation";
+import FrogImage from "@/components/ui/FrogImage";
 export default function Frog(props: { animation: FrogAnimation }) {
     return (
         <button
@@ -9,8 +10,20 @@ export default function Frog(props: { animation: FrogAnimation }) {
             aria-label="Make the SAPO frog open its mouth"
         >
             <span class="frog-art">
-                <img class="closed" src="/sapo-frog.svg" alt="" width="929" height="800" />
-                <img class="open" src="/sapo-frog-open.svg" alt="" width="929" height="914" />
+                <FrogImage
+                    class="closed"
+                    pose="closed"
+                    src="/sapo-frog.svg"
+                    width={929}
+                    height={800}
+                />
+                <FrogImage
+                    class="open"
+                    pose="open"
+                    src="/sapo-frog-open.svg"
+                    width={929}
+                    height={914}
+                />
             </span>
         </button>
     );
