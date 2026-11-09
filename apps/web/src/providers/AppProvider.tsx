@@ -1,5 +1,7 @@
 import { createContext, createEffect, createSignal, onSettled, useContext } from "solid-js";
 import type { JSX } from "@solidjs/web";
+import { createLocalModelStore } from "@/stores/localModelStore";
+import { LOCAL_INPUT_LIMIT } from "@/lib/local-models/config";
 import { createTranslationStore } from "@/stores/translationStore";
 import { useAuthState } from "./AuthProvider";
 import { loadPreferences, savePreferences } from "@/lib/preferences";
@@ -8,18 +10,26 @@ import { createPwaStore } from "@/stores/pwaStore";
 import { DEFAULT_SUBSCRIPTION_PLAN_LIMITS } from "@/constants/translation";
 
 function createAppState(pwa: boolean) {
-    const translation = createTranslationStore();
+    const localModels = createLocalModelStore(() => translation.stopStream());
+    const translation = createTranslationStore({
+        enabled: () => localModels.state.enabled,
+        identity: localModels.identity,
+        translate: localModels.translate,
+    });
     const auth = useAuthState();
     const plan = () =>
         DEFAULT_SUBSCRIPTION_PLAN_LIMITS[auth.state.hasActiveSubscription ? "polyglot" : "free"];
     return {
         translation,
+        localModels,
         auth,
         plan,
         inputLimit: () =>
-            translation.state.operation === "respell"
-                ? plan().respell_input_char_limit
-                : plan().translate_input_char_limit,
+            translation.usesLocalModel()
+                ? LOCAL_INPUT_LIMIT
+                : translation.state.operation === "respell"
+                  ? plan().respell_input_char_limit
+                  : plan().translate_input_char_limit,
         respellLocked: () =>
             translation.state.operation === "respell" && auth.state.hasActiveSubscription === false,
         isPwa: pwa,
@@ -37,11 +47,13 @@ export default function AppProvider(props: { children: JSX.Element; pwa?: boolea
 
     onSettled(() => {
         app.translation.setPreferences(loadPreferences());
+        app.localModels.initialize();
         setPreferencesReady(true);
         const disposePwa = app.pwa.initialize();
         const disposeThemeColor = app.isPwa ? watchPwaThemeColor() : undefined;
         return () => {
             app.translation.stopStream();
+            app.localModels.dispose();
             disposePwa();
             disposeThemeColor?.();
         };
@@ -49,7 +61,8 @@ export default function AppProvider(props: { children: JSX.Element; pwa?: boolea
     createEffect(
         () => app.auth.state.userId,
         (userId, previousId) => {
-            if (previousId && userId !== previousId) app.translation.clear();
+            if (previousId && userId !== previousId && !app.translation.usesLocalModel())
+                app.translation.clear();
         },
     );
     createEffect(

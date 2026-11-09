@@ -9,8 +9,6 @@ export default function TranslateButton() {
     const navigate = useNavigate();
     const actionLabel = () =>
         busy() ? "Stop" : translation.isRepeat() ? "Repeat" : operationLabel();
-    const actionIcon = () =>
-        translation.isRepeat() ? ("repeat" as const) : ("arrow-right" as const);
 
     function submit() {
         if (busy()) {
@@ -18,6 +16,10 @@ export default function TranslateButton() {
             return;
         }
         translation.setError(null);
+        if (translation.usesLocalModel()) {
+            void translation.sendMessage();
+            return;
+        }
         if (!pwa.state.online) {
             translation.setError("You’re offline. Connect to the internet to continue.");
             return;
@@ -73,8 +75,8 @@ export default function TranslateButton() {
             disabled={
                 !busy() &&
                 (!translation.state.input.trim() ||
-                    auth.state.status === "checking" ||
-                    !pwa.state.online)
+                    (!translation.usesLocalModel() &&
+                        (auth.state.status === "checking" || !pwa.state.online)))
             }
             aria-label={
                 busy()
@@ -87,7 +89,17 @@ export default function TranslateButton() {
             }
         >
             <span class="sr-only">{actionLabel()}</span>
-            <Show when={busy()} fallback={<Icon name={actionIcon()} size={32} />}>
+            <Show
+                when={busy()}
+                fallback={
+                    <Show
+                        when={translation.isRepeat()}
+                        fallback={<Icon name="arrow-right" size={32} />}
+                    >
+                        <Icon name="repeat" size={32} />
+                    </Show>
+                }
+            >
                 <svg
                     class="icon"
                     width="18"

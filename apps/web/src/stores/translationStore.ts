@@ -3,7 +3,17 @@ import { DEFAULT_PREFERENCES, type Preferences } from "@/lib/preferences";
 import { streamTranslation } from "@/lib/translation-stream";
 import type { MobilePane, TranslationStatus, TranslationRequest } from "@/types/translation";
 
-export function createTranslationStore() {
+interface LocalTranslation {
+    enabled: () => boolean;
+    identity: () => string;
+    translate: (
+        request: TranslationRequest,
+        signal: AbortSignal,
+        onText: (text: string) => void,
+    ) => Promise<void>;
+}
+
+export function createTranslationStore(local?: LocalTranslation) {
     const [state, setState] = createStore({
         ...DEFAULT_PREFERENCES,
         input: "",
@@ -16,6 +26,9 @@ export function createTranslationStore() {
     });
     let activeController: AbortController | null = null;
     let lastRequest: TranslationRequest | null = null;
+    let lastProvider = "";
+    const usesLocalModel = () => state.operation === "translate" && Boolean(local?.enabled());
+    const provider = () => (usesLocalModel() ? local!.identity() : "online");
     const busy = () => state.status === "loading" || state.status === "streaming";
     const characterCount = createMemo(() => Array.from(state.input).length);
     const operationLabel = () =>
@@ -34,7 +47,7 @@ export function createTranslationStore() {
         });
     }
 
-    async function sendMessage(expectedUserId: string) {
+    async function sendMessage(expectedUserId?: string) {
         if (activeController || !state.input.trim()) return;
         const request: TranslationRequest = {
             operation: state.operation,
@@ -45,6 +58,7 @@ export function createTranslationStore() {
             input: state.input,
         };
         lastRequest = request;
+        lastProvider = provider();
         const controller = new AbortController();
         activeController = controller;
         setState((draft) => {
@@ -55,25 +69,28 @@ export function createTranslationStore() {
             draft.mobilePane = "output";
         });
         try {
-            await streamTranslation(
-                request,
-                controller,
-                (token) => {
-                    if (activeController !== controller) return;
-                    setState((draft) => {
-                        draft.status = "streaming";
-                        if (token.type === "translation_preview")
-                            draft.translationPreview += token.value ?? "";
-                        else {
-                            draft.displayText +=
-                                token.type === "word" ? (token.output ?? "") : (token.value ?? "");
-                            if (token.type === "word" || token.type === "translate")
-                                draft.mouthTriggerVersion++;
-                        }
-                    });
-                },
-                expectedUserId,
-            );
+            const onToken: Parameters<typeof streamTranslation>[2] = (token) => {
+                if (activeController !== controller) return;
+                setState((draft) => {
+                    draft.status = "streaming";
+                    if (token.type === "translation_preview")
+                        draft.translationPreview += token.value ?? "";
+                    else {
+                        draft.displayText +=
+                            token.type === "word" ? (token.output ?? "") : (token.value ?? "");
+                        if (token.type === "word" || token.type === "translate")
+                            draft.mouthTriggerVersion++;
+                    }
+                });
+            };
+            if (usesLocalModel()) {
+                await local!.translate(request, controller.signal, (value) =>
+                    onToken({ type: "translate", value }),
+                );
+            } else {
+                if (!expectedUserId) throw new Error("Sign in to use online translation.");
+                await streamTranslation(request, controller, onToken, expectedUserId);
+            }
             if (activeController === controller)
                 setState((draft) => {
                     draft.status = "completed";
@@ -97,6 +114,7 @@ export function createTranslationStore() {
         busy,
         characterCount,
         operationLabel,
+        usesLocalModel,
         setInput: (input: string) =>
             setState((draft) => {
                 draft.input = input;
@@ -139,6 +157,7 @@ export function createTranslationStore() {
         isRepeat: () =>
             Boolean(
                 lastRequest &&
+                lastProvider === provider() &&
                 state.input === lastRequest.input &&
                 state.operation === lastRequest.operation &&
                 state.sourceLanguage === lastRequest.inputLanguage &&

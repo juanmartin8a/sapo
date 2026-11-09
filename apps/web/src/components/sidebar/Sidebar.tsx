@@ -1,3 +1,6 @@
+import { Link } from "@tanstack/solid-router";
+import LocalModelControls from "@/components/local-models/LocalModelControls";
+import LocalModelDropdown from "@/components/local-models/LocalModelDropdown";
 import { createSignal, Show } from "solid-js";
 import { useAppState } from "@/providers/AppProvider";
 import { languages, languagesPlusAutoDetect } from "@/constants/translation";
@@ -7,8 +10,10 @@ import AccountControl from "@/components/auth/AccountControl";
 import TranslateButton from "@/components/home/TranslateButton";
 
 export default function Sidebar(props: { onNavigate?: () => void; layout?: "panel" }) {
-    const { translation, preferencesReady, isPwa } = useAppState();
+    const { translation, auth, preferencesReady, isPwa } = useAppState();
     const captionedSelector = () => props.layout === "panel" && !isPwa;
+    const canRespell = () =>
+        auth.state.status === "authenticated" && auth.state.hasActiveSubscription === true;
     const [animateOptions, setAnimateOptions] = createSignal(false);
     const { busy } = translation;
     return (
@@ -36,7 +41,12 @@ export default function Sidebar(props: { onNavigate?: () => void; layout?: "pane
                             aria-pressed={
                                 translation.state.operation === "respell" ? "true" : "false"
                             }
+                            disabled={!canRespell()}
+                            title={
+                                canRespell() ? undefined : "Respelling is included with Polyglot."
+                            }
                             onClick={() => {
+                                if (!canRespell()) return;
                                 setAnimateOptions(true);
                                 translation.setPreferences({ operation: "respell" });
                             }}
@@ -44,6 +54,9 @@ export default function Sidebar(props: { onNavigate?: () => void; layout?: "pane
                             Respell
                         </button>
                     </div>
+                    <Show when={!isPwa}>
+                        <LocalModelDropdown />
+                    </Show>
                     {/* Keep the button under this owner for matching SSR and hydration keys. */}
                     <Show when={props.layout === "panel"}>
                         <TranslateButton />
@@ -133,6 +146,9 @@ export default function Sidebar(props: { onNavigate?: () => void; layout?: "pane
                         </div>
                     </div>
                 </Show>
+                <Show when={isPwa}>
+                    <LocalModelControls onNavigate={props.onNavigate} />
+                </Show>
             </div>
             <Show when={props.layout !== "panel"}>
                 <SidebarAccountActions onNavigate={props.onNavigate} />
@@ -142,7 +158,7 @@ export default function Sidebar(props: { onNavigate?: () => void; layout?: "pane
 }
 
 function SidebarAccountActions(props: { onNavigate?: () => void }) {
-    const { pwa } = useAppState();
+    const { pwa, basePath } = useAppState();
     return (
         <footer class="sidebar-footer">
             <Show when={pwa.state.installable && !pwa.state.installed}>
@@ -159,6 +175,13 @@ function SidebarAccountActions(props: { onNavigate?: () => void }) {
                     Install SAPO
                 </button>
             </Show>
+            <Link
+                class="sidebar-link"
+                to={`${basePath}/settings/`}
+                onClick={() => props.onNavigate?.()}
+            >
+                Settings
+            </Link>
             <AccountControl class="sidebar-account" onNavigate={props.onNavigate} />
         </footer>
     );

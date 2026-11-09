@@ -12,7 +12,8 @@ import TranslateButton from "./TranslateButton";
 import TranslationInput from "./TranslationInput";
 
 export default function HomeScreen() {
-    const { translation, auth, pwa, isPwa, basePath, inputLimit, respellLocked } = useAppState();
+    const { translation, localModels, auth, pwa, isPwa, basePath, inputLimit, respellLocked } =
+        useAppState();
     const { busy, characterCount, operationLabel } = translation;
     const [drawerOpen, setDrawerOpen] = createSignal(false);
     const [wideScreen, setWideScreen] = createSignal(false);
@@ -28,10 +29,11 @@ export default function HomeScreen() {
             ? translation.state.translationPreview
             : translation.state.displayText;
     const canCopy = () => translation.state.status === "completed" && copyText().trim().length > 0;
-    const footerMessage = () =>
+    const footerError = () =>
         translation.state.error ||
-        auth.state.error ||
-        (respellLocked() ? "Respelling is a Polyglot feature." : "");
+        (translation.usesLocalModel() ? localModels.state.error : auth.state.error);
+    const footerMessage = () =>
+        footerError() || (respellLocked() ? "Respelling is a Polyglot feature." : "");
 
     let noticeTimer: ReturnType<typeof setTimeout> | undefined;
     let disposed = false;
@@ -89,7 +91,7 @@ export default function HomeScreen() {
                     </div>
                 </header>
             </Show>
-            <Show when={!pwa.state.online}>
+            <Show when={!pwa.state.online && !translation.usesLocalModel()}>
                 <div class="connection-banner" role="status">
                     You’re offline. Translation needs an internet connection.
                 </div>
@@ -261,16 +263,8 @@ export default function HomeScreen() {
                     <div class="workspace-footer">
                         <div class="footer-message">
                             <p
-                                class={
-                                    translation.state.error || auth.state.error
-                                        ? "error-message"
-                                        : "muted"
-                                }
-                                role={
-                                    translation.state.error || auth.state.error
-                                        ? "alert"
-                                        : undefined
-                                }
+                                class={footerError() ? "error-message" : "muted"}
+                                role={footerError() ? "alert" : undefined}
                             >
                                 {footerMessage()}
                             </p>
