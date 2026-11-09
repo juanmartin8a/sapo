@@ -70,8 +70,13 @@
     color: var(--ink);
 }
 .site-themed .site-menu-popover {
+    --ink: light-dark(#fff, #e8e8e8);
+    --muted: #adadad;
+    --site-raised: light-dark(#222, #383838);
+    --site-focus: #d4d4d4;
+    border: 1px solid #555;
     color: var(--ink);
-    background: var(--site-surface);
+    background: #101010;
 }
 .site-themed .site-menu-toggle:hover,
 .site-themed .site-menu-navigation a:hover,
