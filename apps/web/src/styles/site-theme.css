@@ -245,9 +245,10 @@
     /* Picker popups keep a dark surface in both page themes. */
     .language-dialog,
     .model-dropdown-panel {
-        --picker-surface: light-dark(#000, #282828);
+        --picker-surface: #101010;
         --picker-ink: light-dark(#fff, #e8e8e8);
         --picker-raised: light-dark(#222, #383838);
+        border: 1px solid #555;
         background: var(--picker-surface);
         color: var(--picker-ink);
     }
