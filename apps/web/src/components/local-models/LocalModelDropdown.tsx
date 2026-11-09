@@ -1,10 +1,10 @@
-import { createSignal, createUniqueId, onSettled } from "solid-js";
+import { createSignal, createUniqueId, onSettled, Show } from "solid-js";
 import Icon from "@/components/ui/Icon";
 import { useAppState } from "@/providers/AppProvider";
 import LocalModelControls from "./LocalModelControls";
 
 export default function LocalModelDropdown() {
-    const { translation } = useAppState();
+    const { translation, pwa } = useAppState();
     const id = createUniqueId();
     const [open, setOpen] = createSignal(false);
     let trigger!: HTMLButtonElement;
@@ -62,7 +62,16 @@ export default function LocalModelDropdown() {
                 aria-controls={id}
                 aria-expanded={open() ? "true" : "false"}
             >
-                <span>{translation.usesLocalModel() ? "Local" : "Online"}</span>
+                <span>
+                    {translation.usesLocalModel() ? "Local" : "Online"}
+                    <Show when={!translation.usesLocalModel()}>
+                        {" "}
+                        <span
+                            class={`connection-dot ${pwa.state.online ? "is-online" : ""}`}
+                            aria-label={pwa.state.online ? "Connected" : "Offline"}
+                        />
+                    </Show>
+                </span>
                 <Icon name="chevron-down" size={16} />
             </button>
             <dialog
