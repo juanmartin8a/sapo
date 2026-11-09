@@ -87,6 +87,7 @@ test("a late model list cannot overwrite a changed server", async (context) => {
     assert.deepEqual([...models.state.models], []);
     assert.equal(models.state.serverModel, "");
     assert.equal(models.state.discovering, false);
+    assert.equal(models.serverModelNotFound(), false);
 });
 
 test("discovery selects and persists the first model but respects a manual model", async (context) => {
@@ -103,6 +104,92 @@ test("discovery selects and persists the first model but respects a manual model
     await models.refreshModels();
     flush();
     assert.equal(models.state.serverModel, "manual");
+});
+
+test("manual overrides warn only after discovery and remain usable", async (context) => {
+    context.mock.method(globalThis, "fetch", async (_url: string, init?: RequestInit) =>
+        init?.method === "POST"
+            ? new Response(
+                  'data: {"type":"response.output_text.delta","delta":"Hola"}\n\n' +
+                      'data: {"type":"response.completed"}\n\n',
+                  { headers: { "content-type": "text/event-stream" } },
+              )
+            : Response.json({ data: [{ id: "available-model" }] }),
+    );
+    const models = store();
+    models.configure({ enabled: true, serverModel: "manual" });
+    flush();
+    assert.equal(models.serverModelNotFound(), false);
+    await models.refreshModels();
+    flush();
+    assert.equal(models.serverModelNotFound(), true);
+    assert.equal(models.state.serverModel, "manual");
+    assert.equal(models.state.error, null);
+    let output = "";
+    await models.translate(
+        {
+            input: "Hello",
+            operation: "translate",
+            inputLanguage: "English",
+            targetLanguage: "Spanish",
+            respellLanguage: "Source",
+            translateThenRespell: false,
+        },
+        new AbortController().signal,
+        (text) => (output += text),
+    );
+    assert.equal(output, "Hola");
+    models.configure({ serverModel: "available-model" });
+    flush();
+    assert.equal(models.serverModelNotFound(), false);
+    models.configure({ serverModel: "" });
+    flush();
+    assert.equal(models.serverModelNotFound(), false);
+});
+
+test("empty model lists warn but failed discovery cannot claim a model is missing", async (context) => {
+    const mocked = context.mock.method(globalThis, "fetch", async () =>
+        Response.json({ data: [] }),
+    );
+    const models = store();
+    models.configure({ serverModel: "manual" });
+    flush();
+    await models.refreshModels();
+    flush();
+    assert.equal(models.serverModelNotFound(), true);
+    mocked.mock.mockImplementation(async () => new Response(null, { status: 503 }));
+    await models.refreshModels();
+    flush();
+    assert.equal(models.serverModelNotFound(), false);
+    assert.match(models.state.error!, /HTTP 503/);
+});
+
+test("discovery warnings reset when credentials or servers change and update on refresh", async (context) => {
+    let data: { id: string }[] = [];
+    context.mock.method(globalThis, "fetch", async () => Response.json({ data }));
+    const models = store();
+    models.configure({ serverModel: "manual" });
+    flush();
+    await models.refreshModels();
+    flush();
+    assert.equal(models.serverModelNotFound(), true);
+    data = [{ id: "manual" }];
+    await models.refreshModels();
+    flush();
+    assert.equal(models.serverModelNotFound(), false);
+    data = [];
+    await models.refreshModels();
+    flush();
+    assert.equal(models.serverModelNotFound(), true);
+    models.setApiKey("new-key");
+    flush();
+    assert.equal(models.serverModelNotFound(), false);
+    await models.refreshModels();
+    flush();
+    assert.equal(models.serverModelNotFound(), true);
+    models.configure({ baseUrl: "http://localhost:1234/v1", serverModel: "manual" });
+    flush();
+    assert.equal(models.serverModelNotFound(), false);
 });
 
 test("unloading during browser preparation prevents a late ready state", async (context) => {

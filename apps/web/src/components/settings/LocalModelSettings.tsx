@@ -1,4 +1,4 @@
-import { For, Show } from "solid-js";
+import { createUniqueId, For, Show } from "solid-js";
 import { useAppState } from "@/providers/AppProvider";
 import { SERVER_PRESETS } from "@/lib/local-models/config";
 import ModelSelector from "@/components/local-models/ModelSelector";
@@ -6,6 +6,7 @@ import ModelSelector from "@/components/local-models/ModelSelector";
 export default function LocalModelSettings() {
     const { localModels, translation, preferencesReady } = useAppState();
     const { state } = localModels;
+    const modelWarningId = createUniqueId();
     return (
         <section
             class="settings-section local-model-settings"
@@ -205,12 +206,23 @@ export default function LocalModelSettings() {
                                 maxlength={512}
                                 spellcheck={false}
                                 autocapitalize="none"
-                                onChange={(event) =>
-                                    localModels.configure({
-                                        serverModel: event.currentTarget.value.trim(),
-                                    })
+                                aria-describedby={
+                                    localModels.serverModelNotFound() ? modelWarningId : undefined
                                 }
+                                onChange={(event) => {
+                                    const model = event.currentTarget.value.trim();
+                                    localModels.configure({
+                                        serverModel: model,
+                                    });
+                                    if (model) void localModels.refreshModels();
+                                }}
                             />
+                            <Show when={localModels.serverModelNotFound()}>
+                                <span id={modelWarningId} class="error-message" role="status">
+                                    Model not found in the server’s model list. You can still use
+                                    this override.
+                                </span>
+                            </Show>
                         </label>
                         <p class="settings-note muted">
                             Start a server version that supports /v1/responses. Allow this website’s

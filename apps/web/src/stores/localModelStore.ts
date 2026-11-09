@@ -22,6 +22,7 @@ export function createLocalModelStore(onChange: () => void) {
         ...DEFAULT_LOCAL_PREFERENCES,
         apiKey: "",
         models: [] as string[],
+        modelsDiscovered: false,
         discovering: false,
         browserModels: [] as ModelEntry[],
         browserModel: "",
@@ -81,6 +82,7 @@ export function createLocalModelStore(onChange: () => void) {
             draft.error = null;
             if (newServer) {
                 draft.models = [];
+                draft.modelsDiscovered = false;
                 draft.serverModel = "";
                 draft.apiKey = "";
             }
@@ -97,6 +99,7 @@ export function createLocalModelStore(onChange: () => void) {
         discovery = controller;
         setState((draft) => {
             draft.discovering = true;
+            draft.modelsDiscovered = false;
             draft.error = null;
         });
         try {
@@ -105,6 +108,7 @@ export function createLocalModelStore(onChange: () => void) {
             const serverModel = state.serverModel || models[0] || "";
             setState((draft) => {
                 draft.models = models;
+                draft.modelsDiscovered = true;
                 draft.serverModel = serverModel;
             });
             saveLocalPreferences({ ...state, serverModel });
@@ -184,6 +188,12 @@ export function createLocalModelStore(onChange: () => void) {
     }
     return {
         state,
+        serverModelNotFound: () =>
+            state.source === "server" &&
+            state.modelsDiscovered &&
+            !state.discovering &&
+            Boolean(state.serverModel.trim()) &&
+            !state.models.includes(state.serverModel.trim()),
         configure,
         refreshModels,
         importFiles,
@@ -202,6 +212,7 @@ export function createLocalModelStore(onChange: () => void) {
             setState((draft) => {
                 draft.apiKey = value;
                 draft.models = [];
+                draft.modelsDiscovered = false;
                 draft.error = null;
             });
         },
