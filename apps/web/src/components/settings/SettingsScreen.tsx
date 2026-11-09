@@ -68,6 +68,18 @@ export default function SettingsScreen() {
                     <ThemeControl />
                 </section>
                 <section class="settings-section">
+                    <h2>Translation</h2>
+                    <Link class="settings-row" to={`${basePath}/settings/local-ai/`}>
+                        <span>
+                            Local AI
+                            <small>
+                                Connect a local server or run a GGUF model in your browser.
+                            </small>
+                        </span>
+                        <Icon name="chevron-right" />
+                    </Link>
+                </section>
+                <section class="settings-section">
                     <h2>Account</h2>
                     <Show
                         when={auth.state.status === "authenticated"}
@@ -186,15 +198,18 @@ export default function SettingsScreen() {
                             </button>
                         </Show>
                         <p class="settings-note muted">
-                            Translation and respelling require an internet connection.
+                            Online translation and respelling require an internet connection. Local
+                            translation can continue while this page is open and the model is
+                            available.
                         </p>
                     </section>
                 </Show>
                 <section class="settings-section settings-privacy-section">
                     <h2>Privacy & data</h2>
                     <p class="settings-note muted">
-                        Only your language and layout preferences are saved on this device. Input
-                        and output aren’t saved between visits.
+                        Your language, layout, and local model preferences are saved on this device.
+                        API keys and imported model files stay in memory for this page session.
+                        Input and output aren’t saved between visits.
                     </p>
                     <a
                         class="settings-row"

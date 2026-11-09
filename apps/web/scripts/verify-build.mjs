@@ -133,11 +133,13 @@ for (const path of [
     "/auth/",
     "/auth-callback/",
     "/settings/",
+    "/settings/local-ai/",
     "/account/delete-account/",
     "/pwa/",
     "/pwa/auth/",
     "/pwa/auth-callback/",
     "/pwa/settings/",
+    "/pwa/settings/local-ai/",
     "/pwa/delete-account/",
     "/app/",
     "/app/auth/",
@@ -208,7 +210,7 @@ assert.equal(billing.headers.get("cache-control"), "no-store");
 assert.deepEqual(await billing.json(), { error: "Billing is not enabled." });
 for (const basePath of ["", "/pwa"]) {
     const deletion = basePath ? "/delete-account/" : "/account/delete-account/";
-    for (const path of ["/", "/auth/", "/settings/", deletion]) {
+    for (const path of ["/", "/auth/", "/settings/", "/settings/local-ai/", deletion]) {
         const response = await handler.fetch(new Request(`https://sapo.example${basePath}${path}`));
         assert.equal(response.status, 200, `${basePath}${path}`);
         assert.match(response.headers.get("cache-control"), /no-store/);
@@ -240,6 +242,16 @@ for (const basePath of ["", "/pwa"]) {
                 basePath === "/pwa",
                 `Wrong account return navigation on ${basePath}${path}`,
             );
+        }
+        if (path === "/settings/") {
+            assert.ok(html.includes(`href="${basePath}/settings/local-ai/"`));
+            assert.ok(!html.includes('aria-label="Run models"'));
+        }
+        if (path === "/settings/local-ai/") {
+            assert.match(html, /<h1\b[^>]*>Local AI<\/h1>/);
+            assert.ok(html.includes('aria-label="Run models"'));
+            assert.ok(html.includes(`href="${basePath}/settings/"`));
+            assert.doesNotMatch(html, /<h2\b[^>]*>Account<\/h2>/);
         }
         if (basePath === "/pwa") {
             assert.ok(html.includes("/pwa/manifest.webmanifest"));

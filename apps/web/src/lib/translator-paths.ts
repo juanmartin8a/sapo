@@ -6,6 +6,7 @@ export function isTranslatorPath(pathname: string) {
     return (
         pathname === "/" ||
         /^\/(?:auth|auth-callback|settings)\/?$/.test(pathname) ||
+        /^\/settings\/local-ai\/?$/.test(pathname) ||
         /^\/account\/delete-account\/?$/.test(pathname) ||
         /^\/(?:app|pwa)(?:\/|$)/.test(pathname)
     );

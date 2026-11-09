@@ -183,6 +183,7 @@
     .icon-button:not(.close-button):hover:not(:disabled),
     .swap-button:hover:not(:disabled),
     .language-button-captioned:hover:not(:disabled),
+    .model-dropdown-trigger:hover:not(:disabled),
     .connection-banner {
         background: var(--site-raised);
     }
@@ -241,25 +242,36 @@
     img.icon:not([src$="/google-g.svg"], [src$="/apple-logo.svg"]) {
         filter: invert(var(--site-icon-invert));
     }
-    /* Language pickers keep a dark surface in both page themes. */
-    .language-dialog {
-        background: light-dark(#000, #282828);
-        color: light-dark(#fff, #e8e8e8);
+    /* Picker popups keep a dark surface in both page themes. */
+    .language-dialog,
+    .model-dropdown-panel {
+        --picker-surface: light-dark(#000, #282828);
+        --picker-ink: light-dark(#fff, #e8e8e8);
+        --picker-raised: light-dark(#222, #383838);
+        background: var(--picker-surface);
+        color: var(--picker-ink);
+    }
+    .model-dropdown-panel {
+        --site-surface: var(--picker-surface);
+        --site-raised: var(--picker-raised);
+        --ink: var(--picker-ink);
+        --line: #555;
     }
     .language-dialog .search-input {
-        background: light-dark(#222, #383838);
+        background: var(--picker-raised);
         color: inherit;
     }
     .language-dialog .language-option {
         border-color: light-dark(#fff, #555);
     }
     .language-dialog .language-option:hover {
-        background: light-dark(#222, #383838);
+        background: var(--picker-raised);
     }
     :where(a, button, input, textarea):focus-visible {
         outline-color: var(--site-focus);
     }
-    .language-dialog :focus-visible {
+    .language-dialog :focus-visible,
+    .model-dropdown-panel :focus-visible {
         outline-color: #d4d4d4;
     }
 }

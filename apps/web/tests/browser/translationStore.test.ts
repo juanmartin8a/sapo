@@ -197,3 +197,80 @@ test("the real stream's total deadline during authentication cannot complete a t
     assert.equal(translation.state.status, "error");
     assert.equal(translation.state.error, "The request timed out. Please try again.");
 });
+
+test("local translation requires no account and repeat identity includes the model", async () => {
+    let model = "first";
+    let cloudCalls = 0;
+    runtime.runTranslationStream = async () => {
+        cloudCalls++;
+        return { type: "completed" };
+    };
+    const translation = createRoot((dispose) => {
+        after(dispose);
+        return createTranslationStore({
+            enabled: () => true,
+            identity: () => model,
+            translate: async (request, _signal, onText) => {
+                assert.equal(request.input, "Hello");
+                onText("Hola");
+            },
+        });
+    });
+    translation.setInput("Hello");
+    flush();
+    await translation.sendMessage();
+    flush();
+    assert.equal(cloudCalls, 0);
+    assert.equal(translation.state.displayText, "Hola");
+    assert.equal(translation.state.status, "completed");
+    assert.equal(translation.isRepeat(), true);
+    model = "second";
+    assert.equal(translation.isRepeat(), false);
+});
+
+for (const localEnabled of [true, false]) {
+    test(`respelling uses online and restores the ${localEnabled ? "local" : "online"} translation provider`, async () => {
+        let localCalls = 0;
+        let onlineCalls = 0;
+        runtime.runTranslationStream = async (args, callbacks) => {
+            onlineCalls++;
+            callbacks.onToken({ type: "word", output: args.operation });
+            return { type: "completed" };
+        };
+        const translation = createRoot((dispose) => {
+            after(dispose);
+            return createTranslationStore({
+                enabled: () => localEnabled,
+                identity: () => "selected-model",
+                translate: async (_request, _signal, onText) => {
+                    localCalls++;
+                    onText("Local translation");
+                },
+            });
+        });
+        translation.setInput("Hello");
+        translation.setPreferences({ operation: "respell" });
+        flush();
+        assert.equal(translation.usesLocalModel(), false);
+        await translation.sendMessage();
+        flush();
+        assert.match(translation.state.error!, /Sign in/);
+        assert.equal(localCalls, 0);
+        assert.equal(onlineCalls, 0);
+        await translation.sendMessage("account");
+        flush();
+        assert.equal(localCalls, 0);
+        assert.equal(onlineCalls, 1);
+        assert.equal(translation.state.status, "completed");
+        assert.equal(translation.state.displayText, "respell");
+        translation.setPreferences({ operation: "translate" });
+        flush();
+        assert.equal(translation.usesLocalModel(), localEnabled);
+        assert.equal(translation.isRepeat(), false);
+        await translation.sendMessage(localEnabled ? undefined : "account");
+        flush();
+        assert.equal(localCalls, localEnabled ? 1 : 0);
+        assert.equal(onlineCalls, localEnabled ? 1 : 2);
+        assert.equal(translation.state.status, "completed");
+    });
+}

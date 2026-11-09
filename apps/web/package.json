@@ -20,17 +20,19 @@
         "test:browser": "node --conditions=browser --conditions=development --import tsx --test tests/browser/*.test.ts"
     },
     "dependencies": {
-        "@tanstack/solid-router": "2.0.0-rc.9",
-        "@tanstack/solid-start": "2.0.0-rc.9",
-        "@solidjs/web": "2.0.0-rc.18",
-        "solid-js": "2.0.0-rc.18",
-        "better-auth": "1.6.33",
         "@convex-dev/better-auth": "0.12.5",
-        "convex": "1.48.0",
-        "jose": "^6.2.13",
+        "@libsql/client": "^0.18.0",
         "@sapo/backend": "workspace:*",
         "@sapo/client-core": "workspace:*",
-        "@libsql/client": "^0.18.0",
+        "@solidjs/web": "2.0.0-rc.18",
+        "@tanstack/solid-router": "2.0.0-rc.9",
+        "@tanstack/solid-start": "2.0.0-rc.9",
+        "@wllama/wllama": "3.8.1",
+        "@wllama/wllama-compat": "3.8.1",
+        "better-auth": "1.6.33",
+        "convex": "1.48.0",
+        "jose": "^6.2.13",
+        "solid-js": "2.0.0-rc.18",
         "tailwindcss": "^4.3.3"
     },
     "devDependencies": {

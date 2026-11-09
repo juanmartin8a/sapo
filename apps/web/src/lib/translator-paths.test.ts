@@ -9,11 +9,14 @@ test("only translator pages and legacy app namespaces receive personalized HTML"
         "/auth/",
         "/auth-callback/",
         "/settings/",
+        "/settings/local-ai",
+        "/settings/local-ai/",
         "/account/delete-account/",
         "/app",
         "/app/auth/",
         "/pwa",
         "/pwa/settings/",
+        "/pwa/settings/local-ai/",
     ])
         assert.equal(isTranslatorPath(path), true, path);
 
@@ -28,6 +31,7 @@ test("only translator pages and legacy app namespaces receive personalized HTML"
         "/author/",
         "/pwa-other/",
         "/application/",
+        "/settings/local-ai-other/",
     ])
         assert.equal(isTranslatorPath(path), false, path);
 });

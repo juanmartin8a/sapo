@@ -37,6 +37,8 @@ import { Route as PwaDeleteAccountRouteImport } from './routes/pwa/delete-accoun
 import { Route as PwaSettingsRouteImport } from './routes/pwa/settings'
 import { Route as SiteMultilingualPhoneticRepresentationsIndexRouteImport } from './routes/_site/multilingual-phonetic-representations/index'
 import { Route as TranslatorAccountDeleteAccountRouteImport } from './routes/_translator/account/delete-account'
+import { Route as TranslatorSettingsLocalAiRouteImport } from './routes/_translator/settings_.local-ai'
+import { Route as PwaSettingsLocalAiRouteImport } from './routes/pwa/settings_.local-ai'
 import { Route as SiteMultilingualPhoneticRepresentationsAboutIndexRouteImport } from './routes/_site/multilingual-phonetic-representations/about/index'
 import { Route as SiteMultilingualPhoneticRepresentationsAboutAttributionRouteImport } from './routes/_site/multilingual-phonetic-representations/about/attribution'
 import { Route as AppApiAuthSplatRouteImport } from './routes/app/api/auth/$'
@@ -182,6 +184,17 @@ const TranslatorAccountDeleteAccountRoute =
     path: '/account/delete-account',
     getParentRoute: () => TranslatorRoute,
   } as any)
+const TranslatorSettingsLocalAiRoute =
+  TranslatorSettingsLocalAiRouteImport.update({
+    id: '/settings_/local-ai',
+    path: '/settings/local-ai',
+    getParentRoute: () => TranslatorRoute,
+  } as any)
+const PwaSettingsLocalAiRoute = PwaSettingsLocalAiRouteImport.update({
+  id: '/settings_/local-ai',
+  path: '/settings/local-ai',
+  getParentRoute: () => PwaRoute,
+} as any)
 const SiteMultilingualPhoneticRepresentationsAboutIndexRoute =
   SiteMultilingualPhoneticRepresentationsAboutIndexRouteImport.update({
     id: '/multilingual-phonetic-representations/about/',
@@ -231,6 +244,8 @@ export interface FileRoutesByFullPath {
   '/app/': typeof AppIndexRoute
   '/pwa/': typeof PwaIndexRoute
   '/account/delete-account': typeof TranslatorAccountDeleteAccountRoute
+  '/settings/local-ai': typeof TranslatorSettingsLocalAiRoute
+  '/pwa/settings/local-ai': typeof PwaSettingsLocalAiRoute
   '/multilingual-phonetic-representations/': typeof SiteMultilingualPhoneticRepresentationsIndexRoute
   '/multilingual-phonetic-representations/about/attribution': typeof SiteMultilingualPhoneticRepresentationsAboutAttributionRoute
   '/app/api/auth/$': typeof AppApiAuthSplatRoute
@@ -261,6 +276,8 @@ export interface FileRoutesByTo {
   '/app': typeof AppIndexRoute
   '/pwa': typeof PwaIndexRoute
   '/account/delete-account': typeof TranslatorAccountDeleteAccountRoute
+  '/settings/local-ai': typeof TranslatorSettingsLocalAiRoute
+  '/pwa/settings/local-ai': typeof PwaSettingsLocalAiRoute
   '/multilingual-phonetic-representations': typeof SiteMultilingualPhoneticRepresentationsIndexRoute
   '/multilingual-phonetic-representations/about/attribution': typeof SiteMultilingualPhoneticRepresentationsAboutAttributionRoute
   '/app/api/auth/$': typeof AppApiAuthSplatRoute
@@ -296,6 +313,8 @@ export interface FileRoutesById {
   '/app/': typeof AppIndexRoute
   '/pwa/': typeof PwaIndexRoute
   '/_translator/account/delete-account': typeof TranslatorAccountDeleteAccountRoute
+  '/_translator/settings_/local-ai': typeof TranslatorSettingsLocalAiRoute
+  '/pwa/settings_/local-ai': typeof PwaSettingsLocalAiRoute
   '/_site/multilingual-phonetic-representations/': typeof SiteMultilingualPhoneticRepresentationsIndexRoute
   '/_site/multilingual-phonetic-representations/about/attribution': typeof SiteMultilingualPhoneticRepresentationsAboutAttributionRoute
   '/app/api/auth/$': typeof AppApiAuthSplatRoute
@@ -330,6 +349,8 @@ export interface FileRouteTypes {
     | '/app/'
     | '/pwa/'
     | '/account/delete-account'
+    | '/settings/local-ai'
+    | '/pwa/settings/local-ai'
     | '/multilingual-phonetic-representations/'
     | '/multilingual-phonetic-representations/about/attribution'
     | '/app/api/auth/$'
@@ -360,6 +381,8 @@ export interface FileRouteTypes {
     | '/app'
     | '/pwa'
     | '/account/delete-account'
+    | '/settings/local-ai'
+    | '/pwa/settings/local-ai'
     | '/multilingual-phonetic-representations'
     | '/multilingual-phonetic-representations/about/attribution'
     | '/app/api/auth/$'
@@ -394,6 +417,8 @@ export interface FileRouteTypes {
     | '/app/'
     | '/pwa/'
     | '/_translator/account/delete-account'
+    | '/_translator/settings_/local-ai'
+    | '/pwa/settings_/local-ai'
     | '/_site/multilingual-phonetic-representations/'
     | '/_site/multilingual-phonetic-representations/about/attribution'
     | '/app/api/auth/$'
@@ -608,6 +633,20 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof TranslatorAccountDeleteAccountRouteImport
       parentRoute: typeof TranslatorRoute
     }
+    '/_translator/settings_/local-ai': {
+      id: '/_translator/settings_/local-ai'
+      path: '/settings/local-ai'
+      fullPath: '/settings/local-ai'
+      preLoaderRoute: typeof TranslatorSettingsLocalAiRouteImport
+      parentRoute: typeof TranslatorRoute
+    }
+    '/pwa/settings_/local-ai': {
+      id: '/pwa/settings_/local-ai'
+      path: '/settings/local-ai'
+      fullPath: '/pwa/settings/local-ai'
+      preLoaderRoute: typeof PwaSettingsLocalAiRouteImport
+      parentRoute: typeof PwaRoute
+    }
     '/_site/multilingual-phonetic-representations/about/': {
       id: '/_site/multilingual-phonetic-representations/about/'
       path: '/multilingual-phonetic-representations/about'
@@ -674,6 +713,7 @@ interface TranslatorRouteChildren {
   TranslatorSettingsRoute: typeof TranslatorSettingsRoute
   TranslatorIndexRoute: typeof TranslatorIndexRoute
   TranslatorAccountDeleteAccountRoute: typeof TranslatorAccountDeleteAccountRoute
+  TranslatorSettingsLocalAiRoute: typeof TranslatorSettingsLocalAiRoute
 }
 
 const TranslatorRouteChildren: TranslatorRouteChildren = {
@@ -682,6 +722,7 @@ const TranslatorRouteChildren: TranslatorRouteChildren = {
   TranslatorSettingsRoute: TranslatorSettingsRoute,
   TranslatorIndexRoute: TranslatorIndexRoute,
   TranslatorAccountDeleteAccountRoute: TranslatorAccountDeleteAccountRoute,
+  TranslatorSettingsLocalAiRoute: TranslatorSettingsLocalAiRoute,
 }
 
 const TranslatorRouteWithChildren = TranslatorRoute._addFileChildren(
@@ -716,6 +757,7 @@ interface PwaRouteChildren {
   PwaDeleteAccountRoute: typeof PwaDeleteAccountRoute
   PwaSettingsRoute: typeof PwaSettingsRoute
   PwaIndexRoute: typeof PwaIndexRoute
+  PwaSettingsLocalAiRoute: typeof PwaSettingsLocalAiRoute
 }
 
 const PwaRouteChildren: PwaRouteChildren = {
@@ -724,6 +766,7 @@ const PwaRouteChildren: PwaRouteChildren = {
   PwaDeleteAccountRoute: PwaDeleteAccountRoute,
   PwaSettingsRoute: PwaSettingsRoute,
   PwaIndexRoute: PwaIndexRoute,
+  PwaSettingsLocalAiRoute: PwaSettingsLocalAiRoute,
 }
 
 const PwaRouteWithChildren = PwaRoute._addFileChildren(PwaRouteChildren)
