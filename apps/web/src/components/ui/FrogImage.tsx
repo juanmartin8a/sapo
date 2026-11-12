@@ -1,26 +1,21 @@
-export default function FrogImage(props: {
-    src: string;
-    class: string;
-    pose: "closed" | "open";
-    width: number;
-    height: number;
-}) {
+export default function FrogImage(props: { class: string; pose: "closed" | "open" }) {
+    const name = props.pose === "open" ? "sapo-frog-open" : "sapo-frog";
+    const height = props.pose === "open" ? 914 : 800;
     return (
         <>
             <img
-                class={props.class}
-                src={props.src}
+                class={`${props.class} frog-light`}
+                src={`/app/images/${name}.svg`}
                 alt=""
-                width={props.width}
-                height={props.height}
+                width={929}
+                height={height}
             />
             <img
-                class={`${props.class} frog-eye frog-eye-${props.pose}`}
-                src={props.src}
+                class={`${props.class} frog-dark`}
+                src={`/app/images/${name}-dark.svg`}
                 alt=""
-                aria-hidden="true"
-                width={props.width}
-                height={props.height}
+                width={929}
+                height={height}
             />
         </>
     );

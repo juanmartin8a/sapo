@@ -36,6 +36,6 @@ export async function provisionDemoUser(ctx: ActionCtx) {
         email,
         emailVerified: false,
         name: "Demo Reviewer",
-    });
+    }, { method: "admin" });
     return { userId: user.id };
 }

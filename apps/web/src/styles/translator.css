@@ -561,7 +561,7 @@
         position: relative;
         width: clamp(90px, 10vw, 134px);
         margin: 42px 0 0 auto;
-        aspect-ratio: 600 / 590;
+        aspect-ratio: 929 / 914;
     }
     .frog img {
         position: absolute;
@@ -785,7 +785,7 @@
         display: block;
         position: relative;
         width: 112px;
-        aspect-ratio: 600 / 516;
+        aspect-ratio: 929 / 800;
         flex-shrink: 0;
     }
     .auth-frog img {
@@ -1517,6 +1517,20 @@
     &.translator-web {
         font-family: inherit;
 
+        .workspace {
+            height: auto;
+        }
+        .footer-message {
+            min-height: 20px;
+            overflow-wrap: anywhere;
+        }
+        @media (min-width: 900px) {
+            .translation-workspace {
+                /* Keep messages below the panes from consuming their height. */
+                flex: none;
+                height: calc(clamp(380px, 60dvh, 600px) - 48px);
+            }
+        }
         .input-pane .pane-toolbar {
             padding-left: 0;
         }

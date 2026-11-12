@@ -168,7 +168,10 @@ for (const path of [
     "/pwa/manifest.webmanifest",
     "/pwa/offline.html",
     "/pwa/icons/app-192.png",
-    "/app/images/sapo.png",
+    "/app/images/sapo-frog.svg",
+    "/app/images/sapo-frog-open.svg",
+    "/app/images/sapo-frog-dark.svg",
+    "/app/images/sapo-frog-open-dark.svg",
     "/.well-known/apple-app-site-association",
 ]) {
     assert.equal(await deploymentTarget(path), path, `Static route is shadowed: ${path}`);

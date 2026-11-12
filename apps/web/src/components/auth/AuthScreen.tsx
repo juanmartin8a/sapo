@@ -44,13 +44,7 @@ export default function AuthScreen() {
                 </Show>
                 <div class="auth-hero">
                     <span class="auth-frog" role="img" aria-label="SAPO frog">
-                        <FrogImage
-                            src="/app/images/sapo.png"
-                            class="frog-closed"
-                            pose="closed"
-                            width={600}
-                            height={516}
-                        />
+                        <FrogImage class="frog-closed" pose="closed" />
                     </span>
                     <h1>{pending() ? "Signing in…" : "Sign in"}</h1>
                 </div>

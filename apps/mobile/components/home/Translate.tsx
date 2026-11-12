@@ -2,7 +2,7 @@ import TranslationPreview from './TranslationPreview';
 import { TRANSLATION_TEXT_TYPOGRAPHY } from '@/constants/ui';
 import SelectableText from './SelectableText';
 import { useEffect, useLayoutEffect, useRef, type Ref } from 'react';
-import { View, Text, TextInput, StyleSheet, ScrollView, NativeSyntheticEvent, NativeScrollEvent, TextLayoutEventData, LayoutChangeEvent, useWindowDimensions } from 'react-native';
+import { View, Text, type TextInputInstance, StyleSheet, ScrollView, type ScrollViewInstance, NativeSyntheticEvent, NativeScrollEvent, TextLayoutEvent, LayoutChangeEvent, useWindowDimensions } from 'react-native';
 import Animated, {
     cancelAnimation,
     useAnimatedStyle,
@@ -19,8 +19,8 @@ import { getTranslationFrogDimensions } from "@/utils/translationLayout";
 const frogTopOffset = 10;
 
 interface TranslateProps {
-    responseInputRef?: Ref<TextInput>;
-    previewInputRef?: Ref<TextInput>;
+    responseInputRef?: Ref<TextInputInstance>;
+    previewInputRef?: Ref<TextInputInstance>;
     onDismissPreviewSelection?: () => void;
     onDismissSelection?: () => void;
 }
@@ -53,10 +53,10 @@ export default function Translate({
     const hasMountedRef = useRef(false);
     const wasStreamingRef = useRef(isStreaming);
     const streamStartVersionRef = useRef(streamStartVersion);
-    const scrollViewRef = useRef<ScrollView>(null);
+    const scrollViewRef = useRef<ScrollViewInstance>(null);
     const shouldStickToBottomRef = useRef(true);
     const textContainerHeightRef = useRef(0);
-    const lastLineRef = useRef<TextLayoutEventData["lines"][number] | null>(null);
+    const lastLineRef = useRef<TextLayoutEvent["nativeEvent"]["lines"][number] | null>(null);
     const previousStreamIdRef = useRef(activeStreamId);
 
     useEffect(() => {
@@ -128,7 +128,7 @@ export default function Translate({
         }
     };
 
-    const onTextLayout = (e: NativeSyntheticEvent<TextLayoutEventData>) => {
+    const onTextLayout = (e: TextLayoutEvent) => {
         if (!displayText) return;
 
         const lines = e.nativeEvent.lines;
@@ -195,31 +195,28 @@ export default function Translate({
                         pointerEvents="none"
                         style={[
                             styles.frog,
-                            { height: sapoBocaAbiertaHeight },
+                            { width: sapoWidth, height: sapoBocaAbiertaHeight },
                             frogAnimatedStyle,
                         ]}
                     >
-                        <View style={{ position: "relative" }}>
-                            <Animated.Image
-                                source={require("@/assets/images/sapo.png")}
-                                resizeMode="contain"
-                                style={[
-                                    styles.frogImage,
-                                    { width: sapoWidth, height: sapoHeight },
-                                    closedMouthAnimatedStyle,
-                                ]}
-                            />
-                            <Animated.Image
-                                source={require("@/assets/images/sapo-mouth-open.png")}
-                                resizeMode="contain"
-                                style={[
-                                    styles.frogImage,
-                                    styles.openMouthImage,
-                                    { width: sapoWidth, height: sapoBocaAbiertaHeight },
-                                    openMouthAnimatedStyle,
-                                ]}
-                            />
-                        </View>
+                        <Animated.Image
+                            source={require("@/assets/images/sapo.png")}
+                            resizeMode="contain"
+                            style={[
+                                styles.frogImage,
+                                { width: sapoWidth, height: sapoHeight },
+                                closedMouthAnimatedStyle,
+                            ]}
+                        />
+                        <Animated.Image
+                            source={require("@/assets/images/sapo-mouth-open.png")}
+                            resizeMode="contain"
+                            style={[
+                                styles.frogImage,
+                                { width: sapoWidth, height: sapoBocaAbiertaHeight },
+                                openMouthAnimatedStyle,
+                            ]}
+                        />
                     </Animated.View>
                 </View>
             </View>
@@ -250,14 +247,12 @@ const styles = StyleSheet.create({
     frog: {
         position: "absolute",
         top: frogTopOffset,
-        justifyContent: "flex-end",
     },
     frogImage: {
+        // Both poses share the same baseline despite their different heights.
+        position: "absolute",
         bottom: 0,
         left: 0,
-    },
-    openMouthImage: {
-        position: "absolute",
     },
     translatedText: {
         ...TRANSLATION_TEXT_TYPOGRAPHY,

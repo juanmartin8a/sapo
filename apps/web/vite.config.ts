@@ -39,6 +39,13 @@ export default defineConfig(({ mode }) => {
                             // Nitro 3 emits a terminal header rule. Dynamic app paths
                             // must continue through the filesystem to the server fallback.
                             for (const route of translatorHeaders) route.continue = true;
+                            // Nitro RC also matches trailing slashes for exact redirects.
+                            // Keep canonical /pwa/ and legacy /app/ on their SSR routes.
+                            for (const route of config.routes) {
+                                if (route.status !== 308) continue;
+                                if (route.headers?.Location === "/pwa/") route.src = "^/pwa$";
+                                if (route.headers?.Location === "/") route.src = "^/app$";
+                            }
                             await writeFile(path, JSON.stringify(config, null, 2) + "\n");
                         });
                     },

@@ -106,7 +106,7 @@ describe("RevenueCat offering selection", () => {
             subscriptionPackage: null,
             subscriptionProduct: fallbackProduct,
         });
-        expect(getProducts).toHaveBeenCalledWith(["sapo_monthly"], "SUBSCRIPTION");
+        expect(getProducts).toHaveBeenCalledWith(["sapo_monthly"], Purchases.PRODUCT_CATEGORY.SUBSCRIPTION);
     });
 
     it("does not select an arbitrary offering when there is no current offering or configured product", async () => {

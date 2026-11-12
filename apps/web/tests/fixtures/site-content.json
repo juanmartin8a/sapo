@@ -29,15 +29,17 @@
         }
     },
     "assets": {
-        "sapo-frog.svg": "0cafccf5f3396ded648a8e8d319f0b9cfe43d8888a4cb78da266b1e1d79e2029",
-        "sapo-frog-open.svg": "b12e8415511e103614c27186496de2596dc6cf8107777729cf80e970654f8508",
+        "sapo-frog.svg": "3aed0fcffa35a1676010465ad12627fe0cd0f0d54bf7de6adb0b654dbac24258",
+        "sapo-frog-open.svg": "f24141782cacf38cfdca39321da015e4bae911d72f4f2fb2fd003799e0e489de",
         "sapo-favicon.svg": "96ffb96811ad33e3c9a53654869ad8cf713b260d0311fad40f3362230234405e",
         "robots.txt": "b033243267bcbdab84cb01e940811d6d77a894d78f0470faaf0eb43f8e4efcc9",
         ".well-known/apple-app-site-association": "606c121e12f9d2ae29d49ad48017d5a88da508b0fff71aa456189569591f03cc",
         "pwa/manifest.webmanifest": "78b38444fd8b61c960f92f565f4f5007fc97f4bec4cab1c606136cdb27bb1be3",
         "pwa/offline.html": "06eaf0f81613d21b7dc5d1ebcb1a9a099b9ce46c2d4e0fc650f6883ae987c320",
         "pwa/sw.js": "3c53b7ad4ab259a5e3e6d7991dc3bcb76d34e03f5429ec2ba232c3a789b7c3e2",
-        "app/sw.js": "0f51fac53335649171ece84f9b3ef8559dd85798fbe9500b3fffdb74390d5afc"
+        "app/sw.js": "0f51fac53335649171ece84f9b3ef8559dd85798fbe9500b3fffdb74390d5afc",
+        "sapo-frog-dark.svg": "da72243c72932f457842a3bcb5794a6b4c6ce0aa0e1c371386663d75e008512a",
+        "sapo-frog-open-dark.svg": "8365168eed4784f0aad9ccbed51b28ef0576bd246fa7cbbba4694adbafefa020"
     },
     "metadata": {
         "about/index.html": {

@@ -17,6 +17,7 @@ import {
     useRootNavigationState,
     useRouter,
 } from "expo-router";
+import { CommonActions } from "expo-router/react-navigation";
 import * as Linking from "expo-linking";
 
 import { authClient } from "@/lib/auth-client";
@@ -83,7 +84,7 @@ function hasFocusedRouteName(state: RouteState, routeName: string): boolean {
     return focusedRoute.state ? hasFocusedRouteName(focusedRoute.state, routeName) : false;
 }
 
-function removeSettingsModalRoute(state: RouteState): RouteState {
+function removeSettingsModalRoute<T extends RouteState>(state: T): T {
     let didChange = false;
     const routes = state.routes?.flatMap((route) => {
         if (route.name === APP_ROUTE_NAMES.SETTINGS_MODAL) {
@@ -226,11 +227,11 @@ export default function DeleteAccountScreen() {
     }, [contentTransitionValue, visibleStatus]);
 
     useEffect(() => {
-        if (!hasFocusedRouteName(rootNavigationState as RouteState, APP_ROUTE_NAMES.DELETE_ACCOUNT)) {
+        if (!hasFocusedRouteName(rootNavigationState, APP_ROUTE_NAMES.DELETE_ACCOUNT)) {
             return;
         }
 
-        const nextNavigationState = removeSettingsModalRoute(rootNavigationState as RouteState);
+        const nextNavigationState = removeSettingsModalRoute(rootNavigationState);
 
         if (
             nextNavigationState === rootNavigationState ||
@@ -240,9 +241,10 @@ export default function DeleteAccountScreen() {
             return;
         }
 
-        rootNavigation.resetRoot(
-            nextNavigationState as Parameters<typeof rootNavigation.resetRoot>[0]
-        );
+        rootNavigation.dispatch({
+            ...CommonActions.reset(nextNavigationState),
+            target: rootNavigationState.key,
+        });
     }, [rootNavigation, rootNavigationState]);
 
     useEffect(() => {

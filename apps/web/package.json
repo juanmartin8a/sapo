@@ -20,34 +20,34 @@
         "test:browser": "node --conditions=browser --conditions=development --import tsx --test tests/browser/*.test.ts"
     },
     "dependencies": {
-        "@convex-dev/better-auth": "0.12.5",
+        "@convex-dev/better-auth": "0.13.0",
         "@libsql/client": "^0.18.0",
         "@sapo/backend": "workspace:*",
         "@sapo/client-core": "workspace:*",
-        "@solidjs/web": "2.0.0-rc.18",
-        "@tanstack/solid-router": "2.0.0-rc.9",
-        "@tanstack/solid-start": "2.0.0-rc.9",
-        "@wllama/wllama": "3.8.1",
-        "@wllama/wllama-compat": "3.8.1",
-        "better-auth": "1.6.33",
-        "convex": "1.48.0",
-        "jose": "^6.2.13",
-        "solid-js": "2.0.0-rc.18",
-        "tailwindcss": "^4.3.3"
+        "@solidjs/web": "2.0.0-rc.21",
+        "@tanstack/solid-router": "2.0.0-rc.10",
+        "@tanstack/solid-start": "2.0.0-rc.10",
+        "@wllama/wllama": "3.13.0",
+        "@wllama/wllama-compat": "3.13.0",
+        "better-auth": "1.7.21",
+        "convex": "1.49.0",
+        "jose": "^6.2.17",
+        "solid-js": "2.0.0-rc.21",
+        "tailwindcss": "^4.3.5"
     },
     "devDependencies": {
         "@types/node": "^24.19.2",
-        "vite": "8.3.5",
-        "nitro": "3.0.260903-beta",
+        "vite": "8.3.8",
+        "nitro": "3.0.261103-rc",
         "typescript": "6.0.3",
         "tsx": "^4.23.15",
-        "@solidjs/vite-plugin": "3.0.0-next.51",
+        "@solidjs/vite-plugin": "3.0.0-next.57",
         "@eslint/js": "^10.0.1",
-        "eslint": "^10.13.0",
+        "eslint": "^10.14.0",
         "eslint-config-prettier": "^10.1.8",
-        "globals": "^17.13.0",
-        "prettier": "^3.9.10",
-        "typescript-eslint": "^8.72.0"
+        "globals": "^17.14.0",
+        "prettier": "^3.10.0",
+        "typescript-eslint": "^8.72.2"
     },
     "engines": {
         "node": "24.x"

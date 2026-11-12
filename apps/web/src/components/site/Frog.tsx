@@ -10,20 +10,8 @@ export default function Frog(props: { animation: FrogAnimation }) {
             aria-label="Make the SAPO frog open its mouth"
         >
             <span class="frog-art">
-                <FrogImage
-                    class="closed"
-                    pose="closed"
-                    src="/sapo-frog.svg"
-                    width={929}
-                    height={800}
-                />
-                <FrogImage
-                    class="open"
-                    pose="open"
-                    src="/sapo-frog-open.svg"
-                    width={929}
-                    height={914}
-                />
+                <FrogImage class="closed" pose="closed" />
+                <FrogImage class="open" pose="open" />
             </span>
         </button>
     );

@@ -42,7 +42,7 @@ HTTP(S) API base URL. The base URL includes `/v1` (or the equivalent API prefix)
 
 ## Browser models
 
-wllama 3.8.1 is dynamically imported only when loading a model. Its pinned WASM
+wllama 3.13.0 is dynamically imported only when loading a model. Its pinned WASM
 and compatibility-worker assets are bundled and served by SAPO, without CDN
 requests. Inference runs in wllama's worker. Its JavaScript chat binding receives
 the same translation instructions as the server's Responses request; no HTTP

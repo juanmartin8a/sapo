@@ -16,8 +16,8 @@ function makeContext(code = '012345') {
         body: { code },
         context: {
             internalAdapter: {
-                findUserByEmail: jest.fn<() => Promise<unknown>>().mockResolvedValue({ user: { id: 'demo-user' } }),
-                createSession: jest.fn<() => Promise<unknown>>().mockResolvedValue({ token: 'session-token' }),
+                findUserByEmail: jest.fn<(value: string) => Promise<unknown>>().mockResolvedValue({ user: { id: 'demo-user' } }),
+                createSession: jest.fn<(value: string) => Promise<unknown>>().mockResolvedValue({ token: 'session-token' }),
             },
         },
         error: (status: string) => new Error(status),

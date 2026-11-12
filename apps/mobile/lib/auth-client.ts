@@ -18,7 +18,6 @@ function createNativeAuthClient(): AuthClient {
         baseURL: CONVEX_SITE_URL ?? undefined,
         plugins: [
             convexClient(),
-            // @ts-expect-error @better-auth/expo 1.6.26 uses an incompatible BetterFetch generic.
             expoClient({
                 scheme: Constants.expoConfig?.scheme as string,
                 storagePrefix: Constants.expoConfig?.scheme as string,

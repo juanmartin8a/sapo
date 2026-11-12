@@ -1,11 +1,11 @@
 import SelectableText from "./SelectableText";
 import { TRANSLATION_TEXT_TYPOGRAPHY } from "@/constants/ui";
 import { useState, type Ref } from "react";
-import { Pressable, Text, TextInput, View, StyleSheet } from "react-native";
+import { Pressable, Text, type TextInputInstance, View, StyleSheet } from "react-native";
 
 interface TranslationPreviewProps {
     text: string;
-    inputRef?: Ref<TextInput>;
+    inputRef?: Ref<TextInputInstance>;
     onDismissSelection?: () => void;
     onInteractionStart?: () => void;
 }

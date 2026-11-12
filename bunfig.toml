@@ -1,2 +1,3 @@
 [install]
-linker = "isolated"
+# Avoid duplicate Expo native modules from isolated peer dependency contexts.
+linker = "hoisted"

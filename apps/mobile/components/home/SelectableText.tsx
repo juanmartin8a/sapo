@@ -1,9 +1,9 @@
 import { useCallback, useRef, useState, type Ref } from "react";
-import { Platform, StyleSheet, Text, TextInput, View, type TextProps } from "react-native";
+import { Platform, StyleSheet, Text, TextInput, type TextInputInstance, View, type TextProps } from "react-native";
 
 type Props = Pick<TextProps, "style" | "onTextLayout" | "accessibilityLabel" | "accessibilityActions" | "onAccessibilityAction"> & {
     text: string;
-    inputRef?: Ref<TextInput>;
+    inputRef?: Ref<TextInputInstance>;
     onDismissSelection?: () => void;
     onInteractionStart?: () => void;
     onUnselectedTap?: () => void;

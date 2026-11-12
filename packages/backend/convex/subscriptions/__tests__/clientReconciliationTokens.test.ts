@@ -381,7 +381,7 @@ describe("subscription expiration reconciliation", () => {
         range.eq.mockReturnValue(range);
         range.gte.mockReturnValue(range);
         range.lte.mockReturnValue(range);
-        const take = jest.fn(async () => [{
+        const take = jest.fn(async (_limit: number) => [{
             user_id: "user_1",
             last_synced_at_ms: 1_000,
         }]);

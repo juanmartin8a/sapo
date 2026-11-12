@@ -128,7 +128,7 @@ describe("RevenueCat webhook ingestion guards", () => {
             runQuery: jest.fn(async (_ref: unknown, args: Record<string, unknown>) =>
                 args.model === "user" ? { _id: "reviewer" } : {}
             ),
-            runMutation: jest.fn(async () => ({ event_doc_id: "event_doc" })),
+            runMutation: jest.fn(async (..._args: unknown[]) => ({ event_doc_id: "event_doc" })),
             scheduler: { runAfter: jest.fn(async () => null) },
         };
         const response = await handleRevenueCatWebhookRequest(ctx as never, new Request(
