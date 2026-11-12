@@ -195,31 +195,28 @@ export default function Translate({
                         pointerEvents="none"
                         style={[
                             styles.frog,
-                            { height: sapoBocaAbiertaHeight },
+                            { width: sapoWidth, height: sapoBocaAbiertaHeight },
                             frogAnimatedStyle,
                         ]}
                     >
-                        <View style={{ position: "relative" }}>
-                            <Animated.Image
-                                source={require("@/assets/images/sapo.png")}
-                                resizeMode="contain"
-                                style={[
-                                    styles.frogImage,
-                                    { width: sapoWidth, height: sapoHeight },
-                                    closedMouthAnimatedStyle,
-                                ]}
-                            />
-                            <Animated.Image
-                                source={require("@/assets/images/sapo-mouth-open.png")}
-                                resizeMode="contain"
-                                style={[
-                                    styles.frogImage,
-                                    styles.openMouthImage,
-                                    { width: sapoWidth, height: sapoBocaAbiertaHeight },
-                                    openMouthAnimatedStyle,
-                                ]}
-                            />
-                        </View>
+                        <Animated.Image
+                            source={require("@/assets/images/sapo.png")}
+                            resizeMode="contain"
+                            style={[
+                                styles.frogImage,
+                                { width: sapoWidth, height: sapoHeight },
+                                closedMouthAnimatedStyle,
+                            ]}
+                        />
+                        <Animated.Image
+                            source={require("@/assets/images/sapo-mouth-open.png")}
+                            resizeMode="contain"
+                            style={[
+                                styles.frogImage,
+                                { width: sapoWidth, height: sapoBocaAbiertaHeight },
+                                openMouthAnimatedStyle,
+                            ]}
+                        />
                     </Animated.View>
                 </View>
             </View>
@@ -250,14 +247,12 @@ const styles = StyleSheet.create({
     frog: {
         position: "absolute",
         top: frogTopOffset,
-        justifyContent: "flex-end",
     },
     frogImage: {
+        // Both poses share the same baseline despite their different heights.
+        position: "absolute",
         bottom: 0,
         left: 0,
-    },
-    openMouthImage: {
-        position: "absolute",
     },
     translatedText: {
         ...TRANSLATION_TEXT_TYPOGRAPHY,
