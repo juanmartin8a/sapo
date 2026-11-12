@@ -47,8 +47,10 @@
       [
         "expo-build-properties",
         {
-          "buildReactNativeFromSource": true,
-          "useHermesV1": true,
+          "android": {
+            "kotlinVersion": "2.3.0",
+            "enableMinifyInReleaseBuilds": false
+          },
           "ios": {
             "deploymentTarget": "26.0"
           }

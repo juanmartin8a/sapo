@@ -7,7 +7,7 @@ jest.mock("@/lib/auth-client", () => ({
     authClient: { signOut: jest.fn() },
 }));
 
-const mockSignOut = jest.mocked(authClient.signOut);
+const mockSignOut = jest.mocked(authClient.signOut<{ throw: false }>);
 
 describe("signOutCurrentSession", () => {
     afterEach(() => {

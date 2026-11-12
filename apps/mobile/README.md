@@ -1,6 +1,16 @@
 # SAPO
 
-SAPO is an Expo, React Native, and TypeScript app using Expo Router.
+SAPO uses Expo SDK 58, React Native 0.88, React 19.3, and Expo Router.
+
+The iOS and Android projects are tracked source. After upgrading native dependencies,
+run `pod install` from `apps/mobile/ios` and rebuild the development client with
+`bun run ios` or `bun run android` from the repository root. Existing SDK 57 development
+clients cannot load the SDK 58 app.
+
+The app keeps Kotlin 2.3.0 for LiteRT-LM and explicitly disables Android release
+minification to preserve its existing release behavior. Hermes V1 is enabled by
+React Native without an additional build property. Both platforms use the standard
+prebuilt React Native binaries; building Hermes from source is no longer needed.
 
 ## Project structure
 

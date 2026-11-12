@@ -196,7 +196,7 @@ const writeLocalModelDownloadRecord = async (
         verifiedAtMs: Date.now(),
     };
 
-    verificationFile.write(JSON.stringify(downloadRecord));
+    await verificationFile.write(JSON.stringify(downloadRecord));
 };
 
 const ensureLocalModelDirectory = async () => {

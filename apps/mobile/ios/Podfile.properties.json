@@ -6,7 +6,5 @@
   "ios.deploymentTarget": "26.0",
   "ios.forceStaticLinking": "[]",
   "apple.privacyManifestAggregationEnabled": "true",
-  "ios.buildReactNativeFromSource": "true",
-  "expo.useHermesV1": "true",
   "EXPO_USE_PRECOMPILED_MODULES": "true"
 }
