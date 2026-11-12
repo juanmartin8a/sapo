@@ -1517,6 +1517,20 @@
     &.translator-web {
         font-family: inherit;
 
+        .workspace {
+            height: auto;
+        }
+        .footer-message {
+            min-height: 20px;
+            overflow-wrap: anywhere;
+        }
+        @media (min-width: 900px) {
+            .translation-workspace {
+                /* Keep messages below the panes from consuming their height. */
+                flex: none;
+                height: calc(clamp(380px, 60dvh, 600px) - 48px);
+            }
+        }
         .input-pane .pane-toolbar {
             padding-left: 0;
         }
