@@ -1,6 +1,8 @@
+import type { AppTheme } from '@/constants/theme';
+import useThemeStyles from '@/hooks/useThemeStyles';
 /* eslint-disable react-hooks/immutability -- Reanimated shared values are intentionally mutated in worklets. */
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
-import { Platform, StyleSheet, View, Keyboard, Text, TouchableWithoutFeedback, StatusBar, useWindowDimensions } from "react-native";
+import { Platform, StyleSheet, View, Keyboard, Text, TouchableWithoutFeedback, useWindowDimensions } from "react-native";
 import { GestureHandlerRootView, GestureDetector, Gesture } from "react-native-gesture-handler";
 import Animated, {
     cancelAnimation,
@@ -32,6 +34,7 @@ import useTextSelection from "@/hooks/useTextSelection";
 import HomePager, { type HomePagerHandle } from "@/components/home/HomePager";
 
 export default function HomeScreen() {
+    const { styles, colors } = useThemeStyles(createStyles);
     const { width: windowWidth } = useWindowDimensions();
     const sidebarWidth = windowWidth * 0.7;
     const pagerRef = useRef<HomePagerHandle>(null);
@@ -315,7 +318,6 @@ export default function HomeScreen() {
 
     return (
         <View style={styles.container} onTouchStart={dismissTextSelections}>
-            <StatusBar barStyle="dark-content" />
             <GestureHandlerRootView style={{ flex: 1 }}>
                 <GestureDetector gesture={panGesture}>
                     <View style={{ flex: 1 }}>
@@ -333,7 +335,7 @@ export default function HomeScreen() {
                                             onPressOut={handleSidebarPressOut}
                                         >
                                             <View style={styles.sidebarButton}>
-                                                <SidebarIcon width={40} height={32} stroke="black" />
+                                                <SidebarIcon width={40} height={32} stroke={colors.text} />
                                             </View>
                                         </TouchableWithoutFeedback>
                                     )}
@@ -394,14 +396,14 @@ export default function HomeScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: "#fff",
+        backgroundColor: colors.background,
     },
     mainContent: {
         flex: 1,
-        backgroundColor: "#fff",
+        backgroundColor: colors.background,
         flexDirection: "column"
     },
     mainContentOverlay: {
@@ -421,7 +423,7 @@ const styles = StyleSheet.create({
     },
     responsePane: {
         borderTopWidth: 1,
-        borderTopColor: 'black',
+        borderTopColor: colors.strongBorder,
     },
     pagerView: {
         flex: 1,
@@ -436,7 +438,7 @@ const styles = StyleSheet.create({
     operationText: {
         fontSize: 13,
         lineHeight: 13,
-        color: "#aaa",
+        color: colors.subtle,
         fontWeight: "500",
     }
 });

@@ -1,7 +1,8 @@
+import type { AppTheme } from '@/constants/theme';
+import useThemeStyles from '@/hooks/useThemeStyles';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 import CheckIcon from "@/assets/icons/check.svg";
-import { SETTINGS_COLORS } from "@/constants/settings";
 import {
     SUBSCRIPTION_PLAN_DISPLAY_NAMES,
     SUBSCRIPTION_PLAN_LIMITS,
@@ -28,17 +29,6 @@ const PLAN_FEATURES = [
     "Increased input limits per request",
 ] as const;
 
-const PLAN_CARD_COLORS = {
-    border: "#DDE7E0",
-    descriptionText: "#636366",
-    divider: "#AAB4AE",
-    linkPressed: "#8E8E93",
-    mutedText: "#737373",
-    primary: "#000",
-    secondaryText: "#1C1C1E",
-    shadow: "#18231D",
-    white: "#fff",
-} as const;
 
 export default function SubscriptionPlanCard({
     displayPrice,
@@ -52,6 +42,7 @@ export default function SubscriptionPlanCard({
     onOpenTermsOfUse,
     onOpenPrivacyPolicy,
 }: SubscriptionPlanCardProps) {
+    const { styles, colors, settingsColors: SETTINGS_COLORS } = useThemeStyles(createStyles);
     return (
         <View style={styles.card}>
             <View style={styles.planHeader}>
@@ -84,7 +75,7 @@ export default function SubscriptionPlanCard({
                 ]}
             >
                 {isPurchasing ? (
-                    <ActivityIndicator color={PLAN_CARD_COLORS.white} size="small" />
+                    <ActivityIndicator color={colors.onPrimary} size="small" />
                 ) : (
                     <Text style={styles.subscribeButtonText}>{buttonLabel}</Text>
                 )}
@@ -115,15 +106,15 @@ export default function SubscriptionPlanCard({
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = ({ colors, settingsColors: SETTINGS_COLORS }: AppTheme) => StyleSheet.create({
     card: {
         backgroundColor: SETTINGS_COLORS.surface,
         borderWidth: 1,
-        borderColor: PLAN_CARD_COLORS.border,
+        borderColor: colors.border,
         borderRadius: 24,
         padding: 22,
         gap: 18,
-        shadowColor: PLAN_CARD_COLORS.shadow,
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.07,
         shadowRadius: 20,
@@ -133,7 +124,7 @@ const styles = StyleSheet.create({
         gap: 5,
     },
     planName: {
-        color: PLAN_CARD_COLORS.primary,
+        color: colors.primary,
         fontSize: 21,
         lineHeight: 26,
         fontWeight: "700",
@@ -149,26 +140,26 @@ const styles = StyleSheet.create({
         lineHeight: 44,
         fontWeight: "800",
         letterSpacing: -1,
-        color: PLAN_CARD_COLORS.primary,
+        color: colors.primary,
     },
     priceSuffix: {
         fontSize: 14,
         lineHeight: 20,
         fontWeight: "500",
-        color: PLAN_CARD_COLORS.mutedText,
+        color: colors.muted,
         marginBottom: 5,
     },
     planDescription: {
         fontSize: 15,
         lineHeight: 21,
         fontWeight: "400",
-        color: PLAN_CARD_COLORS.descriptionText,
+        color: colors.muted,
     },
     featureList: {
         gap: 12,
     },
     featureListLabel: {
-        color: PLAN_CARD_COLORS.mutedText,
+        color: colors.muted,
         fontSize: 11,
         lineHeight: 14,
         fontWeight: "700",
@@ -185,10 +176,10 @@ const styles = StyleSheet.create({
         fontSize: 15,
         lineHeight: 21,
         fontWeight: "500",
-        color: PLAN_CARD_COLORS.secondaryText,
+        color: colors.text,
     },
     subscribeButton: {
-        backgroundColor: PLAN_CARD_COLORS.primary,
+        backgroundColor: colors.primary,
         borderRadius: 12,
         minHeight: 42,
         alignItems: "center",
@@ -203,7 +194,7 @@ const styles = StyleSheet.create({
         opacity: UI_DISABLED_OPACITY,
     },
     subscribeButtonText: {
-        color: PLAN_CARD_COLORS.white,
+        color: colors.onPrimary,
         fontSize: 14,
         lineHeight: 20,
         fontWeight: "600",
@@ -213,7 +204,7 @@ const styles = StyleSheet.create({
         fontSize: 12,
         lineHeight: 17,
         fontWeight: "400",
-        color: PLAN_CARD_COLORS.mutedText,
+        color: colors.muted,
         textAlign: "center",
     },
     legalLinksRow: {
@@ -226,15 +217,15 @@ const styles = StyleSheet.create({
         width: 3,
         height: 3,
         borderRadius: 2,
-        backgroundColor: PLAN_CARD_COLORS.divider,
+        backgroundColor: colors.border,
     },
     legalLink: {
-        color: PLAN_CARD_COLORS.secondaryText,
+        color: colors.text,
         fontSize: 12,
         lineHeight: 16,
         fontWeight: "600",
     },
     legalLinkPressed: {
-        color: PLAN_CARD_COLORS.linkPressed,
+        color: colors.subtle,
     },
 });

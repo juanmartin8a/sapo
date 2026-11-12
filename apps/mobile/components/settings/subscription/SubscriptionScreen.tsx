@@ -1,3 +1,5 @@
+import type { AppTheme } from '@/constants/theme';
+import useThemeStyles from '@/hooks/useThemeStyles';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Platform, Pressable, StyleSheet, Text } from "react-native";
 import Purchases from "react-native-purchases";
@@ -13,7 +15,6 @@ import SettingsScrollView from "@/components/settings/ui/SettingsScrollView";
 import { PRIVACY_POLICY_URL, TERMS_OF_USE_URL } from "@/constants/legal";
 import { useAuthState } from "@/providers/AuthStateProvider";
 import {
-    SETTINGS_COLORS,
     SETTINGS_SCREEN_BOTTOM_PADDING,
     SETTINGS_SCREEN_HORIZONTAL_PADDING,
 } from "@/constants/settings";
@@ -49,6 +50,7 @@ const SUBSCRIPTION_SESSION_CHANGED_MESSAGE =
     "Your account changed while syncing the subscription. Please sign in again and retry.";
 
 export default function SubscriptionScreen() {
+    const { styles, settingsColors: SETTINGS_COLORS } = useThemeStyles(createStyles);
     const { status: authStatus, userId } = useAuthState();
     const {
         hasActiveSubscription: effectiveSubscriptionStatus,
@@ -466,7 +468,7 @@ export default function SubscriptionScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = ({ settingsColors: SETTINGS_COLORS }: AppTheme) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: SETTINGS_COLORS.screenBackground,

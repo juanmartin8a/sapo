@@ -1,3 +1,5 @@
+import type { AppTheme } from '@/constants/theme';
+import useThemeStyles from '@/hooks/useThemeStyles';
 import { useEffect, useCallback } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import { useNetworkState } from 'expo-network';
@@ -33,6 +35,7 @@ type SidebarProps = {
 }
 
 const Sidebar = ({ translationX, width }: SidebarProps) => {
+    const { styles, colors } = useThemeStyles(createStyles);
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const { status: authStatus } = useAuthState();
@@ -319,7 +322,7 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
                             <Text style={styles.label}>Source:</Text>
                             <View style={styles.languageValue}>
                                 <Text style={styles.languageText} numberOfLines={1}>{inputLanguage}</Text>
-                                <ChevronRightIcon width={22} height={22} stroke="black" />
+                                <ChevronRightIcon width={22} height={22} stroke={colors.text} />
                             </View>
                         </View>
                     </TouchableOpacity>
@@ -333,7 +336,7 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
                             <Text style={styles.label}>Target:</Text>
                             <View style={styles.languageValue}>
                                 <Text style={styles.languageText} numberOfLines={1}>{targetLanguage}</Text>
-                                <ChevronRightIcon width={22} height={22} stroke="black" />
+                                <ChevronRightIcon width={22} height={22} stroke={colors.text} />
                             </View>
                         </View>
                     </TouchableOpacity>
@@ -349,7 +352,7 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
                                 <Text style={styles.label}>Respell:</Text>
                                 <View style={styles.languageValue}>
                                     <Text style={styles.languageText} numberOfLines={1}>{respellLanguage}</Text>
-                                    <ChevronRightIcon width={22} height={22} stroke="black" />
+                                    <ChevronRightIcon width={22} height={22} stroke={colors.text} />
                                 </View>
                             </View>
                         </TouchableOpacity>
@@ -437,7 +440,7 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
                                         ) : null}
                                     </View>
                                     {!hasSingleDownloadedLocalModel && (
-                                        <ChevronRightIcon width={22} height={22} stroke="black" />
+                                        <ChevronRightIcon width={22} height={22} stroke={colors.text} />
                                     )}
                                 </View>
                             </TouchableOpacity>
@@ -457,7 +460,7 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
                                         <Text style={styles.localModelActionButtonText}>Load model</Text>
                                         {isSelectedLocalModelLoading && (
                                             <View style={styles.localModelActionSpinner} pointerEvents="none">
-                                                <ActivityIndicator color="#fff" size="small" />
+                                                <ActivityIndicator color={colors.onPrimary} size="small" />
                                             </View>
                                         )}
                                     </View>
@@ -485,7 +488,7 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
     topContentScroll: {
         flex: 1,
     },
@@ -505,7 +508,7 @@ const styles = StyleSheet.create({
     label: {
         fontSize: 15,
         fontWeight: "500",
-        color: "#aaa",
+        color: colors.subtle,
         marginRight: 12,
     },
     field: {
@@ -525,7 +528,7 @@ const styles = StyleSheet.create({
         flexShrink: 1,
         fontSize: 16,
         lineHeight: 18,
-        color: "black",
+        color: colors.text,
         fontWeight: "500",
         textAlign: 'right',
     },
@@ -541,13 +544,13 @@ const styles = StyleSheet.create({
     },
     manageModelsButton: {
         marginTop: 32,
-        backgroundColor: '#f2f2f2',
+        backgroundColor: colors.raised,
     },
     manageModelsButtonText: {
-        color: '#000',
+        color: colors.text,
     },
     localModelSelectorLabel: {
-        color: "#aaa",
+        color: colors.subtle,
         fontSize: 15,
         fontWeight: "500",
         marginBottom: 2,
@@ -570,7 +573,7 @@ const styles = StyleSheet.create({
         flexShrink: 1,
         fontSize: 16,
         lineHeight: 18,
-        color: "black",
+        color: colors.text,
         fontWeight: "500",
     },
     localModelStatusDot: {
@@ -579,7 +582,7 @@ const styles = StyleSheet.create({
         borderRadius: 3,
     },
     localModelStatusDotIdle: {
-        backgroundColor: '#aaa',
+        backgroundColor: colors.subtle,
     },
     localModelStatusDotLoading: {
         backgroundColor: '#FFCC00',
@@ -592,7 +595,7 @@ const styles = StyleSheet.create({
         minHeight: 42,
         marginTop: 8,
         borderRadius: 12,
-        backgroundColor: '#000',
+        backgroundColor: colors.primary,
         alignItems: 'stretch',
         justifyContent: 'center',
         paddingVertical: 12,
@@ -602,7 +605,7 @@ const styles = StyleSheet.create({
         opacity: UI_DISABLED_OPACITY,
     },
     localModelActionButtonText: {
-        color: '#fff',
+        color: colors.onPrimary,
         fontSize: 14,
         fontWeight: '600',
     },
@@ -637,7 +640,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
     },
     operationOptionActive: {
-        backgroundColor: '#000',
+        backgroundColor: colors.primary,
     },
     operationOptionDisabled: {
         opacity: UI_DISABLED_OPACITY,
@@ -645,13 +648,13 @@ const styles = StyleSheet.create({
     operationOptionText: {
         fontSize: 14,
         fontWeight: '600',
-        color: '#000',
+        color: colors.text,
     },
     operationOptionTextActive: {
-        color: '#fff',
+        color: colors.onPrimary,
     },
     operationOptionTextDisabled: {
-        color: '#888',
+        color: colors.subtle,
     },
     localModeToggleContainer: {
         width: '100%',
@@ -669,15 +672,15 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     localModeOptionActive: {
-        backgroundColor: '#000',
+        backgroundColor: colors.primary,
     },
     localModeOptionText: {
         fontSize: 14,
         fontWeight: '600',
-        color: '#000',
+        color: colors.text,
     },
     localModeOptionTextActive: {
-        color: '#fff',
+        color: colors.onPrimary,
     },
     localModeOnlineLabel: {
         width: '100%',
@@ -700,9 +703,9 @@ const styles = StyleSheet.create({
     sideBar: {
         position: "absolute",
         height: "100%",
-        backgroundColor: "#fff",
+        backgroundColor: colors.background,
         borderRightWidth: 1,
-        borderRightColor: 'black',
+        borderRightColor: colors.strongBorder,
         zIndex: 1,
         padding: 20,
         justifyContent: 'space-between',

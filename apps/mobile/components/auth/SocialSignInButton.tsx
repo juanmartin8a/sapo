@@ -1,3 +1,4 @@
+import { useAppTheme } from '@/providers/AppThemeProvider';
 import React, { cloneElement, isValidElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -62,6 +63,7 @@ const SocialSignInButton = ({
     onSignInCancel,
     onSignInError,
 }: SocialSignInButtonProps) => {
+    const { scheme, colors } = useAppTheme();
     const isApple = provider === 'apple';
     const [isNativeAppleAuthAvailable, setIsNativeAppleAuthAvailable] = useState(false);
     const isDisabled = disabled || loading;
@@ -223,6 +225,7 @@ const SocialSignInButton = ({
             style={[
                 styles.button,
                 provider === 'apple' ? styles.appleButton : styles.googleButton,
+                provider === 'apple' && scheme === 'dark' && { borderWidth: 1, borderColor: colors.border },
                 isDisabled && styles.disabled,
             ]}
             onPress={handlePress}

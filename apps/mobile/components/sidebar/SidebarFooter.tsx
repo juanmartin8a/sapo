@@ -1,10 +1,11 @@
+import type { AppTheme } from '@/constants/theme';
+import useThemeStyles from '@/hooks/useThemeStyles';
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo } from 'react';
 import { Animated, StyleSheet, TouchableOpacity, Text, View } from 'react-native';
 import LogInIcon from '@/assets/icons/log-in.svg';
 import { APP_ROUTES } from '@/constants/routes';
 import { SUBSCRIPTION_PLAN_DISPLAY_NAMES } from '@/constants/subscription';
-import { UI_SKELETON_BACKGROUND_COLOR } from '@/constants/ui';
 import useSkeletonPulse from '@/hooks/useSkeletonPulse';
 import { useAuthState } from '@/providers/AuthStateProvider';
 import useSubscriptionAccess from '@/hooks/useSubscriptionAccess';
@@ -12,6 +13,7 @@ import useSubscriptionAccess from '@/hooks/useSubscriptionAccess';
 const SIDEBAR_AVATAR_SIZE = 40;
 
 const SidebarFooter = () => {
+    const { styles, colors } = useThemeStyles(createStyles);
     const router = useRouter();
     const { status: authStatus, email } = useAuthState();
     const {
@@ -108,7 +110,7 @@ const SidebarFooter = () => {
                     style={styles.signInButton}
                 >
                     <View style={styles.signInButtonContent}>
-                        <LogInIcon width={20} height={20} stroke="#000" style={styles.signInButtonIcon} />
+                        <LogInIcon width={20} height={20} stroke={colors.text} style={styles.signInButtonIcon} />
                         <Text style={styles.signInButtonText}>Sign in</Text>
                     </View>
                 </TouchableOpacity>
@@ -117,10 +119,10 @@ const SidebarFooter = () => {
     )
 }
 
-const styles = StyleSheet.create({
+const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
     footer: {
         borderTopWidth: 1,
-        borderTopColor: '#eee',
+        borderTopColor: colors.separator,
         paddingTop: 16,
     },
     userActionsContainer: {
@@ -138,7 +140,7 @@ const styles = StyleSheet.create({
         width: SIDEBAR_AVATAR_SIZE,
         height: SIDEBAR_AVATAR_SIZE,
         borderRadius: SIDEBAR_AVATAR_SIZE / 2,
-        backgroundColor: UI_SKELETON_BACKGROUND_COLOR,
+        backgroundColor: colors.skeleton,
     },
     skeletonTextContainer: {
         flex: 1,
@@ -150,11 +152,11 @@ const styles = StyleSheet.create({
     },
     emailSkeleton: {
         borderRadius: 6,
-        backgroundColor: UI_SKELETON_BACKGROUND_COLOR,
+        backgroundColor: colors.skeleton,
     },
     subscriptionSkeleton: {
         borderRadius: 5,
-        backgroundColor: '#eeeeee',
+        backgroundColor: colors.separator,
     },
     planLine: {
         marginTop: 4,
@@ -169,12 +171,12 @@ const styles = StyleSheet.create({
         width: SIDEBAR_AVATAR_SIZE,
         height: SIDEBAR_AVATAR_SIZE,
         borderRadius: SIDEBAR_AVATAR_SIZE / 2,
-        backgroundColor: '#000',
+        backgroundColor: colors.primary,
         alignItems: 'center',
         justifyContent: 'center',
     },
     avatarText: {
-        color: '#fff',
+        color: colors.onPrimary,
         fontWeight: '700',
         fontSize: 16,
     },
@@ -182,18 +184,18 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     emailText: {
-        color: '#000',
+        color: colors.text,
         fontWeight: '600',
         fontSize: 14,
     },
     planText: {
-        color: '#888',
+        color: colors.subtle,
         fontSize: 12,
     },
     signInButton: {
         width: '100%',
         borderRadius: 12,
-        backgroundColor: '#f2f2f2',
+        backgroundColor: colors.raised,
         alignItems: 'flex-start',
         flexDirection: 'row'
     },
@@ -207,7 +209,7 @@ const styles = StyleSheet.create({
         marginRight: 12,
     },
     signInButtonText: {
-        color: '#000',
+        color: colors.text,
         fontWeight: '500',
         fontSize: 15,
     },

@@ -1,5 +1,6 @@
 import { FieldGroup } from "@expo/ui";
 
+import SettingsAppearanceSection from "@/components/settings/SettingsAppearanceSection";
 import SettingsAccountSection from "@/components/settings/SettingsAccountSection";
 import SettingsSessionSection from "@/components/settings/SettingsSessionSection";
 import SettingsForm from "@/components/settings/ui/SettingsForm";
@@ -32,6 +33,10 @@ export default function SettingsScreen() {
                     disabled={actions.isSigningOut}
                     onPress={actions.handleOpenLocalModels}
                 />
+            </FieldGroup.Section>
+
+            <FieldGroup.Section title="Theme">
+                <SettingsAppearanceSection />
             </FieldGroup.Section>
 
             <SettingsSessionSection

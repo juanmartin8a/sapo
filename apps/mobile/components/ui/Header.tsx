@@ -1,3 +1,5 @@
+import type { AppTheme } from '@/constants/theme';
+import useThemeStyles from '@/hooks/useThemeStyles';
 import { ReactNode } from "react";
 import { StyleProp, StyleSheet, Text, TextStyle, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -10,6 +12,7 @@ interface HeaderProps {
 }
 
 const Header = ({ title, leftComponent, rightComponent, titleStyle }: HeaderProps) => {
+    const { styles } = useThemeStyles(createStyles);
     const insets = useSafeAreaInsets();
 
     return (
@@ -29,7 +32,7 @@ const Header = ({ title, leftComponent, rightComponent, titleStyle }: HeaderProp
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
     header: {
         width: '100%',
         justifyContent: 'center',
@@ -45,6 +48,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     titleText: {
+        color: colors.text,
         fontSize: 20,
         fontWeight: 'bold',
     },

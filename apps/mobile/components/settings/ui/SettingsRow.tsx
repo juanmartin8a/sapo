@@ -1,10 +1,11 @@
+import type { AppTheme } from '@/constants/theme';
+import useThemeStyles from '@/hooks/useThemeStyles';
 import { ActivityIndicator, Pressable, StyleSheet, Text } from "react-native";
 
 import ChevronRightIcon from "@/assets/icons/chevron-right.svg";
 import SettingsIcon from "@/components/settings/ui/SettingsIcon";
 import type { SettingsRowProps } from "@/components/settings/ui/SettingsRow.types";
 import {
-    SETTINGS_COLORS,
     SETTINGS_ROW_CONTENT_SPACING,
 } from "@/constants/settings";
 import { UI_DISABLED_OPACITY } from "@/constants/ui";
@@ -18,6 +19,7 @@ export default function SettingsRow({
     destructive = false,
     showDisclosure = false,
 }: SettingsRowProps) {
+    const { styles, settingsColors: SETTINGS_COLORS } = useThemeStyles(createStyles);
     return (
         <Pressable
             accessibilityRole="button"
@@ -35,7 +37,7 @@ export default function SettingsRow({
             />
             <Text style={[styles.label, destructive && styles.destructive]}>{label}</Text>
             {loading ? (
-                <ActivityIndicator size="small" />
+                <ActivityIndicator color={SETTINGS_COLORS.primaryText} size="small" />
             ) : showDisclosure ? (
                 <ChevronRightIcon
                     width={18}
@@ -47,7 +49,7 @@ export default function SettingsRow({
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = ({ settingsColors: SETTINGS_COLORS }: AppTheme) => StyleSheet.create({
     row: {
         minHeight: 48,
         width: "100%",
@@ -56,6 +58,7 @@ const styles = StyleSheet.create({
         gap: SETTINGS_ROW_CONTENT_SPACING,
     },
     label: {
+        color: SETTINGS_COLORS.primaryText,
         flex: 1,
         fontSize: 17,
         fontWeight: "400",

@@ -1,3 +1,4 @@
+import { useAppTheme } from '@/providers/AppThemeProvider';
 import { RNHostView, Row, Spacer, Text } from "@expo/ui";
 import { CircularProgressIndicator } from "@expo/ui/jetpack-compose";
 import { fillMaxWidth, size } from "@expo/ui/jetpack-compose/modifiers";
@@ -6,7 +7,6 @@ import ChevronRightIcon from "@/assets/icons/chevron-right.svg";
 import SettingsIcon from "@/components/settings/ui/SettingsIcon";
 import type { SettingsRowProps } from "@/components/settings/ui/SettingsRow.types";
 import {
-    SETTINGS_COLORS,
     SETTINGS_ROW_CONTENT_SPACING,
 } from "@/constants/settings";
 import { UI_DISABLED_OPACITY } from "@/constants/ui";
@@ -20,6 +20,7 @@ export default function SettingsRow({
     destructive = false,
     showDisclosure = false,
 }: SettingsRowProps) {
+    const { settingsColors: SETTINGS_COLORS } = useAppTheme();
     return (
         <Row
             alignment="center"

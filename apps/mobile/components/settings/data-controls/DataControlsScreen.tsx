@@ -1,3 +1,4 @@
+import { useAppTheme } from '@/providers/AppThemeProvider';
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FieldGroup, Text } from "@expo/ui";
 import { font } from "@expo/ui/swift-ui/modifiers";
@@ -8,7 +9,6 @@ import { useAuthState } from "@/providers/AuthStateProvider";
 import { APP_ROUTES } from "@/constants/routes";
 import {
     SETTINGS_ANDROID_FOOTNOTE_FONT_SIZE,
-    SETTINGS_COLORS,
 } from "@/constants/settings";
 import { getStoreAccountLabel } from "@/constants/subscription";
 import {
@@ -33,6 +33,7 @@ const getDeleteAccountAlertMessage = (args: {
 };
 
 export default function DataControlsScreen() {
+    const { settingsColors: SETTINGS_COLORS } = useAppTheme();
     const { status: authStatus, sessionId, userId } = useAuthState();
     const isPending = authStatus === "checking";
     const isAuthenticatedUser = authStatus === "authenticated";

@@ -1,3 +1,5 @@
+import type { AppTheme } from '@/constants/theme';
+import useThemeStyles from '@/hooks/useThemeStyles';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -17,6 +19,7 @@ const TITLE_FADE_EASING = Easing.out(Easing.cubic);
 const SIGN_IN_SPACING = 12;
 
 const AuthScreen = () => {
+    const { styles, colors, frogs } = useThemeStyles(createStyles);
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const pendingProvider = useSignInStore((state) => state.pendingProvider);
@@ -67,13 +70,13 @@ const AuthScreen = () => {
                     onPress={handleBackPress}
                     style={styles.backButton}
                 >
-                    <ArrowLeftIcon width={40} height={32} stroke="#000" />
+                    <ArrowLeftIcon width={40} height={32} stroke={colors.text} />
                 </TouchableOpacity>
                 <View style={styles.content}>
                     <View style={styles.hero}>
                         <View style={styles.iconBadge}>
                             <Image
-                                source={require("@/assets/images/sapo.png")}
+                                source={frogs.closed}
                                 resizeMode="contain"
                                 style={styles.icon}
                             />
@@ -110,7 +113,7 @@ const AuthScreen = () => {
                             {isSignInPending ? (
                                 <ActivityIndicator
                                     size="small"
-                                    color="#000"
+                                    color={colors.text}
                                     accessibilityRole="progressbar"
                                 />
                             ) : null}
@@ -158,10 +161,10 @@ const AuthScreen = () => {
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
     },
     mainContent: {
         flex: 1,
@@ -179,7 +182,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 28,
         paddingTop: 32,
         paddingBottom: SIGN_IN_SPACING,
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
     },
     backButton: {
         position: 'absolute',
@@ -205,7 +208,7 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 24,
         fontWeight: '700',
-        color: '#000',
+        color: colors.text,
     },
     titleContainer: {
         position: 'relative',
@@ -235,7 +238,7 @@ const styles = StyleSheet.create({
     demoLabel: {
         fontSize: 12,
         lineHeight: 12,
-        color: '#000',
+        color: colors.text,
         textDecorationLine: 'underline',
         fontWeight: '500',
     },

@@ -1,4 +1,5 @@
 import { ConvexReactClient } from "convex/react";
+import AppThemeProvider, { useAppTheme } from "@/providers/AppThemeProvider";
 import { Stack } from "expo-router";
 import * as WebBrowser from 'expo-web-browser';
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
@@ -15,27 +16,36 @@ const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL as strin
     unsavedChangesWarning: false,
 });
 
+function AppStack() {
+    const { colors } = useAppTheme();
+    return (
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+            <Stack.Screen
+                name="demo-access"
+                options={{
+                    presentation: "formSheet",
+                    sheetAllowedDetents: "fitToContents",
+                    sheetGrabberVisible: true,
+                    sheetCornerRadius: 28,
+                    contentStyle: { backgroundColor: colors.background },
+                }}
+            />
+        </Stack>
+    );
+}
+
 export default function RootLayout() {
     return (
-        <ConvexBetterAuthProvider client={convex} authClient={authClient}>
-            <AuthStateProvider>
-                <KeyboardProvider>
-                    <AuthGate />
-                    <RevenueCatIdentitySync />
-                    <Stack screenOptions={{ headerShown: false }}>
-                        <Stack.Screen
-                            name="demo-access"
-                            options={{
-                                presentation: 'formSheet',
-                                sheetAllowedDetents: 'fitToContents',
-                                sheetGrabberVisible: true,
-                                sheetCornerRadius: 28,
-                                contentStyle: { backgroundColor: '#fff' },
-                            }}
-                        />
-                    </Stack>
-                </KeyboardProvider>
-            </AuthStateProvider>
-        </ConvexBetterAuthProvider>
+        <AppThemeProvider>
+            <ConvexBetterAuthProvider client={convex} authClient={authClient}>
+                <AuthStateProvider>
+                    <KeyboardProvider>
+                        <AuthGate />
+                        <RevenueCatIdentitySync />
+                        <AppStack />
+                    </KeyboardProvider>
+                </AuthStateProvider>
+            </ConvexBetterAuthProvider>
+        </AppThemeProvider>
     );
 }
