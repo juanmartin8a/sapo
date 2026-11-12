@@ -75,20 +75,8 @@ export default function TranslationOutput(props: {
     );
     const Frog = () => (
         <div class={`frog ${mouthOpen() ? "frog-speaking" : ""}`} aria-hidden="true">
-            <FrogImage
-                class="frog-closed"
-                pose="closed"
-                src="/app/images/sapo.png"
-                width={600}
-                height={516}
-            />
-            <FrogImage
-                class="frog-open"
-                pose="open"
-                src="/app/images/sapo-mouth-open.png"
-                width={600}
-                height={590}
-            />
+            <FrogImage class="frog-closed" pose="closed" />
+            <FrogImage class="frog-open" pose="open" />
         </div>
     );
     const followOutput = (element: HTMLDivElement) => {
