@@ -307,11 +307,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           limit: number;
           now_ms: number;
           status:
-            | "pending"
-            | "failed"
-            | "processed"
-            | "ignored"
-            | "dead_letter";
+            "pending" | "failed" | "processed" | "ignored" | "dead_letter";
         },
         any,
         Name
@@ -333,11 +329,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {
           limit: number;
           status:
-            | "pending"
-            | "failed"
-            | "processed"
-            | "ignored"
-            | "dead_letter";
+            "pending" | "failed" | "processed" | "ignored" | "dead_letter";
         },
         any,
         Name

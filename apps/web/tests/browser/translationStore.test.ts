@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { createMemo, createRoot, createStore, flush } from "solid-js";
+import { createEffect, createMemo, createRoot, createStore, flush } from "solid-js";
 import { runTranslationStream } from "@sapo/client-core/translation-stream";
 import { createTestServer } from "../helpers/vite.ts";
 
 const runtime = {
+    createEffect,
     createMemo,
     createStore,
     runTranslationStream: (async () => ({ type: "completed" })) as typeof runTranslationStream,
@@ -26,7 +27,7 @@ const server = await createTestServer({
             },
             load(id) {
                 if (id === "\0solid-js")
-                    return "export const { createMemo, createStore } = globalThis.__sapoTranslationTest;";
+                    return "export const { createEffect, createMemo, createStore } = globalThis.__sapoTranslationTest;";
                 if (id === "\0@sapo/client-core/translation-stream")
                     return "export const runTranslationStream = (...args) => globalThis.__sapoTranslationTest.runTranslationStream(...args);";
                 if (id === "\0auth-client")
@@ -40,6 +41,72 @@ after(() => server.close());
 const { createTranslationStore } = (await server.ssrLoadModule(
     "/src/stores/translationStore.ts",
 )) as typeof import("../../src/stores/translationStore.ts");
+const { watchRespellAccess } = (await server.ssrLoadModule(
+    "/src/providers/respell-access.ts",
+)) as typeof import("../../src/providers/respell-access.ts");
+
+function accessStore(status: "checking" | "authenticated" | "signed_out") {
+    const store = createRoot((dispose) => {
+        after(dispose);
+        const [auth, setAuth] = createStore({
+            status,
+            hasActiveSubscription: null as boolean | null,
+        });
+        const translation = createTranslationStore();
+        watchRespellAccess(auth, translation);
+        return { auth, setAuth, translation };
+    });
+    flush();
+    // Preferences are restored after the provider's access watcher is created.
+    store.translation.setPreferences({ operation: "respell", translateThenRespell: true });
+    flush();
+    return store;
+}
+
+test("restoring Respell while signed out falls back to Translate", () => {
+    const { translation } = accessStore("signed_out");
+    assert.equal(translation.state.operation, "translate");
+    assert.equal(translation.state.translateThenRespell, true);
+});
+
+test("signing out while in Respell falls back to Translate", () => {
+    const { setAuth, translation } = accessStore("authenticated");
+    setAuth((draft) => {
+        draft.hasActiveSubscription = true;
+    });
+    flush();
+    assert.equal(translation.state.operation, "respell");
+    setAuth((draft) => {
+        draft.status = "signed_out";
+        draft.hasActiveSubscription = null;
+    });
+    flush();
+    assert.equal(translation.state.operation, "translate");
+});
+
+test("Respell is preserved while auth and plan access are unresolved", () => {
+    const { setAuth, translation } = accessStore("checking");
+    assert.equal(translation.state.operation, "respell");
+    setAuth((draft) => {
+        draft.status = "authenticated";
+    });
+    flush();
+    assert.equal(translation.state.operation, "respell");
+    setAuth((draft) => {
+        draft.hasActiveSubscription = true;
+    });
+    flush();
+    assert.equal(translation.state.operation, "respell");
+});
+
+test("confirmed loss of subscription access falls back to Translate", () => {
+    const { setAuth, translation } = accessStore("authenticated");
+    setAuth((draft) => {
+        draft.hasActiveSubscription = false;
+    });
+    flush();
+    assert.equal(translation.state.operation, "translate");
+});
 
 function store() {
     return createRoot((dispose) => {

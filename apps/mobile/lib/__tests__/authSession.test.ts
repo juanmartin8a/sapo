@@ -24,7 +24,10 @@ describe("signOutCurrentSession", () => {
     });
 
     it("accepts a confirmed sign-out", async () => {
-        mockSignOut.mockResolvedValue({ data: { success: true }, error: null });
+        mockSignOut.mockResolvedValue({
+            data: { success: true, url: undefined, redirect: undefined },
+            error: null,
+        });
 
         await expect(signOutCurrentSession()).resolves.toBeUndefined();
     });

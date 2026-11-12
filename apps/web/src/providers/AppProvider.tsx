@@ -8,6 +8,7 @@ import { loadPreferences, savePreferences } from "@/lib/preferences";
 import { watchPwaThemeColor } from "@/lib/site-theme";
 import { createPwaStore } from "@/stores/pwaStore";
 import { DEFAULT_SUBSCRIPTION_PLAN_LIMITS } from "@/constants/translation";
+import { watchRespellAccess } from "./respell-access";
 
 function createAppState(pwa: boolean) {
     const localModels = createLocalModelStore(() => translation.stopStream());
@@ -44,6 +45,8 @@ const AppContext = createContext<
 export default function AppProvider(props: { children: JSX.Element; pwa?: boolean }) {
     const [preferencesReady, setPreferencesReady] = createSignal(false);
     const app = { ...createAppState(Boolean(props.pwa)), preferencesReady };
+
+    watchRespellAccess(app.auth.state, app.translation);
 
     onSettled(() => {
         app.translation.setPreferences(loadPreferences());

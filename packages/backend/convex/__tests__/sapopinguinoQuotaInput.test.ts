@@ -15,7 +15,7 @@ describe("quota input accounting", () => {
             input: userText,
         }));
         expect(sanitized).not.toBeNull();
-        const runMutation = jest.fn(async () => ({
+        const runMutation = jest.fn(async (..._args: unknown[]) => ({
             allowed: false,
             reason: "input_limit_exceeded",
         }));

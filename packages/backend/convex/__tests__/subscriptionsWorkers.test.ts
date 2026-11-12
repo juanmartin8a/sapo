@@ -67,8 +67,8 @@ function createWebhookProcessingCtx(args: {
     const reconciliationReleases: Record<string, unknown>[] = [];
     const subscriptionStateMutations: Record<string, unknown>[] = [];
     const scheduler = {
-        runAfter: jest.fn(async () => null),
-        runAt: jest.fn(async () => null),
+        runAfter: jest.fn(async (..._args: unknown[]) => null),
+        runAt: jest.fn(async (..._args: unknown[]) => null),
     };
     let subscriptionStateQueryCount = 0;
     let deletionStateQueryCount = 0;
@@ -1688,7 +1688,7 @@ describe("pending activation scheduling", () => {
             runAfter: jest.fn(async (..._args: unknown[]) => null),
             runAt: jest.fn(async (..._args: unknown[]) => null),
         };
-        const runMutation = jest.fn(async () => ({
+        const runMutation = jest.fn(async (..._args: unknown[]) => ({
             status: "acquired",
             revenuecat_app_user_id: "rc_user_1",
             plan_key: "free",
@@ -1742,8 +1742,8 @@ describe("pending activation scheduling", () => {
 
     it("does not schedule activation work for a reconciliation without an active signal", async () => {
         const scheduler = {
-            runAfter: jest.fn(async () => null),
-            runAt: jest.fn(async () => null),
+            runAfter: jest.fn(async (..._args: unknown[]) => null),
+            runAt: jest.fn(async (..._args: unknown[]) => null),
         };
         const ctx = {
             scheduler,
@@ -1765,8 +1765,8 @@ describe("pending activation scheduling", () => {
     it("claims a retry and schedules both its worker and successor", async () => {
         jest.spyOn(Date, "now").mockReturnValue(6_000);
         const scheduler = {
-            runAfter: jest.fn(async () => null),
-            runAt: jest.fn(async () => null),
+            runAfter: jest.fn(async (..._args: unknown[]) => null),
+            runAt: jest.fn(async (..._args: unknown[]) => null),
         };
         const ctx = {
             scheduler,
@@ -1808,8 +1808,8 @@ describe("pending activation scheduling", () => {
     it("reschedules the same retry without dispatching a worker while a sync is active", async () => {
         jest.spyOn(Date, "now").mockReturnValue(6_000);
         const scheduler = {
-            runAfter: jest.fn(async () => null),
-            runAt: jest.fn(async () => null),
+            runAfter: jest.fn(async (..._args: unknown[]) => null),
+            runAt: jest.fn(async (..._args: unknown[]) => null),
         };
         const ctx = {
             scheduler,
@@ -1841,8 +1841,8 @@ describe("pending activation scheduling", () => {
     it("dispatches the last worker without scheduling a sixth retry", async () => {
         jest.spyOn(Date, "now").mockReturnValue(231_000);
         const scheduler = {
-            runAfter: jest.fn(async () => null),
-            runAt: jest.fn(async () => null),
+            runAfter: jest.fn(async (..._args: unknown[]) => null),
+            runAt: jest.fn(async (..._args: unknown[]) => null),
         };
         const ctx = {
             scheduler,
@@ -1895,8 +1895,8 @@ describe("pending activation scheduling", () => {
 
     it("leaves webhook-resolved pending work stale", async () => {
         const scheduler = {
-            runAfter: jest.fn(async () => null),
-            runAt: jest.fn(async () => null),
+            runAfter: jest.fn(async (..._args: unknown[]) => null),
+            runAt: jest.fn(async (..._args: unknown[]) => null),
         };
         const ctx = {
             scheduler,
@@ -1915,8 +1915,8 @@ describe("pending activation scheduling", () => {
 
     it("wakes a superseded webhook when its expiry watchdog runs", async () => {
         const scheduler = {
-            runAfter: jest.fn(async () => null),
-            runAt: jest.fn(async () => null),
+            runAfter: jest.fn(async (..._args: unknown[]) => null),
+            runAt: jest.fn(async (..._args: unknown[]) => null),
         };
         const ctx = {
             scheduler,
@@ -1946,7 +1946,7 @@ describe("usage refresh scheduling", () => {
     });
 
     it("schedules one worker only after acquiring the reconciliation lease", async () => {
-        const scheduler = { runAfter: jest.fn(async () => null) };
+        const scheduler = { runAfter: jest.fn(async (..._args: unknown[]) => null) };
         const acquiredCtx = {
             scheduler,
             runMutation: jest.fn(async () => ({ status: "acquired" })),
@@ -1969,7 +1969,7 @@ describe("usage refresh scheduling", () => {
             sync_attempt_id: "attempt_1",
         });
 
-        const blockedScheduler = { runAfter: jest.fn(async () => null) };
+        const blockedScheduler = { runAfter: jest.fn(async (..._args: unknown[]) => null) };
         await beginSubscriptionStateReconciliationAndScheduleUsageRefresh(
             {
                 scheduler: blockedScheduler,
@@ -2072,11 +2072,11 @@ describe("user deletion scheduling", () => {
         jest.spyOn(Date, "now").mockReturnValue(1_000);
         const calls: string[] = [];
         const scheduler = {
-            runAfter: jest.fn(async () => {
+            runAfter: jest.fn(async (..._args: unknown[]) => {
                 calls.push("schedule");
             }),
         };
-        const runMutation = jest.fn(async () => {
+        const runMutation = jest.fn(async (..._args: unknown[]) => {
             calls.push("mark");
             return {};
         });

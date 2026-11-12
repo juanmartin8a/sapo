@@ -210,7 +210,7 @@ PODS:
   - hermes-engine (260318099.0.5):
     - hermes-engine/Pre-built (= 260318099.0.5)
   - hermes-engine/Pre-built (260318099.0.5)
-  - NitroModules (0.36.1):
+  - NitroModules (0.37.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1618,7 +1618,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - react-native-litert-lm (0.5.1):
+  - react-native-litert-lm (0.8.2):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -2895,7 +2895,7 @@ SPEC CHECKSUMS:
   fmt: ba0886e864ebb21d14c98b2e12e164b8002f5b93
   glog: 3cf7cb46f743c4bc758ae3e6d9c15bd1b4cfd6d4
   hermes-engine: d7455f8ac403d445fb7d8b29ce61b0217de643ba
-  NitroModules: 6c9df3e89aec2665aafade43cd2ccf6444f2069d
+  NitroModules: f1a11047ebbb0202a7d0033d6e99ad0527d34b00
   PurchasesHybridCommon: 46a92170257b674766b5ed5366be53c9d1603bbd
   RCT-Folly: 82921e585c0400eda46fac1068297aa9dfb035e4
   RCTDeprecation: c62b9b3fbf0d26b76755f3ebd1c913a4fb469dde
@@ -2938,7 +2938,7 @@ SPEC CHECKSUMS:
   React-microtasksnativemodule: 0207d6133274a7cbfc3d0dae326e3055c8cfcf9e
   React-mutationobservernativemodule: b97a67c29f724d18a92379e7390f24350acb433a
   react-native-keyboard-controller: b0f7a2c7e3741625fcb3805ffbfcb3743df4c81e
-  react-native-litert-lm: 3489928c47f20f1efb80ecd8e4e8aca0ff0f7b17
+  react-native-litert-lm: 35417c99cbfdfafd97c2fa5a2ecea3170e589da9
   react-native-pager-view: 81dc1ef286b128ee4c448afd9fc766b7c5141c1d
   react-native-safe-area-context: 56700b839169ce88ffcec68c40447916fe512462
   React-NativeModulesApple: 8cfb2f308f48c48068c96b932e7f0e4297c23342

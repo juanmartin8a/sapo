@@ -18,8 +18,11 @@ its dependencies, environment files, checks, and deployment configuration.
 ## Development
 
 Use Node.js 24 (`.nvmrc`) and Bun 1.4.0 (`packageManager`). Install from this root;
-commit only the root `bun.lock`. Bun uses isolated installs so the apps can keep
-separate tooling versions and native modules resolve from the mobile workspace.
+commit only the root `bun.lock`. Bun uses hoisted installs to avoid duplicate Expo
+native modules with SDK 58. Each workspace still declares its own dependencies;
+Bun installs conflicting tooling versions within the workspace that needs them.
+See [dependency compatibility](docs/dependency-compatibility.md) for version constraints
+and coordinated backend/native upgrade requirements.
 
 ```sh
 nvm use
