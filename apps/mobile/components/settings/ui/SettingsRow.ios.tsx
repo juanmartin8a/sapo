@@ -25,7 +25,7 @@ export default function SettingsRow({
     destructive = false,
     showDisclosure = false,
 }: SettingsRowProps) {
-    const { settingsColors: SETTINGS_COLORS } = useAppTheme();
+    const { scheme, settingsColors: SETTINGS_COLORS } = useAppTheme();
     return (
         <Button
             onPress={onPress}
@@ -49,7 +49,8 @@ export default function SettingsRow({
                     modifiers={[
                         font({ textStyle: "body", weight: "regular" }),
                         foregroundStyle(
-                            destructive ? SETTINGS_COLORS.destructiveText : SETTINGS_COLORS.primaryText
+                            destructive ? SETTINGS_COLORS.destructiveText
+                                : scheme === 'light' ? SETTINGS_COLORS.primaryText : 'primary'
                         ),
                     ]}
                 >

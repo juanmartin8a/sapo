@@ -23,10 +23,13 @@ const lightColors = {
     raised: '#f2f2f2',
     text: '#000000',
     muted: '#666666',
-    subtle: '#767676',
+    subtle: '#aaaaaa',
+    dimmed: '#888888',
+    link: '#1c1c1e',
+    error: '#ff0000',
     border: '#dddddd',
     separator: '#eeeeee',
-    strongBorder: '#171717',
+    strongBorder: '#000000',
     primary: '#000000',
     onPrimary: '#ffffff',
     skeleton: '#e7e7e7',
@@ -41,7 +44,7 @@ export interface AppTheme {
     frogs: { closed: number; open: number };
 }
 
-// Match the website's site-theme.css palette, including its dark frog artwork.
+// Use the website's neutral palette and dark frogs with a pure black mobile background.
 export const APP_THEMES: Record<ColorScheme, AppTheme> = {
     light: {
         scheme: 'light',
@@ -55,28 +58,32 @@ export const APP_THEMES: Record<ColorScheme, AppTheme> = {
     dark: {
         scheme: 'dark',
         colors: {
-            background: '#101010',
+            background: '#000000',
             raised: '#222222',
             text: '#e8e8e8',
             muted: '#adadad',
             subtle: '#adadad',
+            dimmed: '#adadad',
+            link: '#e8e8e8',
+            error: '#ff6961',
             border: '#333333',
             separator: '#333333',
             strongBorder: '#757575',
             primary: '#e8e8e8',
-            onPrimary: '#101010',
+            onPrimary: '#000000',
             skeleton: '#333333',
             selection: '#3d3d3d',
             shadow: '#000000',
         },
         settingsColors: {
-            screenBackground: '#101010',
-            surface: '#222222',
-            primaryText: '#e8e8e8',
-            mutedText: '#adadad',
-            mutedChevron: '#adadad',
-            accent: '#d4d4d4',
-            destructiveText: '#ffabab',
+            // Coordinated charcoal backgrounds with a faint green undertone.
+            screenBackground: '#191b1a',
+            surface: '#252826',
+            primaryText: '#f2f2f7',
+            mutedText: '#aeaeb2',
+            mutedChevron: '#8e8e93',
+            accent: '#a8c7b0',
+            destructiveText: '#ff6961',
         },
         frogs: {
             closed: require('@/assets/images/sapo-dark.png'),

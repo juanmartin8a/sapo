@@ -189,7 +189,7 @@ const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
         fontSize: 14,
     },
     planText: {
-        color: colors.subtle,
+        color: colors.dimmed,
         fontSize: 12,
     },
     signInButton: {

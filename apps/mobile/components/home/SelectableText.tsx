@@ -13,7 +13,7 @@ type Props = Pick<TextProps, "style" | "onTextLayout" | "accessibilityLabel" | "
 
 export default function SelectableText({ text, inputRef, style, onTextLayout, accessibilityLabel,
     accessibilityActions, onAccessibilityAction, onDismissSelection, onInteractionStart, onUnselectedTap }: Props) {
-    const { styles, colors } = useThemeStyles(createStyles);
+    const { styles } = useThemeStyles(createStyles);
     const hasSelection = useRef(false);
     const tap = useRef<{ x: number; y: number; startedAt: number; selected: boolean } | null>(null);
     const [nativeContentHeight, setNativeContentHeight] = useState(0);
@@ -56,7 +56,6 @@ export default function SelectableText({ text, inputRef, style, onTextLayout, ac
             accessibilityElementsHidden
             showSoftInputOnFocus={false}
             caretHidden
-            selectionColor={colors.text}
             onContentSizeChange={({ nativeEvent: { contentSize } }) => {
                 setNativeContentHeight(Math.ceil(contentSize.height));
             }}
@@ -73,7 +72,6 @@ export default function SelectableText({ text, inputRef, style, onTextLayout, ac
             scrollEnabled={false}
             showSoftInputOnFocus={false}
             caretHidden
-            selectionColor={colors.text}
             onSelectionChange={({ nativeEvent: { selection } }) => {
                 hasSelection.current = selection.start !== selection.end;
                 // Preserve native selection creation and handle dragging.

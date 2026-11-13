@@ -227,7 +227,7 @@ export default function Translate({
     );
 };
 
-const createStyles = ({ colors, settingsColors }: AppTheme) => StyleSheet.create({
+const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
     scrollView: {
         flex: 1,
     },
@@ -268,7 +268,7 @@ const createStyles = ({ colors, settingsColors }: AppTheme) => StyleSheet.create
         fontWeight: "400",
     },
     errorText: {
-        color: settingsColors.destructiveText,
+        color: colors.error,
         fontSize: 16,
     },
 });

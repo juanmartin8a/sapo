@@ -8,7 +8,7 @@ import { useAppTheme } from "@/providers/AppThemeProvider";
 const isIOS = Platform.OS === "ios";
 
 export default function SettingsModalLayout() {
-    const { settingsColors: SETTINGS_COLORS } = useAppTheme();
+    const { scheme, settingsColors: SETTINGS_COLORS } = useAppTheme();
     const router = useRouter();
 
     const handleDismiss = useCallback(() => {
@@ -23,7 +23,7 @@ export default function SettingsModalLayout() {
                 headerShadowVisible: isIOS,
                 headerLargeTitleShadowVisible: false,
                 headerStyle: { backgroundColor: "transparent" },
-                headerTintColor: SETTINGS_COLORS.primaryText,
+                headerTintColor: scheme === 'dark' ? SETTINGS_COLORS.primaryText : undefined,
                 headerLargeStyle: { backgroundColor: "transparent" },
                 contentStyle: { backgroundColor: SETTINGS_COLORS.screenBackground },
             }}

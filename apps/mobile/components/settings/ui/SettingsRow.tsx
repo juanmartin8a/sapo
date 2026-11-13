@@ -19,7 +19,7 @@ export default function SettingsRow({
     destructive = false,
     showDisclosure = false,
 }: SettingsRowProps) {
-    const { styles, settingsColors: SETTINGS_COLORS } = useThemeStyles(createStyles);
+    const { styles, scheme, settingsColors: SETTINGS_COLORS } = useThemeStyles(createStyles);
     return (
         <Pressable
             accessibilityRole="button"
@@ -37,7 +37,7 @@ export default function SettingsRow({
             />
             <Text style={[styles.label, destructive && styles.destructive]}>{label}</Text>
             {loading ? (
-                <ActivityIndicator color={SETTINGS_COLORS.primaryText} size="small" />
+                <ActivityIndicator color={scheme === 'dark' ? SETTINGS_COLORS.primaryText : undefined} size="small" />
             ) : showDisclosure ? (
                 <ChevronRightIcon
                     width={18}
@@ -49,7 +49,7 @@ export default function SettingsRow({
     );
 }
 
-const createStyles = ({ settingsColors: SETTINGS_COLORS }: AppTheme) => StyleSheet.create({
+const createStyles = ({ scheme, colors, settingsColors: SETTINGS_COLORS }: AppTheme) => StyleSheet.create({
     row: {
         minHeight: 48,
         width: "100%",
@@ -58,7 +58,7 @@ const createStyles = ({ settingsColors: SETTINGS_COLORS }: AppTheme) => StyleShe
         gap: SETTINGS_ROW_CONTENT_SPACING,
     },
     label: {
-        color: SETTINGS_COLORS.primaryText,
+        color: scheme === 'light' ? colors.text : SETTINGS_COLORS.primaryText,
         flex: 1,
         fontSize: 17,
         fontWeight: "400",

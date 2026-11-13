@@ -4,37 +4,21 @@ import { Host } from '@expo/ui/jetpack-compose';
 import { useAppTheme } from '@/providers/AppThemeProvider';
 
 export default function SettingsForm({ children }: { children: ReactNode }) {
-    const { scheme, colors, settingsColors } = useAppTheme();
+    const { scheme, settingsColors } = useAppTheme();
 
     return (
         <Host
             colorScheme={scheme}
             seedColor={settingsColors.accent}
             style={{ flex: 1 }}
-            // Keep Material controls native while matching the website's neutral dark surfaces.
+            // Preserve the original seeded light palette and customize dark grouped surfaces.
             colorOverrides={scheme === 'dark' ? {
-                primary: colors.text,
-                onPrimary: colors.onPrimary,
-                primaryContainer: colors.raised,
-                onPrimaryContainer: colors.text,
-                secondary: colors.muted,
-                onSecondary: colors.onPrimary,
-                secondaryContainer: colors.raised,
-                onSecondaryContainer: colors.text,
-                surface: colors.background,
-                surfaceVariant: colors.raised,
-                surfaceDim: colors.background,
-                surfaceBright: colors.raised,
-                surfaceContainer: colors.raised,
-                surfaceContainerLow: '#191919',
-                surfaceContainerLowest: colors.background,
-                surfaceContainerHigh: '#292929',
-                surfaceContainerHighest: colors.border,
-                onSurface: colors.text,
-                onSurfaceVariant: colors.muted,
-                surfaceTint: colors.text,
-                outline: colors.strongBorder,
-                outlineVariant: colors.border,
+                primary: settingsColors.accent,
+                onPrimary: settingsColors.screenBackground,
+                surface: settingsColors.screenBackground,
+                surfaceContainer: settingsColors.surface,
+                onSurface: settingsColors.primaryText,
+                onSurfaceVariant: settingsColors.mutedText,
                 error: settingsColors.destructiveText,
             } : undefined}
         >

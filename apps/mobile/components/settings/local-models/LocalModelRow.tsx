@@ -1,6 +1,6 @@
 import useThemeStyles from '@/hooks/useThemeStyles';
 import { Column, RNHostView, Row, Spacer, Text } from "@expo/ui";
-import { font } from "@expo/ui/swift-ui/modifiers";
+import { font, listRowBackground } from "@expo/ui/swift-ui/modifiers";
 import { ActivityIndicator, Platform, Pressable, StyleSheet } from "react-native";
 
 import DownloadIcon from "@/assets/icons/download.svg";
@@ -49,7 +49,7 @@ export default function LocalModelRow({
     onCancelDownload,
     onDelete,
 }: LocalModelRowProps) {
-    const { styles, settingsColors: SETTINGS_COLORS } = useThemeStyles(createStyles);
+    const { styles, scheme, settingsColors: SETTINGS_COLORS } = useThemeStyles(createStyles);
     const modelSizeText = isDownloading
         ? progress?.phase === "finalizing"
             ? "Finalizing..."
@@ -75,6 +75,7 @@ export default function LocalModelRow({
             alignment="center"
             spacing={SETTINGS_ROW_CONTENT_SPACING}
             style={{ width: "100%" }}
+            modifiers={isIOS && scheme === 'dark' ? [listRowBackground(SETTINGS_COLORS.surface)] : undefined}
         >
             <Column spacing={2}>
                 <Text

@@ -654,7 +654,7 @@ const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
         color: colors.onPrimary,
     },
     operationOptionTextDisabled: {
-        color: colors.subtle,
+        color: colors.dimmed,
     },
     localModeToggleContainer: {
         width: '100%',

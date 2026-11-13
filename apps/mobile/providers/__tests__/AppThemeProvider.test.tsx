@@ -54,7 +54,7 @@ test('defaults to system, follows live system changes, and swaps both frog poses
     mockSystemScheme = 'dark';
     refresh();
     expect(current.scheme).toBe('dark');
-    expect(current.colors.background).toBe('#101010');
+    expect(current.colors.background).toBe('#000000');
     expect(current.frogs).toEqual(APP_THEMES.dark.frogs);
     expect(current.frogs.closed).not.toEqual(APP_THEMES.light.frogs.closed);
     expect(current.frogs.open).not.toEqual(APP_THEMES.light.frogs.open);

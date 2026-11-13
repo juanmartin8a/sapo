@@ -1,7 +1,7 @@
 import type { AppTheme } from '@/constants/theme';
 import useThemeStyles from '@/hooks/useThemeStyles';
 import { useEffect, useRef } from "react";
-import { Alert, Platform, StyleSheet, TextInput, useWindowDimensions } from "react-native"
+import { Alert, StyleSheet, TextInput, useWindowDimensions } from "react-native"
 import useTranslationInputStore from "@/stores/translationInputStore";
 import useTransformationOperationStore from "@/stores/transformationOperationStore";
 import { getCharacterCount, getInputLimit } from "@/utils/inputLimits";
@@ -18,7 +18,7 @@ interface TextToTranslateInputProps {
 }
 
 const TextToTranslateInput = ({ keyboardVerticalOffset }: TextToTranslateInputProps) => {
-    const { styles, colors, scheme } = useThemeStyles(createStyles);
+    const { styles, scheme } = useThemeStyles(createStyles);
     const { width: screenWidth } = useWindowDimensions()
     const singleScreen = usePagerStore((state) => state.singleScreen)
     // Match the response's open-mouth frog height only in paged mode.
@@ -83,13 +83,11 @@ const TextToTranslateInput = ({ keyboardVerticalOffset }: TextToTranslateInputPr
             <TextInput
                 style={[styles.textInput, { paddingBottom: 34 + (singleScreen ? 0 : frogHeight) }]}
                 keyboardAppearance={scheme}
-                selectionColor={Platform.OS === "android" ? colors.selection : colors.text}
-                cursorColor={colors.text}
                 multiline
                 value={text}
                 onChangeText={handleTextChange}
                 placeholder="Type something..."
-                placeholderTextColor={colors.subtle}
+                placeholderTextColor="#AAAAAA"
                 returnKeyType="done"
                 submitBehavior="blurAndSubmit"
             />

@@ -3,6 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import CheckIcon from "@/assets/icons/check.svg";
 import type { RefObject } from "react";
+import { useAppTheme } from "@/providers/AppThemeProvider";
 
 interface OptionSelectorSheetProps {
     ref: RefObject<BottomSheet | null>;
@@ -14,6 +15,13 @@ interface OptionSelectorSheetProps {
 }
 
 const OptionSelectorSheet = ({ ref, data, selectedKey, onClose, onChange, onItemSelected }: OptionSelectorSheetProps) => {
+    const { settingsColors } = useAppTheme();
+    const sheetColors = {
+        background: settingsColors.screenBackground,
+        text: settingsColors.primaryText,
+        border: "#757575",
+        handle: "#ffffff",
+    };
     const insets = useSafeAreaInsets();
     return (
         <BottomSheet
@@ -22,10 +30,16 @@ const OptionSelectorSheet = ({ ref, data, selectedKey, onClose, onChange, onItem
             index={-1}
             enableDynamicSizing={false}
             enablePanDownToClose={true}
-            handleIndicatorStyle={styles.handleIndicator}
+            handleIndicatorStyle={[
+                styles.handleIndicator,
+                { backgroundColor: sheetColors.handle },
+            ]}
             onClose={onClose}
             onChange={onChange}
-            backgroundStyle={styles.bottomSheetBackground}
+            backgroundStyle={[
+                styles.bottomSheetBackground,
+                { backgroundColor: sheetColors.background },
+            ]}
         >
             <BottomSheetFlatList
                 data={data}
@@ -37,11 +51,14 @@ const OptionSelectorSheet = ({ ref, data, selectedKey, onClose, onChange, onItem
 
                     return (
                         <TouchableOpacity
-                            style={styles.listItem}
+                            style={[
+                                styles.listItem,
+                                { borderColor: sheetColors.border },
+                            ]}
                             onPress={() => onItemSelected(key)}
                             activeOpacity={0.65}
                         >
-                            <Text style={styles.listItemText}>{value}</Text>
+                            <Text style={[styles.listItemText, { color: sheetColors.text }]}>{value}</Text>
                             {isSelected && <CheckIcon height={16 * 1.2} stroke="pink" />}
                         </TouchableOpacity>
                     );
@@ -58,13 +75,11 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
     },
     handleIndicator: {
-        backgroundColor: 'white',
         width: 25,
         height: 5,
         borderRadius: 20,
     },
     bottomSheetBackground: {
-        backgroundColor: "black",
         borderTopLeftRadius: 15,
         borderTopRightRadius: 15,
     },
@@ -76,11 +91,9 @@ const styles = StyleSheet.create({
         paddingVertical: 18,
         paddingHorizontal: 12,
         borderWidth: 1,
-        borderColor: 'white',
     },
     listItemText: {
         fontSize: 16,
-        color: 'white',
     }
 })
 

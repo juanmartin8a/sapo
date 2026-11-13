@@ -38,7 +38,7 @@ const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
         textAlign: 'center',
     },
     link: {
-        color: colors.text,
+        color: colors.link,
         fontSize: 12,
         fontWeight: '600',
         lineHeight: 17,

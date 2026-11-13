@@ -14,15 +14,14 @@ export default function SettingsAppearanceSection() {
                     <RNHostView matchContents>
                         <SettingsIcon icon={THEME_ICONS[preference]} color={settingsColors.primaryText} />
                     </RNHostView>
-                    <Text>Appearance</Text>
+                    <Text modifiers={[foregroundStyle('primary')]}>Appearance</Text>
                 </HStack>
             }
             selection={preference}
             onSelectionChange={setPreference}
             modifiers={[
                 pickerStyle('menu'),
-                foregroundStyle(settingsColors.primaryText),
-                tint(settingsColors.mutedText),
+                tint(settingsColors.accent),
                 listRowBackground(settingsColors.surface),
             ]}
         >

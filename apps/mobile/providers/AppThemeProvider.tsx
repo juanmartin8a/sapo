@@ -60,7 +60,7 @@ export default function AppThemeProvider({ children }: { children: ReactNode }) 
 
     return (
         <AppThemeContext value={value}>
-            <ThemeProvider value={navigationTheme}>
+            <ThemeProvider value={scheme === 'light' ? DefaultTheme : navigationTheme}>
                 <StatusBar barStyle={scheme === 'dark' ? 'light-content' : 'dark-content'} />
                 {children}
             </ThemeProvider>
