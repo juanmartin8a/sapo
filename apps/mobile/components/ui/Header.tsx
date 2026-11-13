@@ -1,4 +1,5 @@
 import type { AppTheme } from '@/constants/theme';
+import { TINOS } from '@/constants/fonts';
 import useThemeStyles from '@/hooks/useThemeStyles';
 import { ReactNode } from "react";
 import { StyleProp, StyleSheet, Text, TextStyle, View } from "react-native";
@@ -49,8 +50,8 @@ const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
     },
     titleText: {
         color: colors.text,
+        fontFamily: TINOS.bold,
         fontSize: 20,
-        fontWeight: 'bold',
     },
 })
 

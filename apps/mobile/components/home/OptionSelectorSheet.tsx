@@ -15,12 +15,12 @@ interface OptionSelectorSheetProps {
 }
 
 const OptionSelectorSheet = ({ ref, data, selectedKey, onClose, onChange, onItemSelected }: OptionSelectorSheetProps) => {
-    const { settingsColors } = useAppTheme();
+    const { scheme, settingsColors } = useAppTheme();
     const sheetColors = {
         background: settingsColors.screenBackground,
         text: settingsColors.primaryText,
         border: "#757575",
-        handle: "#ffffff",
+        handle: scheme === "light" ? "#000000" : "#ffffff",
     };
     const insets = useSafeAreaInsets();
     return (

@@ -6,7 +6,7 @@
     font-synthesis: none;
     --muted: #858585;
     --line: #dededb;
-    --serif: "Times New Roman", Times, serif;
+    --serif: "Tinos", serif;
     display: flex;
     flex-direction: column;
     min-height: 100dvh;

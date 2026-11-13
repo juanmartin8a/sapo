@@ -1,4 +1,5 @@
 import type { AppTheme } from '@/constants/theme';
+import { TINOS } from '@/constants/fonts';
 import useThemeStyles from '@/hooks/useThemeStyles';
 import TranslationPreview from './TranslationPreview';
 import { TRANSLATION_TEXT_TYPOGRAPHY } from '@/constants/ui';
@@ -264,7 +265,7 @@ const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
         textAlignVertical: "top",
         width: "100%",
         backgroundColor: colors.background,
-        fontFamily: "Times New Roman",
+        fontFamily: TINOS.regular,
         fontWeight: "400",
     },
     errorText: {

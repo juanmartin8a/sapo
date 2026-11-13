@@ -9,6 +9,7 @@ import { authClient } from "@/lib/auth-client";
 import AuthGate from "@/providers/AuthGate";
 import AuthStateProvider from "@/providers/AuthStateProvider";
 import RevenueCatIdentitySync from "@/providers/RevenueCatIdentitySync";
+import AppFontsProvider from "@/providers/AppFontsProvider";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -36,16 +37,18 @@ function AppStack() {
 
 export default function RootLayout() {
     return (
-        <AppThemeProvider>
-            <ConvexBetterAuthProvider client={convex} authClient={authClient}>
-                <AuthStateProvider>
-                    <KeyboardProvider>
-                        <AuthGate />
-                        <RevenueCatIdentitySync />
-                        <AppStack />
-                    </KeyboardProvider>
-                </AuthStateProvider>
-            </ConvexBetterAuthProvider>
-        </AppThemeProvider>
+        <AppFontsProvider>
+            <AppThemeProvider>
+                <ConvexBetterAuthProvider client={convex} authClient={authClient}>
+                    <AuthStateProvider>
+                        <KeyboardProvider>
+                            <AuthGate />
+                            <RevenueCatIdentitySync />
+                            <AppStack />
+                        </KeyboardProvider>
+                    </AuthStateProvider>
+                </ConvexBetterAuthProvider>
+            </AppThemeProvider>
+        </AppFontsProvider>
     );
 }

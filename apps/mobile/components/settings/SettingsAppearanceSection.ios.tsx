@@ -21,7 +21,7 @@ export default function SettingsAppearanceSection() {
             onSelectionChange={setPreference}
             modifiers={[
                 pickerStyle('menu'),
-                tint(settingsColors.accent),
+                tint(settingsColors.mutedText),
                 listRowBackground(settingsColors.surface),
             ]}
         >
