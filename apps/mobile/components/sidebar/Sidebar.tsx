@@ -298,6 +298,7 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
                         label="Single screen"
                         value={singleScreen}
                         onValueChange={setSingleScreen}
+                        lightThumb
                     />
                 </View>
                 {operation === 'respell' && (
@@ -488,7 +489,7 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
     );
 };
 
-const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
+const createStyles = ({ colors, scheme }: AppTheme) => StyleSheet.create({
     topContentScroll: {
         flex: 1,
     },
@@ -640,7 +641,7 @@ const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
         borderRadius: 12,
     },
     operationOptionActive: {
-        backgroundColor: colors.primary,
+        backgroundColor: scheme === 'dark' ? colors.raised : colors.primary,
     },
     operationOptionDisabled: {
         opacity: UI_DISABLED_OPACITY,
@@ -651,7 +652,7 @@ const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
         color: colors.text,
     },
     operationOptionTextActive: {
-        color: colors.onPrimary,
+        color: scheme === 'dark' ? colors.text : colors.onPrimary,
     },
     operationOptionTextDisabled: {
         color: colors.dimmed,
@@ -672,7 +673,7 @@ const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
         justifyContent: 'center',
     },
     localModeOptionActive: {
-        backgroundColor: colors.primary,
+        backgroundColor: scheme === 'dark' ? colors.raised : colors.primary,
     },
     localModeOptionText: {
         fontSize: 14,
@@ -680,7 +681,7 @@ const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
         color: colors.text,
     },
     localModeOptionTextActive: {
-        color: colors.onPrimary,
+        color: scheme === 'dark' ? colors.text : colors.onPrimary,
     },
     localModeOnlineLabel: {
         width: '100%',

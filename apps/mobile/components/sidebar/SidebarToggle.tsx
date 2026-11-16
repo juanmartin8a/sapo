@@ -8,16 +8,18 @@ interface SidebarToggleProps {
     label: string;
     value: boolean;
     onValueChange: (enabled: boolean) => void;
+    lightThumb?: boolean;
 }
 
-export default function SidebarToggle({ label, value, onValueChange }: SidebarToggleProps) {
-    const { styles } = useThemeStyles(createStyles);
+export default function SidebarToggle({ label, value, onValueChange, lightThumb = false }: SidebarToggleProps) {
+    const { scheme, styles } = useThemeStyles(createStyles);
     return (
         <View style={styles.field}>
             <Text style={styles.label}>{label}</Text>
             <Switch
                 accessibilityLabel={label}
                 value={value}
+                thumbColor={scheme === 'dark' ? (lightThumb ? '#ffffff' : '#666666') : undefined}
                 onValueChange={(enabled) => {
                     triggerSelectionHaptic();
                     onValueChange(enabled);

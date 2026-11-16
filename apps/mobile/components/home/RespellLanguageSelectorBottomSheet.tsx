@@ -25,6 +25,7 @@ export default function RespellLanguageSelectorBottomSheet() {
 
     return (
         <OptionSelectorSheet
+            blackInLightMode
             ref={sheetRef}
             selectedKey={selected}
             data={respellLanguageOptions}
