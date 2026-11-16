@@ -31,7 +31,6 @@ export default function SourceLanguageSelectorBottomSheet() {
 
     return (
         <OptionSelectorSheet
-            blackInLightMode
             selectedKey={String(selectedIndex)}
             ref={sheetRef}
             onItemSelected={handleLanguageSelect}

@@ -12,17 +12,15 @@ interface OptionSelectorSheetProps {
     onClose: () => void;
     onChange: (index: number) => void;
     onItemSelected: (key: string) => void;
-    blackInLightMode?: boolean;
 }
 
-const OptionSelectorSheet = ({ ref, data, selectedKey, onClose, onChange, onItemSelected, blackInLightMode = false }: OptionSelectorSheetProps) => {
+const OptionSelectorSheet = ({ ref, data, selectedKey, onClose, onChange, onItemSelected }: OptionSelectorSheetProps) => {
     const { scheme, settingsColors } = useAppTheme();
-    const useBlackSheet = blackInLightMode && scheme === "light";
     const sheetColors = {
-        background: useBlackSheet ? "#000000" : settingsColors.screenBackground,
-        text: useBlackSheet ? "#ffffff" : settingsColors.primaryText,
-        border: useBlackSheet ? "#ffffff" : "#757575",
-        handle: scheme === "light" && !useBlackSheet ? "#000000" : "#ffffff",
+        background: settingsColors.screenBackground,
+        text: settingsColors.primaryText,
+        border: "#757575",
+        handle: scheme === "light" ? "#000000" : "#ffffff",
     };
     const insets = useSafeAreaInsets();
     return (
