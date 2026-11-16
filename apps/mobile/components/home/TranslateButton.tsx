@@ -23,7 +23,7 @@ type TranslateButtonProps = {
 };
 
 const TranslateButton = ({ pagerProgress }: TranslateButtonProps) => {
-    const { colors } = useAppTheme();
+    const { colors, scheme } = useAppTheme();
     const translateButtonState = useTranslateButtonStore((state) => state.state)
     const lastInput = useTranslationStore((state) => state.lastInput)
     const singleScreen = usePagerStore((state) => state.singleScreen)
@@ -130,7 +130,12 @@ const TranslateButton = ({ pagerProgress }: TranslateButtonProps) => {
                 {(translateButtonState === 'next' || translateButtonState === 'repeat') && (
                     <View style={{ position: 'relative', width: 32, height: 32 }}>
                         <Animated.View style={[{ position: 'absolute' }, arrowAnimatedStyle]}>
-                            <ArrowRightIcon style={{ opacity: hasText ? 1.0 : 0.35 }} width={32} height={32} stroke={colors.text} />
+                            <ArrowRightIcon
+                                style={{ opacity: hasText ? 1.0 : scheme === 'dark' ? 0.55 : 0.35 }}
+                                width={32}
+                                height={32}
+                                stroke={colors.text}
+                            />
                         </Animated.View>
                         {lastInput !== null && (
                             <Animated.View style={[{ position: 'absolute' }, repeatAnimatedStyle]}>
