@@ -13,17 +13,19 @@ export default function SettingsScreen() {
 
     return (
         <SettingsForm>
-            <SettingsAccountSection
-                isSigningOut={actions.isSigningOut}
-                isRestoringPurchases={actions.isRestoringPurchases}
-                isRestorePurchasesDisabled={actions.isRestorePurchasesDisabled}
-                isManageSubscriptionDisabled={actions.isManageSubscriptionDisabled}
-                shouldShowAuthenticatedActions={actions.shouldShowAuthenticatedActions}
-                onOpenSubscription={actions.handleOpenSubscription}
-                onRestorePurchases={actions.handleRestorePurchases}
-                onManageSubscription={actions.handleManageSubscription}
-                onOpenDataControls={actions.handleOpenDataControls}
-            />
+            {actions.shouldShowAuthenticatedActions ? (
+                <SettingsAccountSection
+                    isSigningOut={actions.isSigningOut}
+                    isRestoringPurchases={actions.isRestoringPurchases}
+                    isRestorePurchasesDisabled={actions.isRestorePurchasesDisabled}
+                    isManageSubscriptionDisabled={actions.isManageSubscriptionDisabled}
+                    shouldShowAuthenticatedActions={actions.shouldShowAuthenticatedActions}
+                    onOpenSubscription={actions.handleOpenSubscription}
+                    onRestorePurchases={actions.handleRestorePurchases}
+                    onManageSubscription={actions.handleManageSubscription}
+                    onOpenDataControls={actions.handleOpenDataControls}
+                />
+            ) : null}
 
             <FieldGroup.Section>
                 <SettingsRow

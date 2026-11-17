@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useCallback, useMemo } from 'react';
 import { Animated, StyleSheet, TouchableOpacity, Text, View } from 'react-native';
 import LogInIcon from '@/assets/icons/log-in.svg';
+import SettingsIcon from '@/assets/icons/settings.svg';
 import { APP_ROUTES } from '@/constants/routes';
 import { SUBSCRIPTION_PLAN_DISPLAY_NAMES } from '@/constants/subscription';
 import useSkeletonPulse from '@/hooks/useSkeletonPulse';
@@ -108,6 +109,7 @@ const SidebarFooter = () => {
                     onPress={handleSignInPress}
                     activeOpacity={0.7}
                     style={styles.signInButton}
+                    accessibilityRole="button"
                 >
                     <View style={styles.signInButtonContent}>
                         <LogInIcon width={20} height={20} stroke={colors.text} style={styles.signInButtonIcon} />
@@ -115,22 +117,38 @@ const SidebarFooter = () => {
                     </View>
                 </TouchableOpacity>
             )}
+            <TouchableOpacity
+                onPress={handleOpenSettings}
+                activeOpacity={0.7}
+                style={styles.settingsButton}
+                accessibilityRole="button"
+                accessibilityLabel="Settings"
+            >
+                <SettingsIcon width={22} height={22} stroke={colors.text} />
+            </TouchableOpacity>
         </View>
     )
 }
 
 const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
     footer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
         borderTopWidth: 1,
         borderTopColor: colors.separator,
         paddingTop: 16,
     },
     userActionsContainer: {
+        flex: 1,
+        minWidth: 0,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
     },
     skeletonContainer: {
+        flex: 1,
+        minWidth: 0,
         minHeight: SIDEBAR_AVATAR_SIZE,
         flexDirection: 'row',
         alignItems: 'center',
@@ -162,6 +180,8 @@ const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
         marginTop: 4,
     },
     userContainer: {
+        minHeight: 44,
+        minWidth: 0,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
@@ -193,11 +213,19 @@ const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
         fontSize: 12,
     },
     signInButton: {
-        width: '100%',
+        flex: 1,
         borderRadius: 12,
         backgroundColor: colors.raised,
-        alignItems: 'flex-start',
+        alignItems: 'center',
         flexDirection: 'row'
+    },
+    settingsButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 12,
+        backgroundColor: colors.raised,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     signInButtonContent: {
         flexDirection: 'row',

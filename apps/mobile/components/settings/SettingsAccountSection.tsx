@@ -26,6 +26,10 @@ export default function SettingsAccountSection({
     onManageSubscription,
     onOpenDataControls,
 }: SettingsAccountSectionProps) {
+    if (!shouldShowAuthenticatedActions) {
+        return null;
+    }
+
     return (
         <FieldGroup.Section title="Account">
             <SettingsRow
@@ -35,36 +39,30 @@ export default function SettingsAccountSection({
                 disabled={isSigningOut}
                 onPress={onOpenSubscription}
             />
-            {shouldShowAuthenticatedActions ? (
-                <SettingsRow
-                    label={isRestoringPurchases ? "Restoring purchases..." : "Restore purchases"}
-                    icon="restore"
-                    loading={isRestoringPurchases}
-                    disabled={isRestorePurchasesDisabled}
-                    onPress={() => {
-                        void onRestorePurchases();
-                    }}
-                />
-            ) : null}
-            {shouldShowAuthenticatedActions ? (
-                <SettingsRow
-                    label="Manage subscription"
-                    icon="manage"
-                    disabled={isManageSubscriptionDisabled}
-                    onPress={() => {
-                        void onManageSubscription();
-                    }}
-                />
-            ) : null}
-            {shouldShowAuthenticatedActions ? (
-                <SettingsRow
-                    label={SETTINGS_ROUTES.DATA_CONTROLS.title}
-                    icon="dataControls"
-                    showDisclosure
-                    disabled={isSigningOut}
-                    onPress={onOpenDataControls}
-                />
-            ) : null}
+            <SettingsRow
+                label={isRestoringPurchases ? "Restoring purchases..." : "Restore purchases"}
+                icon="restore"
+                loading={isRestoringPurchases}
+                disabled={isRestorePurchasesDisabled}
+                onPress={() => {
+                    void onRestorePurchases();
+                }}
+            />
+            <SettingsRow
+                label="Manage subscription"
+                icon="manage"
+                disabled={isManageSubscriptionDisabled}
+                onPress={() => {
+                    void onManageSubscription();
+                }}
+            />
+            <SettingsRow
+                label={SETTINGS_ROUTES.DATA_CONTROLS.title}
+                icon="dataControls"
+                showDisclosure
+                disabled={isSigningOut}
+                onPress={onOpenDataControls}
+            />
         </FieldGroup.Section>
     );
 }
