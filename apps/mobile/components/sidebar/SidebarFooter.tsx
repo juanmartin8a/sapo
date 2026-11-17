@@ -117,15 +117,17 @@ const SidebarFooter = () => {
                     </View>
                 </TouchableOpacity>
             )}
-            <TouchableOpacity
-                onPress={handleOpenSettings}
-                activeOpacity={0.7}
-                style={styles.settingsButton}
-                accessibilityRole="button"
-                accessibilityLabel="Settings"
-            >
-                <SettingsIcon width={22} height={22} stroke={colors.text} />
-            </TouchableOpacity>
+            {!shouldShowAccount && (
+                <TouchableOpacity
+                    onPress={handleOpenSettings}
+                    activeOpacity={0.7}
+                    style={styles.settingsButton}
+                    accessibilityRole="button"
+                    accessibilityLabel="Settings"
+                >
+                    <SettingsIcon width={22} height={22} stroke={colors.text} />
+                </TouchableOpacity>
+            )}
         </View>
     )
 }
