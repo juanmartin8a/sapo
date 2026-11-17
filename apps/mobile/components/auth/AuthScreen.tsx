@@ -1,7 +1,8 @@
 import type { AppTheme } from '@/constants/theme';
+import { TINOS } from '@/constants/fonts';
 import useThemeStyles from '@/hooks/useThemeStyles';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { APP_ROUTES } from '@/constants/routes';
 import { UI_DISABLED_OPACITY } from '@/constants/ui';
@@ -12,14 +13,14 @@ import GoogleGIcon from '@/assets/icons/google-g.svg';
 import ArrowLeftIcon from '@/assets/icons/arrow-left.svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const SIGN_IN_TITLE = 'Sign in :)';
+const SIGN_IN_TITLE = 'Sign in to S A P O';
 const SIGNING_IN_TITLE = 'Signing in...';
 const TITLE_FADE_DURATION = 300;
 const TITLE_FADE_EASING = Easing.out(Easing.cubic);
 const SIGN_IN_SPACING = 12;
 
 const AuthScreen = () => {
-    const { styles, colors, frogs } = useThemeStyles(createStyles);
+    const { styles, colors } = useThemeStyles(createStyles);
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const pendingProvider = useSignInStore((state) => state.pendingProvider);
@@ -56,6 +57,7 @@ const AuthScreen = () => {
         inputRange: [0, 1],
         outputRange: [0, 1],
     });
+    const signInTitle = <>Sign in to <Text style={styles.brandName}>S A P O</Text></>;
 
     return (
         <View
@@ -74,13 +76,7 @@ const AuthScreen = () => {
                 </TouchableOpacity>
                 <View style={styles.content}>
                     <View style={styles.hero}>
-                        <View style={styles.iconBadge}>
-                            <Image
-                                source={frogs.closed}
-                                resizeMode="contain"
-                                style={styles.icon}
-                            />
-                        </View>
+                        <View style={styles.heroSpacer} />
                         <View
                             accessibilityLiveRegion="polite"
                             accessibilityLabel={isSignInPending ? SIGNING_IN_TITLE : SIGN_IN_TITLE}
@@ -92,14 +88,14 @@ const AuthScreen = () => {
                                 importantForAccessibility="no"
                                 style={[styles.title, styles.titleMeasure]}
                             >
-                                {SIGNING_IN_TITLE}
+                                {signInTitle}
                             </Animated.Text>
                             <Animated.Text
                                 accessible={false}
                                 importantForAccessibility="no"
                                 style={[styles.title, styles.titleLayer, { opacity: signInTitleOpacity }]}
                             >
-                                {SIGN_IN_TITLE}
+                                {signInTitle}
                             </Animated.Text>
                             <Animated.Text
                                 accessible={false}
@@ -195,23 +191,22 @@ const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
         alignItems: 'center',
         gap: 24,
     },
-    iconBadge: {
+    heroSpacer: {
         width: 120,
         height: 120,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    icon: {
-        width: 112,
-        height: 112,
     },
     title: {
         fontSize: 24,
         fontWeight: '700',
         color: colors.text,
     },
+    brandName: {
+        fontFamily: TINOS.bold,
+        fontWeight: 'normal',
+    },
     titleContainer: {
         position: 'relative',
+        alignSelf: 'stretch',
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -219,8 +214,8 @@ const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
         opacity: 0,
     },
     titleLayer: {
-        ...StyleSheet.absoluteFill,
-        textAlign: 'center',
+        position: 'absolute',
+        textAlign: 'left',
     },
     titleLoader: {
         width: 24,

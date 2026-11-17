@@ -3,6 +3,7 @@ import React, { cloneElement, isValidElement, useCallback, useEffect, useMemo, u
 import { Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import AppleLogo from '@/assets/icons/apple-logo.svg';
+import AppleLogoDark from '@/assets/icons/apple-logo-dark.svg';
 import { UI_DISABLED_OPACITY } from '@/constants/ui';
 import type { SocialProvider } from '@/types/auth';
 import { authClient } from '@/lib/auth-client';
@@ -63,8 +64,9 @@ const SocialSignInButton = ({
     onSignInCancel,
     onSignInError,
 }: SocialSignInButtonProps) => {
-    const { scheme, colors } = useAppTheme();
+    const { scheme } = useAppTheme();
     const isApple = provider === 'apple';
+    const isWhiteAppleButton = isApple && scheme === 'dark';
     const [isNativeAppleAuthAvailable, setIsNativeAppleAuthAvailable] = useState(false);
     const isDisabled = disabled || loading;
 
@@ -105,8 +107,9 @@ const SocialSignInButton = ({
         }
 
         if (isApple) {
+            const Logo = isWhiteAppleButton ? AppleLogoDark : AppleLogo;
             return (
-                <AppleLogo
+                <Logo
                     width={SOCIAL_SIGN_IN_BUTTON_HEIGHT}
                     height={SOCIAL_SIGN_IN_BUTTON_HEIGHT}
                 />
@@ -114,7 +117,7 @@ const SocialSignInButton = ({
         }
 
         return null;
-    }, [icon, isApple]);
+    }, [icon, isApple, isWhiteAppleButton]);
 
     const shouldUseNativeAppleAuth = isApple && isNativeAppleAuthAvailable;
 
@@ -225,7 +228,7 @@ const SocialSignInButton = ({
             style={[
                 styles.button,
                 provider === 'apple' ? styles.appleButton : styles.googleButton,
-                provider === 'apple' && scheme === 'dark' && { borderWidth: 1, borderColor: colors.border },
+                scheme === 'dark' && styles.whiteButton,
                 isDisabled && styles.disabled,
             ]}
             onPress={handlePress}
@@ -248,6 +251,7 @@ const SocialSignInButton = ({
                     style={[
                         styles.label,
                         provider === 'apple' ? styles.appleLabel : styles.googleLabel,
+                        isWhiteAppleButton && styles.whiteAppleLabel,
                     ]}
                 >
                     {label}
@@ -271,6 +275,9 @@ const styles = StyleSheet.create({
     appleButton: {
         backgroundColor: '#000',
     },
+    whiteButton: {
+        backgroundColor: '#fff',
+    },
     content: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -291,6 +298,9 @@ const styles = StyleSheet.create({
     },
     appleLabel: {
         color: '#fff',
+    },
+    whiteAppleLabel: {
+        color: '#000',
     },
     disabled: {
         opacity: UI_DISABLED_OPACITY,

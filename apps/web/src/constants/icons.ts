@@ -9,5 +9,6 @@ export const iconAssetNames = [
     "log-in",
     "google-g",
     "apple-logo",
+    "apple-logo-dark",
     "chevron-right",
 ] as const;

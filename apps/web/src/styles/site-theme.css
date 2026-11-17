@@ -19,6 +19,8 @@
     --site-icon-invert: 0;
     --site-disabled-action-opacity: 0.4;
     --site-frog-light-display: block;
+    --site-apple-light-display: block;
+    --site-apple-dark-display: none;
     --site-frog-dark-display: none;
     background: var(--site-surface);
 }
@@ -31,6 +33,8 @@
     --site-disabled-action-opacity: 0.5;
     --site-frog-light-display: none;
     --site-frog-dark-display: block;
+    --site-apple-light-display: none;
+    --site-apple-dark-display: block;
 }
 @media (prefers-color-scheme: dark) {
     :root:not([data-site-theme="light"]):has(.site-themed) {
@@ -38,6 +42,8 @@
         --site-disabled-action-opacity: 0.5;
         --site-frog-light-display: none;
         --site-frog-dark-display: block;
+        --site-apple-light-display: none;
+        --site-apple-dark-display: block;
     }
 }
 :root:has(.site-themed) body {
@@ -156,11 +162,24 @@
     .dialog-popover::backdrop {
         background: transparent;
     }
-    .google-button,
     .button-secondary,
     .plan-badge {
         color: var(--ink);
         background: var(--site-raised);
+    }
+    .google-button {
+        color: light-dark(#202320, #000);
+        background: light-dark(#f3f3f1, #fff);
+    }
+    .apple-button {
+        color: light-dark(#fff, #000);
+        background: light-dark(#000, #fff);
+    }
+    .apple-logo-light {
+        display: var(--site-apple-light-display);
+    }
+    .apple-logo-dark {
+        display: var(--site-apple-dark-display);
     }
     .back-link,
     .legal-notice,
@@ -244,7 +263,7 @@
     .error-message {
         color: var(--site-error);
     }
-    img.icon:not([src$="/google-g.svg"], [src$="/apple-logo.svg"]) {
+    img.icon:not([src$="/google-g.svg"], [src$="/apple-logo.svg"], [src$="/apple-logo-dark.svg"]) {
         filter: invert(var(--site-icon-invert));
     }
     /* Picker popups keep a dark surface in both page themes. */
