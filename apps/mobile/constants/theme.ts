@@ -21,6 +21,7 @@ export function isThemePreference(value: unknown): value is ThemePreference {
 const lightColors = {
     background: '#ffffff',
     raised: '#f2f2f2',
+    secondaryAction: '#e5ecdf',
     text: '#000000',
     muted: '#666666',
     subtle: '#aaaaaa',
@@ -60,6 +61,7 @@ export const APP_THEMES: Record<ColorScheme, AppTheme> = {
         colors: {
             background: '#000000',
             raised: '#222222',
+            secondaryAction: '#293329',
             text: '#e8e8e8',
             muted: '#adadad',
             subtle: '#adadad',
