@@ -8,6 +8,7 @@
     "scheme": "sapo",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "icon": "./assets/sapo-draft.icon",
       "supportsTablet": false,
       "bundleIdentifier": "com.juanmartin8a.SAPO",
       "usesAppleSignIn": true,
@@ -60,9 +61,13 @@
         "expo-splash-screen",
         {
           "image": "./assets/images/sapo_logo.png",
-          "imageWidth": 200,
+          "imageWidth": 152,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "image": "./assets/images/sapo-dark.png",
+            "backgroundColor": "#000000"
+          }
         }
       ],
       [
