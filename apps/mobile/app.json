@@ -65,7 +65,7 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
           "dark": {
-            "image": "./assets/images/sapo-dark.png",
+            "image": "./assets/images/sapo-splash-dark.png",
             "backgroundColor": "#000000"
           }
         }
