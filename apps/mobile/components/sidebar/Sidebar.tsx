@@ -489,7 +489,7 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
     );
 };
 
-const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
+const createStyles = ({ colors, scheme }: AppTheme) => StyleSheet.create({
     topContentScroll: {
         flex: 1,
     },
@@ -641,7 +641,7 @@ const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
         borderRadius: 12,
     },
     operationOptionActive: {
-        backgroundColor: '#ffffff',
+        backgroundColor: scheme === 'dark' ? '#ffffff' : colors.primary,
     },
     operationOptionDisabled: {
         opacity: UI_DISABLED_OPACITY,
@@ -652,7 +652,7 @@ const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
         color: colors.text,
     },
     operationOptionTextActive: {
-        color: '#000000',
+        color: colors.onPrimary,
     },
     operationOptionTextDisabled: {
         color: colors.dimmed,
@@ -673,7 +673,7 @@ const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
         justifyContent: 'center',
     },
     localModeOptionActive: {
-        backgroundColor: '#ffffff',
+        backgroundColor: scheme === 'dark' ? '#ffffff' : colors.primary,
     },
     localModeOptionText: {
         fontSize: 14,
@@ -681,7 +681,7 @@ const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
         color: colors.text,
     },
     localModeOptionTextActive: {
-        color: '#000000',
+        color: colors.onPrimary,
     },
     localModeOnlineLabel: {
         width: '100%',
