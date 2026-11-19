@@ -8,7 +8,7 @@ import { useAppTheme } from "@/providers/AppThemeProvider";
 const isIOS = Platform.OS === "ios";
 
 export default function SettingsModalLayout() {
-    const { scheme, settingsColors: SETTINGS_COLORS } = useAppTheme();
+    const { scheme, settingsColors } = useAppTheme();
     const router = useRouter();
 
     const handleDismiss = useCallback(() => {
@@ -23,9 +23,9 @@ export default function SettingsModalLayout() {
                 headerShadowVisible: isIOS,
                 headerLargeTitleShadowVisible: false,
                 headerStyle: { backgroundColor: "transparent" },
-                headerTintColor: scheme === 'dark' ? SETTINGS_COLORS.primaryText : undefined,
+                headerTintColor: scheme === 'dark' ? settingsColors.primaryText : undefined,
                 headerLargeStyle: { backgroundColor: "transparent" },
-                contentStyle: { backgroundColor: SETTINGS_COLORS.screenBackground },
+                contentStyle: { backgroundColor: settingsColors.screenBackground },
             }}
         >
             <Stack.Screen
@@ -40,7 +40,7 @@ export default function SettingsModalLayout() {
                             accessibilityLabel="Close"
                             icon="xmark"
                             onPress={handleDismiss}
-                            tintColor={SETTINGS_COLORS.primaryText}
+                            tintColor={settingsColors.primaryText}
                         />
                     </Stack.Toolbar>
                 )}

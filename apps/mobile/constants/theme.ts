@@ -11,7 +11,7 @@ export const THEME_ICONS = {
     light: 'sun',
     dark: 'moon',
 } as const;
-export type ColorScheme = 'light' | 'dark';
+type ColorScheme = 'light' | 'dark';
 export const THEME_STORAGE_KEY = 'sapo.appearance';
 
 export function isThemePreference(value: unknown): value is ThemePreference {

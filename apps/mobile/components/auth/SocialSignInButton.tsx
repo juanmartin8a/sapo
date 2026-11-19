@@ -1,26 +1,24 @@
-import { useAppTheme } from '@/providers/AppThemeProvider';
-import React, { cloneElement, isValidElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
+
 import AppleLogo from '@/assets/icons/apple-logo.svg';
-import AppleLogoDark from '@/assets/icons/apple-logo-dark.svg';
+import GoogleLogo from '@/assets/icons/google-g.svg';
 import { UI_DISABLED_OPACITY } from '@/constants/ui';
 import type { SocialProvider } from '@/types/auth';
 import { authClient } from '@/lib/auth-client';
 import { triggerLightImpactHaptic } from '@/lib/haptics';
+import { useAppTheme } from '@/providers/AppThemeProvider';
 
 const SOCIAL_SIGN_IN_BUTTON_HEIGHT = 44;
-
 
 interface SocialSignInButtonProps {
     provider: SocialProvider;
     label: string;
-    icon?: React.ReactElement<{ width?: number; height?: number }>;
     loading?: boolean;
     disabled?: boolean;
-    onSignInStart?: (provider: SocialProvider) => void;
-    onSignInCancel?: (provider: SocialProvider) => void;
-    onSignInError?: (provider: SocialProvider) => void;
+    onSignInStart: (provider: SocialProvider) => void;
+    onSignInEnd: (provider: SocialProvider) => void;
 }
 
 const assertSocialSignInSucceeded = (
@@ -57,16 +55,14 @@ const isUserCancelledSignIn = (error: unknown) => {
 const SocialSignInButton = ({
     provider,
     label,
-    icon,
     loading = false,
     disabled = false,
     onSignInStart,
-    onSignInCancel,
-    onSignInError,
+    onSignInEnd,
 }: SocialSignInButtonProps) => {
     const { scheme } = useAppTheme();
     const isApple = provider === 'apple';
-    const isWhiteAppleButton = isApple && scheme === 'dark';
+    const isBlackAppleButton = isApple && scheme === 'light';
     const [isNativeAppleAuthAvailable, setIsNativeAppleAuthAvailable] = useState(false);
     const isDisabled = disabled || loading;
 
@@ -94,31 +90,6 @@ const SocialSignInButton = ({
         };
     }, [isApple]);
 
-    const processedIcon = useMemo(() => {
-        if (icon) {
-            if (isValidElement(icon)) {
-                return cloneElement(icon, {
-                    width: SOCIAL_SIGN_IN_BUTTON_HEIGHT,
-                    height: SOCIAL_SIGN_IN_BUTTON_HEIGHT,
-                });
-            }
-
-            return icon;
-        }
-
-        if (isApple) {
-            const Logo = isWhiteAppleButton ? AppleLogoDark : AppleLogo;
-            return (
-                <Logo
-                    width={SOCIAL_SIGN_IN_BUTTON_HEIGHT}
-                    height={SOCIAL_SIGN_IN_BUTTON_HEIGHT}
-                />
-            );
-        }
-
-        return null;
-    }, [icon, isApple, isWhiteAppleButton]);
-
     const shouldUseNativeAppleAuth = isApple && isNativeAppleAuthAvailable;
 
     const confirmAuthenticatedSession = useCallback(async (treatMissingSessionAsCancel: boolean) => {
@@ -129,12 +100,12 @@ const SocialSignInButton = ({
         }
 
         if (treatMissingSessionAsCancel) {
-            onSignInCancel?.(provider);
+            onSignInEnd(provider);
             return;
         }
 
         throw new Error(`${provider} sign-in completed without an authenticated session`);
-    }, [onSignInCancel, provider]);
+    }, [onSignInEnd, provider]);
 
     const handlePress = useCallback(async () => {
         if (isDisabled) {
@@ -142,22 +113,10 @@ const SocialSignInButton = ({
         }
 
         triggerLightImpactHaptic();
-        onSignInStart?.(provider);
+        onSignInStart(provider);
 
         try {
-            if (provider === 'google') {
-                const result = await authClient.signIn.social({
-                    provider: 'google',
-                    callbackURL: '/'
-                })
-
-                assertSocialSignInSucceeded(result, provider);
-                await confirmAuthenticatedSession(true);
-
-                return;
-            }
-
-            if (provider === 'apple' && shouldUseNativeAppleAuth) {
+            if (shouldUseNativeAppleAuth) {
                 const credential = await AppleAuthentication.signInAsync({
                     requestedScopes: [
                         AppleAuthentication.AppleAuthenticationScope.EMAIL,
@@ -190,7 +149,7 @@ const SocialSignInButton = ({
                             },
                         },
                     }
-                })
+                });
 
                 assertSocialSignInSucceeded(result, provider);
                 await confirmAuthenticatedSession(false);
@@ -198,18 +157,16 @@ const SocialSignInButton = ({
                 return;
             }
 
-            if (provider === 'apple') {
-                const result = await authClient.signIn.social({
-                    provider: 'apple',
-                    callbackURL: '/'
-                })
+            const result = await authClient.signIn.social({
+                provider,
+                callbackURL: '/',
+            });
 
-                assertSocialSignInSucceeded(result, provider);
-                await confirmAuthenticatedSession(true);
-            }
+            assertSocialSignInSucceeded(result, provider);
+            await confirmAuthenticatedSession(true);
         } catch (error) {
             if (isUserCancelledSignIn(error)) {
-                onSignInCancel?.(provider);
+                onSignInEnd(provider);
                 return;
             }
 
@@ -218,44 +175,38 @@ const SocialSignInButton = ({
             }
 
             Alert.alert('Sign-in failed', 'Please try again.');
-            onSignInError?.(provider);
+            onSignInEnd(provider);
         }
-    }, [confirmAuthenticatedSession, isDisabled, onSignInCancel, onSignInError, onSignInStart, provider, shouldUseNativeAppleAuth]);
+    }, [confirmAuthenticatedSession, isDisabled, onSignInEnd, onSignInStart, provider, shouldUseNativeAppleAuth]);
+
+    const Logo = isApple ? AppleLogo : GoogleLogo;
+    const labelStyle = isBlackAppleButton ? styles.lightLabel : styles.darkLabel;
+    const buttonStyle = scheme === 'dark'
+        ? styles.whiteButton
+        : isBlackAppleButton ? styles.appleButton : styles.googleButton;
 
     return (
         <TouchableOpacity
             activeOpacity={0.9}
             style={[
                 styles.button,
-                provider === 'apple' ? styles.appleButton : styles.googleButton,
-                scheme === 'dark' && styles.whiteButton,
+                buttonStyle,
                 isDisabled && styles.disabled,
             ]}
             onPress={handlePress}
             disabled={isDisabled}
+            accessibilityRole="button"
             accessibilityState={{ disabled: isDisabled, busy: loading }}
         >
-            <View
-                style={[
-                    styles.content,
-                ]}
-            >
-                {processedIcon ? (
-                    <View style={styles.leadingElement}>
-                        {processedIcon}
-                    </View>
-                ) : (
-                    null
-                )}
-                <Text
-                    style={[
-                        styles.label,
-                        provider === 'apple' ? styles.appleLabel : styles.googleLabel,
-                        isWhiteAppleButton && styles.whiteAppleLabel,
-                    ]}
-                >
-                    {label}
-                </Text>
+            <View style={styles.content}>
+                <View style={styles.leadingElement}>
+                    <Logo
+                        width={SOCIAL_SIGN_IN_BUTTON_HEIGHT}
+                        height={SOCIAL_SIGN_IN_BUTTON_HEIGHT}
+                        fill={isApple ? labelStyle.color : undefined}
+                    />
+                </View>
+                <Text style={[styles.label, labelStyle]}>{label}</Text>
             </View>
         </TouchableOpacity>
     );
@@ -293,14 +244,11 @@ const styles = StyleSheet.create({
         fontSize: 17,
         fontWeight: '500',
     },
-    googleLabel: {
+    darkLabel: {
         color: '#000',
     },
-    appleLabel: {
+    lightLabel: {
         color: '#fff',
-    },
-    whiteAppleLabel: {
-        color: '#000',
     },
     disabled: {
         opacity: UI_DISABLED_OPACITY,

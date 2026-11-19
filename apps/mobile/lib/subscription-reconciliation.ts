@@ -1,5 +1,5 @@
 import { ABORT_ERROR_NAME } from "@/constants/errors";
-import { HTTP_ROUTES } from "@/constants/http";
+import { HTTP_ROUTES } from "@sapo/backend/constants/http";
 import {
     SUBSCRIPTION_PLAN_KEYS,
     type SubscriptionPlanKey,

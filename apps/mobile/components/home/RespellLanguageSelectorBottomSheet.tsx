@@ -8,20 +8,20 @@ import useHomeBottomSheetController from "@/hooks/useHomeBottomSheetController";
 const respellLanguageOptions: [string, string][] = ["Source", ...Object.values(languages)]
     .map(language => [language, language]);
 
+function handleLanguageSelect(language: string) {
+    const { respellLanguage, selectRespellLanguage } = useLanguageSelectionStore.getState();
+    if (language === respellLanguage) {
+        return;
+    }
+
+    triggerSelectionHaptic();
+    selectRespellLanguage(language);
+}
+
 export default function RespellLanguageSelectorBottomSheet() {
     const { sheetRef, handleSheetClose, handleSheetChange } =
         useHomeBottomSheetController(HOME_BOTTOM_SHEET_KEYS.RESPELL_LANGUAGE);
     const selected = useLanguageSelectionStore(state => state.respellLanguage);
-    const selectRespellLanguage = useLanguageSelectionStore(state => state.selectRespellLanguage);
-
-    const handleLanguageSelect = (language: string) => {
-        if (language === selected) {
-            return;
-        }
-
-        triggerSelectionHaptic();
-        selectRespellLanguage(language);
-    };
 
     return (
         <OptionSelectorSheet

@@ -54,7 +54,7 @@ export default function SubscriptionPlanCard({
     onOpenTermsOfUse,
     onOpenPrivacyPolicy,
 }: SubscriptionPlanCardProps) {
-    const { styles, settingsColors: SETTINGS_COLORS } = useThemeStyles(createStyles);
+    const { styles, settingsColors } = useThemeStyles(createStyles);
     return (
         <View style={styles.card}>
             <View style={styles.planHeader}>
@@ -71,7 +71,7 @@ export default function SubscriptionPlanCard({
                 <Text style={styles.featureListLabel}>Included</Text>
                 {PLAN_FEATURES.map((feature) => (
                     <View key={feature} style={styles.featureRow}>
-                        <CheckIcon width={18} height={18} stroke={SETTINGS_COLORS.accent} />
+                        <CheckIcon width={18} height={18} stroke={settingsColors.accent} />
                         <Text style={styles.featureText}>{feature}</Text>
                     </View>
                 ))}
@@ -118,22 +118,22 @@ export default function SubscriptionPlanCard({
     );
 }
 
-const createStyles = ({ scheme, colors, settingsColors: SETTINGS_COLORS }: AppTheme) => {
+const createStyles = ({ scheme, colors, settingsColors }: AppTheme) => {
     const planColors = scheme === 'light' ? LIGHT_PLAN_CARD_COLORS : {
-        border: SETTINGS_COLORS.screenBackground,
-        descriptionText: SETTINGS_COLORS.mutedText,
-        divider: SETTINGS_COLORS.mutedChevron,
-        linkPressed: SETTINGS_COLORS.mutedText,
-        mutedText: SETTINGS_COLORS.mutedText,
-        primary: SETTINGS_COLORS.primaryText,
-        secondaryText: SETTINGS_COLORS.primaryText,
+        border: settingsColors.screenBackground,
+        descriptionText: settingsColors.mutedText,
+        divider: settingsColors.mutedChevron,
+        linkPressed: settingsColors.mutedText,
+        mutedText: settingsColors.mutedText,
+        primary: settingsColors.primaryText,
+        secondaryText: settingsColors.primaryText,
         shadow: colors.shadow,
-        white: SETTINGS_COLORS.surface,
+        white: settingsColors.surface,
     };
 
     return StyleSheet.create({
         card: {
-            backgroundColor: SETTINGS_COLORS.surface,
+            backgroundColor: settingsColors.surface,
             borderWidth: 1,
             borderColor: planColors.border,
             borderRadius: 24,

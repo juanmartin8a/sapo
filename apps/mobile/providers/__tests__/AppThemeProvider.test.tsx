@@ -4,7 +4,8 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { Alert, Appearance } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import AppThemeProvider, { useAppTheme } from '../AppThemeProvider';
-import { APP_THEMES, THEME_STORAGE_KEY } from '@/constants/theme';
+import { APP_THEMES, THEME_STORAGE_KEY, type AppTheme } from '@/constants/theme';
+import useThemeStyles from '@/hooks/useThemeStyles';
 
 let mockSystemScheme: 'light' | 'dark' = 'light';
 jest.mock('react-native', () => {
@@ -20,8 +21,11 @@ jest.mock('expo-router', () => ({
 }));
 
 let current: ReturnType<typeof useAppTheme>;
+const createStyles = jest.fn(({ colors }: AppTheme) => ({ backgroundColor: colors.background }));
+
 function Probe() {
     const theme = useAppTheme();
+    useThemeStyles(createStyles);
     useLayoutEffect(() => { current = theme; }, [theme]);
     return null;
 }
@@ -69,6 +73,33 @@ test('restores a saved override on the first render', () => {
     expect(Appearance.setColorScheme).toHaveBeenCalledWith('dark');
     refresh();
     expect(current.scheme).toBe('dark');
+});
+
+test('reuses styles until the effective scheme changes', () => {
+    mount();
+    expect(createStyles).toHaveBeenCalledTimes(1);
+
+    act(() => current.setPreference('light'));
+    expect(current.preference).toBe('light');
+    expect(createStyles).toHaveBeenCalledTimes(1);
+
+    act(() => current.setPreference('dark'));
+    expect(createStyles).toHaveBeenCalledTimes(2);
+    expect(createStyles).toHaveBeenLastCalledWith(APP_THEMES.dark);
+});
+
+test('follows the system when native appearance overrides are unavailable', () => {
+    const appearance: Partial<typeof Appearance> = Appearance;
+    const setColorScheme = appearance.setColorScheme;
+    appearance.setColorScheme = undefined;
+    mockSystemScheme = 'dark';
+
+    try {
+        mount();
+        expect(current.scheme).toBe('dark');
+    } finally {
+        appearance.setColorScheme = setColorScheme;
+    }
 });
 
 test('persists choices, keeps overrides across system changes, and can return to system', () => {

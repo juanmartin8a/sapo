@@ -44,7 +44,7 @@ const mockCreateLLM = jest.fn(() => {
     return engine;
 });
 
-jest.mock("@/lib/local-model", () => ({
+jest.mock("@/lib/local-model.native", () => ({
     getLocalModelFileUri: (modelId: string) => `file:///models/${modelId}.litertlm`,
     getSelectedLocalTranslationModel: () => (
         mockSelectedModelId ? { id: mockSelectedModelId } : null

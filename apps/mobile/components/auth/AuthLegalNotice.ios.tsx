@@ -1,4 +1,3 @@
-import useThemeStyles from '@/hooks/useThemeStyles';
 import { Host, Text } from '@expo/ui/swift-ui';
 import {
     font,
@@ -10,10 +9,10 @@ import {
 import { StyleSheet } from 'react-native';
 
 import { PRIVACY_POLICY_URL, TERMS_OF_USE_URL } from '@/constants/legal';
-
+import { useAppTheme } from '@/providers/AppThemeProvider';
 
 export default function AuthLegalNotice() {
-    const { styles, colors, scheme } = useThemeStyles(createStyles);
+    const { colors, scheme } = useAppTheme();
     return (
         <Host colorScheme={scheme} matchContents={{ vertical: true }} style={styles.host}>
             <Text markdownEnabled modifiers={[font({ size: 12 }), foregroundStyle(colors.muted), tint(colors.link), lineSpacing(5), multilineTextAlignment('center')]}>
@@ -23,7 +22,7 @@ export default function AuthLegalNotice() {
     );
 }
 
-const createStyles = () => StyleSheet.create({
+const styles = StyleSheet.create({
     host: {
         marginTop: 4,
         width: '100%',

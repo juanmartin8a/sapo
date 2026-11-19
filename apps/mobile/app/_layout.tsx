@@ -28,7 +28,6 @@ function AppStack() {
                     sheetAllowedDetents: "fitToContents",
                     sheetGrabberVisible: true,
                     sheetCornerRadius: 28,
-                    contentStyle: { backgroundColor: colors.background },
                 }}
             />
         </Stack>

@@ -28,7 +28,7 @@ const getRevenueCatApiKey = () => {
     return "";
 };
 
-export const getRevenueCatSubscriptionProductId = () => {
+const getRevenueCatSubscriptionProductId = () => {
     if (Platform.OS === "ios") {
         return iosSubscriptionProductId;
     }
@@ -151,7 +151,7 @@ const serializeRevenueCatIdentityOperation = <Result,>(operation: () => Promise<
     return result;
 };
 
-export const configureRevenueCat = async (appUserId: string | null): Promise<boolean> => {
+const configureRevenueCat = async (appUserId: string | null): Promise<boolean> => {
     if (!hasRevenueCatConfig()) {
         return false;
     }
@@ -251,7 +251,7 @@ export const getRevenueCatCustomerInfo = (
     shouldContinue
 );
 
-export interface RevenueCatSubscriptionOffering {
+interface RevenueCatSubscriptionOffering {
     subscriptionPackage: PurchasesPackage | null;
     subscriptionProduct: PurchasesStoreProduct | null;
 }

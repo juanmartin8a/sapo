@@ -3,7 +3,6 @@ import { Stack } from "expo-router";
 import { APP_ROUTE_NAMES } from "@/constants/routes";
 import { useAppTheme } from "@/providers/AppThemeProvider";
 
-
 export const unstable_settings = {
     anchor: "index",
 };

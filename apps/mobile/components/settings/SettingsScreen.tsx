@@ -19,7 +19,6 @@ export default function SettingsScreen() {
                     isRestoringPurchases={actions.isRestoringPurchases}
                     isRestorePurchasesDisabled={actions.isRestorePurchasesDisabled}
                     isManageSubscriptionDisabled={actions.isManageSubscriptionDisabled}
-                    shouldShowAuthenticatedActions={actions.shouldShowAuthenticatedActions}
                     onOpenSubscription={actions.handleOpenSubscription}
                     onRestorePurchases={actions.handleRestorePurchases}
                     onManageSubscription={actions.handleManageSubscription}

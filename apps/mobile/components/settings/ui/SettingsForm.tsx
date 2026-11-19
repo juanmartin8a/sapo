@@ -10,15 +10,15 @@ interface SettingsFormProps {
 }
 
 export default function SettingsForm({ children }: SettingsFormProps) {
-    const { scheme, settingsColors: SETTINGS_COLORS } = useAppTheme();
+    const { scheme, settingsColors } = useAppTheme();
     const formModifiers = Platform.OS === "ios"
-        ? [scrollContentBackground("hidden"), background(SETTINGS_COLORS.screenBackground)]
+        ? [scrollContentBackground("hidden"), background(settingsColors.screenBackground)]
         : undefined;
 
     return (
-        <Host colorScheme={scheme} style={{ flex: 1 }} seedColor={SETTINGS_COLORS.accent}>
+        <Host colorScheme={scheme} style={{ flex: 1 }} seedColor={settingsColors.accent}>
             <FieldGroup
-                style={{ backgroundColor: SETTINGS_COLORS.screenBackground }}
+                style={{ backgroundColor: settingsColors.screenBackground }}
                 modifiers={formModifiers}
             >
                 {children}

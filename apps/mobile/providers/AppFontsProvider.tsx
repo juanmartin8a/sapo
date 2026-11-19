@@ -3,13 +3,15 @@ import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, type ReactNode } from "react";
 
-SplashScreen.preventAutoHideAsync();
+const fonts = {
+    [TINOS.regular]: require("@/assets/fonts/tinos/Tinos-Regular.ttf"),
+    [TINOS.bold]: require("@/assets/fonts/tinos/Tinos-Bold.ttf"),
+};
+
+void SplashScreen.preventAutoHideAsync();
 
 export default function AppFontsProvider({ children }: { children: ReactNode }) {
-    const [loaded, error] = useFonts({
-        [TINOS.regular]: require("@/assets/fonts/tinos/Tinos-Regular.ttf"),
-        [TINOS.bold]: require("@/assets/fonts/tinos/Tinos-Bold.ttf"),
-    });
+    const [loaded, error] = useFonts(fonts);
 
     useEffect(() => {
         if (loaded || error) {

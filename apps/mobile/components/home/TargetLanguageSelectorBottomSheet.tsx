@@ -5,29 +5,23 @@ import OptionSelectorSheet from "./OptionSelectorSheet";
 import { triggerSelectionHaptic } from "@/lib/haptics";
 import useHomeBottomSheetController from "@/hooks/useHomeBottomSheetController";
 
-// Separated Component from SourceLanguageSelectorBottomSheet.tsx for simplicity
-// Single component would require more logic which would make the code harder to understand and debug.
+const targetLanguageOptions = Object.entries(languages);
+
+function handleLanguageSelect(key: string) {
+    const index = Number(key);
+    const { selectedIndex1, selectLanguage } = useLanguageSelectionStore.getState();
+    if (index === selectedIndex1) {
+        return;
+    }
+
+    triggerSelectionHaptic();
+    selectLanguage(false, index);
+}
 
 export default function TargetLanguageSelectorBottomSheet() {
     const { sheetRef, handleSheetClose, handleSheetChange } =
         useHomeBottomSheetController(HOME_BOTTOM_SHEET_KEYS.TARGET_LANGUAGE);
-    const selectLanguage = useLanguageSelectionStore(state => state.selectLanguage);
     const selectedIndex = useLanguageSelectionStore(state => state.selectedIndex1);
-
-    const handleLanguageSelect = (key: string) => {
-        const index = parseInt(key);
-
-        if (index === useLanguageSelectionStore.getState().selectedIndex1) {
-            return;
-        }
-
-        triggerSelectionHaptic();
-
-        selectLanguage(
-            false, // without auto detect (false)
-            index
-        );
-    }
 
     return (
         <OptionSelectorSheet
@@ -36,7 +30,7 @@ export default function TargetLanguageSelectorBottomSheet() {
             onItemSelected={handleLanguageSelect}
             onClose={handleSheetClose}
             onChange={handleSheetChange}
-            data={Object.entries(languages)}
+            data={targetLanguageOptions}
         />
     );
 }

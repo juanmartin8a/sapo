@@ -25,14 +25,14 @@ export default function SettingsRow({
     destructive = false,
     showDisclosure = false,
 }: SettingsRowProps) {
-    const { scheme, settingsColors: SETTINGS_COLORS } = useAppTheme();
+    const { scheme, settingsColors } = useAppTheme();
     return (
         <Button
             onPress={onPress}
             modifiers={[
                 buttonStyle("plain"),
                 disabled(isDisabled),
-                listRowBackground(SETTINGS_COLORS.surface),
+                listRowBackground(settingsColors.surface),
             ]}
         >
             <HStack
@@ -42,15 +42,15 @@ export default function SettingsRow({
                 <RNHostView matchContents>
                     <SettingsIcon
                         icon={icon}
-                        color={destructive ? SETTINGS_COLORS.destructiveText : SETTINGS_COLORS.primaryText}
+                        color={destructive ? settingsColors.destructiveText : settingsColors.primaryText}
                     />
                 </RNHostView>
                 <Text
                     modifiers={[
                         font({ textStyle: "body", weight: "regular" }),
                         foregroundStyle(
-                            destructive ? SETTINGS_COLORS.destructiveText
-                                : scheme === 'light' ? SETTINGS_COLORS.primaryText : 'primary'
+                            destructive ? settingsColors.destructiveText
+                                : scheme === 'light' ? settingsColors.primaryText : 'primary'
                         ),
                     ]}
                 >

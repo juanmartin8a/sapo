@@ -9,7 +9,6 @@ import { UI_DISABLED_OPACITY } from '@/constants/ui';
 import AuthLegalNotice from '@/components/auth/AuthLegalNotice';
 import SocialSignInButton from '@/components/auth/SocialSignInButton';
 import { useSignInStore } from '@/stores/signInStore';
-import GoogleGIcon from '@/assets/icons/google-g.svg';
 import ArrowLeftIcon from '@/assets/icons/arrow-left.svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -40,13 +39,14 @@ const AuthScreen = () => {
     const isSignInPending = pendingProvider !== null;
 
     useEffect(() => {
-        titleTransitionProgress.stopAnimation();
-        Animated.timing(titleTransitionProgress, {
+        const transition = Animated.timing(titleTransitionProgress, {
             toValue: isSignInPending ? 1 : 0,
             duration: TITLE_FADE_DURATION,
             easing: TITLE_FADE_EASING,
             useNativeDriver: true,
-        }).start();
+        });
+        transition.start();
+        return () => transition.stop();
     }, [isSignInPending, titleTransitionProgress]);
 
     const signInTitleOpacity = titleTransitionProgress.interpolate({
@@ -86,14 +86,7 @@ const AuthScreen = () => {
                             <Animated.Text
                                 accessible={false}
                                 importantForAccessibility="no"
-                                style={[styles.title, styles.titleMeasure]}
-                            >
-                                {signInTitle}
-                            </Animated.Text>
-                            <Animated.Text
-                                accessible={false}
-                                importantForAccessibility="no"
-                                style={[styles.title, styles.titleLayer, { opacity: signInTitleOpacity }]}
+                                style={[styles.title, { opacity: signInTitleOpacity }]}
                             >
                                 {signInTitle}
                             </Animated.Text>
@@ -122,12 +115,10 @@ const AuthScreen = () => {
                     <SocialSignInButton
                         provider="google"
                         label="Sign in with Google"
-                        icon={<GoogleGIcon />}
                         loading={pendingProvider === 'google'}
                         disabled={isSignInPending}
                         onSignInStart={handleSignInStart}
-                        onSignInCancel={handleSignInEnd}
-                        onSignInError={handleSignInEnd}
+                        onSignInEnd={handleSignInEnd}
                     />
                     <SocialSignInButton
                         provider="apple"
@@ -135,8 +126,7 @@ const AuthScreen = () => {
                         loading={pendingProvider === 'apple'}
                         disabled={isSignInPending}
                         onSignInStart={handleSignInStart}
-                        onSignInCancel={handleSignInEnd}
-                        onSignInError={handleSignInEnd}
+                        onSignInEnd={handleSignInEnd}
                     />
                     <TouchableOpacity
                         accessibilityRole="button"
@@ -209,9 +199,6 @@ const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
         alignSelf: 'stretch',
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    titleMeasure: {
-        opacity: 0,
     },
     titleLayer: {
         position: 'absolute',

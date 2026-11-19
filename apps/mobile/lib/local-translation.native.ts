@@ -3,7 +3,7 @@ import {
     getSelectedLocalTranslationModel,
     isLocalModelDownloaded,
     isLocalModelSupported,
-} from "@/lib/local-model";
+} from "@/lib/local-model.native";
 import { ABORT_ERROR_NAME } from "@/constants/errors";
 import { AUTO_DETECT_LANGUAGE_LABEL } from "@/constants/languages";
 import {

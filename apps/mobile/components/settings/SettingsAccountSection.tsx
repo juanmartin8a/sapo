@@ -8,7 +8,6 @@ interface SettingsAccountSectionProps {
     isRestoringPurchases: boolean;
     isRestorePurchasesDisabled: boolean;
     isManageSubscriptionDisabled: boolean;
-    shouldShowAuthenticatedActions: boolean;
     onOpenSubscription: () => void;
     onRestorePurchases: () => Promise<void>;
     onManageSubscription: () => Promise<void>;
@@ -20,16 +19,11 @@ export default function SettingsAccountSection({
     isRestoringPurchases,
     isRestorePurchasesDisabled,
     isManageSubscriptionDisabled,
-    shouldShowAuthenticatedActions,
     onOpenSubscription,
     onRestorePurchases,
     onManageSubscription,
     onOpenDataControls,
 }: SettingsAccountSectionProps) {
-    if (!shouldShowAuthenticatedActions) {
-        return null;
-    }
-
     return (
         <FieldGroup.Section title="Account">
             <SettingsRow

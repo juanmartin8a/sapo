@@ -6,7 +6,7 @@ import { useNetworkState } from 'expo-network';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeOut, LinearTransition, SharedValue, useAnimatedStyle } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
-import ChevronRightIcon from "../../assets/icons/chevron-right.svg";
+import ChevronRightIcon from "@/assets/icons/chevron-right.svg";
 import usePagerStore from '@/stores/pagerStore';
 import useLanguageSelectionStore from '@/stores/languageSelectionStore';
 import {
@@ -20,7 +20,7 @@ import { APP_ROUTES } from '@/constants/routes';
 import useTransformationOperationStore from '@/stores/transformationOperationStore';
 import useHomeBottomSheetStore from '@/stores/homeBottomSheetStore';
 import useLocalModelStore from '@/stores/localModelStore';
-import { HomeBottomSheetKey } from '@/types/bottomSheets';
+import type { HomeBottomSheetKey } from '@/types/bottomSheets';
 import { LOCAL_TRANSLATION_MODELS } from '@/constants/localModelCatalog';
 import SidebarFooter from './SidebarFooter';
 import SidebarToggle from './SidebarToggle';
@@ -30,9 +30,9 @@ import { UI_DISABLED_OPACITY } from '@/constants/ui';
 import useSubscriptionAccess from '@/hooks/useSubscriptionAccess';
 
 type SidebarProps = {
-    translationX: SharedValue<number>
-    width: number
-}
+    translationX: SharedValue<number>;
+    width: number;
+};
 
 const Sidebar = ({ translationX, width }: SidebarProps) => {
     const { styles, colors } = useThemeStyles(createStyles);
@@ -58,26 +58,22 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
     const deletingLocalModelId = useLocalModelStore((state) => state.deletingModelId);
     const isLocalModelRefreshing = useLocalModelStore((state) => state.isRefreshing);
     const selectedLocalModelId = useLocalModelStore((state) => state.selectedModelId);
-    const downloadedLocalModelIds = useLocalModelStore((state) => state.downloadedModelIds);
+    const downloadedLocalModelCount = useLocalModelStore((state) => state.downloadedModelIds.length);
     const refreshLocalModelStatus = useLocalModelStore((state) => state.refreshDownloadedStatus);
     const loadLocalModel = useLocalModelStore((state) => state.loadModel);
     const setLocalModelEnabled = useLocalModelStore((state) => state.setEnabled);
     const networkState = useNetworkState();
     const selectedLocalModel = LOCAL_TRANSLATION_MODELS.find((model) => model.id === selectedLocalModelId)
         ?? null;
-    const downloadedLocalModelCount = downloadedLocalModelIds.length;
     const hasSingleDownloadedLocalModel = downloadedLocalModelCount === 1;
     const hasInternetConnection = networkState.isInternetReachable ?? networkState.isConnected ?? false;
-    const isLocalModeSelected = isLocalModelEnabled;
     const isSelectedLocalModelLoading = isLocalModelLoading &&
         loadingLocalModelId === selectedLocalModelId;
     const isLocalModelBusy = isSelectedLocalModelLoading ||
         isLocalModelRefreshing ||
         deletingLocalModelId !== null;
     const canUseRespell = hasActiveSubscription === true;
-    const shouldShowLocalModeToggle = isAuthenticatedUser;
     const shouldShowLoadModelButton = isLocalModelDownloaded && !isLocalModelLoaded;
-    // Get individual values from the store to avoid unnecessary re-renders
     const respellLanguage = useLanguageSelectionStore(state => state.respellLanguage);
     const selectedIndex0 = useLanguageSelectionStore(state => state.selectedIndex0);
     const selectedIndex1 = useLanguageSelectionStore(state => state.selectedIndex1);
@@ -89,18 +85,10 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
         ?? languages[DEFAULT_TARGET_LANGUAGE_ID];
 
     const requestBottomSheet = useCallback((sheet: HomeBottomSheetKey) => {
-        const { bottomSheet, loading } = useHomeBottomSheetStore.getState();
-
-        if (loading && bottomSheet !== sheet) {
-            return false;
+        const { bottomSheet, loading, showBottomSheet } = useHomeBottomSheetStore.getState();
+        if (!loading && bottomSheet !== sheet) {
+            showBottomSheet(sheet);
         }
-
-        if (bottomSheet === sheet) {
-            return false;
-        }
-
-        useHomeBottomSheetStore.getState().showBottomSheet(sheet);
-        return true;
     }, []);
 
     const handleSelectOnlineMode = useCallback(() => {
@@ -143,20 +131,17 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
         }
     }, [isLocalModelDownloaded, isLocalModelLoaded, isLocalModelBusy, loadLocalModel]);
 
-    const handleLocalModelSelectorPress = useCallback(() => {
-        if (downloadedLocalModelCount === 0) {
-            router.push(APP_ROUTES.LOCAL_MODELS);
-            return;
-        }
-
-        if (downloadedLocalModelCount > 1) {
-            requestBottomSheet(HOME_BOTTOM_SHEET_KEYS.LOCAL_MODEL);
-        }
-    }, [downloadedLocalModelCount, requestBottomSheet, router]);
-
     const handleManageModelsPress = useCallback(() => {
         router.push(APP_ROUTES.LOCAL_MODELS);
     }, [router]);
+
+    const handleLocalModelSelectorPress = useCallback(() => {
+        if (downloadedLocalModelCount === 0) {
+            handleManageModelsPress();
+        } else if (downloadedLocalModelCount > 1) {
+            requestBottomSheet(HOME_BOTTOM_SHEET_KEYS.LOCAL_MODEL);
+        }
+    }, [downloadedLocalModelCount, handleManageModelsPress, requestBottomSheet]);
 
     const handleTranslatePress = useCallback(() => {
         if (operation === 'translate') {
@@ -360,61 +345,61 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
                     </Animated.View>
                 )}
                 {operation === 'translate' && (
-                <Animated.View
-                    entering={FadeIn.duration(180)}
-                    exiting={FadeOut.duration(120)}
-                    layout={LinearTransition.duration(220)}
-                    style={styles.localModelContainer}
-                >
-                    {shouldShowLocalModeToggle && (
-                        <View style={styles.localModeToggleContainer}>
-                            <TouchableOpacity
-                                onPress={handleSelectOnlineMode}
-                                activeOpacity={0.7}
-                                style={[
-                                    styles.localModeOption,
-                                    !isLocalModeSelected && styles.localModeOptionActive,
-                                ]}
-                            >
-                                <View style={styles.localModeOnlineLabel}>
+                    <Animated.View
+                        entering={FadeIn.duration(180)}
+                        exiting={FadeOut.duration(120)}
+                        layout={LinearTransition.duration(220)}
+                        style={styles.localModelContainer}
+                    >
+                        {isAuthenticatedUser && (
+                            <View style={styles.localModeToggleContainer}>
+                                <TouchableOpacity
+                                    onPress={handleSelectOnlineMode}
+                                    activeOpacity={0.7}
+                                    style={[
+                                        styles.localModeOption,
+                                        !isLocalModelEnabled && styles.localModeOptionActive,
+                                    ]}
+                                >
+                                    <View style={styles.localModeOnlineLabel}>
+                                        <Text
+                                            style={[
+                                                styles.localModeOptionText,
+                                                !isLocalModelEnabled && styles.localModeOptionTextActive,
+                                            ]}
+                                        >
+                                            Online
+                                        </Text>
+                                        <View
+                                            style={[
+                                                styles.connectionDot,
+                                                hasInternetConnection ? styles.connectionDotOnline : styles.connectionDotOffline,
+                                            ]}
+                                        />
+                                    </View>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={handleSelectLocalMode}
+                                    activeOpacity={0.7}
+                                    style={[
+                                        styles.localModeOption,
+                                        isLocalModelEnabled && styles.localModeOptionActive,
+                                    ]}
+                                >
                                     <Text
                                         style={[
                                             styles.localModeOptionText,
-                                            !isLocalModeSelected && styles.localModeOptionTextActive,
+                                            isLocalModelEnabled && styles.localModeOptionTextActive,
                                         ]}
                                     >
-                                        Online
+                                        Local
                                     </Text>
-                                    <View
-                                        style={[
-                                            styles.connectionDot,
-                                            hasInternetConnection ? styles.connectionDotOnline : styles.connectionDotOffline,
-                                        ]}
-                                    />
-                                </View>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                onPress={handleSelectLocalMode}
-                                activeOpacity={0.7}
-                                style={[
-                                    styles.localModeOption,
-                                    isLocalModeSelected && styles.localModeOptionActive,
-                                ]}
-                            >
-                                <Text
-                                    style={[
-                                        styles.localModeOptionText,
-                                        isLocalModeSelected && styles.localModeOptionTextActive,
-                                    ]}
-                                >
-                                    Local
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
-                    )}
+                                </TouchableOpacity>
+                            </View>
+                        )}
                         <View style={[
                             styles.localModelSelectorContainer,
-                            !shouldShowLocalModeToggle && styles.localModelSelectorContainerNoToggle,
+                            !isAuthenticatedUser && styles.localModelSelectorContainerNoToggle,
                         ]}>
                             <Text style={styles.localModelSelectorLabel}>Local model:</Text>
                             <TouchableOpacity
@@ -481,7 +466,7 @@ const Sidebar = ({ translationX, width }: SidebarProps) => {
                                 </View>
                             </TouchableOpacity>
                         </Animated.View>
-                </Animated.View>
+                    </Animated.View>
                 )}
             </ScrollView>
             <SidebarFooter />

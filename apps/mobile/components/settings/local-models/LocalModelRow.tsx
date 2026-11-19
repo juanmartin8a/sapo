@@ -49,7 +49,7 @@ export default function LocalModelRow({
     onCancelDownload,
     onDelete,
 }: LocalModelRowProps) {
-    const { styles, scheme, settingsColors: SETTINGS_COLORS } = useThemeStyles(createStyles);
+    const { styles, scheme, settingsColors } = useThemeStyles(createStyles);
     const modelSizeText = isDownloading
         ? progress?.phase === "finalizing"
             ? "Finalizing..."
@@ -75,13 +75,13 @@ export default function LocalModelRow({
             alignment="center"
             spacing={SETTINGS_ROW_CONTENT_SPACING}
             style={{ width: "100%" }}
-            modifiers={isIOS && scheme === 'dark' ? [listRowBackground(SETTINGS_COLORS.surface)] : undefined}
+            modifiers={isIOS && scheme === 'dark' ? [listRowBackground(settingsColors.surface)] : undefined}
         >
             <Column spacing={2}>
                 <Text
                     modifiers={bodyFontModifiers}
                     textStyle={{
-                        color: SETTINGS_COLORS.primaryText,
+                        color: settingsColors.primaryText,
                         fontSize: isIOS ? undefined : 16,
                         fontWeight: isIOS ? undefined : "500",
                     }}
@@ -91,7 +91,7 @@ export default function LocalModelRow({
                 <Text
                     modifiers={footnoteFontModifiers}
                     textStyle={{
-                        color: SETTINGS_COLORS.mutedText,
+                        color: settingsColors.mutedText,
                         fontSize: isIOS ? undefined : SETTINGS_ANDROID_FOOTNOTE_FONT_SIZE,
                     }}
                 >
@@ -122,22 +122,22 @@ export default function LocalModelRow({
                         <SquareIcon
                             width={18}
                             height={18}
-                            stroke={SETTINGS_COLORS.primaryText}
-                            fill={SETTINGS_COLORS.primaryText}
+                            stroke={settingsColors.primaryText}
+                            fill={settingsColors.primaryText}
                         />
                     ) : isDeleting ? (
-                        <ActivityIndicator color={SETTINGS_COLORS.primaryText} size="small" />
+                        <ActivityIndicator color={settingsColors.primaryText} size="small" />
                     ) : isDownloaded ? (
                         <TrashIcon
                             width={20}
                             height={20}
-                            stroke={SETTINGS_COLORS.destructiveText}
+                            stroke={settingsColors.destructiveText}
                         />
                     ) : (
                         <DownloadIcon
                             width={20}
                             height={20}
-                            stroke={SETTINGS_COLORS.primaryText}
+                            stroke={settingsColors.primaryText}
                         />
                     )}
                 </Pressable>

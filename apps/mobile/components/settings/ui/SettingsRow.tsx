@@ -19,7 +19,7 @@ export default function SettingsRow({
     destructive = false,
     showDisclosure = false,
 }: SettingsRowProps) {
-    const { styles, scheme, settingsColors: SETTINGS_COLORS } = useThemeStyles(createStyles);
+    const { styles, scheme, settingsColors } = useThemeStyles(createStyles);
     return (
         <Pressable
             accessibilityRole="button"
@@ -33,23 +33,23 @@ export default function SettingsRow({
         >
             <SettingsIcon
                 icon={icon}
-                color={destructive ? SETTINGS_COLORS.destructiveText : SETTINGS_COLORS.primaryText}
+                color={destructive ? settingsColors.destructiveText : settingsColors.primaryText}
             />
             <Text style={[styles.label, destructive && styles.destructive]}>{label}</Text>
             {loading ? (
-                <ActivityIndicator color={scheme === 'dark' ? SETTINGS_COLORS.primaryText : undefined} size="small" />
+                <ActivityIndicator color={scheme === 'dark' ? settingsColors.primaryText : undefined} size="small" />
             ) : showDisclosure ? (
                 <ChevronRightIcon
                     width={18}
                     height={18}
-                    stroke={SETTINGS_COLORS.mutedChevron}
+                    stroke={settingsColors.mutedChevron}
                 />
             ) : null}
         </Pressable>
     );
 }
 
-const createStyles = ({ scheme, colors, settingsColors: SETTINGS_COLORS }: AppTheme) => StyleSheet.create({
+const createStyles = ({ scheme, colors, settingsColors }: AppTheme) => StyleSheet.create({
     row: {
         minHeight: 48,
         width: "100%",
@@ -58,13 +58,13 @@ const createStyles = ({ scheme, colors, settingsColors: SETTINGS_COLORS }: AppTh
         gap: SETTINGS_ROW_CONTENT_SPACING,
     },
     label: {
-        color: scheme === 'light' ? colors.text : SETTINGS_COLORS.primaryText,
+        color: scheme === 'light' ? colors.text : settingsColors.primaryText,
         flex: 1,
         fontSize: 17,
         fontWeight: "400",
     },
     destructive: {
-        color: SETTINGS_COLORS.destructiveText,
+        color: settingsColors.destructiveText,
     },
     disabled: {
         opacity: UI_DISABLED_OPACITY,

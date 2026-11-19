@@ -20,7 +20,7 @@ export default function SettingsRow({
     destructive = false,
     showDisclosure = false,
 }: SettingsRowProps) {
-    const { settingsColors: SETTINGS_COLORS } = useAppTheme();
+    const { settingsColors } = useAppTheme();
     return (
         <Row
             alignment="center"
@@ -33,10 +33,10 @@ export default function SettingsRow({
             <RNHostView matchContents>
                 <SettingsIcon
                     icon={icon}
-                    color={destructive ? SETTINGS_COLORS.destructiveText : SETTINGS_COLORS.primaryText}
+                    color={destructive ? settingsColors.destructiveText : settingsColors.primaryText}
                 />
             </RNHostView>
-            <Text textStyle={{ color: destructive ? SETTINGS_COLORS.destructiveText : SETTINGS_COLORS.primaryText }}>
+            <Text textStyle={{ color: destructive ? settingsColors.destructiveText : settingsColors.primaryText }}>
                 {label}
             </Text>
             <Spacer flexible />
@@ -47,7 +47,7 @@ export default function SettingsRow({
                     <ChevronRightIcon
                         width={18}
                         height={18}
-                        stroke={SETTINGS_COLORS.mutedChevron}
+                        stroke={settingsColors.mutedChevron}
                     />
                 </RNHostView>
             ) : null}

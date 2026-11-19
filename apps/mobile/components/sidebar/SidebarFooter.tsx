@@ -1,7 +1,7 @@
 import type { AppTheme } from '@/constants/theme';
 import useThemeStyles from '@/hooks/useThemeStyles';
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 import { Animated, StyleSheet, TouchableOpacity, Text, View } from 'react-native';
 import LogInIcon from '@/assets/icons/log-in.svg';
 import SettingsIcon from '@/assets/icons/settings.svg';
@@ -24,18 +24,12 @@ const SidebarFooter = () => {
     } = useSubscriptionAccess();
     const shouldShowAuthSkeleton = authStatus === 'checking' && email === null;
     const shouldShowAccount = authStatus === 'authenticated' || email !== null;
-    const subscriptionLabel = useMemo(() => {
-        if (hasActiveSubscription === true) {
-            return SUBSCRIPTION_PLAN_DISPLAY_NAMES.POLYGLOT;
-        }
-
-        return isSubscriptionActivating
+    const subscriptionLabel = hasActiveSubscription
+        ? SUBSCRIPTION_PLAN_DISPLAY_NAMES.POLYGLOT
+        : isSubscriptionActivating
             ? 'Activating...'
             : SUBSCRIPTION_PLAN_DISPLAY_NAMES.FREE;
-    }, [hasActiveSubscription, isSubscriptionActivating])
-    const emailInitial = useMemo(() => {
-        return email?.[0]?.toUpperCase() ?? '?';
-    }, [email])
+    const emailInitial = email?.[0]?.toUpperCase() ?? '?';
 
     const skeletonOpacity = useSkeletonPulse(shouldShowAuthSkeleton || isSubscriptionPending);
 
@@ -61,7 +55,7 @@ const SidebarFooter = () => {
                             style={[styles.emailText, styles.skeletonText, styles.emailSkeleton]}
                             numberOfLines={1}
                         >
-                            {email ?? 'Account'}
+                            Account
                         </Text>
                         <Text
                             style={[styles.planText, styles.planLine, styles.skeletonText, styles.subscriptionSkeleton]}
@@ -129,8 +123,8 @@ const SidebarFooter = () => {
                 </TouchableOpacity>
             )}
         </View>
-    )
-}
+    );
+};
 
 const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
     footer: {

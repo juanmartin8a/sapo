@@ -1,7 +1,4 @@
-import {
-    DEFAULT_LOCAL_TRANSLATION_MODEL_ID,
-    getLocalTranslationModelById,
-} from "@/constants/localModelCatalog";
+import { getLocalTranslationModelById } from "@/constants/localModelCatalog";
 import type {
     LocalModelDownloadProgress,
     LocalModelStatus,
@@ -11,15 +8,7 @@ import type {
 import { ABORT_ERROR_NAME } from "@/constants/errors";
 import { LOCAL_MODELS_MOBILE_ONLY_ERROR } from "@/constants/localModels";
 
-let selectedLocalModelId: SelectedLocalTranslationModelId = DEFAULT_LOCAL_TRANSLATION_MODEL_ID;
-
-export const getSelectedLocalTranslationModel = () => {
-    return selectedLocalModelId ? getLocalTranslationModelById(selectedLocalModelId) : null;
-};
-
-export const setSelectedLocalTranslationModelId = (modelId: SelectedLocalTranslationModelId) => {
-    selectedLocalModelId = modelId;
-};
+export const setSelectedLocalTranslationModelId = (_modelId: SelectedLocalTranslationModelId) => {};
 
 const getUnsupportedStatus = (modelId: LocalTranslationModelId): LocalModelStatus => ({
     supported: false,
@@ -34,8 +23,6 @@ export const isLocalModelSupported = (): boolean => false;
 export const isLocalModelAbortError = (error: unknown) => {
     return error instanceof Error && error.name === ABORT_ERROR_NAME;
 };
-
-export const getLocalModelFileUri = (_modelId?: SelectedLocalTranslationModelId): string | null => null;
 
 export const getLocalModelStatus = async (
     modelId: LocalTranslationModelId

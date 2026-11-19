@@ -50,7 +50,7 @@ const SUBSCRIPTION_SESSION_CHANGED_MESSAGE =
     "Your account changed while syncing the subscription. Please sign in again and retry.";
 
 export default function SubscriptionScreen() {
-    const { styles, settingsColors: SETTINGS_COLORS } = useThemeStyles(createStyles);
+    const { styles, settingsColors } = useThemeStyles(createStyles);
     const { status: authStatus, userId } = useAuthState();
     const {
         hasActiveSubscription: effectiveSubscriptionStatus,
@@ -423,7 +423,7 @@ export default function SubscriptionScreen() {
                 style={styles.container}
                 contentContainerStyle={[styles.contentContainer, styles.loadStateContent]}
             >
-                <ActivityIndicator color={SETTINGS_COLORS.primaryText} size="small" />
+                <ActivityIndicator color={settingsColors.primaryText} size="small" />
             </SettingsScrollView>
         );
     }
@@ -468,10 +468,10 @@ export default function SubscriptionScreen() {
     );
 }
 
-const createStyles = ({ settingsColors: SETTINGS_COLORS }: AppTheme) => StyleSheet.create({
+const createStyles = ({ settingsColors }: AppTheme) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: SETTINGS_COLORS.screenBackground,
+        backgroundColor: settingsColors.screenBackground,
     },
     contentContainer: {
         paddingHorizontal: SETTINGS_SCREEN_HORIZONTAL_PADDING,
@@ -482,7 +482,7 @@ const createStyles = ({ settingsColors: SETTINGS_COLORS }: AppTheme) => StyleShe
         gap: 14,
     },
     loadErrorText: {
-        color: SETTINGS_COLORS.mutedText,
+        color: settingsColors.mutedText,
         fontSize: 14,
         lineHeight: 20,
         textAlign: "center",
@@ -492,13 +492,13 @@ const createStyles = ({ settingsColors: SETTINGS_COLORS }: AppTheme) => StyleShe
         justifyContent: "center",
         borderRadius: 10,
         paddingHorizontal: 18,
-        backgroundColor: SETTINGS_COLORS.primaryText,
+        backgroundColor: settingsColors.primaryText,
     },
     retryButtonPressed: {
         opacity: 0.78,
     },
     retryButtonText: {
-        color: SETTINGS_COLORS.surface,
+        color: settingsColors.surface,
         fontSize: 14,
         lineHeight: 20,
         fontWeight: "600",

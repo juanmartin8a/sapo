@@ -33,7 +33,7 @@ const getDeleteAccountAlertMessage = (args: {
 };
 
 export default function DataControlsScreen() {
-    const { settingsColors: SETTINGS_COLORS } = useAppTheme();
+    const { settingsColors } = useAppTheme();
     const { status: authStatus, sessionId, userId } = useAuthState();
     const isPending = authStatus === "checking";
     const isAuthenticatedUser = authStatus === "authenticated";
@@ -217,7 +217,7 @@ export default function DataControlsScreen() {
                     <Text
                         modifiers={Platform.OS === "ios" ? [font({ textStyle: "footnote", weight: "regular" })] : undefined}
                         textStyle={{
-                            color: SETTINGS_COLORS.mutedText,
+                            color: settingsColors.mutedText,
                             fontSize: Platform.OS === "ios"
                                 ? undefined
                                 : SETTINGS_ANDROID_FOOTNOTE_FONT_SIZE,
