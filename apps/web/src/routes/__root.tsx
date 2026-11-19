@@ -28,13 +28,6 @@ export const Route = createRootRouteWithContext<{ frogTransitions: FrogTransitio
             { name: "referrer", content: "same-origin" },
         ],
         links: [
-            {
-                rel: "preload",
-                href: "/fonts/tinos/Tinos-Regular.woff2",
-                as: "font",
-                type: "font/woff2",
-                crossOrigin: "anonymous",
-            },
             ...[baseCss, siteCss, themeCss].map((href) => ({ rel: "stylesheet", href })),
             { rel: "icon", href: "/sapo-favicon.svg", type: "image/svg+xml" },
         ],

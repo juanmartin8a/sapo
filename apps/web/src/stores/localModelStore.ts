@@ -204,7 +204,6 @@ export function createLocalModelStore(onChange: () => void) {
             setState((draft) => {
                 Object.assign(draft, preferences);
             });
-            return preferences;
         },
         setApiKey: (value: string) => {
             onChange();

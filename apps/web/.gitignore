@@ -8,8 +8,6 @@ node_modules
 .netlify
 .wrangler
 /build
-/public/app/images/sapo-dark.png
-/public/app/images/sapo-mouth-open-dark.png
 
 # OS
 .DS_Store

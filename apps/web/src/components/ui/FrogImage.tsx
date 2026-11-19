@@ -9,6 +9,7 @@ export default function FrogImage(props: { class: string; pose: "closed" | "open
                 class={`${props.class} frog-light`}
                 src={`/app/images/${lightAsset}`}
                 alt=""
+                loading="lazy"
                 width={929}
                 height={height}
             />
@@ -16,6 +17,7 @@ export default function FrogImage(props: { class: string; pose: "closed" | "open
                 class={`${props.class} frog-dark`}
                 src={`/app/images/${darkAsset}`}
                 alt=""
+                loading="lazy"
                 width={929}
                 height={height}
             />

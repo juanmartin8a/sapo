@@ -3,7 +3,11 @@ import LocalModelControls from "@/components/local-models/LocalModelControls";
 import LocalModelDropdown from "@/components/local-models/LocalModelDropdown";
 import { createSignal, Show } from "solid-js";
 import { useAppState } from "@/providers/AppProvider";
-import { languages, languagesPlusAutoDetect } from "@/constants/translation";
+import {
+    respellLanguageOptions,
+    sourceLanguageOptions,
+    targetLanguageOptions,
+} from "@/constants/translation";
 import LanguageSelector from "@/components/ui/LanguageSelector";
 import Toggle from "@/components/ui/Toggle";
 import AccountControl from "@/components/auth/AccountControl";
@@ -91,30 +95,32 @@ export default function Sidebar(props: { onNavigate?: () => void; layout?: "pane
                                     }}
                                 />
                             </Show>
-                            <div class="sidebar-field pane-language-option source-language-field">
-                                <label>{isPwa ? "Source:" : "Source language"}</label>
-                                <LanguageSelector
-                                    label={isPwa ? "Source" : "Source language"}
-                                    options={Object.values(languagesPlusAutoDetect)}
-                                    value={translation.state.sourceLanguage}
-                                    onChange={(sourceLanguage) =>
-                                        translation.setPreferences({ sourceLanguage })
-                                    }
-                                    disabled={busy()}
-                                />
-                            </div>
-                            <div class="sidebar-field pane-language-option">
-                                <label>{isPwa ? "Target:" : "Target language"}</label>
-                                <LanguageSelector
-                                    label={isPwa ? "Target" : "Target language"}
-                                    options={Object.values(languages)}
-                                    value={translation.state.targetLanguage}
-                                    onChange={(targetLanguage) =>
-                                        translation.setPreferences({ targetLanguage })
-                                    }
-                                    disabled={busy()}
-                                />
-                            </div>
+                            <Show when={isPwa}>
+                                <div class="sidebar-field source-language-field">
+                                    <label>Source:</label>
+                                    <LanguageSelector
+                                        label="Source"
+                                        options={sourceLanguageOptions}
+                                        value={translation.state.sourceLanguage}
+                                        onChange={(sourceLanguage) =>
+                                            translation.setPreferences({ sourceLanguage })
+                                        }
+                                        disabled={busy()}
+                                    />
+                                </div>
+                                <div class="sidebar-field">
+                                    <label>Target:</label>
+                                    <LanguageSelector
+                                        label="Target"
+                                        options={targetLanguageOptions}
+                                        value={translation.state.targetLanguage}
+                                        onChange={(targetLanguage) =>
+                                            translation.setPreferences({ targetLanguage })
+                                        }
+                                        disabled={busy()}
+                                    />
+                                </div>
+                            </Show>
                             <Show
                                 when={
                                     translation.state.operation === "respell" &&
@@ -134,7 +140,7 @@ export default function Sidebar(props: { onNavigate?: () => void; layout?: "pane
                                     <LanguageSelector
                                         label={isPwa ? "Respell" : "Respell language"}
                                         caption={captionedSelector() ? "Respell" : undefined}
-                                        options={["Source", ...Object.values(languages)]}
+                                        options={respellLanguageOptions}
                                         value={translation.state.respellLanguage}
                                         onChange={(respellLanguage) =>
                                             translation.setPreferences({ respellLanguage })

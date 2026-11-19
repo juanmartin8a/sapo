@@ -15,11 +15,12 @@ export default function LanguageSelector(props: {
     const [open, setOpen] = createSignal(false);
     const [search, setSearch] = createSignal("");
     let trigger!: HTMLButtonElement;
-    const filtered = createMemo(() =>
-        props.options.filter((language) =>
-            language.toLowerCase().includes(search().toLowerCase().trim()),
-        ),
-    );
+    const filtered = createMemo(() => {
+        const query = search().trim().toLowerCase();
+        return query
+            ? props.options.filter((language) => language.toLowerCase().includes(query))
+            : props.options;
+    });
     return (
         <>
             <div class={props.caption ? "language-selector-captioned" : "language-selector"}>

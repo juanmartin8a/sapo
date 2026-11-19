@@ -4,8 +4,7 @@ import Icon from "./Icon";
 
 export default function Dialog(props: {
     title: string;
-    hideTitle?: boolean;
-    hideClose?: boolean;
+    hideHeader?: boolean;
     onClose: () => void;
     children: JSX.Element;
     class?: string;
@@ -14,18 +13,18 @@ export default function Dialog(props: {
     let dialog!: HTMLDialogElement;
     onSettled(() => {
         const previousFocus = document.activeElement as HTMLElement | null;
-        const media = window.matchMedia("(min-width: 900px)");
+        const anchor = props.anchor;
+        const media = anchor ? window.matchMedia("(min-width: 900px)") : undefined;
         let popup = false;
-        let disposed = false;
         let presenting = false;
         let focusMovedOutside = false;
 
         const position = () => {
-            if (!popup || !props.anchor) return;
-            const anchor = props.anchor.getBoundingClientRect();
+            if (!popup || !anchor) return;
+            const bounds = anchor.getBoundingClientRect();
             const width = Math.min(360, window.innerWidth - 32);
-            const top = anchor.bottom + 8;
-            dialog.style.left = `${Math.max(16, Math.min(anchor.left, window.innerWidth - width - 16))}px`;
+            const top = bounds.bottom + 8;
+            dialog.style.left = `${Math.max(16, Math.min(bounds.left, window.innerWidth - width - 16))}px`;
             dialog.style.top = `${top}px`;
             dialog.style.width = `${width}px`;
             dialog.style.maxHeight = `${Math.max(0, window.innerHeight - top - 16)}px`;
@@ -34,13 +33,13 @@ export default function Dialog(props: {
             presenting = true;
             if (popup) dialog.hidePopover();
             else if (dialog.open) dialog.close();
-            popup = Boolean(props.anchor && media.matches);
+            popup = media?.matches ?? false;
             dialog.classList.toggle("dialog-popover", popup);
             dialog.setAttribute("aria-modal", String(!popup));
             if (popup) {
                 dialog.setAttribute("popover", "auto");
                 position();
-                dialog.showPopover({ source: props.anchor });
+                dialog.showPopover({ source: anchor });
                 dialog.querySelector<HTMLButtonElement>("button")?.focus();
             } else {
                 dialog.removeAttribute("popover");
@@ -50,14 +49,17 @@ export default function Dialog(props: {
             presenting = false;
         };
         const toggled = (event: ToggleEvent) => {
-            if (!disposed && popup && event.newState === "closed") props.onClose();
+            // A queued close from switching presentations can arrive after reopening.
+            if (popup && event.newState === "closed" && !dialog.matches(":popover-open")) {
+                props.onClose();
+            }
         };
         const focusOut = (event: FocusEvent) => {
             if (
                 popup &&
                 !presenting &&
                 event.relatedTarget instanceof Node &&
-                !props.anchor?.contains(event.relatedTarget) &&
+                !anchor?.contains(event.relatedTarget) &&
                 !dialog.contains(event.relatedTarget)
             ) {
                 focusMovedOutside = true;
@@ -65,25 +67,27 @@ export default function Dialog(props: {
             }
         };
         present();
-        dialog.addEventListener("toggle", toggled);
-        dialog.addEventListener("focusout", focusOut);
-        if (props.anchor) media.addEventListener("change", present);
-        window.addEventListener("resize", position);
-        window.addEventListener("scroll", position, true);
-        const observer = new ResizeObserver(position);
-        if (props.anchor) observer.observe(props.anchor);
+        let observer: ResizeObserver | undefined;
+        if (anchor) {
+            dialog.addEventListener("toggle", toggled);
+            dialog.addEventListener("focusout", focusOut);
+            media?.addEventListener("change", present);
+            window.addEventListener("resize", position);
+            window.addEventListener("scroll", position, true);
+            observer = new ResizeObserver(position);
+            observer.observe(anchor);
+        }
         return () => {
-            disposed = true;
             const restoreFocus =
                 !focusMovedOutside &&
                 (dialog.contains(document.activeElement) ||
                     document.activeElement === document.body);
             dialog.removeEventListener("toggle", toggled);
             dialog.removeEventListener("focusout", focusOut);
-            media.removeEventListener("change", present);
+            media?.removeEventListener("change", present);
             window.removeEventListener("resize", position);
             window.removeEventListener("scroll", position, true);
-            observer.disconnect();
+            observer?.disconnect();
             if (popup) dialog.hidePopover();
             else dialog.close();
             if (restoreFocus) previousFocus?.focus();
@@ -106,21 +110,17 @@ export default function Dialog(props: {
             }}
         >
             <div class="dialog-content">
-                <Show when={!props.hideTitle || !props.hideClose}>
+                <Show when={!props.hideHeader}>
                     <header class="dialog-header">
-                        <Show when={!props.hideTitle}>
-                            <h2>{props.title}</h2>
-                        </Show>
-                        <Show when={!props.hideClose}>
-                            <button
-                                type="button"
-                                class="icon-button close-button"
-                                aria-label="Close"
-                                onClick={() => props.onClose()}
-                            >
-                                <Icon name="x" size={24} />
-                            </button>
-                        </Show>
+                        <h2>{props.title}</h2>
+                        <button
+                            type="button"
+                            class="icon-button close-button"
+                            aria-label="Close"
+                            onClick={() => props.onClose()}
+                        >
+                            <Icon name="x" size={24} />
+                        </button>
                     </header>
                 </Show>
                 {props.children}

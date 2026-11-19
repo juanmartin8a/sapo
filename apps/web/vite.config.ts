@@ -54,6 +54,12 @@ export default defineConfig(({ mode }) => {
                     "/.well-known/apple-app-site-association": {
                         headers: { "content-type": "application/json" },
                     },
+                    "/sapo-frog.svg": {
+                        redirect: { to: "/app/images/sapo-frog.svg", status: 308 },
+                    },
+                    "/sapo-frog-open.svg": {
+                        redirect: { to: "/app/images/sapo-frog-open.svg", status: 308 },
+                    },
                     "/": { headers: { "cache-control": "no-store" } },
                     "/auth": { headers: { "cache-control": "no-store" } },
                     "/auth/**": { headers: { "cache-control": "no-store" } },

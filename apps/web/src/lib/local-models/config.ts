@@ -1,6 +1,6 @@
 export const LOCAL_INPUT_LIMIT = 2_000;
 export const LOCAL_OUTPUT_TOKENS = 4_096;
-export const LOCAL_SETTINGS_KEY = "sapo.local-models.v1";
+const LOCAL_SETTINGS_KEY = "sapo.local-models.v1";
 export const SERVER_PRESETS = [
     { id: "ollama", name: "Ollama", url: "http://localhost:11434/v1" },
     { id: "lmstudio", name: "LM Studio", url: "http://localhost:1234/v1" },

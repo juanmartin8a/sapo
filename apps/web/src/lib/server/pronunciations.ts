@@ -5,7 +5,7 @@ import type { Language, Pronunciation, PronunciationPage } from "../pronunciatio
 
 const PAGE_SIZE = 25;
 type Position = { word: string; entryId: string; id: string };
-export type PronunciationQuery = {
+type PronunciationQuery = {
     source: string;
     target: string;
     position: Position | null;
