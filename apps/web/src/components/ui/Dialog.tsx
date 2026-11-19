@@ -41,10 +41,7 @@ export default function Dialog(props: {
                 dialog.setAttribute("popover", "auto");
                 position();
                 dialog.showPopover({ source: props.anchor });
-                (
-                    dialog.querySelector<HTMLElement>("input") ??
-                    dialog.querySelector<HTMLElement>("button")
-                )?.focus();
+                dialog.querySelector<HTMLButtonElement>("button")?.focus();
             } else {
                 dialog.removeAttribute("popover");
                 dialog.removeAttribute("style");

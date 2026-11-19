@@ -18,12 +18,15 @@ for (const file of [
 for (const file of ["sapo-dark.png", "sapo-mouth-open-dark.png"]) {
     await cp(join(sharedAssets, "images", file), join(appRoot, "public/app/images", file));
 }
-// Copy only icons used by the web UI; keep native-only assets out of the build.
 const icons = iconAssetNames.map((name) => `${name}.svg`);
+// The web Apple buttons use standalone SVGs with their own backgrounds.
+const webIcons = new Set(["apple-logo.svg", "apple-logo-dark.svg"]);
 const iconDirectory = join(appRoot, "public/app/icons");
 for (const file of await readdir(iconDirectory)) {
     if (file.endsWith(".svg") && !icons.includes(file)) await rm(join(iconDirectory, file));
 }
 for (const file of icons) {
-    await cp(join(sharedAssets, "icons", file), join(iconDirectory, file));
+    if (!webIcons.has(file)) {
+        await cp(join(sharedAssets, "icons", file), join(iconDirectory, file));
+    }
 }

@@ -201,9 +201,13 @@
         color: var(--site-surface);
         background: var(--ink);
     }
+    .local-mode-switch button[aria-pressed="true"] {
+        color: light-dark(#fff, var(--site-surface));
+        background: light-dark(#000, var(--ink));
+    }
     .icon-button:not(.close-button):hover:not(:disabled),
     .swap-button:hover:not(:disabled),
-    .language-button-captioned:hover:not(:disabled),
+    .language-button:hover:not(:disabled),
     .model-dropdown-trigger:hover:not(:disabled),
     .connection-banner {
         background: var(--site-raised);
@@ -232,8 +236,7 @@
     .keyboard-hint,
     .chevron-down,
     .pane-toolbar .icon-button:not(.close-button),
-    .respelling-copy-button,
-    .language-button:hover:not(:disabled) {
+    .respelling-copy-button {
         color: var(--muted);
     }
     .swap-button,
@@ -266,13 +269,14 @@
     img.icon:not([src$="/google-g.svg"], [src$="/apple-logo.svg"], [src$="/apple-logo-dark.svg"]) {
         filter: invert(var(--site-icon-invert));
     }
-    /* Picker popups keep a dark surface in both page themes. */
+    /* Use the native option sheet's surface colors. */
     .language-dialog,
     .model-dropdown-panel {
-        --picker-surface: #101010;
-        --picker-ink: light-dark(#fff, #e8e8e8);
-        --picker-raised: light-dark(#222, #383838);
-        border: 1px solid #555;
+        --picker-surface: light-dark(#f3f7f4, #191b1a);
+        --picker-ink: light-dark(#171717, #f2f2f7);
+        --picker-raised: light-dark(#fcfefc, #252826);
+        --picker-border: #757575;
+        --muted: light-dark(#595959, #aeaeb2);
         background: var(--picker-surface);
         color: var(--picker-ink);
     }
@@ -280,14 +284,23 @@
         --site-surface: var(--picker-surface);
         --site-raised: var(--picker-raised);
         --ink: var(--picker-ink);
-        --line: #555;
+        --line: var(--picker-border);
+    }
+    .language-dialog .close-button,
+    .language-dialog .search-input::placeholder {
+        color: var(--muted);
+    }
+    .language-dialog .close-button:hover:not(:disabled) {
+        color: var(--picker-ink);
     }
     .language-dialog .search-input {
-        background: var(--picker-raised);
-        color: inherit;
+        background: light-dark(
+            color-mix(in srgb, var(--picker-surface) 80%, #527a64),
+            var(--site-surface)
+        );
     }
     .language-dialog .language-option {
-        border-color: light-dark(#fff, #555);
+        border-color: var(--picker-border);
     }
     .language-dialog .language-option:hover {
         background: var(--picker-raised);
@@ -295,9 +308,9 @@
     :where(a, button, input, textarea):focus-visible {
         outline-color: var(--site-focus);
     }
-    .language-dialog :focus-visible,
+    .language-dialog :focus-visible:not(.search-input),
     .model-dropdown-panel :focus-visible {
-        outline-color: #d4d4d4;
+        outline-color: var(--picker-ink);
     }
 }
 :root .translator.site-themed.translator-pwa {
