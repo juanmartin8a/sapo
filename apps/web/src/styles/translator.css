@@ -1697,14 +1697,10 @@
     }
     .language-dialog .search-input {
         flex: 0 0 auto;
-        margin: 0 24px 12px;
+        margin: 24px 24px 12px;
         width: calc(100% - 48px);
         border-color: transparent;
         font-size: var(--settings-control-font-size);
-    }
-    .language-dialog .search-input:focus {
-        border-color: light-dark(#595959, var(--site-focus));
-        outline: none;
     }
     .language-dialog .language-list {
         overflow: auto;
@@ -1745,18 +1741,8 @@
         margin: 0;
         height: min(480px, 70dvh);
     }
-    .language-dialog.dialog-popover .dialog-header {
-        padding: 12px 14px;
-    }
-    .language-dialog.dialog-popover .dialog-header h2 {
-        font-size: 14px;
-    }
-    .language-dialog.dialog-popover .close-button {
-        width: 28px;
-        height: 28px;
-    }
     .language-dialog.dialog-popover .search-input {
-        margin: 0 14px 10px;
+        margin: 14px 14px 10px;
         width: calc(100% - 28px);
     }
     .language-dialog.dialog-popover .language-list {
@@ -1937,7 +1923,8 @@
         font: inherit;
     }
     .local-model-settings input:focus-visible,
-    .local-model-settings select:focus-visible {
+    .local-model-settings select:focus-visible,
+    .language-dialog .search-input:focus-visible {
         outline-offset: 0;
     }
     .local-file-row > span {

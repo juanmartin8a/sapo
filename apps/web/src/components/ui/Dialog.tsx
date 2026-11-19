@@ -5,6 +5,7 @@ import Icon from "./Icon";
 export default function Dialog(props: {
     title: string;
     hideHeader?: boolean;
+    focusContainer?: boolean;
     onClose: () => void;
     children: JSX.Element;
     class?: string;
@@ -40,7 +41,6 @@ export default function Dialog(props: {
                 dialog.setAttribute("popover", "auto");
                 position();
                 dialog.showPopover({ source: anchor });
-                dialog.querySelector<HTMLButtonElement>("button")?.focus();
             } else {
                 dialog.removeAttribute("popover");
                 dialog.removeAttribute("style");
@@ -109,7 +109,11 @@ export default function Dialog(props: {
                 if (event.target === dialog) props.onClose();
             }}
         >
-            <div class="dialog-content">
+            <div
+                class="dialog-content"
+                tabindex={props.focusContainer ? -1 : undefined}
+                autofocus={props.focusContainer}
+            >
                 <Show when={!props.hideHeader}>
                     <header class="dialog-header">
                         <h2>{props.title}</h2>

@@ -274,12 +274,8 @@
         --ink: var(--picker-ink);
         --line: var(--picker-border);
     }
-    .language-dialog .close-button,
     .language-dialog .search-input::placeholder {
         color: var(--muted);
-    }
-    .language-dialog .close-button:hover:not(:disabled) {
-        color: var(--picker-ink);
     }
     .language-dialog .search-input {
         background: light-dark(

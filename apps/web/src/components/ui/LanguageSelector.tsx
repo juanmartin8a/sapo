@@ -50,6 +50,8 @@ export default function LanguageSelector(props: {
             <Show when={open()}>
                 <Dialog
                     title={props.label}
+                    hideHeader
+                    focusContainer
                     onClose={() => setOpen(false)}
                     class="language-dialog"
                     anchor={isPwa ? undefined : trigger}
