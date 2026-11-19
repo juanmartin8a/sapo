@@ -1,3 +1,5 @@
+import type { AppTheme } from '@/constants/theme';
+import useThemeStyles from '@/hooks/useThemeStyles';
 import { StyleSheet, Switch, Text, View } from 'react-native';
 
 import { triggerSelectionHaptic } from '@/lib/haptics';
@@ -6,15 +8,18 @@ interface SidebarToggleProps {
     label: string;
     value: boolean;
     onValueChange: (enabled: boolean) => void;
+    lightThumb?: boolean;
 }
 
-export default function SidebarToggle({ label, value, onValueChange }: SidebarToggleProps) {
+export default function SidebarToggle({ label, value, onValueChange, lightThumb = false }: SidebarToggleProps) {
+    const { scheme, styles } = useThemeStyles(createStyles);
     return (
         <View style={styles.field}>
             <Text style={styles.label}>{label}</Text>
             <Switch
                 accessibilityLabel={label}
                 value={value}
+                thumbColor={scheme === 'dark' ? (lightThumb ? '#ffffff' : '#666666') : undefined}
                 onValueChange={(enabled) => {
                     triggerSelectionHaptic();
                     onValueChange(enabled);
@@ -24,7 +29,7 @@ export default function SidebarToggle({ label, value, onValueChange }: SidebarTo
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
     field: {
         width: '100%',
         justifyContent: 'space-between',
@@ -35,7 +40,7 @@ const styles = StyleSheet.create({
         flex: 1,
         fontSize: 15,
         fontWeight: '500',
-        color: 'black',
+        color: colors.text,
         marginRight: 12,
     },
 });

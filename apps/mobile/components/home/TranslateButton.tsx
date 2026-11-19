@@ -1,3 +1,4 @@
+import { useAppTheme } from '@/providers/AppThemeProvider';
 import useTranslationInputStore from "@/stores/translationInputStore"
 import useTranslateButtonStore from "@/stores/translateButtonStore"
 import { Alert, View } from "react-native"
@@ -22,6 +23,7 @@ type TranslateButtonProps = {
 };
 
 const TranslateButton = ({ pagerProgress }: TranslateButtonProps) => {
+    const { colors, scheme } = useAppTheme();
     const translateButtonState = useTranslateButtonStore((state) => state.state)
     const lastInput = useTranslationStore((state) => state.lastInput)
     const singleScreen = usePagerStore((state) => state.singleScreen)
@@ -128,17 +130,22 @@ const TranslateButton = ({ pagerProgress }: TranslateButtonProps) => {
                 {(translateButtonState === 'next' || translateButtonState === 'repeat') && (
                     <View style={{ position: 'relative', width: 32, height: 32 }}>
                         <Animated.View style={[{ position: 'absolute' }, arrowAnimatedStyle]}>
-                            <ArrowRightIcon style={{ opacity: hasText ? 1.0 : 0.35 }} width={32} height={32} stroke="black" />
+                            <ArrowRightIcon
+                                style={{ opacity: hasText ? 1.0 : scheme === 'dark' ? 0.55 : 0.35 }}
+                                width={32}
+                                height={32}
+                                stroke={colors.text}
+                            />
                         </Animated.View>
                         {lastInput !== null && (
                             <Animated.View style={[{ position: 'absolute' }, repeatAnimatedStyle]}>
-                                <RepeatIcon width={32} height={32} stroke="black" />
+                                <RepeatIcon width={32} height={32} stroke={colors.text} />
                             </Animated.View>
                         )}
                     </View>
                 )}
-                {translateButtonState === 'loading' && <MoreHorizontalIcon width={24} height={24} stroke="black" />}
-                {translateButtonState === 'stop' && <SquareIcon width={18} height={18} stroke="black" fill="black" />}
+                {translateButtonState === 'loading' && <MoreHorizontalIcon width={24} height={24} stroke={colors.text} />}
+                {translateButtonState === 'stop' && <SquareIcon width={18} height={18} stroke={colors.text} fill={colors.text} />}
             </View>
         </Pressable>
     )

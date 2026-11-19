@@ -1,3 +1,5 @@
+import type { AppTheme } from '@/constants/theme';
+import useThemeStyles from '@/hooks/useThemeStyles';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     Animated,
@@ -5,7 +7,6 @@ import {
     Image,
     Pressable,
     StyleSheet,
-    StatusBar,
     Text,
     useWindowDimensions,
     View,
@@ -157,6 +158,7 @@ function shouldAnimateStatusChange(
 }
 
 export default function DeleteAccountScreen() {
+    const { styles, frogs } = useThemeStyles(createStyles);
     const { width: windowWidth } = useWindowDimensions();
     const router = useRouter();
     const rootNavigation = useNavigationContainerRef();
@@ -412,7 +414,6 @@ export default function DeleteAccountScreen() {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="dark-content" />
             <View style={styles.contentAnchor}>
                 <View
                     accessibilityElementsHidden
@@ -458,7 +459,7 @@ export default function DeleteAccountScreen() {
                     ]}
                 >
                     <Image
-                        source={require("@/assets/images/sapo.png")}
+                        source={frogs.closed}
                         resizeMode="contain"
                         style={{ width: sapoWidth, height: sapoHeight }}
                     />
@@ -468,12 +469,12 @@ export default function DeleteAccountScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
     container: {
         flex: 1,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "#fff",
+        backgroundColor: colors.background,
     },
     contentAnchor: {
         position: "relative",
@@ -496,7 +497,7 @@ const styles = StyleSheet.create({
         alignSelf: "center",
     },
     title: {
-        color: "#000",
+        color: colors.text,
         fontSize: 24,
         lineHeight: 29,
         fontWeight: "700",
@@ -504,7 +505,7 @@ const styles = StyleSheet.create({
     },
     message: {
         maxWidth: 320,
-        color: "#666",
+        color: colors.muted,
         fontSize: 16,
         lineHeight: 22,
         textAlign: "center",
@@ -517,7 +518,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         marginTop: 10,
         borderRadius: 12,
-        backgroundColor: "#000",
+        backgroundColor: colors.primary,
         paddingVertical: 12,
         paddingHorizontal: 16,
     },
@@ -525,7 +526,7 @@ const styles = StyleSheet.create({
         opacity: 0.8,
     },
     buttonText: {
-        color: "#fff",
+        color: colors.onPrimary,
         fontSize: 14,
         fontWeight: "600",
     },

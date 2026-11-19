@@ -62,7 +62,7 @@ export default function AuthScreen() {
                         disabled={Boolean(pending()) || !isAuthConfigured}
                         onClick={() => void signIn("apple")}
                     >
-                        <Icon name="apple-logo" size={21} />
+                        <Icon name="apple-logo" size={44} />
                         {pending() === "apple" ? "Connecting…" : "Sign in with Apple"}
                     </button>
                     <Show when={!isAuthConfigured}>

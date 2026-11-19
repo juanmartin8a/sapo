@@ -3,21 +3,22 @@ import { FieldGroup, Host } from "@expo/ui";
 import { background, scrollContentBackground } from "@expo/ui/swift-ui/modifiers";
 import { Platform } from "react-native";
 
-import { SETTINGS_COLORS } from "@/constants/settings";
-
-const formModifiers = Platform.OS === "ios"
-    ? [scrollContentBackground("hidden"), background(SETTINGS_COLORS.screenBackground)]
-    : undefined;
+import { useAppTheme } from "@/providers/AppThemeProvider";
 
 interface SettingsFormProps {
     children: ReactNode;
 }
 
 export default function SettingsForm({ children }: SettingsFormProps) {
+    const { scheme, settingsColors } = useAppTheme();
+    const formModifiers = Platform.OS === "ios"
+        ? [scrollContentBackground("hidden"), background(settingsColors.screenBackground)]
+        : undefined;
+
     return (
-        <Host colorScheme="light" style={{ flex: 1 }} seedColor={SETTINGS_COLORS.accent}>
+        <Host colorScheme={scheme} style={{ flex: 1 }} seedColor={settingsColors.accent}>
             <FieldGroup
-                style={{ backgroundColor: SETTINGS_COLORS.screenBackground }}
+                style={{ backgroundColor: settingsColors.screenBackground }}
                 modifiers={formModifiers}
             >
                 {children}

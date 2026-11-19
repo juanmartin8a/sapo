@@ -1,12 +1,12 @@
 import {
-    languages,
-    languagesPlusAutoDetect,
     PREFERENCES_STORAGE_KEY,
+    sourceLanguageOptions,
+    targetLanguageOptions,
 } from "@/constants/translation";
 import type { TransformationOperation } from "@/types/translation";
 
-const languageNames = new Set<string>(Object.values(languages));
-const sourceLanguageNames = new Set<string>(Object.values(languagesPlusAutoDetect));
+const languageNames = new Set(targetLanguageOptions);
+const sourceLanguageNames = new Set(sourceLanguageOptions);
 
 export interface Preferences {
     operation: TransformationOperation;

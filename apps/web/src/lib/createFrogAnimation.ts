@@ -7,45 +7,51 @@ export function createFrogAnimation(durations: () => readonly number[]) {
     const [revealed, setRevealed] = createSignal(Infinity);
     const [speaking, setSpeaking] = createSignal(false);
     let reducedMotion = false;
-    let timers: ReturnType<typeof setTimeout>[] = [];
+    let introCancelled = false;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    let clickTimer: ReturnType<typeof setTimeout> | undefined;
     function stop() {
+        introCancelled = true;
         timers.forEach(clearTimeout);
-        timers = [];
+        timers.length = 0;
+        clearTimeout(clickTimer);
         setSpeaking(false);
         setRevealed(Infinity);
     }
     function openMouth() {
         if (speaking() || reducedMotion || revealed() < durations().length - 1) return;
+        stop();
         setSpeaking(true);
-        timers.push(setTimeout(() => setSpeaking(false), 200));
+        clickTimer = setTimeout(() => setSpeaking(false), 200);
+    }
+    async function playIntro() {
+        if (!(await waitForFrogImages())) return;
+        await transitions.wait();
+        if (introCancelled) return;
+
+        // Keep the heading visible until the frog speaks the first word.
+        let elapsed = 80;
+        durations().forEach((duration, index) => {
+            timers.push(
+                setTimeout(() => {
+                    setRevealed(index);
+                    setSpeaking(true);
+                }, elapsed),
+            );
+            timers.push(setTimeout(() => setSpeaking(false), elapsed + duration - 65));
+            elapsed += duration;
+        });
     }
     onSettled(() => {
-        let disposed = false;
         const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
         const updateMotion = () => {
             reducedMotion = motion.matches;
             if (reducedMotion) stop();
         };
         updateMotion();
-        if (!reducedMotion) setRevealed(-1);
-        void waitForFrogImages()
-            .then(transitions.wait)
-            .then(() => {
-                if (disposed || reducedMotion) return;
-                durations().reduce((elapsed, duration, index) => {
-                    timers.push(
-                        setTimeout(() => {
-                            setRevealed(index);
-                            setSpeaking(true);
-                        }, elapsed),
-                    );
-                    timers.push(setTimeout(() => setSpeaking(false), elapsed + duration - 65));
-                    return elapsed + duration;
-                }, 80);
-            });
+        if (!reducedMotion) void playIntro();
         motion.addEventListener("change", updateMotion);
         return () => {
-            disposed = true;
             stop();
             motion.removeEventListener("change", updateMotion);
         };

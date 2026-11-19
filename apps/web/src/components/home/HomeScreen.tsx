@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/solid-router";
 import { createSignal, onSettled, Show } from "solid-js";
 import { useAppState } from "@/providers/AppProvider";
-import { languages, languagesPlusAutoDetect } from "@/constants/translation";
+import { sourceLanguageOptions, targetLanguageOptions } from "@/constants/translation";
 import Sidebar from "@/components/sidebar/Sidebar";
 import Dialog from "@/components/ui/Dialog";
 import Icon from "@/components/ui/Icon";
@@ -157,7 +157,7 @@ export default function HomeScreen() {
                                     <LanguageSelector
                                         label="Source language"
                                         caption={desktopOutput() ? "Source" : undefined}
-                                        options={Object.values(languagesPlusAutoDetect)}
+                                        options={sourceLanguageOptions}
                                         value={translation.state.sourceLanguage}
                                         onChange={(sourceLanguage) =>
                                             translation.setPreferences({
@@ -183,7 +183,9 @@ export default function HomeScreen() {
                                     </Show>
                                     <span class="character-unit"> characters</span>
                                 </span>
-                                <span class="keyboard-hint desktop-only">⌘ / Ctrl + Enter</span>
+                                <Show when={!isPwa}>
+                                    <span class="keyboard-hint">⌘ / Ctrl + Enter</span>
+                                </Show>
                             </div>
                         </section>
                         <Show when={!desktopOutput() || !combinedMode()}>
@@ -217,7 +219,7 @@ export default function HomeScreen() {
                                         <LanguageSelector
                                             label="Target language"
                                             caption={desktopOutput() ? "Target" : undefined}
-                                            options={Object.values(languages)}
+                                            options={targetLanguageOptions}
                                             value={translation.state.targetLanguage}
                                             onChange={(targetLanguage) =>
                                                 translation.setPreferences({
@@ -281,8 +283,7 @@ export default function HomeScreen() {
             <Show when={isPwa && drawerOpen()}>
                 <Dialog
                     title="Translation options"
-                    hideTitle
-                    hideClose
+                    hideHeader
                     onClose={() => setDrawerOpen(false)}
                     class="sidebar-dialog"
                 >

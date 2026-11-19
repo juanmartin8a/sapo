@@ -1,3 +1,5 @@
+import type { AppTheme } from '@/constants/theme';
+import useThemeStyles from '@/hooks/useThemeStyles';
 import { useCallback, useRef, useState, type Ref } from "react";
 import { Platform, StyleSheet, Text, TextInput, type TextInputInstance, View, type TextProps } from "react-native";
 
@@ -11,6 +13,7 @@ type Props = Pick<TextProps, "style" | "onTextLayout" | "accessibilityLabel" | "
 
 export default function SelectableText({ text, inputRef, style, onTextLayout, accessibilityLabel,
     accessibilityActions, onAccessibilityAction, onDismissSelection, onInteractionStart, onUnselectedTap }: Props) {
+    const { styles } = useThemeStyles(createStyles);
     const hasSelection = useRef(false);
     const tap = useRef<{ x: number; y: number; startedAt: number; selected: boolean } | null>(null);
     const [nativeContentHeight, setNativeContentHeight] = useState(0);
@@ -28,7 +31,7 @@ export default function SelectableText({ text, inputRef, style, onTextLayout, ac
     }, [measurementOffset, onTextLayout]);
 
     if (Platform.OS !== "ios") {
-        return <Text selectable style={style} onTextLayout={onTextLayout} accessibilityLabel={accessibilityLabel}>{text || "\u200B"}</Text>;
+        return <Text selectable style={[styles.color, style]} onTextLayout={onTextLayout} accessibilityLabel={accessibilityLabel}>{text || "\u200B"}</Text>;
     }
 
     return <View>
@@ -106,8 +109,8 @@ export default function SelectableText({ text, inputRef, style, onTextLayout, ac
     </View>;
 }
 
-const styles = StyleSheet.create({
-    color: { color: "#000" },
+const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
+    color: { color: colors.text },
     measurement: { position: "absolute", top: 0, right: 0, left: 0, opacity: 0 },
     input: { padding: 0, margin: 0, flexShrink: 0 },
 });

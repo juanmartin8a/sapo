@@ -162,6 +162,21 @@ for (const path of [
 assert.equal(await deploymentTarget("/app"), "/");
 assert.equal(await deploymentTarget("/about/"), "/about/index.html");
 assert.equal(await deploymentTarget("/pwa"), "/pwa/");
+for (const file of ["sapo-frog.svg", "sapo-frog-open.svg"]) {
+    const path = `/${file}`;
+    const target = `/app/images/${file}`;
+    assert.equal(await deploymentTarget(path), target, `Missing legacy frog redirect: ${path}`);
+    assert.ok(
+        config.routes.some(
+            (route) =>
+                route.src &&
+                new RegExp(`^${route.src}$`).test(path) &&
+                route.status === 308 &&
+                route.headers?.Location === target,
+        ),
+        `Legacy frog redirect must be permanent: ${path}`,
+    );
+}
 for (const path of [
     "/app/sw.js",
     "/pwa/sw.js",
@@ -170,11 +185,16 @@ for (const path of [
     "/pwa/icons/app-192.png",
     "/app/images/sapo-frog.svg",
     "/app/images/sapo-frog-open.svg",
-    "/app/images/sapo-frog-dark.svg",
-    "/app/images/sapo-frog-open-dark.svg",
     "/.well-known/apple-app-site-association",
 ]) {
     assert.equal(await deploymentTarget(path), path, `Static route is shadowed: ${path}`);
+}
+for (const file of ["sapo-dark.png", "sapo-mouth-open-dark.png"]) {
+    const path = `/app/images/${file}`;
+    assert.equal(await deploymentTarget(path), path, `Static route is shadowed: ${path}`);
+    const web = await readFile(new URL(`.vercel/output/static${path}`, root));
+    const mobile = await readFile(new URL(`../mobile/assets/images/${file}`, root));
+    assert.equal(hash(web), hash(mobile), `Deployed frog differs from mobile: ${file}`);
 }
 const server = JSON.parse(
     await readFile(new URL(".vercel/output/functions/__server.func/.vc-config.json", root), "utf8"),
@@ -266,6 +286,8 @@ for (const basePath of ["", "/pwa"]) {
     }
 }
 for (const [path, destination] of [
+    ["/sapo-frog.svg", "/app/images/sapo-frog.svg"],
+    ["/sapo-frog-open.svg", "/app/images/sapo-frog-open.svg"],
     ["/app/", "/"],
     ["/app/auth/", "/auth/"],
     ["/app/settings/", "/settings/"],

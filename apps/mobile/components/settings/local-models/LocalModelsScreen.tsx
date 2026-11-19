@@ -1,3 +1,4 @@
+import { useAppTheme } from '@/providers/AppThemeProvider';
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Column, FieldGroup, Text } from "@expo/ui";
 import { font } from "@expo/ui/swift-ui/modifiers";
@@ -18,7 +19,6 @@ import type {
 import { formatBytes } from "@/utils/formatBytes";
 import {
     SETTINGS_ANDROID_FOOTNOTE_FONT_SIZE,
-    SETTINGS_COLORS,
 } from "@/constants/settings";
 import useLocalModelStore from "@/stores/localModelStore";
 import { triggerErrorHaptic, triggerLightImpactHaptic } from "@/lib/haptics";
@@ -29,6 +29,7 @@ const isIOS = Platform.OS === "ios";
 const footnoteFontModifiers = isIOS ? [font({ textStyle: "footnote", weight: "regular" })] : undefined;
 
 export default function LocalModelsScreen() {
+    const { settingsColors } = useAppTheme();
     const [statusByModelId, setStatusByModelId] = useState<ModelStatusById>({});
     const [isRefreshing, setIsRefreshing] = useState(true);
     const [didStatusCheckFail, setDidStatusCheckFail] = useState(false);
@@ -250,7 +251,7 @@ export default function LocalModelsScreen() {
                 <Text
                     modifiers={footnoteFontModifiers}
                     textStyle={{
-                        color: SETTINGS_COLORS.mutedText,
+                        color: settingsColors.mutedText,
                         fontSize: isIOS ? undefined : SETTINGS_ANDROID_FOOTNOTE_FONT_SIZE,
                     }}
                 >
@@ -260,7 +261,7 @@ export default function LocalModelsScreen() {
             <Text
                 modifiers={footnoteFontModifiers}
                 textStyle={{
-                    color: SETTINGS_COLORS.mutedText,
+                    color: settingsColors.mutedText,
                     fontSize: isIOS ? undefined : SETTINGS_ANDROID_FOOTNOTE_FONT_SIZE,
                     lineHeight: isIOS ? undefined : 18,
                 }}

@@ -1,5 +1,6 @@
+import useThemeStyles from '@/hooks/useThemeStyles';
 import { Column, RNHostView, Row, Spacer, Text } from "@expo/ui";
-import { font } from "@expo/ui/swift-ui/modifiers";
+import { font, listRowBackground } from "@expo/ui/swift-ui/modifiers";
 import { ActivityIndicator, Platform, Pressable, StyleSheet } from "react-native";
 
 import DownloadIcon from "@/assets/icons/download.svg";
@@ -7,7 +8,6 @@ import SquareIcon from "@/assets/icons/square.svg";
 import TrashIcon from "@/assets/icons/trash.svg";
 import {
     SETTINGS_ANDROID_FOOTNOTE_FONT_SIZE,
-    SETTINGS_COLORS,
     SETTINGS_ROW_CONTENT_SPACING,
 } from "@/constants/settings";
 import { UI_DISABLED_OPACITY } from "@/constants/ui";
@@ -49,6 +49,7 @@ export default function LocalModelRow({
     onCancelDownload,
     onDelete,
 }: LocalModelRowProps) {
+    const { styles, scheme, settingsColors } = useThemeStyles(createStyles);
     const modelSizeText = isDownloading
         ? progress?.phase === "finalizing"
             ? "Finalizing..."
@@ -74,12 +75,13 @@ export default function LocalModelRow({
             alignment="center"
             spacing={SETTINGS_ROW_CONTENT_SPACING}
             style={{ width: "100%" }}
+            modifiers={isIOS && scheme === 'dark' ? [listRowBackground(settingsColors.surface)] : undefined}
         >
             <Column spacing={2}>
                 <Text
                     modifiers={bodyFontModifiers}
                     textStyle={{
-                        color: SETTINGS_COLORS.primaryText,
+                        color: settingsColors.primaryText,
                         fontSize: isIOS ? undefined : 16,
                         fontWeight: isIOS ? undefined : "500",
                     }}
@@ -89,7 +91,7 @@ export default function LocalModelRow({
                 <Text
                     modifiers={footnoteFontModifiers}
                     textStyle={{
-                        color: SETTINGS_COLORS.mutedText,
+                        color: settingsColors.mutedText,
                         fontSize: isIOS ? undefined : SETTINGS_ANDROID_FOOTNOTE_FONT_SIZE,
                     }}
                 >
@@ -120,22 +122,22 @@ export default function LocalModelRow({
                         <SquareIcon
                             width={18}
                             height={18}
-                            stroke={SETTINGS_COLORS.primaryText}
-                            fill={SETTINGS_COLORS.primaryText}
+                            stroke={settingsColors.primaryText}
+                            fill={settingsColors.primaryText}
                         />
                     ) : isDeleting ? (
-                        <ActivityIndicator color={SETTINGS_COLORS.primaryText} size="small" />
+                        <ActivityIndicator color={settingsColors.primaryText} size="small" />
                     ) : isDownloaded ? (
                         <TrashIcon
                             width={20}
                             height={20}
-                            stroke={SETTINGS_COLORS.destructiveText}
+                            stroke={settingsColors.destructiveText}
                         />
                     ) : (
                         <DownloadIcon
                             width={20}
                             height={20}
-                            stroke={SETTINGS_COLORS.primaryText}
+                            stroke={settingsColors.primaryText}
                         />
                     )}
                 </Pressable>
@@ -144,7 +146,7 @@ export default function LocalModelRow({
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
     iconButton: {
         alignItems: "center",
         height: 36,

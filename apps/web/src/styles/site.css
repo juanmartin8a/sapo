@@ -421,7 +421,7 @@
         margin: 0;
         min-width: 0;
         color: var(--ink);
-        font-family: "Times New Roman", Times, serif;
+        font-family: var(--serif);
         font-size: clamp(28px, 3vw, 36px);
         font-weight: 400;
         line-height: 1.04;
@@ -482,7 +482,7 @@
     }
     h2 {
         margin: 0;
-        font-family: "Times New Roman", Times, serif;
+        font-family: var(--serif);
         font-size: clamp(20px, 2vw, 24px);
         font-weight: 400;
         line-height: 1.15;
@@ -636,7 +636,7 @@
         text-align: center;
     }
     .word {
-        font-family: "Times New Roman", Times, serif;
+        font-family: var(--serif);
         font-size: 22px;
         line-height: 1.2;
         overflow-wrap: anywhere;

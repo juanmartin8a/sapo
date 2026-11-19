@@ -9,19 +9,13 @@ import {
 import { StyleSheet } from 'react-native';
 
 import { PRIVACY_POLICY_URL, TERMS_OF_USE_URL } from '@/constants/legal';
-
-const textModifiers = [
-    font({ size: 12 }),
-    foregroundStyle('#666'),
-    tint('#1C1C1E'),
-    lineSpacing(5),
-    multilineTextAlignment('center'),
-];
+import { useAppTheme } from '@/providers/AppThemeProvider';
 
 export default function AuthLegalNotice() {
+    const { colors, scheme } = useAppTheme();
     return (
-        <Host matchContents={{ vertical: true }} style={styles.host}>
-            <Text markdownEnabled modifiers={textModifiers}>
+        <Host colorScheme={scheme} matchContents={{ vertical: true }} style={styles.host}>
+            <Text markdownEnabled modifiers={[font({ size: 12 }), foregroundStyle(colors.muted), tint(colors.link), lineSpacing(5), multilineTextAlignment('center')]}>
                 {`By continuing, you agree to our **[Terms of Use](${TERMS_OF_USE_URL})** and acknowledge our **[Privacy Policy](${PRIVACY_POLICY_URL})**.`}
             </Text>
         </Host>

@@ -3,6 +3,9 @@ import { StyleSheet, View } from "react-native";
 import type { SvgProps } from "react-native-svg";
 
 import BrainIcon from "@/assets/icons/brain.svg";
+import SunIcon from "@/assets/icons/sun.svg";
+import MoonIcon from "@/assets/icons/moon.svg";
+import SunMoonIcon from "@/assets/icons/sun-moon.svg";
 import EarthIcon from "@/assets/icons/earth.svg";
 import LogInIcon from "@/assets/icons/log-in.svg";
 import LogOutIcon from "@/assets/icons/log-out.svg";
@@ -13,6 +16,9 @@ import TrashIcon from "@/assets/icons/trash.svg";
 import type { SettingsRowIcon } from "@/components/settings/ui/SettingsRow.types";
 
 const ICONS = {
+    sun: SunIcon,
+    moon: MoonIcon,
+    'sun-moon': SunMoonIcon,
     subscription: EarthIcon,
     restore: RepeatIcon,
     manage: SettingsIconSvg,
@@ -37,7 +43,7 @@ export default function SettingsIcon({ icon, color }: SettingsIconProps) {
             importantForAccessibility="no-hide-descendants"
             style={styles.container}
         >
-            <Icon width={20} height={20} stroke={color} />
+            <Icon width={22} height={22} stroke={color} />
         </View>
     );
 }

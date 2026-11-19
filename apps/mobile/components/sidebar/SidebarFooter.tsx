@@ -1,10 +1,12 @@
+import type { AppTheme } from '@/constants/theme';
+import useThemeStyles from '@/hooks/useThemeStyles';
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 import { Animated, StyleSheet, TouchableOpacity, Text, View } from 'react-native';
 import LogInIcon from '@/assets/icons/log-in.svg';
+import SettingsIcon from '@/assets/icons/settings.svg';
 import { APP_ROUTES } from '@/constants/routes';
 import { SUBSCRIPTION_PLAN_DISPLAY_NAMES } from '@/constants/subscription';
-import { UI_SKELETON_BACKGROUND_COLOR } from '@/constants/ui';
 import useSkeletonPulse from '@/hooks/useSkeletonPulse';
 import { useAuthState } from '@/providers/AuthStateProvider';
 import useSubscriptionAccess from '@/hooks/useSubscriptionAccess';
@@ -12,6 +14,7 @@ import useSubscriptionAccess from '@/hooks/useSubscriptionAccess';
 const SIDEBAR_AVATAR_SIZE = 40;
 
 const SidebarFooter = () => {
+    const { styles, colors } = useThemeStyles(createStyles);
     const router = useRouter();
     const { status: authStatus, email } = useAuthState();
     const {
@@ -21,18 +24,12 @@ const SidebarFooter = () => {
     } = useSubscriptionAccess();
     const shouldShowAuthSkeleton = authStatus === 'checking' && email === null;
     const shouldShowAccount = authStatus === 'authenticated' || email !== null;
-    const subscriptionLabel = useMemo(() => {
-        if (hasActiveSubscription === true) {
-            return SUBSCRIPTION_PLAN_DISPLAY_NAMES.POLYGLOT;
-        }
-
-        return isSubscriptionActivating
+    const subscriptionLabel = hasActiveSubscription
+        ? SUBSCRIPTION_PLAN_DISPLAY_NAMES.POLYGLOT
+        : isSubscriptionActivating
             ? 'Activating...'
             : SUBSCRIPTION_PLAN_DISPLAY_NAMES.FREE;
-    }, [hasActiveSubscription, isSubscriptionActivating])
-    const emailInitial = useMemo(() => {
-        return email?.[0]?.toUpperCase() ?? '?';
-    }, [email])
+    const emailInitial = email?.[0]?.toUpperCase() ?? '?';
 
     const skeletonOpacity = useSkeletonPulse(shouldShowAuthSkeleton || isSubscriptionPending);
 
@@ -58,7 +55,7 @@ const SidebarFooter = () => {
                             style={[styles.emailText, styles.skeletonText, styles.emailSkeleton]}
                             numberOfLines={1}
                         >
-                            {email ?? 'Account'}
+                            Account
                         </Text>
                         <Text
                             style={[styles.planText, styles.planLine, styles.skeletonText, styles.subscriptionSkeleton]}
@@ -106,29 +103,48 @@ const SidebarFooter = () => {
                     onPress={handleSignInPress}
                     activeOpacity={0.7}
                     style={styles.signInButton}
+                    accessibilityRole="button"
                 >
                     <View style={styles.signInButtonContent}>
-                        <LogInIcon width={20} height={20} stroke="#000" style={styles.signInButtonIcon} />
+                        <LogInIcon width={20} height={20} stroke={colors.text} style={styles.signInButtonIcon} />
                         <Text style={styles.signInButtonText}>Sign in</Text>
                     </View>
                 </TouchableOpacity>
             )}
+            {!shouldShowAccount && (
+                <TouchableOpacity
+                    onPress={handleOpenSettings}
+                    activeOpacity={0.7}
+                    style={styles.settingsButton}
+                    accessibilityRole="button"
+                    accessibilityLabel="Settings"
+                >
+                    <SettingsIcon width={22} height={22} stroke={colors.text} />
+                </TouchableOpacity>
+            )}
         </View>
-    )
-}
+    );
+};
 
-const styles = StyleSheet.create({
+const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
     footer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
         borderTopWidth: 1,
-        borderTopColor: '#eee',
+        borderTopColor: colors.separator,
         paddingTop: 16,
     },
     userActionsContainer: {
+        flex: 1,
+        minWidth: 0,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
     },
     skeletonContainer: {
+        flex: 1,
+        minWidth: 0,
         minHeight: SIDEBAR_AVATAR_SIZE,
         flexDirection: 'row',
         alignItems: 'center',
@@ -138,7 +154,7 @@ const styles = StyleSheet.create({
         width: SIDEBAR_AVATAR_SIZE,
         height: SIDEBAR_AVATAR_SIZE,
         borderRadius: SIDEBAR_AVATAR_SIZE / 2,
-        backgroundColor: UI_SKELETON_BACKGROUND_COLOR,
+        backgroundColor: colors.skeleton,
     },
     skeletonTextContainer: {
         flex: 1,
@@ -150,16 +166,18 @@ const styles = StyleSheet.create({
     },
     emailSkeleton: {
         borderRadius: 6,
-        backgroundColor: UI_SKELETON_BACKGROUND_COLOR,
+        backgroundColor: colors.skeleton,
     },
     subscriptionSkeleton: {
         borderRadius: 5,
-        backgroundColor: '#eeeeee',
+        backgroundColor: colors.separator,
     },
     planLine: {
         marginTop: 4,
     },
     userContainer: {
+        minHeight: 44,
+        minWidth: 0,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
@@ -169,12 +187,12 @@ const styles = StyleSheet.create({
         width: SIDEBAR_AVATAR_SIZE,
         height: SIDEBAR_AVATAR_SIZE,
         borderRadius: SIDEBAR_AVATAR_SIZE / 2,
-        backgroundColor: '#000',
+        backgroundColor: colors.primary,
         alignItems: 'center',
         justifyContent: 'center',
     },
     avatarText: {
-        color: '#fff',
+        color: colors.onPrimary,
         fontWeight: '700',
         fontSize: 16,
     },
@@ -182,20 +200,28 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     emailText: {
-        color: '#000',
+        color: colors.text,
         fontWeight: '600',
         fontSize: 14,
     },
     planText: {
-        color: '#888',
+        color: colors.dimmed,
         fontSize: 12,
     },
     signInButton: {
-        width: '100%',
+        flex: 1,
         borderRadius: 12,
-        backgroundColor: '#f2f2f2',
-        alignItems: 'flex-start',
+        backgroundColor: colors.raised,
+        alignItems: 'center',
         flexDirection: 'row'
+    },
+    settingsButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 12,
+        backgroundColor: colors.raised,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     signInButtonContent: {
         flexDirection: 'row',
@@ -207,7 +233,7 @@ const styles = StyleSheet.create({
         marginRight: 12,
     },
     signInButtonText: {
-        color: '#000',
+        color: colors.text,
         fontWeight: '500',
         fontSize: 15,
     },

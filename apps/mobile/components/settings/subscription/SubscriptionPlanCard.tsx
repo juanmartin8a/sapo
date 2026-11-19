@@ -1,7 +1,8 @@
+import type { AppTheme } from '@/constants/theme';
+import useThemeStyles from '@/hooks/useThemeStyles';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 import CheckIcon from "@/assets/icons/check.svg";
-import { SETTINGS_COLORS } from "@/constants/settings";
 import {
     SUBSCRIPTION_PLAN_DISPLAY_NAMES,
     SUBSCRIPTION_PLAN_LIMITS,
@@ -28,7 +29,8 @@ const PLAN_FEATURES = [
     "Increased input limits per request",
 ] as const;
 
-const PLAN_CARD_COLORS = {
+// Preserve the subscription card's original light appearance.
+const LIGHT_PLAN_CARD_COLORS = {
     border: "#DDE7E0",
     descriptionText: "#636366",
     divider: "#AAB4AE",
@@ -52,6 +54,7 @@ export default function SubscriptionPlanCard({
     onOpenTermsOfUse,
     onOpenPrivacyPolicy,
 }: SubscriptionPlanCardProps) {
+    const { styles, settingsColors } = useThemeStyles(createStyles);
     return (
         <View style={styles.card}>
             <View style={styles.planHeader}>
@@ -68,7 +71,7 @@ export default function SubscriptionPlanCard({
                 <Text style={styles.featureListLabel}>Included</Text>
                 {PLAN_FEATURES.map((feature) => (
                     <View key={feature} style={styles.featureRow}>
-                        <CheckIcon width={18} height={18} stroke={SETTINGS_COLORS.accent} />
+                        <CheckIcon width={18} height={18} stroke={settingsColors.accent} />
                         <Text style={styles.featureText}>{feature}</Text>
                     </View>
                 ))}
@@ -84,7 +87,7 @@ export default function SubscriptionPlanCard({
                 ]}
             >
                 {isPurchasing ? (
-                    <ActivityIndicator color={PLAN_CARD_COLORS.white} size="small" />
+                    <ActivityIndicator color={styles.subscribeButtonText.color} size="small" />
                 ) : (
                     <Text style={styles.subscribeButtonText}>{buttonLabel}</Text>
                 )}
@@ -115,126 +118,140 @@ export default function SubscriptionPlanCard({
     );
 }
 
-const styles = StyleSheet.create({
-    card: {
-        backgroundColor: SETTINGS_COLORS.surface,
-        borderWidth: 1,
-        borderColor: PLAN_CARD_COLORS.border,
-        borderRadius: 24,
-        padding: 22,
-        gap: 18,
-        shadowColor: PLAN_CARD_COLORS.shadow,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.07,
-        shadowRadius: 20,
-        elevation: 2,
-    },
-    planHeader: {
-        gap: 5,
-    },
-    planName: {
-        color: PLAN_CARD_COLORS.primary,
-        fontSize: 21,
-        lineHeight: 26,
-        fontWeight: "700",
-        letterSpacing: -0.3,
-    },
-    priceRow: {
-        flexDirection: "row",
-        alignItems: "flex-end",
-        gap: 7,
-    },
-    priceText: {
-        fontSize: 40,
-        lineHeight: 44,
-        fontWeight: "800",
-        letterSpacing: -1,
-        color: PLAN_CARD_COLORS.primary,
-    },
-    priceSuffix: {
-        fontSize: 14,
-        lineHeight: 20,
-        fontWeight: "500",
-        color: PLAN_CARD_COLORS.mutedText,
-        marginBottom: 5,
-    },
-    planDescription: {
-        fontSize: 15,
-        lineHeight: 21,
-        fontWeight: "400",
-        color: PLAN_CARD_COLORS.descriptionText,
-    },
-    featureList: {
-        gap: 12,
-    },
-    featureListLabel: {
-        color: PLAN_CARD_COLORS.mutedText,
-        fontSize: 11,
-        lineHeight: 14,
-        fontWeight: "700",
-        letterSpacing: 0.8,
-        textTransform: "uppercase",
-    },
-    featureRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 10,
-    },
-    featureText: {
-        flex: 1,
-        fontSize: 15,
-        lineHeight: 21,
-        fontWeight: "500",
-        color: PLAN_CARD_COLORS.secondaryText,
-    },
-    subscribeButton: {
-        backgroundColor: PLAN_CARD_COLORS.primary,
-        borderRadius: 12,
-        minHeight: 42,
-        alignItems: "center",
-        justifyContent: "center",
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-    },
-    subscribeButtonPressed: {
-        opacity: 0.78,
-    },
-    subscribeButtonDisabled: {
-        opacity: UI_DISABLED_OPACITY,
-    },
-    subscribeButtonText: {
-        color: PLAN_CARD_COLORS.white,
-        fontSize: 14,
-        lineHeight: 20,
-        fontWeight: "600",
-        textAlign: "center",
-    },
-    footnote: {
-        fontSize: 12,
-        lineHeight: 17,
-        fontWeight: "400",
-        color: PLAN_CARD_COLORS.mutedText,
-        textAlign: "center",
-    },
-    legalLinksRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 12,
-    },
-    legalDivider: {
-        width: 3,
-        height: 3,
-        borderRadius: 2,
-        backgroundColor: PLAN_CARD_COLORS.divider,
-    },
-    legalLink: {
-        color: PLAN_CARD_COLORS.secondaryText,
-        fontSize: 12,
-        lineHeight: 16,
-        fontWeight: "600",
-    },
-    legalLinkPressed: {
-        color: PLAN_CARD_COLORS.linkPressed,
-    },
-});
+const createStyles = ({ scheme, colors, settingsColors }: AppTheme) => {
+    const planColors = scheme === 'light' ? LIGHT_PLAN_CARD_COLORS : {
+        border: settingsColors.screenBackground,
+        descriptionText: settingsColors.mutedText,
+        divider: settingsColors.mutedChevron,
+        linkPressed: settingsColors.mutedText,
+        mutedText: settingsColors.mutedText,
+        primary: settingsColors.primaryText,
+        secondaryText: settingsColors.primaryText,
+        shadow: colors.shadow,
+        white: settingsColors.surface,
+    };
+
+    return StyleSheet.create({
+        card: {
+            backgroundColor: settingsColors.surface,
+            borderWidth: 1,
+            borderColor: planColors.border,
+            borderRadius: 24,
+            padding: 22,
+            gap: 18,
+            shadowColor: planColors.shadow,
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.07,
+            shadowRadius: 20,
+            elevation: 2,
+        },
+        planHeader: {
+            gap: 5,
+        },
+        planName: {
+            color: planColors.primary,
+            fontSize: 21,
+            lineHeight: 26,
+            fontWeight: "700",
+            letterSpacing: -0.3,
+        },
+        priceRow: {
+            flexDirection: "row",
+            alignItems: "flex-end",
+            gap: 7,
+        },
+        priceText: {
+            fontSize: 40,
+            lineHeight: 44,
+            fontWeight: "800",
+            letterSpacing: -1,
+            color: planColors.primary,
+        },
+        priceSuffix: {
+            fontSize: 14,
+            lineHeight: 20,
+            fontWeight: "500",
+            color: planColors.mutedText,
+            marginBottom: 5,
+        },
+        planDescription: {
+            fontSize: 15,
+            lineHeight: 21,
+            fontWeight: "400",
+            color: planColors.descriptionText,
+        },
+        featureList: {
+            gap: 12,
+        },
+        featureListLabel: {
+            color: planColors.mutedText,
+            fontSize: 11,
+            lineHeight: 14,
+            fontWeight: "700",
+            letterSpacing: 0.8,
+            textTransform: "uppercase",
+        },
+        featureRow: {
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
+        },
+        featureText: {
+            flex: 1,
+            fontSize: 15,
+            lineHeight: 21,
+            fontWeight: "500",
+            color: planColors.secondaryText,
+        },
+        subscribeButton: {
+            backgroundColor: planColors.primary,
+            borderRadius: 12,
+            minHeight: 42,
+            alignItems: "center",
+            justifyContent: "center",
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+        },
+        subscribeButtonPressed: {
+            opacity: 0.78,
+        },
+        subscribeButtonDisabled: {
+            opacity: UI_DISABLED_OPACITY,
+        },
+        subscribeButtonText: {
+            color: planColors.white,
+            fontSize: 14,
+            lineHeight: 20,
+            fontWeight: "600",
+            textAlign: "center",
+        },
+        footnote: {
+            fontSize: 12,
+            lineHeight: 17,
+            fontWeight: "400",
+            color: planColors.mutedText,
+            textAlign: "center",
+        },
+        legalLinksRow: {
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 12,
+        },
+        legalDivider: {
+            width: 3,
+            height: 3,
+            borderRadius: 2,
+            backgroundColor: planColors.divider,
+        },
+        legalLink: {
+            color: planColors.secondaryText,
+            fontSize: 12,
+            lineHeight: 16,
+            fontWeight: "600",
+        },
+        legalLinkPressed: {
+            color: planColors.linkPressed,
+        },
+    });
+};

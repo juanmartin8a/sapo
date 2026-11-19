@@ -1,3 +1,5 @@
+import type { AppTheme } from '@/constants/theme';
+import useThemeStyles from '@/hooks/useThemeStyles';
 import React, { Children, useCallback, useImperativeHandle, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import type { SharedValue } from "react-native-reanimated";
@@ -37,6 +39,7 @@ export default function HomePager({
     onPageSelected,
     progress,
 }: HomePagerProps) {
+    const { styles, colors } = useThemeStyles(createStyles);
     const [selectedPage, setSelectedPage] = useState(initialPage);
     const selectedPageRef = useRef(initialPage);
     const pages = Children.toArray(children);
@@ -66,7 +69,7 @@ export default function HomePager({
                     onPress={() => selectPage(selectedPage - 1)}
                     style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
                 >
-                    <ArrowLeftIcon width={16} height={16} stroke="black" />
+                    <ArrowLeftIcon width={16} height={16} stroke={colors.text} />
                     <Text style={styles.backButtonText}>Input</Text>
                 </Pressable>
             )}
@@ -82,7 +85,7 @@ export default function HomePager({
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
     backButton: {
         alignItems: "center",
         alignSelf: "flex-start",
@@ -95,7 +98,7 @@ const styles = StyleSheet.create({
         opacity: 0.55,
     },
     backButtonText: {
-        color: "#000",
+        color: colors.text,
         fontSize: 14,
         fontWeight: "600",
     },

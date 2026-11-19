@@ -2,7 +2,7 @@ import { normalizeServerUrl, LOCAL_OUTPUT_TOKENS } from "./config";
 import { localTranslationInstructions } from "./prompt";
 import type { TranslationRequest } from "@/types/translation";
 
-export interface ServerConnection {
+interface ServerConnection {
     baseUrl: string;
     apiKey: string;
 }

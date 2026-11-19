@@ -1,3 +1,6 @@
+import type { AppTheme } from '@/constants/theme';
+import { TINOS } from '@/constants/fonts';
+import useThemeStyles from '@/hooks/useThemeStyles';
 import TranslationPreview from './TranslationPreview';
 import { TRANSLATION_TEXT_TYPOGRAPHY } from '@/constants/ui';
 import SelectableText from './SelectableText';
@@ -31,6 +34,7 @@ export default function Translate({
     onDismissSelection,
     onDismissPreviewSelection,
 }: TranslateProps) {
+    const { styles, frogs } = useThemeStyles(createStyles);
     const insets = useSafeAreaInsets();
     const { width: screenWidth } = useWindowDimensions();
     const translationPreview = useTranslationStore(state => state.translationPreview);
@@ -200,7 +204,7 @@ export default function Translate({
                         ]}
                     >
                         <Animated.Image
-                            source={require("@/assets/images/sapo.png")}
+                            source={frogs.closed}
                             resizeMode="contain"
                             style={[
                                 styles.frogImage,
@@ -209,7 +213,7 @@ export default function Translate({
                             ]}
                         />
                         <Animated.Image
-                            source={require("@/assets/images/sapo-mouth-open.png")}
+                            source={frogs.open}
                             resizeMode="contain"
                             style={[
                                 styles.frogImage,
@@ -224,7 +228,7 @@ export default function Translate({
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
     scrollView: {
         flex: 1,
     },
@@ -238,11 +242,11 @@ const styles = StyleSheet.create({
         width: "100%",
         borderTopRightRadius: 20,
         borderBottomRightRadius: 20,
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
     },
     textContainer: {
         width: "100%",
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
     },
     frog: {
         position: "absolute",
@@ -255,16 +259,17 @@ const styles = StyleSheet.create({
         left: 0,
     },
     translatedText: {
+        color: colors.text,
         ...TRANSLATION_TEXT_TYPOGRAPHY,
         textAlign: "left",
         textAlignVertical: "top",
         width: "100%",
-        backgroundColor: "#fff",
-        fontFamily: "Times New Roman",
+        backgroundColor: colors.background,
+        fontFamily: TINOS.regular,
         fontWeight: "400",
     },
     errorText: {
-        color: 'red',
+        color: colors.error,
         fontSize: 16,
     },
 });

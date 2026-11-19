@@ -1,9 +1,12 @@
+import type { AppTheme } from '@/constants/theme';
+import useThemeStyles from '@/hooks/useThemeStyles';
 import { StyleSheet, View } from 'react-native';
 import { OtpInput } from 'react-native-otp-entry';
 
 import useDemoSignIn from '@/hooks/useDemoSignIn';
 
 export default function DemoAccess() {
+    const { styles, colors } = useThemeStyles(createStyles);
     const { disabled, handleSubmit } = useDemoSignIn();
 
     return (
@@ -14,7 +17,7 @@ export default function DemoAccess() {
                 autoFocus={false}
                 blurOnFilled
                 disabled={disabled}
-                focusColor="#666"
+                focusColor={colors.muted}
                 hideStick
                 onFilled={(code) => {
                     void handleSubmit(code);
@@ -35,7 +38,7 @@ export default function DemoAccess() {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
     panel: {
         gap: 12,
         paddingBottom: 8,
@@ -51,15 +54,15 @@ const styles = StyleSheet.create({
         height: 46,
         marginHorizontal: 2,
         borderRadius: 8,
-        borderColor: '#ddd',
+        borderColor: colors.border,
         borderWidth: 1,
     },
     focusedDigit: {
-        borderColor: 'black',
+        borderColor: colors.text,
         borderWidth: 1.5,
     },
     digitText: {
         fontSize: 21,
-        color: '#000',
+        color: colors.text,
     },
 });

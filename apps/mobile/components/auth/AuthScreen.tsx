@@ -1,22 +1,25 @@
+import type { AppTheme } from '@/constants/theme';
+import { TINOS } from '@/constants/fonts';
+import useThemeStyles from '@/hooks/useThemeStyles';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { APP_ROUTES } from '@/constants/routes';
 import { UI_DISABLED_OPACITY } from '@/constants/ui';
 import AuthLegalNotice from '@/components/auth/AuthLegalNotice';
 import SocialSignInButton from '@/components/auth/SocialSignInButton';
 import { useSignInStore } from '@/stores/signInStore';
-import GoogleGIcon from '@/assets/icons/google-g.svg';
 import ArrowLeftIcon from '@/assets/icons/arrow-left.svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const SIGN_IN_TITLE = 'Sign in :)';
+const SIGN_IN_TITLE = 'Sign in to S A P O';
 const SIGNING_IN_TITLE = 'Signing in...';
 const TITLE_FADE_DURATION = 300;
 const TITLE_FADE_EASING = Easing.out(Easing.cubic);
 const SIGN_IN_SPACING = 12;
 
 const AuthScreen = () => {
+    const { styles, colors } = useThemeStyles(createStyles);
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const pendingProvider = useSignInStore((state) => state.pendingProvider);
@@ -36,13 +39,14 @@ const AuthScreen = () => {
     const isSignInPending = pendingProvider !== null;
 
     useEffect(() => {
-        titleTransitionProgress.stopAnimation();
-        Animated.timing(titleTransitionProgress, {
+        const transition = Animated.timing(titleTransitionProgress, {
             toValue: isSignInPending ? 1 : 0,
             duration: TITLE_FADE_DURATION,
             easing: TITLE_FADE_EASING,
             useNativeDriver: true,
-        }).start();
+        });
+        transition.start();
+        return () => transition.stop();
     }, [isSignInPending, titleTransitionProgress]);
 
     const signInTitleOpacity = titleTransitionProgress.interpolate({
@@ -53,6 +57,7 @@ const AuthScreen = () => {
         inputRange: [0, 1],
         outputRange: [0, 1],
     });
+    const signInTitle = <>Sign in to <Text style={styles.brandName}>S A P O</Text></>;
 
     return (
         <View
@@ -67,17 +72,11 @@ const AuthScreen = () => {
                     onPress={handleBackPress}
                     style={styles.backButton}
                 >
-                    <ArrowLeftIcon width={40} height={32} stroke="#000" />
+                    <ArrowLeftIcon width={40} height={32} stroke={colors.text} />
                 </TouchableOpacity>
                 <View style={styles.content}>
                     <View style={styles.hero}>
-                        <View style={styles.iconBadge}>
-                            <Image
-                                source={require("@/assets/images/sapo.png")}
-                                resizeMode="contain"
-                                style={styles.icon}
-                            />
-                        </View>
+                        <View style={styles.heroSpacer} />
                         <View
                             accessibilityLiveRegion="polite"
                             accessibilityLabel={isSignInPending ? SIGNING_IN_TITLE : SIGN_IN_TITLE}
@@ -87,16 +86,9 @@ const AuthScreen = () => {
                             <Animated.Text
                                 accessible={false}
                                 importantForAccessibility="no"
-                                style={[styles.title, styles.titleMeasure]}
+                                style={[styles.title, { opacity: signInTitleOpacity }]}
                             >
-                                {SIGNING_IN_TITLE}
-                            </Animated.Text>
-                            <Animated.Text
-                                accessible={false}
-                                importantForAccessibility="no"
-                                style={[styles.title, styles.titleLayer, { opacity: signInTitleOpacity }]}
-                            >
-                                {SIGN_IN_TITLE}
+                                {signInTitle}
                             </Animated.Text>
                             <Animated.Text
                                 accessible={false}
@@ -110,7 +102,7 @@ const AuthScreen = () => {
                             {isSignInPending ? (
                                 <ActivityIndicator
                                     size="small"
-                                    color="#000"
+                                    color={colors.text}
                                     accessibilityRole="progressbar"
                                 />
                             ) : null}
@@ -123,12 +115,10 @@ const AuthScreen = () => {
                     <SocialSignInButton
                         provider="google"
                         label="Sign in with Google"
-                        icon={<GoogleGIcon />}
                         loading={pendingProvider === 'google'}
                         disabled={isSignInPending}
                         onSignInStart={handleSignInStart}
-                        onSignInCancel={handleSignInEnd}
-                        onSignInError={handleSignInEnd}
+                        onSignInEnd={handleSignInEnd}
                     />
                     <SocialSignInButton
                         provider="apple"
@@ -136,8 +126,7 @@ const AuthScreen = () => {
                         loading={pendingProvider === 'apple'}
                         disabled={isSignInPending}
                         onSignInStart={handleSignInStart}
-                        onSignInCancel={handleSignInEnd}
-                        onSignInError={handleSignInEnd}
+                        onSignInEnd={handleSignInEnd}
                     />
                     <TouchableOpacity
                         accessibilityRole="button"
@@ -158,10 +147,10 @@ const AuthScreen = () => {
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
     },
     mainContent: {
         flex: 1,
@@ -179,7 +168,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 28,
         paddingTop: 32,
         paddingBottom: SIGN_IN_SPACING,
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
     },
     backButton: {
         position: 'absolute',
@@ -192,32 +181,28 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 24,
     },
-    iconBadge: {
+    heroSpacer: {
         width: 120,
         height: 120,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    icon: {
-        width: 112,
-        height: 112,
     },
     title: {
         fontSize: 24,
         fontWeight: '700',
-        color: '#000',
+        color: colors.text,
+    },
+    brandName: {
+        fontFamily: TINOS.bold,
+        fontWeight: 'normal',
     },
     titleContainer: {
         position: 'relative',
+        alignSelf: 'stretch',
         alignItems: 'center',
         justifyContent: 'center',
     },
-    titleMeasure: {
-        opacity: 0,
-    },
     titleLayer: {
-        ...StyleSheet.absoluteFill,
-        textAlign: 'center',
+        position: 'absolute',
+        textAlign: 'left',
     },
     titleLoader: {
         width: 24,
@@ -235,7 +220,7 @@ const styles = StyleSheet.create({
     demoLabel: {
         fontSize: 12,
         lineHeight: 12,
-        color: '#000',
+        color: colors.text,
         textDecorationLine: 'underline',
         fontWeight: '500',
     },

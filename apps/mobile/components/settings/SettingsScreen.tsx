@@ -1,5 +1,6 @@
 import { FieldGroup } from "@expo/ui";
 
+import SettingsAppearanceSection from "@/components/settings/SettingsAppearanceSection";
 import SettingsAccountSection from "@/components/settings/SettingsAccountSection";
 import SettingsSessionSection from "@/components/settings/SettingsSessionSection";
 import SettingsForm from "@/components/settings/ui/SettingsForm";
@@ -12,17 +13,18 @@ export default function SettingsScreen() {
 
     return (
         <SettingsForm>
-            <SettingsAccountSection
-                isSigningOut={actions.isSigningOut}
-                isRestoringPurchases={actions.isRestoringPurchases}
-                isRestorePurchasesDisabled={actions.isRestorePurchasesDisabled}
-                isManageSubscriptionDisabled={actions.isManageSubscriptionDisabled}
-                shouldShowAuthenticatedActions={actions.shouldShowAuthenticatedActions}
-                onOpenSubscription={actions.handleOpenSubscription}
-                onRestorePurchases={actions.handleRestorePurchases}
-                onManageSubscription={actions.handleManageSubscription}
-                onOpenDataControls={actions.handleOpenDataControls}
-            />
+            {actions.shouldShowAuthenticatedActions ? (
+                <SettingsAccountSection
+                    isSigningOut={actions.isSigningOut}
+                    isRestoringPurchases={actions.isRestoringPurchases}
+                    isRestorePurchasesDisabled={actions.isRestorePurchasesDisabled}
+                    isManageSubscriptionDisabled={actions.isManageSubscriptionDisabled}
+                    onOpenSubscription={actions.handleOpenSubscription}
+                    onRestorePurchases={actions.handleRestorePurchases}
+                    onManageSubscription={actions.handleManageSubscription}
+                    onOpenDataControls={actions.handleOpenDataControls}
+                />
+            ) : null}
 
             <FieldGroup.Section>
                 <SettingsRow
@@ -32,6 +34,10 @@ export default function SettingsScreen() {
                     disabled={actions.isSigningOut}
                     onPress={actions.handleOpenLocalModels}
                 />
+            </FieldGroup.Section>
+
+            <FieldGroup.Section title="Theme">
+                <SettingsAppearanceSection />
             </FieldGroup.Section>
 
             <SettingsSessionSection

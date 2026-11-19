@@ -1,14 +1,14 @@
 import { useCallback } from "react";
 import { Stack, useRouter } from "expo-router";
-import { Platform, StyleSheet } from "react-native";
+import { Platform } from "react-native";
 
 import { APP_ROUTES, SETTINGS_ROUTES } from "@/constants/routes";
-import { SETTINGS_COLORS } from "@/constants/settings";
+import { useAppTheme } from "@/providers/AppThemeProvider";
 
 const isIOS = Platform.OS === "ios";
-const settingsModalBackground = SETTINGS_COLORS.screenBackground;
 
 export default function SettingsModalLayout() {
+    const { scheme, settingsColors } = useAppTheme();
     const router = useRouter();
 
     const handleDismiss = useCallback(() => {
@@ -22,9 +22,10 @@ export default function SettingsModalLayout() {
                 headerTransparent: true,
                 headerShadowVisible: isIOS,
                 headerLargeTitleShadowVisible: false,
-                headerStyle: styles.header,
-                headerLargeStyle: styles.header,
-                contentStyle: styles.content,
+                headerStyle: { backgroundColor: "transparent" },
+                headerTintColor: scheme === 'dark' ? settingsColors.primaryText : undefined,
+                headerLargeStyle: { backgroundColor: "transparent" },
+                contentStyle: { backgroundColor: settingsColors.screenBackground },
             }}
         >
             <Stack.Screen
@@ -39,7 +40,7 @@ export default function SettingsModalLayout() {
                             accessibilityLabel="Close"
                             icon="xmark"
                             onPress={handleDismiss}
-                            tintColor={SETTINGS_COLORS.primaryText}
+                            tintColor={settingsColors.primaryText}
                         />
                     </Stack.Toolbar>
                 )}
@@ -71,12 +72,3 @@ export default function SettingsModalLayout() {
         </Stack>
     );
 }
-
-const styles = StyleSheet.create({
-    header: {
-        backgroundColor: "transparent",
-    },
-    content: {
-        backgroundColor: settingsModalBackground,
-    },
-});

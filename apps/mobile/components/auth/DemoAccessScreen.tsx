@@ -1,9 +1,12 @@
+import type { AppTheme } from '@/constants/theme';
+import useThemeStyles from '@/hooks/useThemeStyles';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import DemoAccess from '@/components/auth/DemoAccess';
 
 export default function DemoAccessScreen() {
+    const { styles } = useThemeStyles(createStyles);
     const insets = useSafeAreaInsets();
 
     return (
@@ -14,16 +17,16 @@ export default function DemoAccessScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
     container: {
         paddingTop: 32,
         paddingHorizontal: 28,
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
         gap: 20,
     },
     description: {
         fontSize: 15,
         lineHeight: 22,
-        color: '#666',
+        color: colors.muted,
     },
 });

@@ -5,7 +5,7 @@ import { HOME_BOTTOM_SHEET_KEYS } from "@/constants/bottomSheets";
 import { APP_ROUTES } from "@/constants/routes";
 import useLocalModelStore from "@/stores/localModelStore";
 import { useRouter } from "expo-router";
-import { useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import OptionSelectorSheet from "./OptionSelectorSheet";
 import { triggerErrorHaptic, triggerSelectionHaptic } from "@/lib/haptics";
 import useHomeBottomSheetController from "@/hooks/useHomeBottomSheetController";
@@ -18,12 +18,14 @@ export default function LocalModelSelectorBottomSheet() {
     const selectionRequestIdRef = useRef(0);
     const selectedModelId = useLocalModelStore((state) => state.selectedModelId);
     const downloadedModelIds = useLocalModelStore((state) => state.downloadedModelIds);
-    const selectModel = useLocalModelStore((state) => state.selectModel);
-    const downloadedModelData = LOCAL_TRANSLATION_MODELS
-        .filter((model) => downloadedModelIds.includes(model.id))
-        .map((model) => [model.id, model.displayName] as [string, string]);
+    const downloadedModelData = useMemo(
+        () => LOCAL_TRANSLATION_MODELS
+            .filter((model) => downloadedModelIds.includes(model.id))
+            .map((model): [string, string] => [model.id, model.displayName]),
+        [downloadedModelIds]
+    );
 
-    const handleModelSelect = async (key: string) => {
+    const handleModelSelect = useCallback(async (key: string) => {
         const modelId = key as LocalTranslationModelId;
         const requestId = ++selectionRequestIdRef.current;
 
@@ -40,7 +42,8 @@ export default function LocalModelSelectorBottomSheet() {
                 return;
             }
 
-            if (modelId === useLocalModelStore.getState().selectedModelId) {
+            const { selectedModelId, selectModel } = useLocalModelStore.getState();
+            if (modelId === selectedModelId) {
                 return;
             }
 
@@ -58,7 +61,7 @@ export default function LocalModelSelectorBottomSheet() {
             triggerErrorHaptic();
             Alert.alert("Unable to select model", "Please try again.");
         }
-    }
+    }, [router, sheetRef]);
 
     return (
         <OptionSelectorSheet

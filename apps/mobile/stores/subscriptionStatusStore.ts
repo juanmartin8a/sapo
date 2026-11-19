@@ -8,6 +8,7 @@ import {
     clearConfirmedSubscriptionSnapshot,
     loadConfirmedSubscriptionSnapshot,
     persistConfirmedSubscriptionSnapshot,
+    type ConfirmedSubscriptionSnapshot,
 } from "@/lib/confirmed-subscription-cache";
 
 export type SubscriptionStatus = "checking" | "inactive" | "activating" | "active";
@@ -94,7 +95,7 @@ const useSubscriptionStatusStore = create<SubscriptionStatusStoreProps>((set) =>
     },
     applyConvexStatus: (userId, subscription) => {
         let didSet = false;
-        let confirmedSnapshot: Parameters<typeof persistConfirmedSubscriptionSnapshot>[0] | null = null;
+        let confirmedSnapshot: ConfirmedSubscriptionSnapshot | null = null;
 
         set((state) => {
             if (state.userId !== userId) {

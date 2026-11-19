@@ -1,3 +1,4 @@
+import { useAppTheme } from '@/providers/AppThemeProvider';
 import { Button, HStack, Image, ProgressView, RNHostView, Spacer, Text } from "@expo/ui/swift-ui";
 import {
     buttonStyle,
@@ -13,7 +14,7 @@ import {
 
 import SettingsIcon from "@/components/settings/ui/SettingsIcon";
 import type { SettingsRowProps } from "@/components/settings/ui/SettingsRow.types";
-import { SETTINGS_COLORS, SETTINGS_ROW_CONTENT_SPACING } from "@/constants/settings";
+import { SETTINGS_ROW_CONTENT_SPACING } from "@/constants/settings";
 
 export default function SettingsRow({
     label,
@@ -24,13 +25,14 @@ export default function SettingsRow({
     destructive = false,
     showDisclosure = false,
 }: SettingsRowProps) {
+    const { scheme, settingsColors } = useAppTheme();
     return (
         <Button
             onPress={onPress}
             modifiers={[
                 buttonStyle("plain"),
                 disabled(isDisabled),
-                listRowBackground(SETTINGS_COLORS.surface),
+                listRowBackground(settingsColors.surface),
             ]}
         >
             <HStack
@@ -40,14 +42,15 @@ export default function SettingsRow({
                 <RNHostView matchContents>
                     <SettingsIcon
                         icon={icon}
-                        color={destructive ? SETTINGS_COLORS.destructiveText : SETTINGS_COLORS.primaryText}
+                        color={destructive ? settingsColors.destructiveText : settingsColors.primaryText}
                     />
                 </RNHostView>
                 <Text
                     modifiers={[
                         font({ textStyle: "body", weight: "regular" }),
                         foregroundStyle(
-                            destructive ? SETTINGS_COLORS.destructiveText : SETTINGS_COLORS.primaryText
+                            destructive ? settingsColors.destructiveText
+                                : scheme === 'light' ? settingsColors.primaryText : 'primary'
                         ),
                     ]}
                 >

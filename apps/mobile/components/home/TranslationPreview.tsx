@@ -1,3 +1,5 @@
+import type { AppTheme } from '@/constants/theme';
+import useThemeStyles from '@/hooks/useThemeStyles';
 import SelectableText from "./SelectableText";
 import { TRANSLATION_TEXT_TYPOGRAPHY } from "@/constants/ui";
 import { useState, type Ref } from "react";
@@ -16,6 +18,7 @@ export default function TranslationPreview({
     onDismissSelection,
     onInteractionStart,
 }: TranslationPreviewProps) {
+    const { styles } = useThemeStyles(createStyles);
     const [expanded, setExpanded] = useState(true);
     const [measurement, setMeasurement] = useState({ text: "", exceedsTwoLines: false });
     const canCollapse = measurement.text === text && measurement.exceedsTwoLines;
@@ -77,12 +80,12 @@ export default function TranslationPreview({
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
     container: { marginBottom: 8 },
-    text: { ...TRANSLATION_TEXT_TYPOGRAPHY, color: '#aaa' },
+    text: { ...TRANSLATION_TEXT_TYPOGRAPHY, color: colors.subtle },
     measurement: { position: 'absolute', top: 0, left: 0, right: 0, opacity: 0 },
     toggle: { paddingTop: 4, flexDirection: 'row', alignItems: 'flex-start', alignSelf: 'flex-start', gap: 8 },
-    toggleText: { fontSize: 14, lineHeight: 20, color: '#aaa', textDecorationLine: 'underline' },
-    chevron: { width: 7, height: 7, borderRightWidth: 1.5, borderBottomWidth: 1.5, borderColor: '#aaa', transform: [{ rotate: '45deg' }], marginTop: 5 },
+    toggleText: { fontSize: 14, lineHeight: 20, color: colors.subtle, textDecorationLine: 'underline' },
+    chevron: { width: 7, height: 7, borderRightWidth: 1.5, borderBottomWidth: 1.5, borderColor: colors.subtle, transform: [{ rotate: '45deg' }], marginTop: 5 },
     chevronExpanded: { transform: [{ rotate: '225deg' }], marginTop: 8 },
 });

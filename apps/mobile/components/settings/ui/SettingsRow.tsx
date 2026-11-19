@@ -1,10 +1,11 @@
+import type { AppTheme } from '@/constants/theme';
+import useThemeStyles from '@/hooks/useThemeStyles';
 import { ActivityIndicator, Pressable, StyleSheet, Text } from "react-native";
 
 import ChevronRightIcon from "@/assets/icons/chevron-right.svg";
 import SettingsIcon from "@/components/settings/ui/SettingsIcon";
 import type { SettingsRowProps } from "@/components/settings/ui/SettingsRow.types";
 import {
-    SETTINGS_COLORS,
     SETTINGS_ROW_CONTENT_SPACING,
 } from "@/constants/settings";
 import { UI_DISABLED_OPACITY } from "@/constants/ui";
@@ -18,6 +19,7 @@ export default function SettingsRow({
     destructive = false,
     showDisclosure = false,
 }: SettingsRowProps) {
+    const { styles, scheme, settingsColors } = useThemeStyles(createStyles);
     return (
         <Pressable
             accessibilityRole="button"
@@ -31,23 +33,23 @@ export default function SettingsRow({
         >
             <SettingsIcon
                 icon={icon}
-                color={destructive ? SETTINGS_COLORS.destructiveText : SETTINGS_COLORS.primaryText}
+                color={destructive ? settingsColors.destructiveText : settingsColors.primaryText}
             />
             <Text style={[styles.label, destructive && styles.destructive]}>{label}</Text>
             {loading ? (
-                <ActivityIndicator size="small" />
+                <ActivityIndicator color={scheme === 'dark' ? settingsColors.primaryText : undefined} size="small" />
             ) : showDisclosure ? (
                 <ChevronRightIcon
                     width={18}
                     height={18}
-                    stroke={SETTINGS_COLORS.mutedChevron}
+                    stroke={settingsColors.mutedChevron}
                 />
             ) : null}
         </Pressable>
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = ({ scheme, colors, settingsColors }: AppTheme) => StyleSheet.create({
     row: {
         minHeight: 48,
         width: "100%",
@@ -56,12 +58,13 @@ const styles = StyleSheet.create({
         gap: SETTINGS_ROW_CONTENT_SPACING,
     },
     label: {
+        color: scheme === 'light' ? colors.text : settingsColors.primaryText,
         flex: 1,
         fontSize: 17,
         fontWeight: "400",
     },
     destructive: {
-        color: SETTINGS_COLORS.destructiveText,
+        color: settingsColors.destructiveText,
     },
     disabled: {
         opacity: UI_DISABLED_OPACITY,

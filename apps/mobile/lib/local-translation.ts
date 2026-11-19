@@ -9,8 +9,6 @@ export const isLocalTranslationAbortError = (error: unknown) => {
 
 export const stopActiveLocalTranslation = async () => undefined;
 
-export const releaseLocalTranslationModel = async () => undefined;
-
 export const runWithLocalTranslationModelReleased = async <Result>(
     _modelId: LocalTranslationModelId,
     operation: () => Promise<Result>

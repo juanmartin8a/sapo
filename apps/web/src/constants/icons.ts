@@ -3,7 +3,6 @@ export const iconAssetNames = [
     "arrow-right",
     "arrow-left",
     "repeat",
-    "check",
     "trash",
     "log-out",
     "log-in",

@@ -1,3 +1,5 @@
+import type { AppTheme } from '@/constants/theme';
+import useThemeStyles from '@/hooks/useThemeStyles';
 import { useEffect, useRef } from "react";
 import { Alert, StyleSheet, TextInput, useWindowDimensions } from "react-native"
 import useTranslationInputStore from "@/stores/translationInputStore";
@@ -16,6 +18,7 @@ interface TextToTranslateInputProps {
 }
 
 const TextToTranslateInput = ({ keyboardVerticalOffset }: TextToTranslateInputProps) => {
+    const { styles, scheme } = useThemeStyles(createStyles);
     const { width: screenWidth } = useWindowDimensions()
     const singleScreen = usePagerStore((state) => state.singleScreen)
     // Match the response's open-mouth frog height only in paged mode.
@@ -79,11 +82,12 @@ const TextToTranslateInput = ({ keyboardVerticalOffset }: TextToTranslateInputPr
         >
             <TextInput
                 style={[styles.textInput, { paddingBottom: 34 + (singleScreen ? 0 : frogHeight) }]}
+                keyboardAppearance={scheme}
                 multiline
                 value={text}
                 onChangeText={handleTextChange}
                 placeholder="Type something..."
-                placeholderTextColor="#aaa"
+                placeholderTextColor="#AAAAAA"
                 returnKeyType="done"
                 submitBehavior="blurAndSubmit"
             />
@@ -91,18 +95,19 @@ const TextToTranslateInput = ({ keyboardVerticalOffset }: TextToTranslateInputPr
     )
 }
 
-const styles = StyleSheet.create({
+const createStyles = ({ colors }: AppTheme) => StyleSheet.create({
     innerContainer: {
         flex: 1,
     },
     textInput: {
         flex: 1,
         ...TRANSLATION_TEXT_TYPOGRAPHY,
+        color: colors.text,
         textAlign: "left",
         textAlignVertical: "top",
         paddingHorizontal: 24,
         paddingVertical: 10,
-        backgroundColor: "#fff",
+        backgroundColor: colors.background,
     },
 })
 

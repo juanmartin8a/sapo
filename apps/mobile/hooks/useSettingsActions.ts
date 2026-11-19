@@ -97,7 +97,7 @@ export default function useSettingsActions() {
     }, [router]);
 
     const handleSignIn = useCallback(() => {
-        router.push(APP_ROUTES.AUTH);
+        router.replace(APP_ROUTES.AUTH);
     }, [router]);
 
     const handleRestorePurchases = useCallback(async () => {

@@ -138,8 +138,9 @@ The translator shares mobile accounts, subscription access, quotas, and streamin
 through Convex and `@sapo/client-core`. Preferences persist; input/output and paid
 access claims do not. Auth/account changes cancel streaming and clear text.
 
-Shared translator images and SVGs synchronize from `apps/mobile/assets` before
-dev/build. `/` is a responsive web page: input and output sit side by side on
+The dark frog PNGs and shared icons synchronize from `apps/mobile/assets` before
+dev/build. The light frog SVGs and web Apple icon live in `public/app/`.
+`/` is a responsive web page: input and output sit side by side on
 wide screens and stack on small screens. It has no manifest, installation UI,
 or service worker registration. `/app/sw.js` only retires the previous worker.
 

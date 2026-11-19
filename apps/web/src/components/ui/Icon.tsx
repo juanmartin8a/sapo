@@ -5,6 +5,7 @@ type IconName =
     | (typeof iconAssetNames)[number]
     | "arrow-right-left"
     | "copy"
+    | "check"
     | "chevron-down"
     | "x"
     | "sun"

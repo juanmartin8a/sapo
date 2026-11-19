@@ -1,9 +1,37 @@
 @import "tailwindcss/preflight.css";
+@font-face {
+    font-family: "Tinos";
+    src: url("/fonts/tinos/Tinos-Regular.woff2") format("woff2");
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+}
+@font-face {
+    font-family: "Tinos";
+    src: url("/fonts/tinos/Tinos-Bold.woff2") format("woff2");
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+}
+@font-face {
+    font-family: "Tinos";
+    src: url("/fonts/tinos/Tinos-Italic.woff2") format("woff2");
+    font-style: italic;
+    font-weight: 400;
+    font-display: swap;
+}
+@font-face {
+    font-family: "Tinos";
+    src: url("/fonts/tinos/Tinos-BoldItalic.woff2") format("woff2");
+    font-style: italic;
+    font-weight: 700;
+    font-display: swap;
+}
 :root {
     --ink: #202320;
     --muted: #666b66;
     --line: #e5e8e3;
-    --serif: "Times New Roman", Times, serif;
+    --serif: "Tinos", serif;
     --site-content-padding-block: 72px 88px;
     font-family:
         Inter,

@@ -1,4 +1,7 @@
 export type SettingsRowIcon =
+    | "sun"
+    | "moon"
+    | "sun-moon"
     | "subscription"
     | "restore"
     | "manage"
