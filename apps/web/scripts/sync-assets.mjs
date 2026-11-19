@@ -15,6 +15,9 @@ for (const file of [
 ]) {
     await cp(join(appRoot, "public", file), join(appRoot, "public/app/images", file));
 }
+for (const file of ["sapo-dark.png", "sapo-mouth-open-dark.png"]) {
+    await cp(join(sharedAssets, "images", file), join(appRoot, "public/app/images", file));
+}
 // Copy only icons used by the web UI; keep native-only assets out of the build.
 const icons = iconAssetNames.map((name) => `${name}.svg`);
 const iconDirectory = join(appRoot, "public/app/icons");

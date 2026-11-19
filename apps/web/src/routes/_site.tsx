@@ -6,13 +6,13 @@ export const Route = createFileRoute("/_site")({
         links: [
             "/app/images/sapo-frog.svg",
             "/app/images/sapo-frog-open.svg",
-            "/app/images/sapo-frog-dark.svg",
-            "/app/images/sapo-frog-open-dark.svg",
+            "/app/images/sapo-dark.png",
+            "/app/images/sapo-mouth-open-dark.png",
         ].map((href) => ({
             rel: "preload",
             as: "image",
             href,
-            type: "image/svg+xml",
+            type: href.endsWith(".png") ? "image/png" : "image/svg+xml",
             fetchPriority: "high",
         })),
     }),

@@ -176,6 +176,13 @@ for (const path of [
 ]) {
     assert.equal(await deploymentTarget(path), path, `Static route is shadowed: ${path}`);
 }
+for (const file of ["sapo-dark.png", "sapo-mouth-open-dark.png"]) {
+    const path = `/app/images/${file}`;
+    assert.equal(await deploymentTarget(path), path, `Static route is shadowed: ${path}`);
+    const web = await readFile(new URL(`.vercel/output/static${path}`, root));
+    const mobile = await readFile(new URL(`../mobile/assets/images/${file}`, root));
+    assert.equal(hash(web), hash(mobile), `Deployed frog differs from mobile: ${file}`);
+}
 const server = JSON.parse(
     await readFile(new URL(".vercel/output/functions/__server.func/.vc-config.json", root), "utf8"),
 );
