@@ -29,8 +29,8 @@
         "@tanstack/solid-start": "2.0.0-rc.10",
         "@wllama/wllama": "3.13.0",
         "@wllama/wllama-compat": "3.13.0",
-        "better-auth": "1.7.21",
-        "convex": "1.49.0",
+        "better-auth": "1.7.26",
+        "convex": "1.51.0",
         "jose": "^6.2.17",
         "solid-js": "2.0.0-rc.21",
         "tailwindcss": "^4.3.5"

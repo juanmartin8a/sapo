@@ -127,8 +127,9 @@ tags and boundary. String rendering uses the core's HTML transform as well.
 Keep the overrides and patch together until a Solid Start release supports the
 patched cores directly. Never bypass Vercel's vulnerable-Start deployment check.
 
-Better Auth and its Expo plugin use `1.7.21` with Convex adapter `0.13.0`;
-the adapter requires `>=1.7.16 <1.8.0`.
+Convex uses `1.51.0` across the backend and clients. Better Auth and its Expo
+plugin use `1.7.26` with Convex adapter `0.13.0`, which requires
+Better Auth `>=1.7.16 <1.8.0`.
 TypeScript stays on `6.0.3` because typescript-eslint requires `<6.1.0`.
 Node types track the deployed Node 24 runtime.
 
