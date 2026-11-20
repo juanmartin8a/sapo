@@ -22,10 +22,10 @@
     "lint": "eslint convex scripts"
   },
   "dependencies": {
-    "@better-auth/expo": "~1.7.21",
+    "@better-auth/expo": "~1.7.26",
     "@convex-dev/better-auth": "^0.13.0",
-    "better-auth": "~1.7.21",
-    "convex": "^1.49.0",
+    "better-auth": "~1.7.26",
+    "convex": "^1.51.0",
     "zod": "4.6.7",
     "@convex-dev/resend": "^0.2.10"
   },

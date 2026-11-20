@@ -3,7 +3,7 @@
  * To regenerate the schema, from your project root:
  *
  *   cd convex/betterAuth
- *   bunx auth@1.7.21 generate --config ./auth.ts --output ./schema.ts --yes
+ *   bunx auth@1.7.26 generate --config ./auth.ts --output ./schema.ts --yes
  *
  * To customize the schema, generate to an alternate file and import
  * the table definitions to your schema file. See
