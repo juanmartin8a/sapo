@@ -401,7 +401,7 @@ export default function DeleteAccountScreen() {
             ? "Account deleted"
             : visibleStatus === "failed"
               ? "Deletion failed"
-              : "Deleting account";
+              : "Deleting account...";
     const message =
         visibleStatus === "completed"
             ? "Account deletion confirmed. We are finishing cleanup now."

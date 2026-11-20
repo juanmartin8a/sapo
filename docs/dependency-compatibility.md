@@ -21,6 +21,12 @@ The schema adds optional JWKS fields and account/rate-limit indexes; it does not
 replace the existing users or sessions. Follow the [adapter upgrade guide](https://labs.convex.dev/better-auth/upgrading/from-0-12)
 when deploying the backend and clients together. This refresh does not deploy them.
 
+The subsequent Convex refresh uses `convex@1.51.0` across all three workspaces and
+upgrades Better Auth and its Expo plugin together to `1.7.26`. The current
+adapter accepts `>=1.7.16 <1.8.0`. Regenerating the local Better Auth schema with
+the matching CLI produces the same tables and indexes, so this patch upgrade
+requires no database migration.
+
 After installing, rebuild native development clients: LiteRT-LM 0.8.2 requires
 Nitro Modules 0.37.x and a matching iOS pod installation. Preserve the existing
 Kotlin 2.3.0 configuration and model verification behavior.
